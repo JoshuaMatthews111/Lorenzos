@@ -97,12 +97,20 @@ const defaultState = {
   stagedInvites: [],
   availability: {
     selected: ["Mon 24|9:00 AM", "Mon 24|1:30 PM", "Tue 25|10:30 AM", "Wed 26|3:00 PM", "Thu 27|9:00 AM", "Fri 28|4:30 PM"],
-    slotType: "In-person or online consultation",
-    buffer: "30 min",
-    officeManaged: true
+    slotType: "In-person consultation",
+    interval: "30 min",
+    slotModes: {
+      "Mon 24|9:00 AM": "In-person consultation",
+      "Mon 24|1:30 PM": "Online consultation",
+      "Tue 25|10:30 AM": "Online consultation",
+      "Wed 26|3:00 PM": "In-person consultation",
+      "Thu 27|9:00 AM": "In-person consultation",
+      "Fri 28|4:30 PM": "Online consultation"
+    }
   },
   trainer: {
-    companyName: "Your Company Name",
+    companyName: "Lorenzo's Dog Training Team",
+    logoData: "",
     trainerName: "Eric Beck",
     title: "Certified Lorenzo Trainer",
     slogan: "Professional dog training in Cleveland backed by Lorenzo's proven system.",
@@ -125,7 +133,21 @@ applyUrlState();
 
 function loadState() {
   try {
-    return { ...structuredClone(defaultState), ...(JSON.parse(localStorage.getItem(STORE_KEY)) || {}) };
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+    const merged = { ...structuredClone(defaultState), ...saved };
+    merged.trainer = { ...structuredClone(defaultState.trainer), ...(saved.trainer || {}) };
+    merged.availability = { ...structuredClone(defaultState.availability), ...(saved.availability || {}) };
+    if (!merged.trainer.companyName || merged.trainer.companyName === "Your Company Name") {
+      merged.trainer.companyName = defaultState.trainer.companyName;
+    }
+    if (!merged.availability.interval && merged.availability.buffer) merged.availability.interval = merged.availability.buffer;
+    if (!merged.availability.slotModes) merged.availability.slotModes = {};
+    merged.availability.selected.forEach((slot, index) => {
+      if (!merged.availability.slotModes[slot]) {
+        merged.availability.slotModes[slot] = index % 2 ? "Online consultation" : "In-person consultation";
+      }
+    });
+    return merged;
   } catch {
     return structuredClone(defaultState);
   }
@@ -304,7 +326,7 @@ function renderTopbar() {
         <button class="btn btn-outline">${icon("settings")} Filters</button>
         <button class="btn btn-red">Export Report</button>
       ` : `
-        <button class="btn btn-outline" data-open-preview>View My Site</button>
+        <a class="btn btn-outline" href="site.html" target="_blank" rel="noopener">View My Site</a>
         <button class="btn btn-red">${state.activeView === "site" ? "Publish Request" : "Book Evaluation"}</button>
       `}
       <span class="bell">${icon("message")}</span>
@@ -478,37 +500,66 @@ function isAvailable(day, time) {
 
 function availabilityLabel(index = 0) {
   const selected = state.availability.selected[index % Math.max(state.availability.selected.length, 1)] || "No time selected";
-  return selected.replace("|", " · ");
+  return selected === "No time selected" ? selected : `${selected.replace("|", " · ")} · ${slotModeLabel(selected)}`;
 }
 
 function openCountForDay(day) {
   return state.availability.selected.filter(slot => slot.startsWith(`${day}|`)).length;
 }
 
+function selectedTheme() {
+  return themes[state.selectedTheme] || themes[0];
+}
+
+function selectedThemeImage() {
+  return themeImages[state.selectedTheme] || themeImages[0];
+}
+
+function themeClass() {
+  const group = selectedTheme()[0];
+  if (group === "Premium Local Pro") return "theme-premium";
+  if (group === "Advanced Specialty") return "theme-advanced";
+  return "theme-classic";
+}
+
+function companyLogo() {
+  return state.trainer.logoData || "../assets/lorenzo-logo-transparent.png";
+}
+
+function slotModeLabel(slot) {
+  return state.availability.slotModes?.[slot] || state.availability.slotType || "In-person consultation";
+}
+
+function slotModeClass(slot) {
+  return slotModeLabel(slot).toLowerCase().includes("online") ? "online" : "inperson";
+}
+
 function availabilitySummary() {
+  const inPerson = state.availability.selected.filter(slot => slotModeClass(slot) === "inperson").length;
+  const online = state.availability.selected.filter(slot => slotModeClass(slot) === "online").length;
   return `<div class="availability-summary">
     <div><strong>${state.availability.selected.length}</strong><span>Open request slots</span></div>
-    <div><strong>${state.availability.slotType}</strong><span>Consultation type</span></div>
-    <div><strong>${state.availability.buffer}</strong><span>Buffer time</span></div>
+    <div><strong>${inPerson} / ${online}</strong><span>In-person / online</span></div>
+    <div><strong>${state.availability.interval}</strong><span>Time intervals</span></div>
   </div>
-  <div class="available-pill-row">${state.availability.selected.slice(0, 12).map(slot => `<span>${slot.replace("|", " · ")}</span>`).join("") || "<span>No open times selected</span>"}</div>`;
+  <div class="available-pill-row">${state.availability.selected.slice(0, 12).map(slot => `<span class="${slotModeClass(slot)}">${slot.replace("|", " · ")} · ${slotModeLabel(slot).replace(" consultation", "")}</span>`).join("") || "<span>No open times selected</span>"}</div>`;
 }
 
 function trainerAvailabilityScreen() {
   return `<div class="availability-layout">
     <section class="panel pad">
       <div class="calendar-head">
-        <div><p class="step-label">Trainer Availability</p><h2>Select times clients can request.</h2><p class="panel-copy">The office will handle final scheduling and payment. Trainers only need to keep accurate available windows for in-person or online consultations.</p></div>
+        <div><p class="step-label">Trainer Availability</p><h2>Select times clients can request.</h2><p class="panel-copy">Choose whether each available window is for an in-person consultation or an online consultation. These times appear on your trainer site exactly as selected.</p></div>
         <div class="row-actions"><button class="btn btn-outline" id="clearAvailability">Clear</button><button class="btn btn-red" id="saveAvailability">Save Availability</button></div>
       </div>
       <div class="availability-tools">
-        <label>Slot Type<select name="availability-slotType"><option ${state.availability.slotType === "In-person or online consultation" ? "selected" : ""}>In-person or online consultation</option><option ${state.availability.slotType === "In-person consultation" ? "selected" : ""}>In-person consultation</option><option ${state.availability.slotType === "Online consultation" ? "selected" : ""}>Online consultation</option></select></label>
-        <label>Buffer<select name="availability-buffer"><option>15 min</option><option ${state.availability.buffer === "30 min" ? "selected" : ""}>30 min</option><option>45 min</option></select></label>
-        <label class="toggle-card"><input type="checkbox" name="availability-officeManaged" ${state.availability.officeManaged ? "checked" : ""}> Office confirms final booking</label>
+        <label>Availability Type<select name="availability-slotType"><option ${state.availability.slotType === "In-person consultation" ? "selected" : ""}>In-person consultation</option><option ${state.availability.slotType === "Online consultation" ? "selected" : ""}>Online consultation</option></select></label>
+        <label>Time Intervals<select name="availability-interval"><option ${state.availability.interval === "15 min" ? "selected" : ""}>15 min</option><option ${state.availability.interval === "30 min" ? "selected" : ""}>30 min</option><option ${state.availability.interval === "45 min" ? "selected" : ""}>45 min</option><option ${state.availability.interval === "60 min" ? "selected" : ""}>60 min</option></select></label>
+        <div class="mode-hint"><strong>How to use it</strong><span>Pick a type, then click times below. Click an open time again with another type selected to switch it.</span></div>
       </div>
       <div class="availability-calendar">
         <div class="time-spacer"></div>${availabilityDays.map(day => `<div class="day-head">${day}<small>${openCountForDay(day)} open</small></div>`).join("")}
-        ${availabilityTimes.map(time => `<div class="time-head">${time}</div>${availabilityDays.map(day => `<button class="slot-cell ${isAvailable(day, time) ? "available" : ""}" data-slot="${availabilityKey(day, time)}"><strong>${isAvailable(day, time) ? "Available" : "Closed"}</strong><small>${state.availability.slotType}</small></button>`).join("")}`).join("")}
+        ${availabilityTimes.map(time => `<div class="time-head">${time}</div>${availabilityDays.map(day => { const key = availabilityKey(day, time); const available = isAvailable(day, time); return `<button class="slot-cell ${available ? `available ${slotModeClass(key)}` : ""}" data-slot="${key}"><strong>${available ? "Available" : "Closed"}</strong>${available ? `<small class="slot-mode ${slotModeClass(key)}">${slotModeClass(key) === "online" ? "Online" : "In person"}</small>` : `<small>Click to add</small>`}</button>`; }).join("")}`).join("")}
       </div>
     </section>
     ${panel("Site Preview: Requestable Times", `<button class="btn btn-outline" data-view="site">View Site Builder</button>`, availabilitySummary(), "pad")}
@@ -567,11 +618,11 @@ function wizardScreen() {
 function businessForm() {
   const t = state.trainer;
   const fields = [["companyName","Company Name *"],["slogan","Company Slogan"],["trainerName","Trainer Name *"],["title","Trainer Title"],["phone","Phone *"],["email","Email *"],["market","City / State *"],["serviceArea","Service Area *"]];
-  return `<div class="form-grid">${fields.map(([key, label]) => `<div class="field"><label>${label}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}${["instagram","facebook","google"].map(key => `<div class="field"><label>${key[0].toUpperCase() + key.slice(1)}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}</div>`;
+  return `<div class="form-grid"><div class="field"><label>Company Logo<input type="file" name="trainer-logoData-file" accept="image/*"></label><div class="logo-preview">${state.trainer.logoData ? `<img src="${state.trainer.logoData}" alt="">` : `<img src="${companyLogo()}" alt="">`}</div></div>${fields.map(([key, label]) => `<div class="field"><label>${label}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}${["instagram","facebook","google"].map(key => `<div class="field"><label>${key[0].toUpperCase() + key.slice(1)}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}</div>`;
 }
 
 function headerPreview() {
-  return `<div class="header-preview"><div class="preview-tabs"><span>Before (Default)</span><span class="active">After (Your Company)</span></div><div class="mock-header"><img src="../assets/lorenzo-logo-transparent.png" alt=""><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><div class="mock-header"><strong>${escapeHtml(state.trainer.companyName)}<small>Powered by Lorenzo's Dog Training Team</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div></div>`;
+  return `<div class="header-preview"><div class="preview-tabs"><span>Before (Default)</span><span class="active">After (Your Company)</span></div><div class="mock-header"><img src="../assets/lorenzo-logo-transparent.png" alt=""><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><div class="mock-header"><img src="${companyLogo()}" alt=""><strong>${escapeHtml(state.trainer.companyName)}<small>Powered by Lorenzo's Dog Training Team</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div></div>`;
 }
 
 function completionChecklist() {
@@ -580,7 +631,7 @@ function completionChecklist() {
 
 function themePickerScreen() {
   const groups = ["Lorenzo Classic", "Premium Local Pro", "Advanced Specialty"];
-  return `<div class="theme-layout"><div>${groups.map(group => `<section class="theme-section"><div class="theme-title"><h2>${groups.indexOf(group) + 1}. ${group}</h2><p>${group === "Lorenzo Classic" ? "Timeless layouts with a focus on trust and results." : group === "Premium Local Pro" ? "Modern, premium designs that showcase expertise and local trust." : "Purpose-built layouts for specialty and advanced training businesses."}</p><strong>4 Styles</strong></div><div class="theme-grid">${themes.map((theme, index) => theme[0] === group ? themeCard(theme, index) : "").join("")}</div></section>`).join("")}</div>${profileCard()}</div>`;
+  return `<div class="theme-toolbar"><button class="btn btn-outline" data-view="dashboard">← Back to Trainer Office</button><span class="selected-template-pill">Using: ${escapeHtml(selectedTheme()[1])}</span><a class="btn btn-outline" href="site.html" target="_blank" rel="noopener">Open Selected Site</a></div><div class="theme-layout"><div>${groups.map(group => `<section class="theme-section"><div class="theme-title"><h2>${groups.indexOf(group) + 1}. ${group}</h2><p>${group === "Lorenzo Classic" ? "Timeless layouts with a focus on trust and results." : group === "Premium Local Pro" ? "Modern, premium designs that showcase expertise and local trust." : "Purpose-built layouts for specialty and advanced training businesses."}</p><strong>4 Styles</strong></div><div class="theme-grid">${themes.map((theme, index) => theme[0] === group ? themeCard(theme, index) : "").join("")}</div></section>`).join("")}</div>${profileCard()}</div>`;
 }
 
 function themeCard(theme, index) {
@@ -588,20 +639,20 @@ function themeCard(theme, index) {
 }
 
 function profileCard() {
-  return `<aside class="panel profile-card"><button class="btn btn-outline" style="float:right" data-view="setup">Edit Details</button><img class="profile-logo" src="../assets/lorenzo-logo-transparent.png" alt=""><h2>Your Saved Site Profile</h2><h3>${escapeHtml(state.trainer.companyName)}</h3><p class="panel-copy">${escapeHtml(state.trainer.slogan)}</p><ul class="profile-list"><li>${icon("users")}<div><strong>Trainer Name</strong><span>${escapeHtml(state.trainer.trainerName)}<br>${escapeHtml(state.trainer.title)}</span></div></li><li>${icon("globe")}<div><strong>Location</strong><span>${escapeHtml(state.trainer.market)}<br>Serving Northeast Ohio</span></div></li><li>${icon("message")}<div><strong>Phone</strong><span>${escapeHtml(state.trainer.phone)}</span></div></li><li>${icon("media")}<div><strong>Media Uploaded</strong><span>12 photos, 6 videos, 6 reviews</span></div></li></ul><button class="btn btn-outline btn-full" data-view="setup">Back to Edit Details</button><br><br><button class="btn btn-red btn-full" data-view="site">Continue to Customize Header & Hero</button></aside>`;
+  return `<aside class="panel profile-card"><button class="btn btn-outline" style="float:right" data-view="setup">Edit Details</button><img class="profile-logo" src="${companyLogo()}" alt=""><h2>Your Saved Site Profile</h2><h3>${escapeHtml(state.trainer.companyName)}</h3><p class="panel-copy">${escapeHtml(state.trainer.slogan)}</p><p><span class="selected-template-pill">Template: ${escapeHtml(selectedTheme()[1])}</span></p><ul class="profile-list"><li>${icon("users")}<div><strong>Trainer Name</strong><span>${escapeHtml(state.trainer.trainerName)}<br>${escapeHtml(state.trainer.title)}</span></div></li><li>${icon("globe")}<div><strong>Location</strong><span>${escapeHtml(state.trainer.market)}<br>Serving Northeast Ohio</span></div></li><li>${icon("message")}<div><strong>Phone</strong><span>${escapeHtml(state.trainer.phone)}</span></div></li><li>${icon("media")}<div><strong>Media Uploaded</strong><span>12 photos, 6 videos, 6 reviews</span></div></li></ul><button class="btn btn-outline btn-full" data-view="setup">Back to Edit Details</button><br><br><button class="btn btn-red btn-full" data-view="site">Continue to Customize Header & Hero</button></aside>`;
 }
 
 function builderScreen() {
-  return `<div class="builder-layout"><aside class="builder-panel"><h2>Section Flow</h2><p class="panel-copy">Drag to reorder approved sections.</p><div class="section-stack">${["Header","Hero","Services","Reviews","Training Videos","Photo Gallery","Availability Calendar","Consultation Form","About Trainer","Service Area","FAQ","Final CTA"].map((section, index) => `<div class="section-item ${index < 2 || index === 11 ? "locked" : ""}"><span>${section}</span><span>${index < 2 || index === 11 ? "Locked" : "⋮⋮"}</span></div>`).join("")}</div><br><button class="btn btn-navy btn-full">+ Add Section</button></aside><main class="site-canvas">${siteCanvas()}</main><aside class="builder-panel">${heroSettings()}</aside></div>`;
+  return `<div class="builder-layout"><aside class="builder-panel"><button class="btn btn-outline btn-full" data-view="templates">← Back to Templates</button><br><h2>Section Flow</h2><p class="panel-copy">Drag to reorder approved sections.</p><div class="section-stack">${["Header","Hero","Services","Reviews","Training Videos","Photo Gallery","Availability Calendar","Consultation Form","About Trainer","Service Area","FAQ","Final CTA"].map((section, index) => `<div class="section-item ${index < 2 || index === 11 ? "locked" : ""}"><span>${section}</span><span>${index < 2 || index === 11 ? "Locked" : "⋮⋮"}</span></div>`).join("")}</div><br><button class="btn btn-navy btn-full">+ Add Section</button></aside><main class="site-canvas ${themeClass()}">${siteCanvas()}</main><aside class="builder-panel">${heroSettings()}</aside></div>`;
 }
 
 function siteCanvas() {
-  return `<div class="canvas-top"><strong>Desktop Preview</strong><div class="canvas-tabs"><button>Lorenzo Default</button><button class="active">Company Name</button><button>Company Logo</button><button>Trainer Name</button></div></div><div class="site-header-preview"><strong>${escapeHtml(state.trainer.companyName)}<small>${escapeHtml(state.trainer.market)}</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><section class="hero-preview"><div><div class="editable-box"><h2>${escapeHtml(state.trainer.headline)}</h2></div><div class="editable-box"><p>${escapeHtml(state.trainer.subheadline)}</p></div><div class="row-actions"><button class="btn btn-red">${escapeHtml(state.trainer.cta)}</button><button class="btn btn-outline">View Services</button></div><p style="margin-top:16px">Powered by Lorenzo's Dog Training Team</p></div></section><section class="service-preview"><p class="step-label">Our Services</p><h2>Training services built for real dogs and real owners.</h2><div class="service-cards">${["Obedience Training","Behavior Modification","Puppy Training","Board & Train"].map(service => `<article>${icon("shield")}<strong>${service}</strong><p class="panel-copy">Real-world results and owner leadership.</p></article>`).join("")}</div></section><section class="availability"><p class="step-label">Upcoming Availability</p><h2>Request an evaluation time.</h2><p class="panel-copy">Times below are selected by the trainer. Lorenzo's office confirms the final appointment.</p><div class="calendar-grid">${state.availability.selected.slice(0, 6).map(slot => `<article><strong>${slot.split("|")[0]}</strong><button class="btn btn-outline">${slot.split("|")[1]}</button><small>${state.availability.slotType}</small></article>`).join("") || `<article><strong>No times yet</strong><button class="btn btn-outline" data-view="calendar">Set Availability</button></article>`}</div></section>`;
+  return `<div class="canvas-top"><strong>Desktop Preview</strong><span class="selected-template-pill">Template: ${escapeHtml(selectedTheme()[1])}</span><div class="canvas-tabs"><button>Lorenzo Default</button><button class="active">Company Name</button><button>Company Logo</button><button>Trainer Name</button></div></div><div class="site-header-preview"><div class="site-company-lockup"><img class="site-company-logo" src="${companyLogo()}" alt=""><strong>${escapeHtml(state.trainer.companyName)}<small>${escapeHtml(state.trainer.market)} · Powered by Lorenzo's Dog Training Team</small></strong></div><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><section class="hero-preview" style="background-image:linear-gradient(90deg, rgba(3,24,51,.92), rgba(3,24,51,.26)), url('${selectedThemeImage()}')"><div><span class="selected-template-pill light">${escapeHtml(selectedTheme()[0])}</span><div class="editable-box"><h2>${escapeHtml(state.trainer.headline || selectedTheme()[2])}</h2></div><div class="editable-box"><p>${escapeHtml(state.trainer.subheadline)}</p></div><div class="row-actions"><button class="btn btn-red">${escapeHtml(state.trainer.cta)}</button><button class="btn btn-outline">View Services</button></div><p style="margin-top:16px">Powered by Lorenzo's Dog Training Team</p></div></section><section class="service-preview"><p class="step-label">Our Services</p><h2>Training services built for real dogs and real owners.</h2><div class="service-cards">${["Obedience Training","Behavior Modification","Puppy Training","Board & Train"].map(service => `<article>${icon("shield")}<strong>${service}</strong><p class="panel-copy">Real-world results and owner leadership.</p></article>`).join("")}</div></section><section class="availability"><p class="step-label">Upcoming Availability</p><h2>Request an evaluation time.</h2><p class="panel-copy">Choose an available in-person or online consultation time from this trainer.</p><div class="calendar-grid">${state.availability.selected.slice(0, 6).map(slot => `<article><strong>${slot.split("|")[0]}</strong><button class="btn btn-outline">${slot.split("|")[1]}</button><small class="slot-mode ${slotModeClass(slot)}">${slotModeClass(slot) === "online" ? "Online" : "In person"}</small></article>`).join("") || `<article><strong>No times yet</strong><button class="btn btn-outline" data-view="calendar">Set Availability</button></article>`}</div></section>`;
 }
 
 function heroSettings() {
   const t = state.trainer;
-  return `<h2>Hero Settings</h2><p class="panel-copy">Customize your hero section content.</p><div class="setting-stack"><div class="field"><label>Headline<textarea name="trainer-headline">${escapeHtml(t.headline)}</textarea></label></div><div class="field"><label>Subheadline<textarea name="trainer-subheadline">${escapeHtml(t.subheadline)}</textarea></label></div><div class="field"><label>CTA Button Text<input name="trainer-cta" value="${escapeHtml(t.cta)}"></label></div><div class="media-image" style="border-radius:10px"></div><button class="btn btn-outline btn-full">Change Media</button><div class="toggle-row"><strong>Show Lorenzo trust mark</strong><span class="toggle"></span></div><div class="field"><label>Header Style<select><option>Lorenzo Default</option></select></label></div><button class="btn btn-red btn-full">Apply Changes</button></div>`;
+  return `<h2>Hero Settings</h2><p class="panel-copy">Customize your hero section content.</p><div class="setting-stack"><div class="field"><label>Company Logo<input type="file" name="trainer-logoData-file" accept="image/*"></label><div class="logo-preview">${state.trainer.logoData ? `<img src="${state.trainer.logoData}" alt="">` : `<img src="${companyLogo()}" alt="">`}</div></div><div class="field"><label>Headline<textarea name="trainer-headline">${escapeHtml(t.headline)}</textarea></label></div><div class="field"><label>Subheadline<textarea name="trainer-subheadline">${escapeHtml(t.subheadline)}</textarea></label></div><div class="field"><label>CTA Button Text<input name="trainer-cta" value="${escapeHtml(t.cta)}"></label></div><div class="media-image" style="border-radius:10px;background-image:url('${selectedThemeImage()}')"></div><button class="btn btn-outline btn-full" data-view="templates">Change Template Image</button><div class="toggle-row"><strong>Show Lorenzo trust mark</strong><span class="toggle"></span></div><div class="field"><label>Header Style<select><option>${escapeHtml(selectedTheme()[1])}</option></select></label></div><button class="btn btn-red btn-full">Apply Changes</button></div>`;
 }
 
 function mediaLibraryScreen(title = "Media Library") {
@@ -610,7 +661,8 @@ function mediaLibraryScreen(title = "Media Library") {
 }
 
 function calendarSlots() {
-  return `<div class="calendar-list">${["9:00 AM|In-person consultation|60 min","10:30 AM|Online consultation|45 min","12:00 PM|Available|30 min buffer","1:30 PM|Online consultation|45 min","3:00 PM|In-person consultation|60 min","6:00 PM|Available|30 min buffer"].map(slot => { const [time, title, meta] = slot.split("|"); return `<div class="time-slot"><strong>${time}</strong><div>${title}<small>${meta}</small></div><button class="btn btn-outline">Request This Time</button></div>`; }).join("")}</div>`;
+  const slots = state.availability.selected.slice(0, 6);
+  return `<div class="calendar-list">${slots.map(slot => { const [day, time] = slot.split("|"); return `<div class="time-slot"><strong>${time}</strong><div>${day}<small><span class="slot-mode ${slotModeClass(slot)}">${slotModeClass(slot) === "online" ? "Online" : "In person"}</span> · ${state.availability.interval} intervals</small></div><button class="btn btn-outline">Request This Time</button></div>`; }).join("") || `<div class="time-slot"><strong>--</strong><div>No requestable times yet<small>Set availability from Calendar</small></div><button class="btn btn-outline" data-view="calendar">Set Times</button></div>`}</div>`;
 }
 
 function overviewItem(value, label, note) {
@@ -637,7 +689,7 @@ function statusClass(status) {
 function renderPublicSite() {
   const target = document.getElementById("publicSite");
   if (!target) return;
-  target.innerHTML = `<div class="site-canvas" style="border:0;border-radius:0;box-shadow:none">${siteCanvas()}</div>`;
+  target.innerHTML = `<div class="site-canvas ${themeClass()}" style="border:0;border-radius:0;box-shadow:none">${siteCanvas()}</div>`;
 }
 
 function escapeHtml(value) {
@@ -687,14 +739,26 @@ document.addEventListener("click", (event) => {
   const slot = event.target.closest("[data-slot]");
   if (slot) {
     const value = slot.dataset.slot;
-    state.availability.selected = state.availability.selected.includes(value)
-      ? state.availability.selected.filter(item => item !== value)
-      : [...state.availability.selected, value];
+    const currentMode = state.availability.slotModes?.[value];
+    const nextMode = state.availability.slotType || "In-person consultation";
+    if (!state.availability.slotModes) state.availability.slotModes = {};
+    if (state.availability.selected.includes(value)) {
+      if (currentMode !== nextMode) {
+        state.availability.slotModes[value] = nextMode;
+      } else {
+        state.availability.selected = state.availability.selected.filter(item => item !== value);
+        delete state.availability.slotModes[value];
+      }
+    } else {
+      state.availability.selected = [...state.availability.selected, value];
+      state.availability.slotModes[value] = nextMode;
+    }
     saveState();
     return;
   }
   if (event.target.id === "clearAvailability") {
     state.availability.selected = [];
+    state.availability.slotModes = {};
     saveState("Availability cleared");
     return;
   }
@@ -712,6 +776,7 @@ document.addEventListener("click", (event) => {
 document.addEventListener("input", (event) => {
   const field = event.target;
   if (field.name?.startsWith("trainer-")) {
+    if (field.type === "file") return;
     const key = field.name.replace("trainer-", "");
     state.trainer[key] = field.value;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -728,6 +793,18 @@ document.addEventListener("input", (event) => {
     state.availability[key] = field.type === "checkbox" ? field.checked : field.value;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     render();
+  }
+});
+
+document.addEventListener("change", (event) => {
+  const field = event.target;
+  if (field.name === "trainer-logoData-file" && field.files?.[0]) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      state.trainer.logoData = reader.result;
+      saveState("Company logo updated");
+    };
+    reader.readAsDataURL(field.files[0]);
   }
 });
 
