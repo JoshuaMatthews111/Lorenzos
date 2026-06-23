@@ -110,7 +110,7 @@
           </section>
         </div>
 
-        <section class="panel">
+        <section class="panel trainer-only">
           <div class="panel-head">
             <div>
               <p class="micro">Live Site Preview</p>
@@ -150,8 +150,9 @@
         <section class="panel admin-only">
           <div class="panel-head">
             <div>
-              <p class="micro">Current Trainers</p>
-              <h2>Trainer portal readiness.</h2>
+              <p class="micro">Trainer Sites</p>
+              <h2>Trainer site readiness and previews.</h2>
+              <p class="panel-copy">This is the admin view: a clean list of trainers, their portal readiness, a small site thumbnail, and actions to view or stage the trainer site. The admin does not edit the dog-owner landing page form here.</p>
             </div>
             <button class="btn btn-outline" id="seedTrainersBtn" type="button">Load Demo Trainers</button>
           </div>
@@ -159,12 +160,24 @@
           <div class="pending-imports" id="pendingImports"></div>
         </section>
 
-        <div class="grid builder-grid">
+        <section class="panel trainer-only">
+          <p class="micro">Setup Walkthrough</p>
+          <h2>Customize your trainer site in order.</h2>
+          <p class="panel-copy">Your information stays saved while you move between setup, template library, services, domains, and preview. You should not have to start over when you test another design.</p>
+          <div class="setup-flow">
+            <article><strong>1. Business Details</strong><span>Add company name, logo, slogan, trainer name, location, phone, email, and socials.</span></article>
+            <article><strong>2. Choose Template</strong><span>Open the Template Library and choose from six visual directions.</span></article>
+            <article><strong>3. Arrange Sections</strong><span>Set which sections show first: hero, services, reviews, video, gallery, or booking.</span></article>
+            <article><strong>4. Preview & Publish</strong><span>Preview the landing page and publish when it is ready for leads.</span></article>
+          </div>
+        </section>
+
+        <div class="grid builder-grid trainer-only">
           <section class="panel">
             <div class="panel-head">
               <div>
                 <p class="micro">Site Builder</p>
-                <h2>Trainer business profile.</h2>
+                <h2>Customize trainer site.</h2>
               </div>
             </div>
             <form class="form" id="siteForm">
@@ -197,17 +210,23 @@
       </section>
 
       <section class="view" id="templatesView">
-        <section class="panel">
-          <p class="micro">Design System</p>
-          <h2>Pick a landing page design for the trainer site.</h2>
-            <p class="panel-copy">Templates keep the Lorenzo brand consistent while letting each trainer position their local dog training services clearly.</p>
+        <section class="panel trainer-only">
+          <p class="micro">Template Library</p>
+          <h2>Choose one of six trainer site designs.</h2>
+            <p class="panel-copy">These are visual directions for the trainer's white-label landing page. The trainer can switch designs without losing company details, logo, services, or contact information.</p>
           <div class="template-grid" id="templateGrid"></div>
         </section>
 
-        <section class="panel">
+        <section class="panel trainer-only">
           <p class="micro">Service Focus</p>
           <h2>Select what this trainer should sell first.</h2>
           <div class="service-picker" id="servicePicker"></div>
+        </section>
+
+        <section class="panel admin-only">
+          <p class="micro">Trainer Library</p>
+          <h2>Admin uses the Trainers tab to manage site templates.</h2>
+          <p class="panel-copy">The template library belongs to the trainer customization flow. Admins manage trainer readiness, imports, onboarding links, and site previews from Trainer Sites.</p>
         </section>
       </section>
 

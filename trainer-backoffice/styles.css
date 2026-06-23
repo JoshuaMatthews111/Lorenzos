@@ -495,6 +495,132 @@ h3 {
   gap: 12px;
 }
 
+.trainer-site-card {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 9px 28px rgba(4, 32, 69, .05);
+}
+
+.trainer-site-thumb {
+  min-height: 180px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #cdd9e8;
+  background: #fff;
+  display: grid;
+  grid-template-rows: 28px 1fr 46px;
+}
+
+.thumb-top {
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+}
+
+.thumb-hero {
+  display: grid;
+  align-content: end;
+  padding: 18px;
+  color: #fff;
+  background:
+    linear-gradient(120deg, rgba(3,27,57,.94), rgba(206,18,51,.46)),
+    url("../assets/ldtt-team-cover.jpg") center 38% / cover;
+}
+
+.thumb-hero strong {
+  display: block;
+  font-size: 1rem;
+  line-height: 1.05;
+}
+
+.thumb-hero span {
+  color: #e8f1fb;
+  font-size: .76rem;
+  font-weight: 850;
+  margin-top: 5px;
+}
+
+.trainer-site-thumb.family-obedience .thumb-hero {
+  background:
+    linear-gradient(120deg, rgba(6,38,80,.86), rgba(21,131,79,.42)),
+    url("../assets/ldtt-team-cover.jpg") center 38% / cover;
+}
+
+.trainer-site-thumb.protection-elite .thumb-hero {
+  background:
+    linear-gradient(120deg, rgba(1,10,23,.96), rgba(206,18,51,.55)),
+    url("../assets/ldtt-team-cover.jpg") center 38% / cover;
+}
+
+.trainer-site-thumb.service-assist .thumb-hero {
+  background:
+    linear-gradient(120deg, rgba(3,27,57,.9), rgba(42,95,160,.45)),
+    url("../assets/ldtt-team-cover.jpg") center 38% / cover;
+}
+
+.thumb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+  padding: 9px;
+  background: #f7fafe;
+}
+
+.thumb-grid i {
+  display: block;
+  border-radius: 8px;
+  background: #dfe9f5;
+}
+
+.trainer-site-main {
+  min-width: 0;
+}
+
+.trainer-site-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.trainer-site-title h3,
+.trainer-site-title p {
+  margin-bottom: 4px;
+}
+
+.trainer-site-details {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.trainer-site-details span {
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.trainer-site-details strong {
+  display: block;
+  color: var(--navy);
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 3px;
+}
+
+.trainer-site-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
 .trainer-row {
   display: grid;
   grid-template-columns: 1.1fr .9fr .9fr auto;
@@ -584,6 +710,31 @@ h3 {
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
   margin-top: 14px;
+}
+
+.setup-flow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.setup-flow article {
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--soft);
+  padding: 16px;
+}
+
+.setup-flow strong {
+  display: block;
+  color: var(--navy);
+  margin-bottom: 6px;
+}
+
+.setup-flow span {
+  color: var(--muted);
+  font-size: .84rem;
 }
 
 .tutorial-steps article {
@@ -1041,7 +1192,10 @@ h3 {
   .leads-grid,
   .import-grid,
   .trainer-row,
+  .trainer-site-card,
+  .trainer-site-details,
   .password-setup form,
+  .setup-flow,
   .tutorial-steps,
   .roadmap {
     grid-template-columns: 1fr;
