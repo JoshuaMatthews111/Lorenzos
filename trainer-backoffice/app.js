@@ -45,6 +45,9 @@ const leads = [
   ["Robert Johnson", "Duke", "Pit Bull Mix", "Google", "Aggression Rehab", "Lost", "-", "Lost: Chose another trainer closer to home."]
 ];
 
+const availabilityDays = ["Mon 24", "Tue 25", "Wed 26", "Thu 27", "Fri 28", "Sat 29", "Sun 30"];
+const availabilityTimes = ["9:00 AM", "10:30 AM", "12:00 PM", "1:30 PM", "3:00 PM", "4:30 PM", "6:00 PM"];
+
 const themes = [
   ["Lorenzo Classic", "Service-First Local Trainer", "Real Training. Real Results.", "Best for Obedience"],
   ["Lorenzo Classic", "Trainer Authority Bio", "Leadership. Relationship. Results.", "Best for Authority"],
@@ -66,6 +69,12 @@ const defaultState = {
   selectedTheme: 0,
   inviteDraft: { name: "", email: "", phone: "", market: "" },
   stagedInvites: [],
+  availability: {
+    selected: ["Mon 24|9:00 AM", "Mon 24|1:30 PM", "Tue 25|10:30 AM", "Wed 26|3:00 PM", "Thu 27|9:00 AM", "Fri 28|4:30 PM"],
+    slotType: "In-person or online consultation",
+    buffer: "30 min",
+    officeManaged: true
+  },
   trainer: {
     companyName: "Your Company Name",
     trainerName: "Eric Beck",
@@ -242,7 +251,7 @@ function renderTopbar() {
         site: ["Trainer Network", "Invite trainers, review readiness, and open trainer site previews"],
         trainers: ["Trainers", "Directory of active and staged trainers"],
         leads: ["Leads Pipeline", "Office lead management and outcome tracking"],
-        calendar: ["Calendar Queue", "Evaluation requests and trainer availability"],
+        calendar: ["Calendar Queue", "Requested evaluations and trainer availability"],
         clients: ["Clients", "Client records across the network"],
         reports: ["Reports", "Network activity and lead outcome reporting"],
         settings: ["Settings", "Admin preferences and demo controls"]
@@ -253,7 +262,7 @@ function renderTopbar() {
         site: [state.trainer.companyName, "Powered by Lorenzo's Dog Training Team"],
         templates: ["Preview Your Trainer Site", "Your details automatically populate every style. Switch styles without losing your information."],
         leads: ["Leads Pipeline", "Track every lead from new contact to client won."],
-        calendar: ["Calendar", "Request-based scheduling and availability slots."],
+        calendar: ["Availability Calendar", "Select the times clients can request from your trainer site."],
         media: ["Media & Reviews Library", "Upload training videos, photos, review screenshots, and testimonials."],
         reviews: ["Reviews", "Collect and showcase proof from real training clients."],
         domains: ["Domains & DNS", "Connect a custom domain to your trainer site."],
@@ -324,7 +333,7 @@ const adminScreens = {
     return pipelineScreen(true);
   },
   calendar() {
-    return panel("Calendar Queue", `<button class="btn btn-outline">View Calendar</button>`, calendarQueueTable());
+    return adminCalendarScreen();
   },
   trainers() {
     return panel("Trainer Directory", `<button class="btn btn-red" data-view="site">Invite Trainer</button>`, trainerPerformanceTable());
@@ -374,7 +383,7 @@ const trainerScreens = {
     return pipelineScreen(false);
   },
   calendar() {
-    return panel("Today's Calendar", `<button class="btn btn-outline">View Full Calendar</button>`, calendarSlots(), "pad");
+    return trainerAvailabilityScreen();
   },
   media() {
     return mediaLibraryScreen();
@@ -413,6 +422,16 @@ function calendarQueueTable() {
     <tr><td>May ${12 + index}<small>${index === 0 ? "Today" : index === 1 ? "Today" : "Tomorrow"}, ${index % 2 ? "1:00 PM" : "10:00 AM"}</small></td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2].split(" ")[0]})</small></div></div></td><td>${lead[4]}</td><td><div class="row-person"><span class="avatar"><img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=90&q=60" alt=""></span><div><strong>${trainers[index % trainers.length][0]}</strong><small>${trainers[index % trainers.length][1]}</small></div></div></td><td><button class="btn btn-outline">View</button></td></tr>`).join("")}</tbody></table></div>`;
 }
 
+function adminCalendarScreen() {
+  return `<div class="admin-calendar-layout">
+    ${panel("Calendar Queue", `<button class="btn btn-outline">View Calendar</button>`, calendarQueueTable())}
+    ${panel("Trainer Availability Snapshot", `<button class="btn btn-red">Schedule Selected</button>`, availabilitySummary(), "pad")}
+  </div>
+  <br>
+  ${panel("Office Scheduling Outcome", "", `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Requested Time</th><th>Office Outcome</th><th>Reason / Note</th></tr></thead><tbody>${leads.slice(0, 5).map((lead, index) => `<tr><td><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2]})</small></td><td>${trainers[index % trainers.length][0]}</td><td>${availabilityLabel(index)}</td><td><select class="select-pill"><option>Scheduled</option><option>Follow-up scheduled</option><option>Client did not choose service</option><option>Needs office review</option></select></td><td><input class="select-pill note-input" placeholder="Office note or lost reason"></td></tr>`).join("")}</tbody></table></div>`)}
+  `;
+}
+
 function leadOutcomeTable() {
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead Date</th><th>Client / Dog</th><th>Service Interest</th><th>Current Status</th><th>Reason (if Lost)</th><th>Actions</th></tr></thead><tbody>${leads.map((lead, index) => `
     <tr><td>May ${12 - index}, 2025</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2]})</small></div></div></td><td>${lead[4]}</td><td><select class="select-pill" data-lead-index="${index}">${["New","Contacted","Evaluation Booked","Follow-Up Scheduled","Program Offered","Client Won","Lost"].map(status => `<option ${lead[5] === status ? "selected" : ""}>${status}</option>`).join("")}</select></td><td>${lead[5] === "Lost" ? `<select class="select-pill"><option>Price concern</option><option>No response</option><option>Chose another trainer/company</option><option>Location issue</option></select>` : "—"}</td><td><button class="btn btn-red">Update</button></td></tr>`).join("")}</tbody></table></div>`;
@@ -421,6 +440,53 @@ function leadOutcomeTable() {
 function leadSummary() {
   const labels = [["New", 68, "#246bfe"], ["Contacted", 18, "#69b6ff"], ["Evaluation Booked", 14, "#7759d8"], ["Follow-Up Scheduled", 10, "#ff9f1a"], ["Program Offered", 8, "#20a566"], ["Client Won", 18, "#0b7e49"], ["Lost", 9, "#d20f32"]];
   return `<div class="donut-panel"><div class="donut"></div><div class="legend">${labels.map(([name, value, color]) => `<div class="legend-row"><span class="dot" style="background:${color}"></span><span>${name}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
+}
+
+function availabilityKey(day, time) {
+  return `${day}|${time}`;
+}
+
+function isAvailable(day, time) {
+  return state.availability.selected.includes(availabilityKey(day, time));
+}
+
+function availabilityLabel(index = 0) {
+  const selected = state.availability.selected[index % Math.max(state.availability.selected.length, 1)] || "No time selected";
+  return selected.replace("|", " · ");
+}
+
+function openCountForDay(day) {
+  return state.availability.selected.filter(slot => slot.startsWith(`${day}|`)).length;
+}
+
+function availabilitySummary() {
+  return `<div class="availability-summary">
+    <div><strong>${state.availability.selected.length}</strong><span>Open request slots</span></div>
+    <div><strong>${state.availability.slotType}</strong><span>Consultation type</span></div>
+    <div><strong>${state.availability.buffer}</strong><span>Buffer time</span></div>
+  </div>
+  <div class="available-pill-row">${state.availability.selected.slice(0, 12).map(slot => `<span>${slot.replace("|", " · ")}</span>`).join("") || "<span>No open times selected</span>"}</div>`;
+}
+
+function trainerAvailabilityScreen() {
+  return `<div class="availability-layout">
+    <section class="panel pad">
+      <div class="calendar-head">
+        <div><p class="step-label">Trainer Availability</p><h2>Select times clients can request.</h2><p class="panel-copy">The office will handle final scheduling and payment. Trainers only need to keep accurate available windows for in-person or online consultations.</p></div>
+        <div class="row-actions"><button class="btn btn-outline" id="clearAvailability">Clear</button><button class="btn btn-red" id="saveAvailability">Save Availability</button></div>
+      </div>
+      <div class="availability-tools">
+        <label>Slot Type<select name="availability-slotType"><option ${state.availability.slotType === "In-person or online consultation" ? "selected" : ""}>In-person or online consultation</option><option ${state.availability.slotType === "In-person consultation" ? "selected" : ""}>In-person consultation</option><option ${state.availability.slotType === "Online consultation" ? "selected" : ""}>Online consultation</option></select></label>
+        <label>Buffer<select name="availability-buffer"><option>15 min</option><option ${state.availability.buffer === "30 min" ? "selected" : ""}>30 min</option><option>45 min</option></select></label>
+        <label class="toggle-card"><input type="checkbox" name="availability-officeManaged" ${state.availability.officeManaged ? "checked" : ""}> Office confirms final booking</label>
+      </div>
+      <div class="availability-calendar">
+        <div class="time-spacer"></div>${availabilityDays.map(day => `<div class="day-head">${day}<small>${openCountForDay(day)} open</small></div>`).join("")}
+        ${availabilityTimes.map(time => `<div class="time-head">${time}</div>${availabilityDays.map(day => `<button class="slot-cell ${isAvailable(day, time) ? "available" : ""}" data-slot="${availabilityKey(day, time)}"><strong>${isAvailable(day, time) ? "Available" : "Closed"}</strong><small>${state.availability.slotType}</small></button>`).join("")}`).join("")}
+      </div>
+    </section>
+    ${panel("Site Preview: Requestable Times", `<button class="btn btn-outline" data-view="site">View Site Builder</button>`, availabilitySummary(), "pad")}
+  </div>`;
 }
 
 function inviteBuilder() {
@@ -504,7 +570,7 @@ function builderScreen() {
 }
 
 function siteCanvas() {
-  return `<div class="canvas-top"><strong>Desktop Preview</strong><div class="canvas-tabs"><button>Lorenzo Default</button><button class="active">Company Name</button><button>Company Logo</button><button>Trainer Name</button></div></div><div class="site-header-preview"><strong>${escapeHtml(state.trainer.companyName)}<small>${escapeHtml(state.trainer.market)}</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><section class="hero-preview"><div><div class="editable-box"><h2>${escapeHtml(state.trainer.headline)}</h2></div><div class="editable-box"><p>${escapeHtml(state.trainer.subheadline)}</p></div><div class="row-actions"><button class="btn btn-red">${escapeHtml(state.trainer.cta)}</button><button class="btn btn-outline">View Services</button></div><p style="margin-top:16px">Powered by Lorenzo's Dog Training Team</p></div></section><section class="service-preview"><p class="step-label">Our Services</p><h2>Training services built for real dogs and real owners.</h2><div class="service-cards">${["Obedience Training","Behavior Modification","Puppy Training","Board & Train"].map(service => `<article>${icon("shield")}<strong>${service}</strong><p class="panel-copy">Real-world results and owner leadership.</p></article>`).join("")}</div></section><section class="availability"><p class="step-label">Upcoming Availability</p><h2>Book your evaluation.</h2><div class="calendar-grid">${["Fri, May 16","Sat, May 17","Sun, May 18","Mon, May 19","Tue, May 20","Wed, May 21"].map(day => `<article><strong>${day}</strong><button class="btn btn-outline">9:00 AM</button><br><br><button class="btn btn-outline">2:00 PM</button></article>`).join("")}</div></section>`;
+  return `<div class="canvas-top"><strong>Desktop Preview</strong><div class="canvas-tabs"><button>Lorenzo Default</button><button class="active">Company Name</button><button>Company Logo</button><button>Trainer Name</button></div></div><div class="site-header-preview"><strong>${escapeHtml(state.trainer.companyName)}<small>${escapeHtml(state.trainer.market)}</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><section class="hero-preview"><div><div class="editable-box"><h2>${escapeHtml(state.trainer.headline)}</h2></div><div class="editable-box"><p>${escapeHtml(state.trainer.subheadline)}</p></div><div class="row-actions"><button class="btn btn-red">${escapeHtml(state.trainer.cta)}</button><button class="btn btn-outline">View Services</button></div><p style="margin-top:16px">Powered by Lorenzo's Dog Training Team</p></div></section><section class="service-preview"><p class="step-label">Our Services</p><h2>Training services built for real dogs and real owners.</h2><div class="service-cards">${["Obedience Training","Behavior Modification","Puppy Training","Board & Train"].map(service => `<article>${icon("shield")}<strong>${service}</strong><p class="panel-copy">Real-world results and owner leadership.</p></article>`).join("")}</div></section><section class="availability"><p class="step-label">Upcoming Availability</p><h2>Request an evaluation time.</h2><p class="panel-copy">Times below are selected by the trainer. Lorenzo's office confirms the final appointment.</p><div class="calendar-grid">${state.availability.selected.slice(0, 6).map(slot => `<article><strong>${slot.split("|")[0]}</strong><button class="btn btn-outline">${slot.split("|")[1]}</button><small>${state.availability.slotType}</small></article>`).join("") || `<article><strong>No times yet</strong><button class="btn btn-outline" data-view="calendar">Set Availability</button></article>`}</div></section>`;
 }
 
 function heroSettings() {
@@ -592,6 +658,24 @@ document.addEventListener("click", (event) => {
     showToast("Invite link copied");
     return;
   }
+  const slot = event.target.closest("[data-slot]");
+  if (slot) {
+    const value = slot.dataset.slot;
+    state.availability.selected = state.availability.selected.includes(value)
+      ? state.availability.selected.filter(item => item !== value)
+      : [...state.availability.selected, value];
+    saveState();
+    return;
+  }
+  if (event.target.id === "clearAvailability") {
+    state.availability.selected = [];
+    saveState("Availability cleared");
+    return;
+  }
+  if (event.target.id === "saveAvailability") {
+    saveState("Availability saved to trainer site preview");
+    return;
+  }
   if (event.target.id === "logoutBtn") {
     session = { loggedIn: false, role: "" };
     sessionStorage.removeItem(SESSION_KEY);
@@ -610,6 +694,12 @@ document.addEventListener("input", (event) => {
   if (field.name?.startsWith("invite-")) {
     const key = field.name.replace("invite-", "");
     state.inviteDraft[key] = field.value;
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    render();
+  }
+  if (field.name?.startsWith("availability-")) {
+    const key = field.name.replace("availability-", "");
+    state.availability[key] = field.type === "checkbox" ? field.checked : field.value;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     render();
   }
