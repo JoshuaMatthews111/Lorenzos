@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lorenzo White-Label Trainer Platform Concept</title>
+  <meta name="description" content="Backend and white-label trainer website concept for Lorenzo's Dog Training Team.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="container">
+      <span>Serious Training. Serious Results.</span>
+      <span>White-label trainer platform concept</span>
+    </div>
+  </div>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#">
+        <img src="assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team">
+      </a>
+      <nav class="nav-links">
+        <a href="#system">System</a>
+        <a href="#tables">Tables</a>
+        <a href="#trainer-sites">Trainer Sites</a>
+        <a href="#dns">Domains</a>
+        <a href="#leads">Leads</a>
+        <a class="btn btn-red" href="#launch">Launch Path</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <h1>White-labeled trainer websites built to convert local leads.</h1>
+          <p>Each Lorenzo trainer gets a professional landing page, design presets, custom domain setup, and a lead pipeline connected to the same Supabase backend.</p>
+          <div class="hero-actions">
+            <a class="btn btn-red" href="#trainer-sites">View Trainer Site Flow</a>
+            <a class="btn btn-outline" href="#tables">Review Tables</a>
+          </div>
+        </div>
+
+        <div class="platform-card" aria-label="Platform overview">
+          <div class="platform-head">
+            <span>Admin Console</span>
+            <strong>Trainer Sites</strong>
+          </div>
+          <div class="metric-row">
+            <div><strong>128</strong><span>Trainers</span></div>
+            <div><strong>74</strong><span>Published</span></div>
+            <div><strong>312</strong><span>New Leads</span></div>
+          </div>
+          <div class="site-list">
+            <article>
+              <span class="status live">Live</span>
+              <div>
+                <strong>Robert Cleveland</strong>
+                <small>robert-cleveland.lorenzosdogtrainingteam.com</small>
+              </div>
+              <button>Open</button>
+            </article>
+            <article>
+              <span class="status pending">DNS</span>
+              <div>
+                <strong>Eric Akron</strong>
+                <small>www.akronobediencetraining.com</small>
+              </div>
+              <button>Records</button>
+            </article>
+            <article>
+              <span class="status draft">Draft</span>
+              <div>
+                <strong>Bruce Columbus</strong>
+                <small>Template selected, copy pending</small>
+              </div>
+              <button>Edit</button>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section stats-band" id="system">
+      <div class="container stats">
+        <div class="stat">
+          <strong>01</strong>
+          <span>Trainer Profile</span>
+        </div>
+        <div class="stat">
+          <strong>02</strong>
+          <span>White-Label Site</span>
+        </div>
+        <div class="stat">
+          <strong>03</strong>
+          <span>Custom Domain</span>
+        </div>
+        <div class="stat">
+          <strong>04</strong>
+          <span>Lead Pipeline</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container section-title">
+        <h2>The system Lorenzo needs behind the trainer network.</h2>
+        <p>This backend turns trainer pages into a repeatable business asset: consistent branding, local SEO, fast publishing, domain control, and measurable leads.</p>
+      </div>
+      <div class="container paths">
+        <article class="path-card">
+          <div class="icon">A</div>
+          <h3>Admin creates the trainer</h3>
+          <p>Trainer name, location, headshot, service area, phone, email, specialties, and owner login are stored once.</p>
+        </article>
+        <article class="path-card featured">
+          <div class="icon">B</div>
+          <h3>Trainer picks a design</h3>
+          <p>They can choose a local obedience page, premium authority page, or advanced specialty training page.</p>
+        </article>
+        <article class="path-card">
+          <div class="icon">C</div>
+          <h3>Leads route to the right trainer</h3>
+          <p>Every form submission is tied to the trainer, site, domain, source URL, and campaign tracking.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section soft" id="tables">
+      <div class="container split">
+        <div>
+          <h2>Database tables created for the first backend version.</h2>
+          <p>The migration is ready locally. It creates the tables, indexes, statuses, RLS policies, and starter design templates. Supabase project connection can happen after you provide the correct account/project details.</p>
+          <a class="btn btn-navy" href="supabase/migrations/202606180001_white_label_platform.sql">Open Migration SQL</a>
+        </div>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Table</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>app_profiles</td><td>Admin, trainer, and staff roles.</td></tr>
+              <tr><td>trainers</td><td>Trainer identity, contact info, market, specialties.</td></tr>
+              <tr><td>trainer_sites</td><td>One white-label site per trainer or territory.</td></tr>
+              <tr><td>trainer_domains</td><td>Custom domains, verification token, DNS status.</td></tr>
+              <tr><td>design_templates</td><td>Selectable landing page designs.</td></tr>
+              <tr><td>site_sections</td><td>Editable hero, services, proof, CTA, and form content.</td></tr>
+              <tr><td>leads</td><td>Lead form submissions tied to trainer/site.</td></tr>
+              <tr><td>lead_events</td><td>Views, clicks, form starts, form submissions.</td></tr>
+              <tr><td>domain_verification_events</td><td>History for DNS checks and domain status.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="trainer-sites">
+      <div class="container section-title">
+        <h2>Trainer landing pages stay Lorenzo-branded, but local to the trainer.</h2>
+        <p>The site can show Lorenzo’s credibility while letting each trainer own their local page, phone number, service area, and conversion path.</p>
+      </div>
+      <div class="container preview-grid">
+        <article class="template-card">
+          <span class="template-label">Template 1</span>
+          <h3>Local Service Landing Page</h3>
+          <p>Best for dog training near me, dog trainer near me, obedience, puppy training, and behavior modification searches.</p>
+          <ul>
+            <li>Book Evaluation CTA</li>
+            <li>Local city/state SEO</li>
+            <li>Trainer headshot and phone</li>
+          </ul>
+        </article>
+        <article class="template-card featured-template">
+          <span class="template-label">Template 2</span>
+          <h3>Premium Trainer Authority</h3>
+          <p>Best for higher-trust trainer profiles with proof, Google review callouts, and a stronger professional presentation.</p>
+          <ul>
+            <li>Trainer bio and proof</li>
+            <li>Service cards</li>
+            <li>Lead form above footer</li>
+          </ul>
+        </article>
+        <article class="template-card">
+          <span class="template-label">Template 3</span>
+          <h3>Advanced Specialty Training</h3>
+          <p>Best for protection dog training, service dog training, scent work, retrieval, utility, and advanced obedience leads.</p>
+          <ul>
+            <li>Qualification language</li>
+            <li>Specialty services</li>
+            <li>Consultation CTA</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section navy" id="dns">
+      <div class="container split">
+        <div>
+          <h2>Custom domains with simple DNS instructions.</h2>
+          <p>Trainer enters their domain. The system creates records they can paste into GoDaddy, Squarespace, Cloudflare, Wix, or another DNS provider.</p>
+        </div>
+        <div class="dns-card">
+          <h3>DNS records for trainer domain</h3>
+          <div class="record"><span>TXT</span><code>_lorenzo-verify.example.com</code></div>
+          <div class="record"><span>CNAME</span><code>www → trainer-sites.lorenzosdogtrainingteam.com</code></div>
+          <div class="record"><span>ALIAS</span><code>example.com → platform target</code></div>
+          <p>After verification, the domain becomes active and serves that trainer’s landing page.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section soft" id="leads">
+      <div class="container split">
+        <div class="lead-panel">
+          <h3>New Lead</h3>
+          <label>Name<input value="Stephanie Palmer"></label>
+          <label>Phone<input value="(216) 555-0198"></label>
+          <label>Training Need<select><option>Behavior modification</option></select></label>
+          <label>Message<textarea>My dog pulls on leash and reacts around other dogs. I want an evaluation.</textarea></label>
+          <button class="btn btn-red">Book Evaluation</button>
+        </div>
+        <div>
+          <h2>Lead conversion is the point of the white-label system.</h2>
+          <p>Every trainer page should move the visitor to one clear action: book an evaluation, call the trainer, or request specialty training. The backend tracks the full path.</p>
+          <div class="pipeline">
+            <div><strong>New</strong><span>Form submitted</span></div>
+            <div><strong>Contacted</strong><span>Trainer followed up</span></div>
+            <div><strong>Booked</strong><span>Evaluation scheduled</span></div>
+            <div><strong>Won</strong><span>Client started</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section tight" id="launch">
+      <div class="container cta-band">
+        <div>
+          <h2>Open the working IBO back office.</h2>
+          <p>The concept has now been turned into a functional trainer portal prototype with site builder, templates, domains, leads, and public site preview.</p>
+        </div>
+        <a class="btn btn-red" href="../trainer-backoffice/">Open Trainer Back Office</a>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

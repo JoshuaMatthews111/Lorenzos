@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lorenzo Trainer Sites Portal</title>
+  <meta name="description" content="Admin and trainer portal for Lorenzo trainer sites, leads, clients, calendar, and website setup.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="is-logged-out">
+  <section class="login-screen" id="loginScreen" aria-label="Demo login portal">
+    <div class="login-card">
+      <img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team">
+      <p class="micro">Demo Portal</p>
+      <h1>Trainers Login</h1>
+      <p>Use <strong>admin</strong> to view the admin portal or <strong>trainer</strong> to view the trainer portal. Demo temporary trainer password: <strong>doglovers26</strong>.</p>
+      <form id="loginForm" class="login-form">
+        <label>Username<input name="username" placeholder="admin or trainer" autocomplete="username"></label>
+        <label>Password<input name="password" type="password" placeholder="doglovers26 for trainer demo" autocomplete="current-password"></label>
+        <button class="btn btn-red" type="submit">Enter Portal</button>
+      </form>
+      <div class="quick-login">
+        <button class="btn btn-navy" type="button" data-login-role="admin">Enter as Admin</button>
+        <button class="btn btn-outline" type="button" data-login-role="trainer">Enter as Trainer</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="../index.html">
+        <img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team">
+      </a>
+      <div class="portal-label">
+        <span id="portalKicker">Trainer Sites Portal</span>
+        <strong id="portalTitle">Trainer Website System</strong>
+      </div>
+      <nav class="side-nav" id="sideNav" aria-label="Back office navigation">
+        <button class="active" data-view="dashboard">Dashboard</button>
+        <button data-view="site">My Trainer Site</button>
+        <button data-view="templates">Design Templates</button>
+        <button data-view="domains">Domains & DNS</button>
+        <button data-view="leads">Lead Inbox</button>
+        <button data-view="business">Trainer Business Path</button>
+        <button data-view="settings">Settings</button>
+      </nav>
+      <div class="side-card">
+        <strong>Supabase-ready</strong>
+        <p>Demo data saves in this browser now. These screens map to the backend tables already drafted.</p>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="workspace-header">
+        <div>
+          <p class="micro">Lorenzo's Dog Training Team</p>
+          <h1 id="viewTitle">Trainer Dashboard</h1>
+        </div>
+        <div class="header-actions">
+          <a class="btn btn-outline" href="site.html" target="_blank" rel="noopener">Open Trainer Site</a>
+          <button class="btn btn-navy" id="saveBtn">Save Draft</button>
+          <button class="btn btn-red" id="publishBtn">Publish Site</button>
+          <button class="btn btn-outline" id="logoutBtn">Log Out</button>
+        </div>
+      </header>
+
+      <section class="view active" id="dashboardView">
+        <div class="metrics">
+          <article><strong id="publishedMetric">Draft</strong><span id="publishedMetricLabel">Site Status</span></article>
+          <article><strong id="leadMetric">0</strong><span id="leadMetricLabel">Total Leads</span></article>
+          <article><strong id="bookedMetric">0</strong><span id="bookedMetricLabel">Booked Evaluations</span></article>
+          <article><strong id="domainMetric">Pending</strong><span id="domainMetricLabel">Domain Status</span></article>
+        </div>
+
+        <section class="panel admin-only">
+          <div class="panel-head">
+            <div>
+              <p class="micro">Trainer Onboarding</p>
+              <h2>Invite a new trainer into the portal.</h2>
+              <p class="panel-copy">Use this staged onboarding link for demos now. When email and text service are connected, these same actions can send the trainer their portal-ready message and temporary password.</p>
+            </div>
+          </div>
+          <div class="onboarding-link">
+            <code id="trainerOnboardingLink"></code>
+            <div class="share-actions">
+              <button class="btn btn-red" id="copyOnboardingLink" type="button">Copy Link</button>
+              <a class="btn btn-navy" id="emailOnboardingLink" href="#">Email Invite</a>
+              <a class="btn btn-outline" id="smsOnboardingLink" href="#">Text Invite</a>
+              <button class="btn btn-outline" id="stageInviteBtn" type="button">Stage Send Later</button>
+            </div>
+          </div>
+        </section>
+
+        <div class="grid two">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="micro" id="checklistKicker">Launch Checklist</p>
+                <h2 id="checklistTitle">Get the trainer site ready to convert.</h2>
+              </div>
+            </div>
+            <div class="checklist" id="checklist"></div>
+          </section>
+
+          <section class="panel navy-panel">
+            <p class="micro" id="focusKicker">Trainer Site Network</p>
+            <h2 id="focusTitle">In business for yourself, but not by yourself.</h2>
+            <p id="focusCopy">The trainer owns their local business development while staying connected to Lorenzo's proven dog training system, professional standards, and brand trust.</p>
+            <button class="btn btn-red" id="focusButton" data-jump="business">Open Business Path</button>
+          </section>
+        </div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="micro">Live Site Preview</p>
+              <h2>Your trainer landing page.</h2>
+            </div>
+            <button class="btn btn-outline" data-jump="site">Edit Site</button>
+          </div>
+          <div class="preview-stage" id="dashboardPreview"></div>
+        </section>
+      </section>
+
+      <section class="view" id="siteView">
+        <section class="panel admin-only">
+          <div class="panel-head">
+            <div>
+              <p class="micro">Trainer Import</p>
+              <h2>Upload current trainers and prepare their portals.</h2>
+              <p class="panel-copy">Import a CSV list to populate trainer names, locations, phone numbers, emails, markets, and temporary access. PDF and DOC uploads are captured here as pending office review until document parsing is connected.</p>
+            </div>
+          </div>
+          <div class="import-grid">
+            <form class="import-box" id="trainerImportForm">
+              <label>Upload Trainer List
+                <input id="trainerImportFile" name="trainerImportFile" type="file" accept=".csv,.txt,.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv,text/plain">
+              </label>
+              <p>CSV columns can include: trainer name, company name, city, state, phone, email, market, service area, domain, status.</p>
+              <button class="btn btn-red" type="submit">Import Trainers</button>
+            </form>
+            <div class="import-note">
+              <strong>Temporary Password</strong>
+              <span>doglovers26</span>
+              <p>Every imported trainer receives the same temporary password for this demo. On first login, the trainer is prompted to create a permanent password and starts the portal tutorial.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel admin-only">
+          <div class="panel-head">
+            <div>
+              <p class="micro">Current Trainers</p>
+              <h2>Trainer portal readiness.</h2>
+            </div>
+            <button class="btn btn-outline" id="seedTrainersBtn" type="button">Load Demo Trainers</button>
+          </div>
+          <div class="trainer-table" id="trainerDirectory"></div>
+          <div class="pending-imports" id="pendingImports"></div>
+        </section>
+
+        <div class="grid builder-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="micro">Site Builder</p>
+                <h2>Trainer business profile.</h2>
+              </div>
+            </div>
+            <form class="form" id="siteForm">
+              <label>Trainer Name<input name="trainerName" autocomplete="name"></label>
+              <label>Company Name<input name="businessName"></label>
+              <label>Company Logo<input name="companyLogoFile" type="file" accept="image/*"><span class="field-note">Upload a logo for the trainer site header.</span></label>
+              <div class="logo-preview" id="companyLogoPreview">No logo uploaded yet</div>
+              <label>Company Slogan<input name="slogan" placeholder="Serious training for real-life results"></label>
+              <label>City / Market<input name="market"></label>
+              <label>State<input name="state"></label>
+              <label>Phone<input name="phone"></label>
+              <label>Email<input name="email" type="email"></label>
+              <label>Hero Headline<textarea name="headline"></textarea></label>
+              <label>Hero Supporting Copy<textarea name="subheadline"></textarea></label>
+              <label>Primary CTA<input name="primaryCta"></label>
+              <label>Service Area<input name="serviceArea"></label>
+            </form>
+          </section>
+
+          <section class="panel sticky-preview">
+            <div class="panel-head">
+              <div>
+                <p class="micro">Conversion Preview</p>
+                <h2>What dog owners see.</h2>
+              </div>
+            </div>
+            <div class="phone-preview" id="sitePreview"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="templatesView">
+        <section class="panel">
+          <p class="micro">Design System</p>
+          <h2>Pick a landing page design for the trainer site.</h2>
+            <p class="panel-copy">Templates keep the Lorenzo brand consistent while letting each trainer position their local dog training services clearly.</p>
+          <div class="template-grid" id="templateGrid"></div>
+        </section>
+
+        <section class="panel">
+          <p class="micro">Service Focus</p>
+          <h2>Select what this trainer should sell first.</h2>
+          <div class="service-picker" id="servicePicker"></div>
+        </section>
+      </section>
+
+      <section class="view" id="domainsView">
+        <div class="grid two">
+          <section class="panel">
+            <p class="micro">Custom Domain</p>
+            <h2>Connect the trainer's custom domain.</h2>
+            <p class="panel-copy">The trainer can use a Lorenzo URL first, then connect their own domain when ready.</p>
+            <form class="form compact" id="domainForm">
+              <label>Trainer Domain<input name="domain" placeholder="www.clevelanddogtraining.com"></label>
+              <label>Default Lorenzo URL<input name="slug" readonly></label>
+            </form>
+            <button class="btn btn-red" id="verifyDomainBtn">Generate DNS Records</button>
+          </section>
+
+          <section class="panel">
+            <p class="micro">DNS Records</p>
+            <h2>Give these records to the trainer.</h2>
+            <div class="dns-records" id="dnsRecords"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="leadsView">
+        <div class="grid leads-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="micro">Lead Inbox</p>
+                <h2>Dog training leads for this trainer.</h2>
+              </div>
+              <button class="btn btn-red" id="addLeadBtn">Add Demo Lead</button>
+            </div>
+            <div class="lead-list" id="leadList"></div>
+          </section>
+
+          <section class="panel">
+            <p class="micro">Pipeline</p>
+            <h2>Follow-up status.</h2>
+            <div class="pipeline" id="pipeline"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="view" id="businessView">
+        <section class="panel admin-only">
+          <p class="micro">Calendar Queue</p>
+          <h2>Office scheduling and trainer availability.</h2>
+          <p class="panel-copy">This is the staging view for Lorenzo's office team to see trainer availability, evaluation requests, follow-up schedules, and lead outcomes before the real calendar integration is connected.</p>
+          <div class="roadmap">
+            <article><span>01</span><h3>Availability Slots</h3><p>Trainers will add open windows for in-person or online consultations.</p></article>
+            <article><span>02</span><h3>Evaluation Booked</h3><p>The office marks a lead as scheduled once an appointment is confirmed.</p></article>
+            <article><span>03</span><h3>Follow-up Scheduled</h3><p>If the client needs more time, the office can set the lead for follow-up.</p></article>
+            <article><span>04</span><h3>Outcome Logged</h3><p>Program offered, client won, or lost with a reason can be tracked from the trainer lead record.</p></article>
+          </div>
+        </section>
+        <section class="panel trainer-only">
+          <p class="micro">Trainer Business Path</p>
+          <h2>Become a professional dog trainer and local business owner.</h2>
+          <p class="panel-copy">This screen is where the future trainer business dashboard belongs: certification progress, territory setup, client-development guidance, lead performance, and operating standards.</p>
+          <div class="roadmap">
+            <article><span>01</span><h3>Academy / Certification</h3><p>Learn Lorenzo's training system, handling standards, behavior modification, owner communication, and client expectations.</p></article>
+            <article><span>02</span><h3>Territory Setup</h3><p>Build a local market profile, service area, phone, domain, and trainer landing page.</p></article>
+            <article><span>03</span><h3>Lead Conversion</h3><p>Use the trainer site to attract dog owners and move them from inquiry to evaluation.</p></article>
+            <article><span>04</span><h3>Business Growth</h3><p>Track leads, booked evaluations, won clients, reviews, and repeatable growth standards.</p></article>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="settingsView">
+        <section class="panel">
+          <p class="micro">System Settings</p>
+          <h2>Demo controls before Supabase connection.</h2>
+          <p class="panel-copy">These controls exist only for staging. Once Supabase is connected, this area becomes account settings, billing/domain controls, and trainer permissions.</p>
+          <div class="settings-actions">
+            <button class="btn btn-outline" id="resetBtn">Reset Demo Data</button>
+            <a class="btn btn-navy" href="../white-label-platform/supabase/migrations/202606180001_white_label_platform.sql" target="_blank" rel="noopener">Open Supabase Migration</a>
+            <a class="btn btn-red" href="../white-label-platform/docs/table-map.md" target="_blank" rel="noopener">Open Table Map</a>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
