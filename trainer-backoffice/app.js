@@ -1,236 +1,96 @@
-const STORE_KEY = "lorenzoTrainerNetworkPortal.v3";
-const SESSION_KEY = "lorenzoTrainerSitesSession.v1";
+const STORE_KEY = "lorenzoTrainerNetworkVisualPortal.v1";
+const SESSION_KEY = "lorenzoTrainerNetworkSession.v1";
+const TEMP_PASSWORD = "doglovers26";
 
-const templates = [
-  {
-    key: "local-service",
-    name: "Local Service",
-    label: "Dog Training Near Me",
-    description: "For obedience, puppy structure, behavior modification, and local family leads."
-  },
-  {
-    key: "premium-authority",
-    name: "Premium Authority",
-    label: "Professional Trainer",
-    description: "For established trainers who need proof, reviews, leadership, and a polished consultation path."
-  },
-  {
-    key: "advanced-specialty",
-    name: "Advanced Specialty",
-    label: "Specialty Training",
-    description: "For protection, service dog, assistance, scent work, retrieval, utility, and advanced control."
-  },
-  {
-    key: "family-obedience",
-    name: "Family Obedience",
-    label: "Warm Family Focus",
-    description: "For family homes that need puppy structure, manners, housebreaking, and clear owner leadership."
-  },
-  {
-    key: "protection-elite",
-    name: "Protection Elite",
-    label: "Protection & Security",
-    description: "For advanced protection, business security, residential protection, and approved serious handlers."
-  },
-  {
-    key: "service-assist",
-    name: "Service & Assistance",
-    label: "Service Dog Path",
-    description: "For service dog, assistance dog, utility tasks, retrieval, and calm task-based support."
-  }
+const icons = {
+  dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>`,
+  monitor: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+  users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  lead: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>`,
+  calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+  trophy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 21h8M12 17v4"/><path d="M7 4h10v6a5 5 0 0 1-10 0z"/><path d="M5 5H3v3a4 4 0 0 0 4 4M19 5h2v3a4 4 0 0 1-4 4"/></svg>`,
+  report: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 19V5M9 19V9M14 19V3M19 19v-7"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.55 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.55-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6 1.7 1.7 0 0 0 10 3.05V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.1.32.1.68 0 1a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>`,
+  media: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9l5 3-5 3z"/></svg>`,
+  star: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2l3 6 6.5.9-4.7 4.6 1.1 6.5L12 17l-5.9 3 1.1-6.5L2.5 8.9 9 8z"/></svg>`,
+  globe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>`,
+  message: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>`,
+  edit: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`
+};
+
+const dogImages = [
+  "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=120&q=60",
+  "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?auto=format&fit=crop&w=120&q=60",
+  "https://images.unsplash.com/photo-1561037404-61cd46aa615b?auto=format&fit=crop&w=120&q=60",
+  "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=120&q=60"
 ];
 
-const services = [
-  ["Obedience Training", "Heel, sit, stay, come, down, sit-stay, and down-stay."],
-  ["Behavior Modification", "Jumping, chewing, barking, house soiling, leash pulling, and aggression concerns."],
-  ["Puppy Training", "Housebreaking, manners, family structure, and early boundaries."],
-  ["Protection Training", "Advanced protection training for qualified businesses, homes, and handlers."],
-  ["Service Dog Training", "Task support for owners with physical disabilities or handicap-related needs."],
-  ["Scent Work & Retrieval", "Scent work, object retrieval, utility tasks, and focused advanced work."]
+const trainers = [
+  ["Eric Beck", "Cleveland, OH", 18, 8, 6, "Live"],
+  ["Stephanie Palmer", "Akron, OH", 12, 5, 3, "Live"],
+  ["Robert Stephan", "Mentor, OH", 9, 4, 2, "Live"],
+  ["Jenn Studer", "Medina, OH", 7, 3, 2, "Draft"],
+  ["Ariel Kapela", "Parma, OH", 6, 3, 1, "Live"],
+  ["Mike Davis", "Youngstown, OH", 5, 2, 1, "Draft"]
 ];
 
-const demoLeads = [
-  {
-    id: "lead-1",
-    name: "Stephanie Palmer",
-    phone: "(216) 555-0198",
-    email: "stephanie@example.com",
-    dog: "Hunter",
-    need: "Behavior modification",
-    message: "My dog pulls on leash and reacts around other dogs. I want an evaluation.",
-    status: "new"
-  },
-  {
-    id: "lead-2",
-    name: "Rebecca Rottman",
-    phone: "(440) 555-0144",
-    email: "rebecca@example.com",
-    dog: "Maverick",
-    need: "Obedience training",
-    message: "We need help with commands, boundaries, and reliable listening at home.",
-    status: "contacted"
-  },
-  {
-    id: "lead-3",
-    name: "Rene Stephan",
-    phone: "(330) 555-0138",
-    email: "rene@example.com",
-    dog: "Koda",
-    need: "Trainer career path",
-    message: "I am interested in becoming a certified trainer and building a territory.",
-    status: "evaluation-booked"
-  }
+const leads = [
+  ["Sarah Johnson", "Max", "Goldendoodle", "Website", "Obedience Training", "New", "May 13, 2025 10:00 AM", "Lorenzo office scheduled this lead for Friday 2:00 PM."],
+  ["Mike Davis", "Rocky", "German Shepherd", "Google", "Behavior Modification", "Contacted", "May 14, 2025 3:30 PM", "Follow-up scheduled."],
+  ["Jessica Miller", "Luna", "Labrador Retriever", "Referral", "Puppy Training", "Evaluation Booked", "May 16, 2025 11:00 AM", ""],
+  ["Emily Wilson", "Teddy", "French Bulldog", "Facebook", "Obedience Training", "Follow-Up Scheduled", "May 19, 2025 2:00 PM", ""],
+  ["Chris Brown", "Bailey", "Golden Retriever", "Website", "Board & Train", "Program Offered", "May 20, 2025 6:00 PM", ""],
+  ["Amanda Lee", "Bella", "Husky", "Referral", "Board & Train", "Client Won", "-", "Great fit. Training begins 5/26/25."],
+  ["Robert Johnson", "Duke", "Pit Bull Mix", "Google", "Aggression Rehab", "Lost", "-", "Lost: Chose another trainer closer to home."]
 ];
 
-const TEMP_TRAINER_PASSWORD = "doglovers26";
-
-const demoTrainers = [
-  {
-    id: "trainer-eric-beck",
-    trainerName: "Eric Beck",
-    businessName: "Cleveland Dog Training by Lorenzo's Team",
-    market: "Cleveland",
-    state: "OH",
-    phone: "(866) 436-4959",
-    email: "trainer@lorenzosdogtrainingteam.com",
-    serviceArea: "Cleveland, Garfield Heights, Akron, and surrounding Northeast Ohio communities.",
-    portalStatus: "ready",
-    temporaryPassword: TEMP_TRAINER_PASSWORD,
-    template: "premium-authority",
-    published: true
-  },
-  {
-    id: "trainer-robert",
-    trainerName: "Robert",
-    businessName: "Lorenzo's Dog Training Team",
-    market: "Northeast Ohio",
-    state: "OH",
-    phone: "(866) 436-4959",
-    email: "office@lorenzosdogtrainingteam.com",
-    serviceArea: "Ohio dog training clients",
-    portalStatus: "ready",
-    temporaryPassword: TEMP_TRAINER_PASSWORD,
-    template: "family-obedience",
-    published: false
-  },
-  {
-    id: "trainer-bruce-maldonado",
-    trainerName: "Bruce Maldonado",
-    businessName: "Lorenzo's Dog Training Team",
-    market: "Local Market",
-    state: "US",
-    phone: "(866) 436-4959",
-    email: "office@lorenzosdogtrainingteam.com",
-    serviceArea: "Local dog training service area",
-    portalStatus: "ready",
-    temporaryPassword: TEMP_TRAINER_PASSWORD,
-    template: "advanced-specialty",
-    published: false
-  }
-];
-
-const pipelineStages = [
-  ["new", "New"],
-  ["contacted", "Contacted"],
-  ["evaluation-booked", "Evaluation Booked"],
-  ["follow-up-scheduled", "Follow-up Scheduled"],
-  ["program-offered", "Program Offered"],
-  ["client-won", "Client Won"],
-  ["lost", "Lost"]
+const themes = [
+  ["Lorenzo Classic", "Service-First Local Trainer", "Real Training. Real Results.", "Best for Obedience"],
+  ["Lorenzo Classic", "Trainer Authority Bio", "Leadership. Relationship. Results.", "Best for Authority"],
+  ["Lorenzo Classic", "Reviews & Results", "Trusted by dog owners. Proven by results.", "Best for Reviews"],
+  ["Lorenzo Classic", "Evaluation-First Conversion", "Start with an evaluation. End with results.", "Best for Conversions"],
+  ["Premium Local Pro", "Modern Local Expert", "Cleveland's Premier Dog Training Expert", "Best for Local SEO"],
+  ["Premium Local Pro", "Family Obedience Specialist", "Better behavior. Stronger family bond.", "Best for Families"],
+  ["Premium Local Pro", "Behavior Modification Specialist", "Real change starts with understanding.", "Best for Behavior Issues"],
+  ["Premium Local Pro", "Clean Consultation Page", "Let's create the right plan for your dog.", "Best for Lead Conversion"],
+  ["Advanced Specialty", "Protection Training", "Protect. Deter. Defend.", "Best for Protection"],
+  ["Advanced Specialty", "Service & Assistance Dogs", "Trained to serve. Built to help.", "Best for Service Dogs"],
+  ["Advanced Specialty", "Scent Work / Retrieval", "Scent. Focus. Retrieve.", "Best for Scent Work"],
+  ["Advanced Specialty", "Business & Facility Training", "Training for your team. Results for your business.", "Best for Businesses"]
 ];
 
 const defaultState = {
-  published: false,
+  role: "",
   activeView: "dashboard",
-  template: "local-service",
-  services: ["Obedience Training", "Behavior Modification", "Puppy Training"],
-  auth: {
-    trainerPasswordSet: false,
-    trainerPassword: TEMP_TRAINER_PASSWORD,
-    tutorialDismissed: false
-  },
-  trainerAccounts: demoTrainers,
-  pendingImports: [],
+  selectedTheme: 0,
+  inviteDraft: { name: "", email: "", phone: "", market: "" },
   stagedInvites: [],
-  inviteDraft: {
-    inviteName: "",
-    inviteEmail: "",
-    invitePhone: "",
-    inviteMarket: ""
-  },
   trainer: {
-    companyLogoData: "",
+    companyName: "Your Company Name",
     trainerName: "Eric Beck",
-    businessName: "Cleveland Dog Training by Lorenzo's Team",
-    slogan: "Serious training for real-life results.",
-    market: "Cleveland",
-    state: "OH",
+    title: "Certified Lorenzo Trainer",
+    slogan: "Professional dog training in Cleveland backed by Lorenzo's proven system.",
     phone: "(866) 436-4959",
     email: "trainer@lorenzosdogtrainingteam.com",
+    market: "Cleveland, OH",
+    serviceArea: "Cleveland, Garfield Heights, Akron, and surrounding Northeast Ohio areas",
+    instagram: "https://instagram.com/yourcompany",
+    facebook: "https://facebook.com/yourcompany",
+    google: "https://g.page/yourcompany",
     headline: "Professional dog training in Cleveland backed by Lorenzo's proven system.",
-    subheadline: "Book an evaluation for dog obedience training, behavior modification, puppy structure, and real-world owner leadership.",
-    primaryCta: "Book Evaluation",
-    serviceArea: "Cleveland, Garfield Heights, Akron, and surrounding Northeast Ohio communities."
-  },
-  domain: {
-    customDomain: "www.clevelanddogtrainingteam.com",
-    slug: "eric-beck-cleveland",
-    status: "pending",
-    verificationToken: "ldtt-verify-84f2c19a"
-  },
-  leads: demoLeads
+    subheadline: "Obedience training, behavior modification, puppy training, and more for real results in the real world.",
+    cta: "Book an Evaluation"
+  }
 };
 
 let state = loadState();
 let session = loadSession();
-applyUrlView();
-applyInvitePrefill();
-
-function applyUrlView() {
-  const params = new URLSearchParams(window.location.search);
-  const view = params.get("view");
-  const allowed = ["dashboard", "site", "templates", "domains", "leads", "business", "settings"];
-  if (allowed.includes(view)) {
-    state.activeView = view;
-  }
-}
-
-function applyInvitePrefill() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get("role") !== "trainer") return;
-  const invitedName = params.get("name");
-  const invitedMarket = params.get("market");
-  if (!invitedName && !invitedMarket) return;
-
-  if (invitedName) {
-    state.trainer.trainerName = invitedName;
-  }
-  if (invitedMarket) {
-    const marketParts = invitedMarket.split(",").map((part) => part.trim()).filter(Boolean);
-    state.trainer.market = marketParts[0] || state.trainer.market;
-    state.trainer.state = marketParts[1] || state.trainer.state;
-    state.trainer.serviceArea = invitedMarket;
-  }
-  state.domain.slug = slugify(`${state.trainer.trainerName}-${state.trainer.market}`);
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
-}
+applyUrlState();
 
 function loadState() {
   try {
-    const saved = localStorage.getItem(STORE_KEY);
-    if (!saved) return structuredClone(defaultState);
-    const parsed = JSON.parse(saved);
-    return {
-      ...structuredClone(defaultState),
-      ...parsed,
-      auth: { ...defaultState.auth, ...(parsed.auth || {}) },
-      trainer: { ...defaultState.trainer, ...(parsed.trainer || {}) },
-      domain: { ...defaultState.domain, ...(parsed.domain || {}) },
-      trainerAccounts: parsed.trainerAccounts || structuredClone(defaultState.trainerAccounts),
-      pendingImports: parsed.pendingImports || [],
-      stagedInvites: parsed.stagedInvites || [],
-      inviteDraft: { ...defaultState.inviteDraft, ...(parsed.inviteDraft || {}) }
-    };
+    return { ...structuredClone(defaultState), ...(JSON.parse(localStorage.getItem(STORE_KEY)) || {}) };
   } catch {
     return structuredClone(defaultState);
   }
@@ -238,40 +98,32 @@ function loadState() {
 
 function loadSession() {
   try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("role") === "admin") {
-      const linkedSession = { loggedIn: true, role: "admin" };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(linkedSession));
-      return linkedSession;
-    }
-    if (params.get("role") === "trainer" && params.get("temp") === TEMP_TRAINER_PASSWORD) {
-      const linkedSession = { loggedIn: true, role: "trainer" };
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify(linkedSession));
-      return linkedSession;
-    }
     return JSON.parse(sessionStorage.getItem(SESSION_KEY)) || { loggedIn: false, role: "" };
   } catch {
     return { loggedIn: false, role: "" };
   }
 }
 
+function saveState(message) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  if (message) showToast(message);
+  render();
+}
+
 function saveSession(role) {
   session = { loggedIn: true, role };
+  state.role = role;
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
-function logout() {
-  session = { loggedIn: false, role: "" };
-  sessionStorage.removeItem(SESSION_KEY);
-  document.body.classList.remove("is-logged-in");
-  document.body.classList.add("is-logged-out");
-  showToast("Logged out");
-}
-
-function saveState(message = "Saved") {
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
-  showToast(message);
-  render();
+function applyUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  const role = params.get("role");
+  const view = params.get("view");
+  if (role === "admin" || (role === "trainer" && params.get("temp") === TEMP_PASSWORD)) {
+    saveSession(role);
+  }
+  if (view) state.activeView = view;
 }
 
 function showToast(message) {
@@ -279,20 +131,12 @@ function showToast(message) {
   if (!toast) return;
   toast.textContent = message;
   toast.classList.add("show");
-  window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => toast.classList.remove("show"), 1800);
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
 }
 
-function slugify(value) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
-function selectedTemplate() {
-  return templates.find((template) => template.key === state.template) || templates[0];
-}
-
-function selectedServices() {
-  return state.services.length ? state.services : ["Obedience Training", "Behavior Modification", "Puppy Training"];
+function icon(name) {
+  return `<span class="nav-icon">${icons[name] || icons.dashboard}</span>`;
 }
 
 function render() {
@@ -301,563 +145,407 @@ function render() {
     return;
   }
 
-  renderAuthState();
-  if (!session.loggedIn) return;
-  renderNavigation();
-  renderRoleChrome();
-  renderMetrics();
-  renderChecklist();
-  renderForms();
-  renderTemplates();
-  renderServices();
-  renderDns();
-  renderLeads();
-  renderTrainerDirectory();
-  renderOnboardingLinks();
-  renderStagedInvites();
-  renderFirstLoginFlow();
-  renderPreview("dashboardPreview", false);
-  renderPreview("sitePreview", true);
-}
-
-function renderAuthState() {
-  document.body.classList.toggle("is-logged-in", Boolean(session.loggedIn));
+  document.body.classList.toggle("is-logged-in", session.loggedIn);
   document.body.classList.toggle("is-logged-out", !session.loggedIn);
-  document.body.classList.toggle("role-admin", session.role === "admin");
-  document.body.classList.toggle("role-trainer", session.role === "trainer");
+  if (!session.loggedIn) return;
+
+  renderSidebar();
+  renderTopbar();
+  renderView();
 }
 
-function renderRoleChrome() {
-  const isAdmin = session.role === "admin";
-  const portalKicker = document.getElementById("portalKicker");
-  const portalTitle = document.getElementById("portalTitle");
-  const sideCard = document.querySelector(".side-card p");
-  const navLabels = isAdmin
-    ? {
-        dashboard: "Dashboard",
-        site: "Trainer Network",
-        templates: "Template Controls",
-        domains: "Domains & DNS",
-        leads: "Trainer Leads",
-        business: "Calendar Queue",
-        settings: "Settings"
-      }
-    : {
-        dashboard: "Dashboard",
-        site: "Customize Trainer Site",
-        templates: "Template Library",
-        domains: "Domains & DNS",
-        leads: "Lead Inbox",
-        business: "Trainer Business Path",
-        settings: "Settings"
-      };
-
-  document.querySelectorAll(".side-nav button").forEach((button) => {
-    const label = navLabels[button.dataset.view];
-    if (label) button.textContent = label;
-  });
-
-  if (portalKicker) portalKicker.textContent = isAdmin ? "Admin Portal" : "Trainer Portal";
-  if (portalTitle) portalTitle.textContent = isAdmin ? "Network Command Center" : "Trainer Website System";
-  if (sideCard) {
-    sideCard.textContent = isAdmin
-      ? "Demo data shows how Lorenzo's office can manage the trainer network, leads, clients, onboarding, and the calendar queue."
-      : "Demo data saves in this browser now. Trainers can set up their site, media, leads, calendar availability, and domain.";
-  }
-
-  setText("publishedMetricLabel", isAdmin ? "Active Trainers" : "Site Status");
-  setText("leadMetricLabel", isAdmin ? "Network Leads" : "Total Leads");
-  setText("bookedMetricLabel", isAdmin ? "Evaluations Booked" : "Booked Evaluations");
-  setText("domainMetricLabel", isAdmin ? "Pending Domains" : "Domain Status");
-  setText("checklistKicker", isAdmin ? "Office Checklist" : "Launch Checklist");
-  setText("checklistTitle", isAdmin ? "Keep the trainer network moving." : "Get the trainer site ready to convert.");
-  setText("focusKicker", isAdmin ? "Admin Overview" : "Trainer Network Support");
-  setText("focusTitle", isAdmin ? "Manage the trainer network, leads, and scheduling." : "In business for yourself, but not by yourself.");
-  setText("focusCopy", isAdmin
-    ? "The admin portal gives Lorenzo's office the overview of trainer onboarding, lead outcomes, calendar requests, and the whole downline."
-    : "The trainer owns their local business development while staying connected to Lorenzo's proven dog training system, professional standards, and brand trust.");
-  setText("focusButton", isAdmin ? "Open Calendar Queue" : "Open Business Path");
-
-  const openTrainerSite = document.getElementById("openTrainerSiteBtn");
-  const saveBtn = document.getElementById("saveBtn");
-  const publishBtn = document.getElementById("publishBtn");
-  if (openTrainerSite) openTrainerSite.textContent = isAdmin ? "Open Selected Trainer Preview" : "Open Trainer Site";
-  if (saveBtn) saveBtn.textContent = isAdmin ? "Save Network View" : "Save Draft";
-  if (publishBtn) publishBtn.textContent = isAdmin ? "Stage Network Update" : "Publish Site";
-}
-
-function renderNavigation() {
-  document.querySelectorAll(".side-nav button").forEach((button) => {
-    const isActive = button.dataset.view === state.activeView;
-    button.classList.toggle("active", isActive);
-  });
-
-  document.querySelectorAll(".view").forEach((view) => view.classList.remove("active"));
-  const active = document.getElementById(`${state.activeView}View`);
-  if (active) active.classList.add("active");
-
-  const titles = {
-    dashboard: session.role === "admin" ? "Admin Dashboard" : "Trainer Dashboard",
-    site: session.role === "admin" ? "Trainer Network" : "Customize Trainer Site",
-    templates: session.role === "admin" ? "Template Controls" : "Template Library",
-    domains: "Domains & DNS",
-    leads: session.role === "admin" ? "Trainer Leads" : "Lead Inbox",
-    business: session.role === "admin" ? "Calendar Queue" : "Trainer Business Path",
-    settings: "Settings"
-  };
-  const title = document.getElementById("viewTitle");
-  if (title) title.textContent = titles[state.activeView] || titles.dashboard;
-}
-
-function renderMetrics() {
-  const isAdmin = session.role === "admin";
-  setText("publishedMetric", isAdmin ? String(state.trainerAccounts.length) : state.published ? "Live" : "Draft");
-  setText("leadMetric", String(state.leads.length));
-  setText("bookedMetric", String(state.leads.filter((lead) => ["evaluation-booked", "client-won", "booked", "won"].includes(lead.status)).length));
-  setText("domainMetric", isAdmin ? "6" : state.domain.status === "active" ? "Active" : "Pending");
-}
-
-function renderChecklist() {
-  const items = session.role === "admin"
-    ? [
-        ["Trainer list loaded", state.trainerAccounts.length > 0, `${state.trainerAccounts.length} trainer records are available.`],
-        ["Portal readiness visible", true, "Each trainer shows readiness, temporary password, and site preview actions."],
-        ["Onboarding link ready", true, "Admin can copy, email, text, or stage a trainer invite."],
-        ["Lead outcomes tracked", state.leads.length > 0, "Trainer leads can move through office scheduling outcomes."],
-        ["Calendar queue staged", true, "Availability and scheduling workflow is mapped for the future calendar integration."]
-      ]
-    : [
-        ["Business identity", Boolean(state.trainer.trainerName && state.trainer.phone && state.trainer.businessName), "Company, trainer name, phone, email, and market are set."],
-        ["Company logo", Boolean(state.trainer.companyLogoData), state.trainer.companyLogoData ? "Logo uploaded for the trainer site header." : "Optional logo can be uploaded for the trainer site header."],
-        ["Landing page copy", Boolean(state.trainer.headline && state.trainer.subheadline), "Hero headline and supporting copy are ready."],
-        ["Services selected", state.services.length >= 3, "At least three services are selected."],
-        ["Template chosen", Boolean(state.template), `Selected: ${selectedTemplate().name}.`],
-        ["Domain prepared", Boolean(state.domain.customDomain), "Custom domain DNS records are generated."],
-        ["Site published", state.published, "Publish when ready for client traffic."]
-      ];
-
-  const target = document.getElementById("checklist");
-  if (!target) return;
-  target.innerHTML = items.map(([name, done, detail]) => `
-    <article class="check-item ${done ? "done" : ""}">
-      <span class="check-dot">${done ? "✓" : "•"}</span>
-      <div><strong>${name}</strong><span>${detail}</span></div>
-    </article>
-  `).join("");
-}
-
-function renderForms() {
-  const form = document.getElementById("siteForm");
-  if (form) {
-    Object.entries(state.trainer).forEach(([key, value]) => {
-      const field = form.elements[key];
-      if (field && field.type !== "file" && field.value !== value) field.value = value;
-    });
-    renderLogoPreview();
-  }
-
-  const domainForm = document.getElementById("domainForm");
-  if (domainForm) {
-    domainForm.elements.domain.value = state.domain.customDomain || "";
-    domainForm.elements.slug.value = `${state.domain.slug}.lorenzosdogtrainingteam.com`;
-  }
-
-  const inviteForm = document.getElementById("onboardingInviteForm");
-  if (inviteForm) {
-    Object.entries(state.inviteDraft).forEach(([key, value]) => {
-      const field = inviteForm.elements[key];
-      if (field && field.value !== value) field.value = value;
-    });
-  }
-}
-
-function renderLogoPreview() {
-  const target = document.getElementById("companyLogoPreview");
-  if (!target) return;
-  target.innerHTML = state.trainer.companyLogoData
-    ? `<img src="${state.trainer.companyLogoData}" alt="${escapeHtml(siteBrandName())} logo">`
-    : "No logo uploaded yet";
-}
-
-function renderTemplates() {
-  const target = document.getElementById("templateGrid");
-  if (!target) return;
-  target.innerHTML = templates.map((template) => `
-    <article class="template-card ${state.template === template.key ? "active" : ""}" data-template="${template.key}">
-      <span>${template.label}</span>
-      <h3>${template.name}</h3>
-      <p>${template.description}</p>
-      <button class="btn ${state.template === template.key ? "btn-red" : "btn-outline"}" data-template="${template.key}">${state.template === template.key ? "Selected" : "Use Template"}</button>
-    </article>
-  `).join("");
-}
-
-function renderServices() {
-  const target = document.getElementById("servicePicker");
-  if (!target) return;
-  target.innerHTML = services.map(([name, description]) => `
-    <label class="service-option">
-      <input type="checkbox" value="${name}" ${state.services.includes(name) ? "checked" : ""}>
-      <span><strong>${name}</strong><span>${description}</span></span>
-    </label>
-  `).join("");
-}
-
-function renderDns() {
-  const target = document.getElementById("dnsRecords");
-  if (!target) return;
-  const domain = cleanDomain(state.domain.customDomain);
-  const apex = domain.replace(/^www\./, "");
-  const records = [
-    ["TXT", `_lorenzo-verify.${apex}`, state.domain.verificationToken, "Proves the trainer owns the domain."],
-    ["CNAME", `www.${apex}`, "trainer-sites.lorenzosdogtrainingteam.com", "Routes www traffic to the trainer site."],
-    ["ALIAS / ANAME", apex, "trainer-sites.lorenzosdogtrainingteam.com", "Routes the root domain when supported by the DNS provider."]
+function adminNav() {
+  return [
+    ["dashboard", "Dashboard", "dashboard"],
+    ["site", "Trainer Network", "globe"],
+    ["trainers", "Trainers", "users"],
+    ["leads", "Leads", "lead"],
+    ["calendar", "Calendar Queue", "calendar"],
+    ["clients", "Clients", "users"],
+    ["reports", "Reports", "report"],
+    ["settings", "Settings", "settings"]
   ];
-  target.innerHTML = records.map(([type, host, value, note]) => `
-    <article class="dns-record">
-      <span>${type}</span>
-      <code>Host: ${host}</code>
-      <code>Value: ${value}</code>
-      <p>${note}</p>
-      <button class="btn btn-outline" data-copy="${host} ${value}">Copy Record</button>
-    </article>
-  `).join("");
 }
 
-function cleanDomain(domain) {
-  return (domain || "www.trainerdomain.com").toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+function trainerNav() {
+  return [
+    ["dashboard", "Trainer Dashboard", "dashboard"],
+    ["setup", "Website Setup", "monitor"],
+    ["site", "Customize Site", "edit"],
+    ["templates", "Design Templates", "monitor"],
+    ["leads", "Lead Inbox", "lead", 3],
+    ["calendar", "Calendar", "calendar"],
+    ["media", "Photos & Videos", "media"],
+    ["reviews", "Reviews", "star"],
+    ["domains", "Domains & DNS", "globe"],
+    ["business", "Trainer Business Path", "shield"],
+    ["settings", "Settings", "settings"]
+  ];
 }
 
-function renderLeads() {
-  const list = document.getElementById("leadList");
-  if (list) {
-    list.innerHTML = state.leads.map((lead) => `
-      <article class="lead-card">
-        <div>
-          <span class="pill ${lead.status}">${statusLabel(lead.status)}</span>
-          <h3>${lead.name}</h3>
-          <p><strong>${lead.need}</strong> for ${lead.dog || "dog"}</p>
-          <p>${lead.message}</p>
-          <p>${lead.phone} · ${lead.email}</p>
-        </div>
-        <div class="lead-actions">
-          ${pipelineStages.map(([status, label]) => `
-            <button class="btn btn-outline" data-lead="${lead.id}" data-status="${status}">${label}</button>
-          `).join("")}
-        </div>
-      </article>
-    `).join("");
-  }
-
-  const pipeline = document.getElementById("pipeline");
-  if (pipeline) {
-    pipeline.innerHTML = pipelineStages.map(([stage, label]) => {
-      const count = state.leads.filter((lead) => lead.status === stage).length;
-      return `<article><strong>${label}</strong><span>${count} lead${count === 1 ? "" : "s"}</span></article>`;
-    }).join("");
-  }
-}
-
-function renderTrainerDirectory() {
-  const target = document.getElementById("trainerDirectory");
-  if (target) {
-    target.innerHTML = state.trainerAccounts.map((trainer) => `
-      <article class="trainer-site-card">
-        <div class="trainer-site-thumb ${escapeHtml(trainer.template || "local-service")}">
-          <div class="thumb-top"></div>
-          <div class="thumb-hero"><strong>${escapeHtml(trainer.businessName || "Lorenzo's Dog Training Team")}</strong><span>${escapeHtml(trainer.market || "Local Market")}</span></div>
-          <div class="thumb-grid"><i></i><i></i><i></i></div>
-        </div>
-        <div class="trainer-site-main">
-          <div class="trainer-site-title">
-            <div>
-              <h3>${escapeHtml(trainer.trainerName || "Unnamed Trainer")}</h3>
-              <p>${escapeHtml(trainer.businessName || "Lorenzo's Dog Training Team")}</p>
-            </div>
-            <span class="status-badge ${trainer.portalStatus === "ready" ? "ready" : "pending"}">${trainer.portalStatus === "ready" ? "Trainer Portal Ready" : "Pending Review"}</span>
-          </div>
-          <div class="trainer-site-details">
-            <span><strong>Location</strong>${escapeHtml([trainer.market, trainer.state].filter(Boolean).join(", ") || "Market pending")}</span>
-            <span><strong>Phone</strong>${escapeHtml(trainer.phone || "(866) 436-4959")}</span>
-            <span><strong>Email</strong>${escapeHtml(trainer.email || "office@lorenzosdogtrainingteam.com")}</span>
-            <span><strong>Template</strong>${escapeHtml(templateName(trainer.template))}</span>
-          </div>
-          <div class="trainer-site-actions">
-            <button class="btn btn-red" type="button" data-preview-trainer="${escapeHtml(trainer.id)}">View Trainer Site</button>
-            <button class="btn btn-outline" type="button" data-copy-trainer-invite="${escapeHtml(trainer.id)}">Copy Onboarding Link</button>
-            <span class="temp-password">Temp: ${escapeHtml(trainer.temporaryPassword || TEMP_TRAINER_PASSWORD)}</span>
-          </div>
-        </div>
-      </article>
-    `).join("");
-  }
-
-  const pending = document.getElementById("pendingImports");
-  if (pending) {
-    pending.innerHTML = state.pendingImports.length ? state.pendingImports.map((file) => `
-      <article>
-        <strong>${escapeHtml(file.name)}</strong>
-        <p>${escapeHtml(file.type || "Document")} uploaded for office review. CSV imports populate immediately; documents will connect to parsing after Supabase and backend processing are added.</p>
-      </article>
-    `).join("") : "";
-  }
-}
-
-function templateName(key) {
-  return templates.find((template) => template.key === key)?.name || selectedTemplate().name;
-}
-
-function loadTrainerIntoPreview(trainer) {
-  state.trainer = {
-    ...state.trainer,
-    trainerName: trainer.trainerName || state.trainer.trainerName,
-    businessName: trainer.businessName || state.trainer.businessName,
-    market: trainer.market || state.trainer.market,
-    state: trainer.state || state.trainer.state,
-    phone: trainer.phone || state.trainer.phone,
-    email: trainer.email || state.trainer.email,
-    serviceArea: trainer.serviceArea || state.trainer.serviceArea,
-    headline: `Professional dog training in ${trainer.market || "your area"} backed by Lorenzo's proven system.`,
-    subheadline: `Book an evaluation with ${trainer.trainerName || "your trainer"} for obedience, behavior modification, specialty training, and real-world owner leadership.`
-  };
-  state.template = trainer.template || state.template;
-  state.published = Boolean(trainer.published);
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
-}
-
-function trainerOnboardingUrl() {
-  return `${window.location.origin}${window.location.pathname}?role=trainer&temp=${TEMP_TRAINER_PASSWORD}`;
-}
-
-function renderOnboardingLinks() {
-  const link = trainerOnboardingUrl();
-  setText("trainerOnboardingLink", link);
-  setText("personalizedInviteLink", personalizedInviteUrl());
-  const email = document.getElementById("emailOnboardingLink");
-  const sms = document.getElementById("smsOnboardingLink");
-  const personalEmail = document.getElementById("emailPersonalInvite");
-  const personalSms = document.getElementById("smsPersonalInvite");
-  const body = `Your Lorenzo trainer portal is ready.\n\nLogin link: ${link}\nTemporary password: ${TEMP_TRAINER_PASSWORD}\n\nAfter your first login, create your permanent password and follow the portal tutorial.`;
-  const personalBody = `Your Lorenzo trainer portal is ready.\n\nLogin link: ${personalizedInviteUrl()}\nTemporary password: ${TEMP_TRAINER_PASSWORD}\n\nAfter your first login, create your permanent password and follow the portal tutorial.`;
-  if (email) {
-    email.href = `mailto:?subject=${encodeURIComponent("Your Lorenzo trainer portal is ready")}&body=${encodeURIComponent(body)}`;
-  }
-  if (sms) {
-    sms.href = `sms:?&body=${encodeURIComponent(body)}`;
-  }
-  if (personalEmail) {
-    personalEmail.href = `mailto:${encodeURIComponent(state.inviteDraft.inviteEmail || "")}?subject=${encodeURIComponent("Your Lorenzo trainer portal is ready")}&body=${encodeURIComponent(personalBody)}`;
-  }
-  if (personalSms) {
-    personalSms.href = `sms:${encodeURIComponent(state.inviteDraft.invitePhone || "")}?&body=${encodeURIComponent(personalBody)}`;
-  }
-}
-
-function renderStagedInvites() {
-  const target = document.getElementById("stagedInvites");
-  if (!target) return;
-  if (!state.stagedInvites.length) {
-    target.innerHTML = "";
-    return;
-  }
-
-  target.innerHTML = state.stagedInvites.slice(0, 6).map((invite) => {
-    const trainer = state.trainerAccounts.find((item) => item.id === invite.trainerId);
-    const name = trainer?.trainerName || "Trainer invite";
-    const market = [trainer?.market, trainer?.state].filter(Boolean).join(", ") || "Market pending";
-    return `
-      <article>
-        <div>
-          <strong>${escapeHtml(name)}</strong>
-          <span>${escapeHtml(market)} · Temp password: ${escapeHtml(invite.temporaryPassword || TEMP_TRAINER_PASSWORD)}</span>
-          <code>${escapeHtml(invite.link || trainerOnboardingUrl())}</code>
-        </div>
-        <button class="btn btn-outline" type="button" data-copy-staged-invite="${escapeHtml(invite.link || trainerOnboardingUrl())}">Copy</button>
-      </article>
-    `;
-  }).join("");
-}
-
-function personalizedInviteUrl() {
-  const params = new URLSearchParams({
-    role: "trainer",
-    temp: TEMP_TRAINER_PASSWORD
-  });
-  if (state.inviteDraft.inviteName) params.set("name", state.inviteDraft.inviteName);
-  if (state.inviteDraft.inviteMarket) params.set("market", state.inviteDraft.inviteMarket);
-  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-}
-
-function renderFirstLoginFlow() {
-  const dashboard = document.getElementById("dashboardView");
-  if (!dashboard || session.role !== "trainer") return;
-  dashboard.querySelectorAll(".trainer-first-login").forEach((node) => node.remove());
-
-  if (!state.auth.trainerPasswordSet) {
-    dashboard.insertAdjacentHTML("afterbegin", `
-      <section class="panel password-setup trainer-first-login">
-        <p class="micro">First Login Security</p>
-        <h2>Create your permanent trainer password.</h2>
-        <p class="panel-copy">You are signed in with the temporary password <strong>${TEMP_TRAINER_PASSWORD}</strong>. Create a permanent password before continuing through the trainer portal walkthrough.</p>
-        <form id="permanentPasswordForm">
-          <label>Permanent Password<input name="permanentPassword" type="password" placeholder="Create permanent password" minlength="6"></label>
-          <button class="btn btn-red" type="submit">Save Password & Start Tutorial</button>
-        </form>
-      </section>
-    `);
-    return;
-  }
-
-  if (!state.auth.tutorialDismissed) {
-    dashboard.insertAdjacentHTML("afterbegin", `
-      <section class="panel tutorial-card trainer-first-login">
-        <p class="micro">Trainer Portal Tutorial</p>
-        <h2>Welcome to your back office.</h2>
-        <p class="panel-copy">This walkthrough shows how to finish the trainer site, add services, manage leads, prepare domain records, and share calendar availability with Lorenzo's office.</p>
-        <div class="tutorial-steps">
-          <article><strong>1. Profile</strong><span>Add company name, logo, slogan, trainer name, market, phone, and email.</span></article>
-          <article><strong>2. Website</strong><span>Edit hero copy, choose services, upload media, and preview templates without retyping details.</span></article>
-          <article><strong>3. Leads</strong><span>Track New, Contacted, Evaluation Booked, Program Offered, Client Won, or Lost outcomes.</span></article>
-          <article><strong>4. Calendar</strong><span>Use availability slots so the office can schedule in-person or online consultations.</span></article>
-        </div>
-        <button class="btn btn-navy" id="dismissTutorialBtn" type="button">Finish Tutorial</button>
-      </section>
-    `);
-  }
-}
-
-function renderPreview(targetId, compact) {
-  const target = document.getElementById(targetId);
-  if (!target) return;
-  const template = selectedTemplate();
-  const trainer = state.trainer;
-  const selected = selectedServices();
-  const heroTitle = compact ? "h2" : "h2";
-
-  target.innerHTML = `
-    <div class="${compact ? "site-mini" : "site-mini"}">
-      ${siteBrandRow()}
-      <section class="site-hero">
-        <div class="site-hero-content">
-          <p class="micro">${siteBrandName()}</p>
-          <${heroTitle}>${trainer.headline}</${heroTitle}>
-          <p>${trainer.subheadline}</p>
-          <a class="btn btn-red" href="tel:${trainer.phone.replace(/[^0-9]/g, "")}">${trainer.primaryCta}</a>
-        </div>
-      </section>
-      <div class="site-strip">
-        <div><strong>${trainer.market}, ${trainer.state}</strong><span>Local market</span></div>
-        <div><strong>${template.name}</strong><span>Site template</span></div>
-        <div><strong>${state.published ? "Published" : "Draft"}</strong><span>Site status</span></div>
+function renderSidebar() {
+  const isAdmin = session.role === "admin";
+  const isSetupFlow = !isAdmin && ["setup", "templates"].includes(state.activeView);
+  if (isSetupFlow) {
+    document.getElementById("sidebar").innerHTML = `
+      <a class="brand-card" href="../index.html"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"></a>
+      <div>
+        <p class="portal-tag">Trainer Network Setup</p>
+        <h2 style="margin:6px 0 14px;color:#fff">${state.activeView === "templates" ? "Preview Templates" : "Website Setup Wizard"}</h2>
       </div>
-      <section class="site-section">
-        <h3>Dog training services</h3>
-        <div class="site-services">
-          ${selected.slice(0, compact ? 3 : 6).map((service) => `<article><h3>${service}</h3><p>${serviceDescription(service)}</p></article>`).join("")}
-        </div>
-      </section>
+      <div class="setup-steps">
+        ${["Business Identity","About & Trust","Services","Media Uploads","Availability","Preview Templates","Customize Site","Review & Publish"].map((step, index) => {
+          const active = (state.activeView === "setup" && index === 0) || (state.activeView === "templates" && index === 5);
+          const complete = state.activeView === "templates" ? index < 5 : index > 0 && index < 5;
+          return `<button class="wizard-step ${active ? "active" : ""} ${complete ? "complete" : ""}" data-view="${index === 5 ? "templates" : index === 6 ? "site" : "setup"}"><span class="step-num">${complete ? "✓" : index + 1}</span><div><strong>${step}</strong><span>${active ? "Current step" : complete ? "Completed" : "Coming next"}</span></div></button>`;
+        }).join("")}
+      </div>
+      <div class="side-spacer"></div>
+      <div class="progress-box"><strong>Setup Progress</strong><p>${state.activeView === "templates" ? "Step 6 of 8" : "Step 1 of 8"}</p><div class="progress-line"><span style="width:${state.activeView === "templates" ? "75%" : "12.5%"}"></span></div></div>
+      <div class="side-help"><strong>Need Help?</strong><p>Our team is here to help you build the perfect site.</p><button class="btn btn-outline btn-full">Contact Support</button></div>
+    `;
+    return;
+  }
+  const nav = isAdmin ? adminNav() : trainerNav();
+  document.getElementById("sidebar").innerHTML = `
+    <a class="brand-card" href="../index.html"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"></a>
+    <div>
+      <p class="portal-tag">${isAdmin ? "Admin Portal" : "Trainer Network"}</p>
+    </div>
+    <nav class="side-nav" aria-label="${isAdmin ? "Admin" : "Trainer"} navigation">
+      ${nav.map(([view, label, iconName, count]) => `
+        <button class="nav-btn ${state.activeView === view ? "active" : ""}" data-view="${view}">
+          ${icon(iconName)}
+          <span>${label}</span>
+          ${count ? `<span class="nav-count">${count}</span>` : ""}
+        </button>
+      `).join("")}
+    </nav>
+    <div class="side-spacer"></div>
+    <div class="side-help">
+      <strong>${isAdmin ? "Trainer Network" : "Supabase-ready"}</strong>
+      <p>${isAdmin ? "Invite trainers, monitor leads, track scheduling outcomes, and review site readiness." : "Demo data saves in this browser now. Website setup, media, leads, and calendar screens are staged for backend connection."}</p>
+      ${isAdmin ? `<button class="btn btn-outline btn-full" data-view="site">Invite Trainer</button>` : ""}
+    </div>
+    <div class="side-user">
+      <span class="avatar">${isAdmin ? "LO" : `<img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=90&q=60" alt="">`}</span>
+      <div><strong>${isAdmin ? "Lorenzo's Office" : "Eric Beck"}</strong><span>${isAdmin ? "Administrator" : "Certified Lorenzo Trainer"}</span></div>
     </div>
   `;
+}
+
+function renderTopbar() {
+  const isAdmin = session.role === "admin";
+  const titles = isAdmin
+    ? {
+        dashboard: ["Admin Dashboard", "Overview of your trainer network and lead activity"],
+        site: ["Trainer Network", "Invite trainers, review readiness, and open trainer site previews"],
+        trainers: ["Trainers", "Directory of active and staged trainers"],
+        leads: ["Leads Pipeline", "Office lead management and outcome tracking"],
+        calendar: ["Calendar Queue", "Evaluation requests and trainer availability"],
+        clients: ["Clients", "Client records across the network"],
+        reports: ["Reports", "Network activity and lead outcome reporting"],
+        settings: ["Settings", "Admin preferences and demo controls"]
+      }
+    : {
+        dashboard: [`Welcome back, ${state.trainer.trainerName}`, "Here's what's happening with your business."],
+        setup: ["Website Setup Wizard", "Your business details automatically populate every template."],
+        site: [state.trainer.companyName, "Powered by Lorenzo's Dog Training Team"],
+        templates: ["Preview Your Trainer Site", "Your details automatically populate every style. Switch styles without losing your information."],
+        leads: ["Leads Pipeline", "Track every lead from new contact to client won."],
+        calendar: ["Calendar", "Request-based scheduling and availability slots."],
+        media: ["Media & Reviews Library", "Upload training videos, photos, review screenshots, and testimonials."],
+        reviews: ["Reviews", "Collect and showcase proof from real training clients."],
+        domains: ["Domains & DNS", "Connect a custom domain to your trainer site."],
+        business: ["Trainer Business Path", "Build your client base inside Lorenzo's system."],
+        settings: ["Settings", "Trainer profile and demo controls."]
+      };
+  const [title, sub] = titles[state.activeView] || titles.dashboard;
+  document.getElementById("topbar").innerHTML = `
+    <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
+    <div class="top-actions">
+      ${isAdmin ? `
+        <button class="btn btn-outline">May 12 - May 18, 2025</button>
+        <button class="btn btn-outline">${icon("settings")} Filters</button>
+        <button class="btn btn-red">Export Report</button>
+      ` : `
+        <button class="btn btn-outline" data-open-preview>View My Site</button>
+        <button class="btn btn-red">${state.activeView === "site" ? "Publish Request" : "Book Evaluation"}</button>
+      `}
+      <span class="bell">${icon("message")}</span>
+      <button class="profile-chip"><span class="avatar"><img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=90&q=60" alt=""></span><span><strong>${isAdmin ? "Eric Beck" : state.trainer.trainerName}</strong><small>${isAdmin ? "Administrator" : "Trainer"}</small></span></button>
+    </div>
+  `;
+}
+
+function renderView() {
+  const target = document.getElementById("workspaceView");
+  const role = session.role;
+  if (role === "admin") {
+    target.innerHTML = adminScreens[state.activeView]?.() || adminScreens.dashboard();
+  } else {
+    target.innerHTML = trainerScreens[state.activeView]?.() || trainerScreens.dashboard();
+  }
+}
+
+const adminScreens = {
+  dashboard() {
+    return `
+      ${metricGrid([
+        ["users", "Total Trainers", "48", "+2 this week", "up"],
+        ["monitor", "Active Trainers", "42", "87% of total", ""],
+        ["lead", "New Leads", "68", "+14 this week", "up"],
+        ["calendar", "Evaluation Booked", "26", "+6 this week", "up"],
+        ["calendar", "Follow-Up Scheduled", "31", "+5 this week", "up"],
+        ["trophy", "Client Won", "18", "+3 this week", "up"],
+        ["settings", "Lost Leads", "9", "+2 this week", "down"]
+      ])}
+      <div class="dashboard-grid">
+        ${panel("Downline Performance <small>(This Month)</small>", `<button class="btn btn-outline">View Full Report</button>`, trainerPerformanceTable())}
+        ${panel("Calendar Queue <small>(Requested via Trainer Network)</small>", `<button class="btn btn-outline" data-view="calendar">View Calendar</button>`, calendarQueueTable())}
+      </div>
+      <div class="bottom-grid">
+        ${panel("Lead Outcome <small>(Update Lead Status)</small>", "", leadOutcomeTable())}
+        ${panel("Lead Outcome Summary <small>(This Month)</small>", "", leadSummary())}
+      </div>
+    `;
+  },
+  site() {
+    return `
+      <div class="admin-network-grid">
+        ${panel("Invite Trainer Into Network", `<button class="btn btn-red" id="stageInvite">Stage Invite</button>`, inviteBuilder(), "pad")}
+        ${panel("Onboarding Flow", "", onboardingFlow(), "pad")}
+      </div>
+      <br>
+      ${panel("Trainer Network Readiness", `<button class="btn btn-outline">Bulk Import CSV</button>`, trainerCards())}
+    `;
+  },
+  leads() {
+    return pipelineScreen(true);
+  },
+  calendar() {
+    return panel("Calendar Queue", `<button class="btn btn-outline">View Calendar</button>`, calendarQueueTable());
+  },
+  trainers() {
+    return panel("Trainer Directory", `<button class="btn btn-red" data-view="site">Invite Trainer</button>`, trainerPerformanceTable());
+  },
+  clients() {
+    return panel("Clients", "", simpleClientTable());
+  },
+  reports() {
+    return `${metricGrid([["lead","Total Leads","127","+18% this month","up"],["trophy","Client Won","18","+3 this week","up"],["calendar","Evaluations","26","+6 this week","up"],["monitor","Active Sites","42","87% of network",""]])}${panel("Lead Outcome Summary", "", leadSummary())}`;
+  },
+  settings() {
+    return panel("Settings", "", `<p class="panel-copy">Demo settings are staged for Supabase Auth, role permissions, email invitations, SMS invitations, and trainer network import rules.</p><button class="btn btn-outline" id="logoutBtn">Log Out</button>`, "pad");
+  }
+};
+
+const trainerScreens = {
+  dashboard() {
+    return `
+      <div class="trainer-dashboard-grid">
+        ${panel("Today's Overview", `<span>May 12, 2025</span>`, `<div class="overview-strip">${overviewItem("27","Total Leads","+3 this week")}${overviewItem("18","Active Clients","+2 this week")}${overviewItem("5","Evaluations","This week")}${overviewItem("7","Follow-Ups","Due this week")}</div>`, "pad")}
+        ${panel("My Trainer Site", `<button class="btn btn-outline" data-open-preview>View Site</button>`, `<div class="site-row"><div><span class="status live">Published</span><p class="panel-copy">ericbeckdogtraining.com</p><p><strong>Theme:</strong> ${escapeHtml(themes[state.selectedTheme][1])}</p><small>Last updated: May 10, 2025</small></div><div class="site-thumb">Professional dog training in Cleveland, OH</div></div>`, "pad")}
+        ${panel("Site Health", `<button class="btn btn-outline">View All</button>`, healthList(["Domain: Connected","SSL Certificate: Active","SEO: Good","Mobile Friendly: Passed"]), "pad")}
+      </div>
+      <div class="dashboard-grid">
+        ${panel("Lead Pipeline", `<button class="btn btn-red">+ Add Lead</button><button class="btn btn-outline" data-view="leads">View All Leads</button>`, pipelineBody(false))}
+        <div class="grid">
+          ${panel("Today's Calendar", `<button class="btn btn-outline">Request-Based Scheduling</button><button class="btn btn-outline">View Calendar</button>`, calendarSlots(), "pad")}
+          ${panel("Quick Actions", "", `<div class="quick-actions"><button class="btn btn-light">Add New Lead</button><button class="btn btn-light">Book Evaluation</button><button class="btn btn-light" data-view="media">Upload Media</button><button class="btn btn-light">Request Review</button></div>`, "pad")}
+        </div>
+      </div>
+      <div class="dashboard-grid">
+        ${panel("Site Performance <small>(This Month)</small>", "", `<div class="overview-strip">${overviewItem("1,248","Website Visitors","+18% last month")}${overviewItem("67","Evaluation Requests","+12% last month")}${overviewItem("23","New Leads","+15% last month")}${overviewItem("8","5-Star Reviews","+2 vs last month")}</div>`, "pad")}
+        ${panel("Media Center", "", `<div class="overview-strip">${overviewItem("12","Videos","Files")}${overviewItem("48","Photos","Files")}${overviewItem("6","Review Screenshots","Pending Approval")}</div><button class="btn btn-outline btn-full" data-view="media">Go to Media Library</button>`, "pad")}
+      </div>
+    `;
+  },
+  setup() {
+    return wizardScreen();
+  },
+  templates() {
+    return themePickerScreen();
+  },
+  site() {
+    return builderScreen();
+  },
+  leads() {
+    return pipelineScreen(false);
+  },
+  calendar() {
+    return panel("Today's Calendar", `<button class="btn btn-outline">View Full Calendar</button>`, calendarSlots(), "pad");
+  },
+  media() {
+    return mediaLibraryScreen();
+  },
+  reviews() {
+    return mediaLibraryScreen("Reviews");
+  },
+  domains() {
+    return panel("Domains & DNS", "", `<p class="panel-copy">Connect the trainer's custom domain by adding the generated DNS records. Real domain verification will connect after backend setup.</p><div class="staged-link">CNAME www.ericbeckdogtraining.com → trainer-sites.lorenzosdogtrainingteam.com</div>`, "pad");
+  },
+  business() {
+    return panel("Trainer Business Path", "", `<h2>Become a Professional Trainer</h2><p class="panel-copy">Build your client base, manage your territory, and grow inside Lorenzo's Academy / Certification system. In business for yourself, but not by yourself.</p>`, "pad");
+  },
+  settings() {
+    return adminScreens.settings();
+  }
+};
+
+function metricGrid(items) {
+  return `<div class="metrics-grid ${items.length === 4 ? "trainer-metrics" : ""}">${items.map(([iconName, label, value, change, tone]) => `
+    <article class="metric-card"><div class="metric-top">${icon(iconName)} ${label}</div><strong>${value}</strong><span class="${tone}">${change}</span></article>
+  `).join("")}</div>`;
+}
+
+function panel(title, action, body, extra = "") {
+  return `<section class="panel ${extra}"><div class="panel-head"><h2>${title}</h2><div class="row-actions">${action || ""}</div></div>${extra === "pad" ? body : `<div>${body}</div>`}</section>`;
+}
+
+function trainerPerformanceTable() {
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Trainer</th><th>New Leads</th><th>Booked Evaluations</th><th>Client Won</th><th>Active Site</th></tr></thead><tbody>${trainers.map((trainer, index) => `
+    <tr><td><div class="row-person"><span class="avatar"><img src="https://images.unsplash.com/photo-${index % 2 ? "1494790108377-be9c29b29330" : "1560250097-0b93528c311a"}?auto=format&fit=crop&w=90&q=60" alt=""></span><div><strong>${trainer[0]}</strong><small>${trainer[1]}</small></div></div></td><td><strong>${trainer[2]}</strong></td><td><strong>${trainer[3]}</strong></td><td><strong>${trainer[4]}</strong></td><td><span class="status ${trainer[5] === "Live" ? "live" : "draft"}">${trainer[5]}</span></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function calendarQueueTable() {
+  return `<div class="table-wrap"><table class="data-table queue-table"><thead><tr><th>Date & Time</th><th>Client / Dog</th><th>Requested Service</th><th>Trainer</th><th>Actions</th></tr></thead><tbody>${leads.slice(0, 5).map((lead, index) => `
+    <tr><td>May ${12 + index}<small>${index === 0 ? "Today" : index === 1 ? "Today" : "Tomorrow"}, ${index % 2 ? "1:00 PM" : "10:00 AM"}</small></td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2].split(" ")[0]})</small></div></div></td><td>${lead[4]}</td><td><div class="row-person"><span class="avatar"><img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=90&q=60" alt=""></span><div><strong>${trainers[index % trainers.length][0]}</strong><small>${trainers[index % trainers.length][1]}</small></div></div></td><td><button class="btn btn-outline">View</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function leadOutcomeTable() {
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead Date</th><th>Client / Dog</th><th>Service Interest</th><th>Current Status</th><th>Reason (if Lost)</th><th>Actions</th></tr></thead><tbody>${leads.map((lead, index) => `
+    <tr><td>May ${12 - index}, 2025</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2]})</small></div></div></td><td>${lead[4]}</td><td><select class="select-pill" data-lead-index="${index}">${["New","Contacted","Evaluation Booked","Follow-Up Scheduled","Program Offered","Client Won","Lost"].map(status => `<option ${lead[5] === status ? "selected" : ""}>${status}</option>`).join("")}</select></td><td>${lead[5] === "Lost" ? `<select class="select-pill"><option>Price concern</option><option>No response</option><option>Chose another trainer/company</option><option>Location issue</option></select>` : "—"}</td><td><button class="btn btn-red">Update</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function leadSummary() {
+  const labels = [["New", 68, "#246bfe"], ["Contacted", 18, "#69b6ff"], ["Evaluation Booked", 14, "#7759d8"], ["Follow-Up Scheduled", 10, "#ff9f1a"], ["Program Offered", 8, "#20a566"], ["Client Won", 18, "#0b7e49"], ["Lost", 9, "#d20f32"]];
+  return `<div class="donut-panel"><div class="donut"></div><div class="legend">${labels.map(([name, value, color]) => `<div class="legend-row"><span class="dot" style="background:${color}"></span><span>${name}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
+}
+
+function inviteBuilder() {
+  const link = `${location.origin}${location.pathname}?role=trainer&temp=${TEMP_PASSWORD}&name=${encodeURIComponent(state.inviteDraft.name || "New Trainer")}&market=${encodeURIComponent(state.inviteDraft.market || "Market Pending")}`;
+  return `
+    <div class="invite-box">
+      <div class="field"><label>Trainer Name<input name="invite-name" value="${escapeHtml(state.inviteDraft.name)}" placeholder="Trainer name"></label></div>
+      <div class="field"><label>Email<input name="invite-email" value="${escapeHtml(state.inviteDraft.email)}" placeholder="trainer@email.com"></label></div>
+      <div class="field"><label>Phone<input name="invite-phone" value="${escapeHtml(state.inviteDraft.phone)}" placeholder="(555) 555-5555"></label></div>
+      <div class="field"><label>Market / Territory<input name="invite-market" value="${escapeHtml(state.inviteDraft.market)}" placeholder="Cleveland, OH"></label></div>
+    </div>
+    <br><div class="staged-link" id="inviteLink">${escapeHtml(link)}</div>
+    <br><div class="row-actions"><button class="btn btn-outline" id="copyInvite">Copy Link</button><a class="btn btn-outline" href="mailto:?subject=Your Lorenzo trainer portal is ready&body=${encodeURIComponent(link)}">Email Invite</a><a class="btn btn-outline" href="sms:?&body=${encodeURIComponent(link)}">Text Invite</a></div>
+    ${state.stagedInvites.length ? `<br><h3>Staged Invites</h3>${state.stagedInvites.map(invite => `<div class="staged-link"><strong>${escapeHtml(invite.name)}</strong><br>${escapeHtml(invite.link)}</div>`).join("<br>")}` : ""}
+  `;
+}
+
+function onboardingFlow() {
+  return `<div class="checklist">${["Send onboarding invite","Trainer logs in with doglovers26","Trainer creates permanent password","Portal tutorial starts","Trainer completes site setup","Admin sees Trainer Portal Ready"].map((item, index) => `<div class="checkline"><span class="step-num">${index + 1}</span><div><strong>${item}</strong><small>${index === 0 ? "Copy, email, or text the invite link." : "Connected to backend later."}</small></div></div>`).join("")}</div>`;
+}
+
+function trainerCards() {
+  return `<div class="trainer-card-grid">${trainers.map((trainer, index) => `<article class="network-card"><div class="site-thumb">${trainer[0]}<br>${trainer[1]}</div><h3>${trainer[0]}</h3><p>${trainer[1]} · Temp password: ${TEMP_PASSWORD}</p><div class="row-actions"><span class="status ${trainer[5] === "Live" ? "live" : "draft"}">${trainer[5] === "Live" ? "Trainer Portal Ready" : "Draft Site"}</span><button class="btn btn-outline" data-open-preview>View Trainer Site</button></div></article>`).join("")}</div>`;
+}
+
+function pipelineScreen(admin) {
+  return `${panel(admin ? "Leads Pipeline" : "Lead Pipeline", `<button class="btn btn-outline">All Sources</button><button class="btn btn-red">+ Add Lead</button>`, pipelineBody(true), "pad")}`;
+}
+
+function pipelineBody(showSearch) {
+  const counts = [["New", 27], ["Contacted", 18], ["Evaluation Booked", 12], ["Program Offered", 8], ["Client Won", 24], ["Lost", 6]];
+  return `
+    <div class="pipeline-tabs">${counts.map(([label, count]) => `<article><span>${label}</span><strong>${count}</strong></article>`).join("")}</div>
+    ${showSearch ? `<div class="row-actions" style="margin-bottom:12px"><input class="select-pill" style="min-width:260px" placeholder="Search leads..."><button class="btn btn-outline">Filters</button><button class="btn btn-outline">Export</button></div>` : ""}
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Owner / Dog</th><th>Breed</th><th>Service Interest</th><th>Status</th><th>Next Follow-Up</th><th>Admin Office Note</th></tr></thead><tbody>${leads.map((lead, index) => `<tr><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]}</small></div></div></td><td>${lead[2]}</td><td>${lead[4]}</td><td><span class="status ${statusClass(lead[5])}">${lead[5]}</span></td><td>${lead[6]}</td><td>${lead[7] || "—"}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function wizardScreen() {
+  return `<div class="wizard-layout wizard-layout-simple">
+    <div class="wizard-main">
+      <section class="wizard-card"><span class="step-label">Step 1 of 8</span><h2>Business Identity</h2><p class="panel-copy">Let's start with your business details. This information will automatically populate your website templates and pages.</p><div class="info-callout">${icon("lead")}<div><strong>Lorenzo's Dog Training Team appears by default until your company name is added.</strong><br>You only need to enter this once. We'll use it everywhere on your site.</div></div>${businessForm()}</section>
+      <section class="panel pad"><div class="row-actions" style="justify-content:space-between"><button class="btn btn-outline">Save Draft</button><div><button class="btn btn-outline">Back</button> <button class="btn btn-red" data-view="templates">Continue</button></div></div></section>
+    </div>
+    <div class="wizard-side">
+      ${panel("Live Header Preview", "", headerPreview(), "pad")}
+      ${panel("Completion Checklist", "", completionChecklist(), "pad")}
+      ${panel("What's next?", "", `<p class="panel-copy">Next, you'll tell your story and add credentials to build trust with your future clients.</p>`, "pad")}
+    </div>
+  </div>`;
+}
+
+function businessForm() {
+  const t = state.trainer;
+  const fields = [["companyName","Company Name *"],["slogan","Company Slogan"],["trainerName","Trainer Name *"],["title","Trainer Title"],["phone","Phone *"],["email","Email *"],["market","City / State *"],["serviceArea","Service Area *"]];
+  return `<div class="form-grid">${fields.map(([key, label]) => `<div class="field"><label>${label}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}${["instagram","facebook","google"].map(key => `<div class="field"><label>${key[0].toUpperCase() + key.slice(1)}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}</div>`;
+}
+
+function headerPreview() {
+  return `<div class="header-preview"><div class="preview-tabs"><span>Before (Default)</span><span class="active">After (Your Company)</span></div><div class="mock-header"><img src="../assets/lorenzo-logo-transparent.png" alt=""><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><div class="mock-header"><strong>${escapeHtml(state.trainer.companyName)}<small>Powered by Lorenzo's Dog Training Team</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div></div>`;
+}
+
+function completionChecklist() {
+  return `<div class="checklist">${["Company Name","Phone Number","Service Area","At least 1 Social Link"].map((item, index) => `<div class="checkline"><span class="check">${index === 1 ? "✓" : "○"}</span><div><strong>${item}</strong><small>${index === 1 ? "Add your primary phone number" : "Required before continuing"}</small></div></div>`).join("")}</div>`;
+}
+
+function themePickerScreen() {
+  const groups = ["Lorenzo Classic", "Premium Local Pro", "Advanced Specialty"];
+  return `<div class="theme-layout"><div>${groups.map(group => `<section class="theme-section"><div class="theme-title"><h2>${groups.indexOf(group) + 1}. ${group}</h2><p>${group === "Lorenzo Classic" ? "Timeless layouts with a focus on trust and results." : group === "Premium Local Pro" ? "Modern, premium designs that showcase expertise and local trust." : "Purpose-built layouts for specialty and advanced training businesses."}</p><strong>4 Styles</strong></div><div class="theme-grid">${themes.map((theme, index) => theme[0] === group ? themeCard(theme, index) : "").join("")}</div></section>`).join("")}</div>${profileCard()}</div>`;
+}
+
+function themeCard(theme, index) {
+  return `<article class="theme-card"><div class="theme-shot"><strong>${theme[2]}</strong><button class="btn btn-red" style="width:max-content;margin-top:10px">Book an Evaluation</button></div><div class="theme-body"><h3>${theme[1]}</h3><p><span class="status live">${theme[3]}</span></p><div class="row-actions"><button class="btn btn-outline">Preview Desktop</button><button class="btn btn-outline">Preview Mobile</button></div><button class="btn btn-red btn-full" data-theme="${index}">${state.selectedTheme === index ? "Selected" : "Use This Style"}</button></div></article>`;
+}
+
+function profileCard() {
+  return `<aside class="panel profile-card"><button class="btn btn-outline" style="float:right" data-view="setup">Edit Details</button><img class="profile-logo" src="../assets/lorenzo-logo-transparent.png" alt=""><h2>Your Saved Site Profile</h2><h3>${escapeHtml(state.trainer.companyName)}</h3><p class="panel-copy">${escapeHtml(state.trainer.slogan)}</p><ul class="profile-list"><li>${icon("users")}<div><strong>Trainer Name</strong><span>${escapeHtml(state.trainer.trainerName)}<br>${escapeHtml(state.trainer.title)}</span></div></li><li>${icon("globe")}<div><strong>Location</strong><span>${escapeHtml(state.trainer.market)}<br>Serving Northeast Ohio</span></div></li><li>${icon("message")}<div><strong>Phone</strong><span>${escapeHtml(state.trainer.phone)}</span></div></li><li>${icon("media")}<div><strong>Media Uploaded</strong><span>12 photos, 6 videos, 6 reviews</span></div></li></ul><button class="btn btn-outline btn-full" data-view="setup">Back to Edit Details</button><br><br><button class="btn btn-red btn-full" data-view="site">Continue to Customize Header & Hero</button></aside>`;
+}
+
+function builderScreen() {
+  return `<div class="builder-layout"><aside class="builder-panel"><h2>Section Flow</h2><p class="panel-copy">Drag to reorder approved sections.</p><div class="section-stack">${["Header","Hero","Services","Reviews","Training Videos","Photo Gallery","Availability Calendar","Consultation Form","About Trainer","Service Area","FAQ","Final CTA"].map((section, index) => `<div class="section-item ${index < 2 || index === 11 ? "locked" : ""}"><span>${section}</span><span>${index < 2 || index === 11 ? "Locked" : "⋮⋮"}</span></div>`).join("")}</div><br><button class="btn btn-navy btn-full">+ Add Section</button></aside><main class="site-canvas">${siteCanvas()}</main><aside class="builder-panel">${heroSettings()}</aside></div>`;
+}
+
+function siteCanvas() {
+  return `<div class="canvas-top"><strong>Desktop Preview</strong><div class="canvas-tabs"><button>Lorenzo Default</button><button class="active">Company Name</button><button>Company Logo</button><button>Trainer Name</button></div></div><div class="site-header-preview"><strong>${escapeHtml(state.trainer.companyName)}<small>${escapeHtml(state.trainer.market)}</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><section class="hero-preview"><div><div class="editable-box"><h2>${escapeHtml(state.trainer.headline)}</h2></div><div class="editable-box"><p>${escapeHtml(state.trainer.subheadline)}</p></div><div class="row-actions"><button class="btn btn-red">${escapeHtml(state.trainer.cta)}</button><button class="btn btn-outline">View Services</button></div><p style="margin-top:16px">Powered by Lorenzo's Dog Training Team</p></div></section><section class="service-preview"><p class="step-label">Our Services</p><h2>Training services built for real dogs and real owners.</h2><div class="service-cards">${["Obedience Training","Behavior Modification","Puppy Training","Board & Train"].map(service => `<article>${icon("shield")}<strong>${service}</strong><p class="panel-copy">Real-world results and owner leadership.</p></article>`).join("")}</div></section><section class="availability"><p class="step-label">Upcoming Availability</p><h2>Book your evaluation.</h2><div class="calendar-grid">${["Fri, May 16","Sat, May 17","Sun, May 18","Mon, May 19","Tue, May 20","Wed, May 21"].map(day => `<article><strong>${day}</strong><button class="btn btn-outline">9:00 AM</button><br><br><button class="btn btn-outline">2:00 PM</button></article>`).join("")}</div></section>`;
+}
+
+function heroSettings() {
+  const t = state.trainer;
+  return `<h2>Hero Settings</h2><p class="panel-copy">Customize your hero section content.</p><div class="setting-stack"><div class="field"><label>Headline<textarea name="trainer-headline">${escapeHtml(t.headline)}</textarea></label></div><div class="field"><label>Subheadline<textarea name="trainer-subheadline">${escapeHtml(t.subheadline)}</textarea></label></div><div class="field"><label>CTA Button Text<input name="trainer-cta" value="${escapeHtml(t.cta)}"></label></div><div class="media-image" style="border-radius:10px"></div><button class="btn btn-outline btn-full">Change Media</button><div class="toggle-row"><strong>Show Lorenzo trust mark</strong><span class="toggle"></span></div><div class="field"><label>Header Style<select><option>Lorenzo Default</option></select></label></div><button class="btn btn-red btn-full">Apply Changes</button></div>`;
+}
+
+function mediaLibraryScreen(title = "Media Library") {
+  const cards = [["Heel Training Session","MP4 · 120 MB","Published"],["Rocky Progress","MP4 · 85 MB","Published"],["Place Command","MP4 · 96 MB","Pending"],["Recall Practice","MP4 · 75 MB","Published"],["Team Photo","JPG · 2.3 MB","Published"],["Training Facility","JPG · 1.8 MB","Published"],["Google Review - 5 Stars","PNG · 620 KB","Published"],["Facebook Review","PNG · 612 KB","Pending"]];
+  return `<section class="panel pad"><div class="panel-head"><h2>${title}</h2><button class="btn btn-red">Upload Now</button></div><div class="media-tabs"><button class="active">All</button><button>Videos</button><button>Photos</button><button>Screenshots</button><button>Logos</button><button>Reviews</button><button>Testimonials</button></div><div class="media-grid">${cards.map(card => `<article class="media-card"><div class="media-image"></div><div class="media-body"><h3>${card[0]}</h3><p>${card[1]}</p><span class="status ${card[2] === "Published" ? "live" : "draft"}">${card[2]}</span></div></article>`).join("")}</div><div class="storage-bar"><span></span></div><p class="panel-copy">Storage Used: 2.4 GB of 10 GB</p></section>`;
+}
+
+function calendarSlots() {
+  return `<div class="calendar-list">${["9:00 AM|In-person consultation|60 min","10:30 AM|Online consultation|45 min","12:00 PM|Available|30 min buffer","1:30 PM|Online consultation|45 min","3:00 PM|In-person consultation|60 min","6:00 PM|Available|30 min buffer"].map(slot => { const [time, title, meta] = slot.split("|"); return `<div class="time-slot"><strong>${time}</strong><div>${title}<small>${meta}</small></div><button class="btn btn-outline">Request This Time</button></div>`; }).join("")}</div>`;
+}
+
+function overviewItem(value, label, note) {
+  return `<div class="overview-item"><strong>${value}</strong><span>${label}</span><small class="up">${note}</small></div>`;
+}
+
+function healthList(items) {
+  return `<ul class="health-list">${items.map(item => `<li><span><span class="check">✓</span> ${item}</span></li>`).join("")}</ul>`;
+}
+
+function simpleClientTable() {
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Program</th><th>Status</th></tr></thead><tbody>${leads.slice(0, 5).map((lead, i) => `<tr><td>${lead[0]}</td><td>${lead[1]}</td><td>${lead[4]}</td><td><span class="status ${statusClass(lead[5])}">${lead[5]}</span></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function statusClass(status) {
+  if (status === "Client Won") return "won";
+  if (status === "Lost") return "lost";
+  if (status === "Program Offered") return "offered";
+  if (status.includes("Follow")) return "follow";
+  if (status.includes("Booked") || status === "New") return "booked";
+  return "connected";
 }
 
 function renderPublicSite() {
   const target = document.getElementById("publicSite");
   if (!target) return;
-  const trainer = state.trainer;
-  const template = selectedTemplate();
-  const selected = selectedServices();
-  renderPublicHeader();
-
-  target.innerHTML = `
-    <div class="site-full">
-      <section class="site-hero">
-        <div class="site-hero-content">
-          <p class="micro">${trainer.businessName}</p>
-          <h1>${trainer.headline}</h1>
-          <p>${trainer.subheadline}</p>
-          <a class="btn btn-red" href="tel:${trainer.phone.replace(/[^0-9]/g, "")}">${trainer.primaryCta}</a>
-        </div>
-      </section>
-      <div class="site-body">
-        <div class="site-strip">
-          <div><strong>${trainer.trainerName}</strong><span>Certified Lorenzo trainer</span></div>
-          <div><strong>${trainer.market}, ${trainer.state}</strong><span>${trainer.serviceArea}</span></div>
-          <div><strong>${trainer.phone}</strong><span>${trainer.email}</span></div>
-        </div>
-        <section class="site-section" id="services">
-          <p class="micro">${template.label}</p>
-          <h2>Training services built for real homes and real owner leadership.</h2>
-          <div class="site-services">
-            ${selected.map((service) => `<article><h3>${service}</h3><p>${serviceDescription(service)}</p></article>`).join("")}
-          </div>
-        </section>
-        <section class="site-section" id="method">
-          <p class="micro">The Technique Behind Our Training</p>
-          <h2>Professional evaluation first. A tailored path after that.</h2>
-          <p>Lorenzo's system is built around technique, timing, communication, leadership, rules, and boundaries. The trainer evaluates the dog, the owner, the environment, and the goals before recommending a training path.</p>
-        </section>
-        <section class="eval-card" id="evaluation">
-          <div>
-            <h2>Ready to start with ${trainer.trainerName}?</h2>
-            <p>Book an evaluation for obedience, behavior modification, specialty training, or the next right step for your dog.</p>
-          </div>
-          <a class="btn btn-red" href="tel:${trainer.phone.replace(/[^0-9]/g, "")}">Call ${trainer.phone}</a>
-        </section>
-      </div>
-    </div>
-  `;
-}
-
-function renderPublicHeader() {
-  const header = document.getElementById("publicHeader");
-  if (!header) return;
-  header.innerHTML = `
-    <a class="public-brand" href="index.html">
-      ${brandLogoMarkup()}
-      <span><strong>${escapeHtml(siteBrandName())}</strong><span>Powered by Lorenzo's Dog Training Team</span></span>
-    </a>
-    <nav>
-      <a href="#services">Services</a>
-      <a href="#method">Method</a>
-      <a href="#evaluation">Book Evaluation</a>
-    </nav>
-  `;
-}
-
-function siteBrandName() {
-  return state.trainer.businessName?.trim() || "Lorenzo's Dog Training Team";
-}
-
-function brandLogoMarkup() {
-  const src = state.trainer.companyLogoData || "../assets/lorenzo-logo-transparent.png";
-  return `<img src="${src}" alt="${escapeHtml(siteBrandName())}">`;
-}
-
-function siteBrandRow() {
-  return `
-    <div class="site-brand-row">
-      ${brandLogoMarkup()}
-      <div><strong>${escapeHtml(siteBrandName())}</strong><span>Powered by Lorenzo's Dog Training Team</span></div>
-    </div>
-  `;
-}
-
-function serviceDescription(service) {
-  const found = services.find(([name]) => name === service);
-  return found ? found[1] : "Professional training backed by Lorenzo's proven system.";
-}
-
-function setText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
-}
-
-function titleCase(value) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function statusLabel(status) {
-  return pipelineStages.find(([key]) => key === status)?.[1] || titleCase(String(status || "new").replaceAll("-", " "));
+  target.innerHTML = `<div class="site-canvas" style="border:0;border-radius:0;box-shadow:none">${siteCanvas()}</div>`;
 }
 
 function escapeHtml(value) {
@@ -869,364 +557,72 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function normalizeTrainer(row, index) {
-  const get = (...keys) => {
-    for (const key of keys) {
-      const normalized = key.toLowerCase();
-      const underscored = normalized.replace(/\s+/g, "_");
-      if (row[normalized]) return row[normalized];
-      if (row[underscored]) return row[underscored];
-      if (row[key]) return row[key];
-    }
-    return "";
-  };
-  const trainerName = get("trainer name", "name", "trainer", "full name") || `Imported Trainer ${index + 1}`;
-  const market = get("market", "city", "location") || "Local Market";
-  const stateCode = get("state", "st") || "";
-  return {
-    id: `trainer-${Date.now()}-${index}`,
-    trainerName,
-    businessName: get("company name", "business name", "company") || "Lorenzo's Dog Training Team",
-    market,
-    state: stateCode,
-    phone: get("phone", "phone number", "mobile") || "(866) 436-4959",
-    email: get("email", "email address") || "office@lorenzosdogtrainingteam.com",
-    serviceArea: get("service area", "territory", "area") || [market, stateCode].filter(Boolean).join(", "),
-    domain: get("domain", "website", "url"),
-    portalStatus: "ready",
-    temporaryPassword: TEMP_TRAINER_PASSWORD
-  };
-}
-
-function parseCsv(text) {
-  const rows = [];
-  let current = [];
-  let value = "";
-  let quoted = false;
-
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    const next = text[i + 1];
-    if (char === '"' && quoted && next === '"') {
-      value += '"';
-      i += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (char === "," && !quoted) {
-      current.push(value.trim());
-      value = "";
-    } else if ((char === "\n" || char === "\r") && !quoted) {
-      if (value || current.length) {
-        current.push(value.trim());
-        rows.push(current);
-        current = [];
-        value = "";
-      }
-      if (char === "\r" && next === "\n") i += 1;
-    } else {
-      value += char;
-    }
-  }
-
-  if (value || current.length) {
-    current.push(value.trim());
-    rows.push(current);
-  }
-
-  const headers = (rows.shift() || []).map((header) => header.trim().toLowerCase());
-  return rows
-    .filter((row) => row.some(Boolean))
-    .map((row) => Object.fromEntries(headers.map((header, index) => [header, row[index] || ""])));
-}
-
-function importTrainerFile(file) {
-  if (!file) {
-    showToast("Choose a trainer list first");
-    return;
-  }
-
-  const ext = file.name.split(".").pop().toLowerCase();
-  if (["csv", "txt"].includes(ext)) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const imported = parseCsv(String(reader.result || "")).map(normalizeTrainer);
-      if (!imported.length) {
-        showToast("No trainer rows found");
-        return;
-      }
-      state.trainerAccounts = [...imported, ...state.trainerAccounts];
-      saveState(`${imported.length} trainer portal${imported.length === 1 ? "" : "s"} ready`);
-    };
-    reader.readAsText(file);
-    return;
-  }
-
-  state.pendingImports.unshift({
-    name: file.name,
-    type: ext.toUpperCase(),
-    uploadedAt: new Date().toISOString()
-  });
-  saveState("Trainer document uploaded for review");
-}
-
-function loginAs(role) {
-  saveSession(role);
-  state.activeView = "dashboard";
-  render();
-  showToast(role === "admin" ? "Admin portal opened" : "Trainer portal opened");
-}
-
 document.addEventListener("click", (event) => {
-  const quickLogin = event.target.closest("[data-login-role]");
-  if (quickLogin) {
-    loginAs(quickLogin.dataset.loginRole);
+  const loginRole = event.target.closest("[data-login-role]");
+  if (loginRole) {
+    saveSession(loginRole.dataset.loginRole);
+    state.activeView = "dashboard";
+    saveState(`${loginRole.dataset.loginRole === "admin" ? "Admin" : "Trainer"} portal opened`);
     return;
   }
-
-  const nav = event.target.closest(".side-nav button");
-  if (nav) {
-    state.activeView = nav.dataset.view;
-    saveState("View changed");
+  const view = event.target.closest("[data-view]");
+  if (view) {
+    state.activeView = view.dataset.view;
+    saveState();
     return;
   }
-
-  const jump = event.target.closest("[data-jump]");
-  if (jump) {
-    state.activeView = jump.dataset.jump;
-    saveState("Opened section");
+  const theme = event.target.closest("[data-theme]");
+  if (theme) {
+    state.selectedTheme = Number(theme.dataset.theme);
+    saveState("Theme selected");
     return;
   }
-
-  const template = event.target.closest("[data-template]");
-  if (template) {
-    state.template = template.dataset.template;
-    saveState("Template selected");
+  if (event.target.closest("[data-open-preview]")) {
+    window.open("site.html", "_blank", "noopener");
     return;
   }
-
-  const previewTrainer = event.target.closest("[data-preview-trainer]");
-  if (previewTrainer) {
-    const trainer = state.trainerAccounts.find((item) => item.id === previewTrainer.dataset.previewTrainer);
-    if (trainer) {
-      loadTrainerIntoPreview(trainer);
-      window.open("site.html", "_blank", "noopener");
-      showToast("Trainer site preview opened");
-    }
+  if (event.target.id === "stageInvite") {
+    const link = document.getElementById("inviteLink")?.textContent || "";
+    state.stagedInvites.unshift({ name: state.inviteDraft.name || "New Trainer", link });
+    saveState("Trainer invite staged");
     return;
   }
-
-  const copyTrainerInvite = event.target.closest("[data-copy-trainer-invite]");
-  if (copyTrainerInvite) {
-    const trainer = state.trainerAccounts.find((item) => item.id === copyTrainerInvite.dataset.copyTrainerInvite);
-    const link = `${trainerOnboardingUrl()}&trainer=${encodeURIComponent(trainer?.id || "")}`;
-    navigator.clipboard?.writeText(link);
-    showToast("Trainer onboarding link copied");
+  if (event.target.id === "copyInvite") {
+    navigator.clipboard?.writeText(document.getElementById("inviteLink")?.textContent || "");
+    showToast("Invite link copied");
     return;
   }
-
-  const copyStagedInvite = event.target.closest("[data-copy-staged-invite]");
-  if (copyStagedInvite) {
-    navigator.clipboard?.writeText(copyStagedInvite.dataset.copyStagedInvite);
-    showToast("Staged invite copied");
-    return;
-  }
-
-  const statusButton = event.target.closest("[data-lead][data-status]");
-  if (statusButton) {
-    const lead = state.leads.find((item) => item.id === statusButton.dataset.lead);
-    if (lead) lead.status = statusButton.dataset.status;
-    saveState("Lead updated");
-    return;
-  }
-
-  const copyButton = event.target.closest("[data-copy]");
-  if (copyButton) {
-    navigator.clipboard?.writeText(copyButton.dataset.copy);
-    showToast("DNS record copied");
-    return;
-  }
-
-  if (event.target.id === "publishBtn") {
-    if (session.role === "admin") {
-      saveState("Network update staged");
-      return;
-    }
-    state.published = true;
-    saveState("Trainer site published");
-    return;
-  }
-
-  if (event.target.id === "saveBtn") {
-    saveState("Draft saved");
-    return;
-  }
-
-  if (event.target.id === "verifyDomainBtn") {
-    state.domain.status = "pending";
-    state.domain.verificationToken = `ldtt-verify-${Math.random().toString(16).slice(2, 10)}`;
-    saveState("DNS records generated");
-    return;
-  }
-
-  if (event.target.id === "addLeadBtn") {
-    const count = state.leads.length + 1;
-    state.leads.unshift({
-      id: `lead-${Date.now()}`,
-      name: `New Dog Owner ${count}`,
-      phone: "(216) 555-0100",
-      email: `lead${count}@example.com`,
-      dog: "Bella",
-      need: "Dog obedience training",
-      message: "I need help with leash pulling, jumping, and better listening at home.",
-      status: "new"
-    });
-    saveState("Demo lead added");
-    return;
-  }
-
-  if (event.target.id === "seedTrainersBtn") {
-    state.trainerAccounts = structuredClone(demoTrainers);
-    saveState("Demo trainer list loaded");
-    return;
-  }
-
-  if (event.target.id === "copyOnboardingLink") {
-    navigator.clipboard?.writeText(trainerOnboardingUrl());
-    showToast("Onboarding link copied");
-    return;
-  }
-
-  if (event.target.id === "copyPersonalInvite") {
-    navigator.clipboard?.writeText(personalizedInviteUrl());
-    showToast("Personal trainer invite copied");
-    return;
-  }
-
-  if (event.target.id === "stageInviteBtn") {
-    state.stagedInvites.unshift({
-      link: trainerOnboardingUrl(),
-      temporaryPassword: TEMP_TRAINER_PASSWORD,
-      stagedAt: new Date().toISOString()
-    });
-    saveState("Trainer invite staged for later sending");
-    return;
-  }
-
-  if (event.target.id === "dismissTutorialBtn") {
-    state.auth.tutorialDismissed = true;
-    saveState("Tutorial completed");
-    return;
-  }
-
-  if (event.target.id === "resetBtn") {
-    state = structuredClone(defaultState);
-    saveState("Demo data reset");
-    return;
-  }
-
   if (event.target.id === "logoutBtn") {
-    logout();
+    session = { loggedIn: false, role: "" };
+    sessionStorage.removeItem(SESSION_KEY);
+    render();
   }
 });
 
 document.addEventListener("input", (event) => {
   const field = event.target;
-  if (field.closest("#siteForm") && field.name) {
-    state.trainer[field.name] = field.value;
-    if (["trainerName", "market"].includes(field.name)) {
-      state.domain.slug = slugify(`${state.trainer.trainerName}-${state.trainer.market}`);
-    }
+  if (field.name?.startsWith("trainer-")) {
+    const key = field.name.replace("trainer-", "");
+    state.trainer[key] = field.value;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    renderMetrics();
-    renderChecklist();
-    renderPreview("dashboardPreview", false);
-    renderPreview("sitePreview", true);
+    render();
   }
-
-  if (field.closest("#onboardingInviteForm") && field.name) {
-    state.inviteDraft[field.name] = field.value;
+  if (field.name?.startsWith("invite-")) {
+    const key = field.name.replace("invite-", "");
+    state.inviteDraft[key] = field.value;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    renderOnboardingLinks();
-  }
-
-  if (field.closest("#domainForm") && field.name === "domain") {
-    state.domain.customDomain = field.value;
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    renderDns();
-  }
-
-  if (field.closest("#servicePicker")) {
-    state.services = Array.from(document.querySelectorAll("#servicePicker input:checked")).map((input) => input.value);
-    saveState("Services updated");
-  }
-});
-
-document.addEventListener("change", (event) => {
-  const field = event.target;
-  if (field.name === "companyLogoFile" && field.files?.[0]) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.trainer.companyLogoData = String(reader.result || "");
-      saveState("Company logo uploaded");
-    };
-    reader.readAsDataURL(field.files[0]);
+    render();
   }
 });
 
 document.addEventListener("submit", (event) => {
   event.preventDefault();
-
-  if (event.target.id === "trainerImportForm") {
-    importTrainerFile(document.getElementById("trainerImportFile")?.files?.[0]);
-    event.target.reset();
-    return;
+  if (event.target.id === "loginForm") {
+    const username = event.target.elements.username.value.trim().toLowerCase();
+    saveSession(username === "admin" ? "admin" : "trainer");
+    state.activeView = "dashboard";
+    saveState("Portal opened");
   }
-
-  if (event.target.id === "onboardingInviteForm") {
-    const name = state.inviteDraft.inviteName.trim() || "New Trainer";
-    const marketParts = state.inviteDraft.inviteMarket.split(",").map((part) => part.trim()).filter(Boolean);
-    const newTrainer = {
-      id: `trainer-invite-${Date.now()}`,
-      trainerName: name,
-      businessName: "Lorenzo's Dog Training Team",
-      market: marketParts[0] || "Market Pending",
-      state: marketParts[1] || "",
-      phone: state.inviteDraft.invitePhone || "(866) 436-4959",
-      email: state.inviteDraft.inviteEmail || "office@lorenzosdogtrainingteam.com",
-      serviceArea: state.inviteDraft.inviteMarket || "Service area pending",
-      portalStatus: "ready",
-      temporaryPassword: TEMP_TRAINER_PASSWORD,
-      template: "local-service",
-      published: false
-    };
-    state.trainerAccounts.unshift(newTrainer);
-    state.stagedInvites.unshift({
-      trainerId: newTrainer.id,
-      link: personalizedInviteUrl(),
-      temporaryPassword: TEMP_TRAINER_PASSWORD,
-      stagedAt: new Date().toISOString()
-    });
-    saveState("Trainer onboarding invite staged");
-    return;
-  }
-
-  if (event.target.id === "permanentPasswordForm") {
-    const password = event.target.elements.permanentPassword.value.trim();
-    if (password.length < 6) {
-      showToast("Use at least 6 characters");
-      return;
-    }
-    state.auth.trainerPassword = password;
-    state.auth.trainerPasswordSet = true;
-    state.auth.tutorialDismissed = false;
-    saveState("Permanent password saved");
-    return;
-  }
-
-  if (event.target.id !== "loginForm") return;
-  const username = event.target.elements.username.value.trim().toLowerCase();
-  const role = username === "admin" ? "admin" : "trainer";
-  loginAs(role);
 });
 
 render();
