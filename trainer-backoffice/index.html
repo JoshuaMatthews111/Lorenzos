@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lorenzo Trainer Sites Portal</title>
-  <meta name="description" content="Admin and trainer portal for Lorenzo trainer sites, leads, clients, calendar, and website setup.">
+  <title>Lorenzo Trainer Network Portal</title>
+  <meta name="description" content="Admin and trainer portal for Lorenzo trainer network, leads, clients, calendar, onboarding, and website setup.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="is-logged-out">
@@ -32,12 +32,12 @@
         <img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team">
       </a>
       <div class="portal-label">
-        <span id="portalKicker">Trainer Sites Portal</span>
-        <strong id="portalTitle">Trainer Website System</strong>
+        <span id="portalKicker">Trainer Network Portal</span>
+        <strong id="portalTitle">Trainer Network</strong>
       </div>
       <nav class="side-nav" id="sideNav" aria-label="Back office navigation">
         <button class="active" data-view="dashboard">Dashboard</button>
-        <button data-view="site">My Trainer Site</button>
+        <button data-view="site">Trainer Network</button>
         <button data-view="templates">Design Templates</button>
         <button data-view="domains">Domains & DNS</button>
         <button data-view="leads">Lead Inbox</button>
@@ -57,7 +57,7 @@
           <h1 id="viewTitle">Trainer Dashboard</h1>
         </div>
         <div class="header-actions">
-          <a class="btn btn-outline" href="site.html" target="_blank" rel="noopener">Open Trainer Site</a>
+          <a class="btn btn-outline" id="openTrainerSiteBtn" href="site.html" target="_blank" rel="noopener">Open Trainer Site</a>
           <button class="btn btn-navy" id="saveBtn">Save Draft</button>
           <button class="btn btn-red" id="publishBtn">Publish Site</button>
           <button class="btn btn-outline" id="logoutBtn">Log Out</button>
@@ -72,13 +72,20 @@
           <article><strong id="domainMetric">Pending</strong><span id="domainMetricLabel">Domain Status</span></article>
         </div>
 
-        <section class="panel admin-only">
+        <section class="panel admin-only network-onboarding">
           <div class="panel-head">
             <div>
               <p class="micro">Trainer Onboarding</p>
-              <h2>Invite a new trainer into the portal.</h2>
+              <h2>Invite a new trainer into the network.</h2>
               <p class="panel-copy">Use this staged onboarding link for demos now. When email and text service are connected, these same actions can send the trainer their portal-ready message and temporary password.</p>
             </div>
+          </div>
+          <div class="onboarding-flow">
+            <article><span>01</span><strong>Send Invite</strong><p>Admin sends or copies the onboarding link.</p></article>
+            <article><span>02</span><strong>Temporary Login</strong><p>Trainer enters with doglovers26.</p></article>
+            <article><span>03</span><strong>Set Password</strong><p>Trainer creates a permanent password.</p></article>
+            <article><span>04</span><strong>Portal Tutorial</strong><p>Trainer walks through setup and templates.</p></article>
+            <article><span>05</span><strong>Network Ready</strong><p>Admin sees Trainer Portal Ready.</p></article>
           </div>
           <div class="onboarding-link">
             <code id="trainerOnboardingLink"></code>
@@ -103,7 +110,7 @@
           </section>
 
           <section class="panel navy-panel">
-            <p class="micro" id="focusKicker">Trainer Site Network</p>
+            <p class="micro" id="focusKicker">Trainer Network</p>
             <h2 id="focusTitle">In business for yourself, but not by yourself.</h2>
             <p id="focusCopy">The trainer owns their local business development while staying connected to Lorenzo's proven dog training system, professional standards, and brand trust.</p>
             <button class="btn btn-red" id="focusButton" data-jump="business">Open Business Path</button>
@@ -123,6 +130,36 @@
       </section>
 
       <section class="view" id="siteView">
+        <section class="panel admin-only">
+          <div class="panel-head">
+            <div>
+              <p class="micro">Trainer Network Onboarding</p>
+              <h2>Create and share a trainer onboarding link.</h2>
+              <p class="panel-copy">Enter the trainer's basic details, stage the invite, and copy/email/text the link. This is the workflow that will connect to real email and text sending later.</p>
+            </div>
+          </div>
+          <div class="invite-builder">
+            <form class="form invite-form" id="onboardingInviteForm">
+              <label>Trainer Name<input name="inviteName" placeholder="Trainer name"></label>
+              <label>Email<input name="inviteEmail" type="email" placeholder="trainer@email.com"></label>
+              <label>Phone<input name="invitePhone" placeholder="(555) 555-5555"></label>
+              <label>Market / Territory<input name="inviteMarket" placeholder="Cleveland, OH"></label>
+              <button class="btn btn-red" type="submit">Stage Trainer Invite</button>
+            </form>
+            <div class="invite-preview">
+              <span class="status-badge ready">Trainer Onboarding Link</span>
+              <code id="personalizedInviteLink"></code>
+              <p>The trainer receives this portal-ready link with temporary password <strong>doglovers26</strong>. Their first login asks them to create a permanent password and starts the walkthrough.</p>
+              <div class="share-actions">
+                <button class="btn btn-red" id="copyPersonalInvite" type="button">Copy Invite Link</button>
+                <a class="btn btn-navy" id="emailPersonalInvite" href="#">Email Invite</a>
+                <a class="btn btn-outline" id="smsPersonalInvite" href="#">Text Invite</a>
+              </div>
+            </div>
+          </div>
+          <div class="staged-invites" id="stagedInvites"></div>
+        </section>
+
         <section class="panel admin-only">
           <div class="panel-head">
             <div>
@@ -150,8 +187,8 @@
         <section class="panel admin-only">
           <div class="panel-head">
             <div>
-              <p class="micro">Trainer Sites</p>
-              <h2>Trainer site readiness and previews.</h2>
+              <p class="micro">Trainer Network</p>
+              <h2>Trainer network readiness and previews.</h2>
               <p class="panel-copy">This is the admin view: a clean list of trainers, their portal readiness, a small site thumbnail, and actions to view or stage the trainer site. The admin does not edit the dog-owner landing page form here.</p>
             </div>
             <button class="btn btn-outline" id="seedTrainersBtn" type="button">Load Demo Trainers</button>
@@ -226,7 +263,7 @@
         <section class="panel admin-only">
           <p class="micro">Trainer Library</p>
           <h2>Admin uses the Trainers tab to manage site templates.</h2>
-          <p class="panel-copy">The template library belongs to the trainer customization flow. Admins manage trainer readiness, imports, onboarding links, and site previews from Trainer Sites.</p>
+          <p class="panel-copy">The template library belongs to the trainer customization flow. Admins manage trainer readiness, imports, onboarding links, and site previews from Trainer Network.</p>
         </section>
       </section>
 

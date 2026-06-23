@@ -1,4 +1,4 @@
-const STORE_KEY = "lorenzoTrainerSitesPortal.v2";
+const STORE_KEY = "lorenzoTrainerNetworkPortal.v3";
 const SESSION_KEY = "lorenzoTrainerSitesSession.v1";
 
 const templates = [
@@ -152,6 +152,12 @@ const defaultState = {
   trainerAccounts: demoTrainers,
   pendingImports: [],
   stagedInvites: [],
+  inviteDraft: {
+    inviteName: "",
+    inviteEmail: "",
+    invitePhone: "",
+    inviteMarket: ""
+  },
   trainer: {
     companyLogoData: "",
     trainerName: "Eric Beck",
@@ -178,6 +184,7 @@ const defaultState = {
 let state = loadState();
 let session = loadSession();
 applyUrlView();
+applyInvitePrefill();
 
 function applyUrlView() {
   const params = new URLSearchParams(window.location.search);
@@ -186,6 +193,26 @@ function applyUrlView() {
   if (allowed.includes(view)) {
     state.activeView = view;
   }
+}
+
+function applyInvitePrefill() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("role") !== "trainer") return;
+  const invitedName = params.get("name");
+  const invitedMarket = params.get("market");
+  if (!invitedName && !invitedMarket) return;
+
+  if (invitedName) {
+    state.trainer.trainerName = invitedName;
+  }
+  if (invitedMarket) {
+    const marketParts = invitedMarket.split(",").map((part) => part.trim()).filter(Boolean);
+    state.trainer.market = marketParts[0] || state.trainer.market;
+    state.trainer.state = marketParts[1] || state.trainer.state;
+    state.trainer.serviceArea = invitedMarket;
+  }
+  state.domain.slug = slugify(`${state.trainer.trainerName}-${state.trainer.market}`);
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
 }
 
 function loadState() {
@@ -201,7 +228,8 @@ function loadState() {
       domain: { ...defaultState.domain, ...(parsed.domain || {}) },
       trainerAccounts: parsed.trainerAccounts || structuredClone(defaultState.trainerAccounts),
       pendingImports: parsed.pendingImports || [],
-      stagedInvites: parsed.stagedInvites || []
+      stagedInvites: parsed.stagedInvites || [],
+      inviteDraft: { ...defaultState.inviteDraft, ...(parsed.inviteDraft || {}) }
     };
   } catch {
     return structuredClone(defaultState);
@@ -286,6 +314,7 @@ function render() {
   renderLeads();
   renderTrainerDirectory();
   renderOnboardingLinks();
+  renderStagedInvites();
   renderFirstLoginFlow();
   renderPreview("dashboardPreview", false);
   renderPreview("sitePreview", true);
@@ -306,7 +335,7 @@ function renderRoleChrome() {
   const navLabels = isAdmin
     ? {
         dashboard: "Dashboard",
-        site: "Trainer Sites",
+        site: "Trainer Network",
         templates: "Template Controls",
         domains: "Domains & DNS",
         leads: "Trainer Leads",
@@ -332,22 +361,29 @@ function renderRoleChrome() {
   if (portalTitle) portalTitle.textContent = isAdmin ? "Network Command Center" : "Trainer Website System";
   if (sideCard) {
     sideCard.textContent = isAdmin
-      ? "Demo data shows how Lorenzo's office can manage trainers, trainer sites, leads, clients, and the calendar queue."
+      ? "Demo data shows how Lorenzo's office can manage the trainer network, leads, clients, onboarding, and the calendar queue."
       : "Demo data saves in this browser now. Trainers can set up their site, media, leads, calendar availability, and domain.";
   }
 
-  setText("publishedMetricLabel", isAdmin ? "Active Trainer Sites" : "Site Status");
+  setText("publishedMetricLabel", isAdmin ? "Active Trainers" : "Site Status");
   setText("leadMetricLabel", isAdmin ? "Network Leads" : "Total Leads");
   setText("bookedMetricLabel", isAdmin ? "Evaluations Booked" : "Booked Evaluations");
   setText("domainMetricLabel", isAdmin ? "Pending Domains" : "Domain Status");
   setText("checklistKicker", isAdmin ? "Office Checklist" : "Launch Checklist");
   setText("checklistTitle", isAdmin ? "Keep the trainer network moving." : "Get the trainer site ready to convert.");
-  setText("focusKicker", isAdmin ? "Admin Overview" : "Trainer Site Network");
-  setText("focusTitle", isAdmin ? "Manage trainers, sites, leads, and scheduling." : "In business for yourself, but not by yourself.");
+  setText("focusKicker", isAdmin ? "Admin Overview" : "Trainer Network Support");
+  setText("focusTitle", isAdmin ? "Manage the trainer network, leads, and scheduling." : "In business for yourself, but not by yourself.");
   setText("focusCopy", isAdmin
-    ? "The admin portal gives Lorenzo's office the overview of trainer sites, lead outcomes, calendar requests, and the whole downline."
+    ? "The admin portal gives Lorenzo's office the overview of trainer onboarding, lead outcomes, calendar requests, and the whole downline."
     : "The trainer owns their local business development while staying connected to Lorenzo's proven dog training system, professional standards, and brand trust.");
   setText("focusButton", isAdmin ? "Open Calendar Queue" : "Open Business Path");
+
+  const openTrainerSite = document.getElementById("openTrainerSiteBtn");
+  const saveBtn = document.getElementById("saveBtn");
+  const publishBtn = document.getElementById("publishBtn");
+  if (openTrainerSite) openTrainerSite.textContent = isAdmin ? "Open Selected Trainer Preview" : "Open Trainer Site";
+  if (saveBtn) saveBtn.textContent = isAdmin ? "Save Network View" : "Save Draft";
+  if (publishBtn) publishBtn.textContent = isAdmin ? "Stage Network Update" : "Publish Site";
 }
 
 function renderNavigation() {
@@ -362,11 +398,11 @@ function renderNavigation() {
 
   const titles = {
     dashboard: session.role === "admin" ? "Admin Dashboard" : "Trainer Dashboard",
-    site: session.role === "admin" ? "Trainer Sites" : "Customize Trainer Site",
+    site: session.role === "admin" ? "Trainer Network" : "Customize Trainer Site",
     templates: session.role === "admin" ? "Template Controls" : "Template Library",
     domains: "Domains & DNS",
     leads: session.role === "admin" ? "Trainer Leads" : "Lead Inbox",
-    business: session.role === "admin" ? "Trainer Network" : "Trainer Business Path",
+    business: session.role === "admin" ? "Calendar Queue" : "Trainer Business Path",
     settings: "Settings"
   };
   const title = document.getElementById("viewTitle");
@@ -424,6 +460,14 @@ function renderForms() {
   if (domainForm) {
     domainForm.elements.domain.value = state.domain.customDomain || "";
     domainForm.elements.slug.value = `${state.domain.slug}.lorenzosdogtrainingteam.com`;
+  }
+
+  const inviteForm = document.getElementById("onboardingInviteForm");
+  if (inviteForm) {
+    Object.entries(state.inviteDraft).forEach(([key, value]) => {
+      const field = inviteForm.elements[key];
+      if (field && field.value !== value) field.value = value;
+    });
   }
 }
 
@@ -588,15 +632,60 @@ function trainerOnboardingUrl() {
 function renderOnboardingLinks() {
   const link = trainerOnboardingUrl();
   setText("trainerOnboardingLink", link);
+  setText("personalizedInviteLink", personalizedInviteUrl());
   const email = document.getElementById("emailOnboardingLink");
   const sms = document.getElementById("smsOnboardingLink");
+  const personalEmail = document.getElementById("emailPersonalInvite");
+  const personalSms = document.getElementById("smsPersonalInvite");
   const body = `Your Lorenzo trainer portal is ready.\n\nLogin link: ${link}\nTemporary password: ${TEMP_TRAINER_PASSWORD}\n\nAfter your first login, create your permanent password and follow the portal tutorial.`;
+  const personalBody = `Your Lorenzo trainer portal is ready.\n\nLogin link: ${personalizedInviteUrl()}\nTemporary password: ${TEMP_TRAINER_PASSWORD}\n\nAfter your first login, create your permanent password and follow the portal tutorial.`;
   if (email) {
     email.href = `mailto:?subject=${encodeURIComponent("Your Lorenzo trainer portal is ready")}&body=${encodeURIComponent(body)}`;
   }
   if (sms) {
     sms.href = `sms:?&body=${encodeURIComponent(body)}`;
   }
+  if (personalEmail) {
+    personalEmail.href = `mailto:${encodeURIComponent(state.inviteDraft.inviteEmail || "")}?subject=${encodeURIComponent("Your Lorenzo trainer portal is ready")}&body=${encodeURIComponent(personalBody)}`;
+  }
+  if (personalSms) {
+    personalSms.href = `sms:${encodeURIComponent(state.inviteDraft.invitePhone || "")}?&body=${encodeURIComponent(personalBody)}`;
+  }
+}
+
+function renderStagedInvites() {
+  const target = document.getElementById("stagedInvites");
+  if (!target) return;
+  if (!state.stagedInvites.length) {
+    target.innerHTML = "";
+    return;
+  }
+
+  target.innerHTML = state.stagedInvites.slice(0, 6).map((invite) => {
+    const trainer = state.trainerAccounts.find((item) => item.id === invite.trainerId);
+    const name = trainer?.trainerName || "Trainer invite";
+    const market = [trainer?.market, trainer?.state].filter(Boolean).join(", ") || "Market pending";
+    return `
+      <article>
+        <div>
+          <strong>${escapeHtml(name)}</strong>
+          <span>${escapeHtml(market)} · Temp password: ${escapeHtml(invite.temporaryPassword || TEMP_TRAINER_PASSWORD)}</span>
+          <code>${escapeHtml(invite.link || trainerOnboardingUrl())}</code>
+        </div>
+        <button class="btn btn-outline" type="button" data-copy-staged-invite="${escapeHtml(invite.link || trainerOnboardingUrl())}">Copy</button>
+      </article>
+    `;
+  }).join("");
+}
+
+function personalizedInviteUrl() {
+  const params = new URLSearchParams({
+    role: "trainer",
+    temp: TEMP_TRAINER_PASSWORD
+  });
+  if (state.inviteDraft.inviteName) params.set("name", state.inviteDraft.inviteName);
+  if (state.inviteDraft.inviteMarket) params.set("market", state.inviteDraft.inviteMarket);
+  return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
 }
 
 function renderFirstLoginFlow() {
@@ -935,6 +1024,13 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const copyStagedInvite = event.target.closest("[data-copy-staged-invite]");
+  if (copyStagedInvite) {
+    navigator.clipboard?.writeText(copyStagedInvite.dataset.copyStagedInvite);
+    showToast("Staged invite copied");
+    return;
+  }
+
   const statusButton = event.target.closest("[data-lead][data-status]");
   if (statusButton) {
     const lead = state.leads.find((item) => item.id === statusButton.dataset.lead);
@@ -951,6 +1047,10 @@ document.addEventListener("click", (event) => {
   }
 
   if (event.target.id === "publishBtn") {
+    if (session.role === "admin") {
+      saveState("Network update staged");
+      return;
+    }
     state.published = true;
     saveState("Trainer site published");
     return;
@@ -996,6 +1096,12 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  if (event.target.id === "copyPersonalInvite") {
+    navigator.clipboard?.writeText(personalizedInviteUrl());
+    showToast("Personal trainer invite copied");
+    return;
+  }
+
   if (event.target.id === "stageInviteBtn") {
     state.stagedInvites.unshift({
       link: trainerOnboardingUrl(),
@@ -1037,6 +1143,12 @@ document.addEventListener("input", (event) => {
     renderPreview("sitePreview", true);
   }
 
+  if (field.closest("#onboardingInviteForm") && field.name) {
+    state.inviteDraft[field.name] = field.value;
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    renderOnboardingLinks();
+  }
+
   if (field.closest("#domainForm") && field.name === "domain") {
     state.domain.customDomain = field.value;
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -1067,6 +1179,34 @@ document.addEventListener("submit", (event) => {
   if (event.target.id === "trainerImportForm") {
     importTrainerFile(document.getElementById("trainerImportFile")?.files?.[0]);
     event.target.reset();
+    return;
+  }
+
+  if (event.target.id === "onboardingInviteForm") {
+    const name = state.inviteDraft.inviteName.trim() || "New Trainer";
+    const marketParts = state.inviteDraft.inviteMarket.split(",").map((part) => part.trim()).filter(Boolean);
+    const newTrainer = {
+      id: `trainer-invite-${Date.now()}`,
+      trainerName: name,
+      businessName: "Lorenzo's Dog Training Team",
+      market: marketParts[0] || "Market Pending",
+      state: marketParts[1] || "",
+      phone: state.inviteDraft.invitePhone || "(866) 436-4959",
+      email: state.inviteDraft.inviteEmail || "office@lorenzosdogtrainingteam.com",
+      serviceArea: state.inviteDraft.inviteMarket || "Service area pending",
+      portalStatus: "ready",
+      temporaryPassword: TEMP_TRAINER_PASSWORD,
+      template: "local-service",
+      published: false
+    };
+    state.trainerAccounts.unshift(newTrainer);
+    state.stagedInvites.unshift({
+      trainerId: newTrainer.id,
+      link: personalizedInviteUrl(),
+      temporaryPassword: TEMP_TRAINER_PASSWORD,
+      stagedAt: new Date().toISOString()
+    });
+    saveState("Trainer onboarding invite staged");
     return;
   }
 

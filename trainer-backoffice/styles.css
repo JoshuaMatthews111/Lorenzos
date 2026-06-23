@@ -331,6 +331,63 @@ h3 {
 .navy-panel h2 { color: #fff; }
 .navy-panel p { color: #d8e3f1; }
 
+.network-onboarding {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(206, 18, 51, .15), transparent 26%),
+    linear-gradient(135deg, #fff, #f7fbff);
+}
+
+.network-onboarding:before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(var(--red), var(--navy));
+}
+
+.onboarding-flow {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.onboarding-flow article {
+  position: relative;
+  border: 1px solid #d5e1ef;
+  border-radius: 16px;
+  background: rgba(255,255,255,.88);
+  padding: 16px;
+  box-shadow: 0 10px 26px rgba(4, 32, 69, .06);
+}
+
+.onboarding-flow article span {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-weight: 950;
+  font-size: .74rem;
+  margin-bottom: 12px;
+}
+
+.onboarding-flow article strong {
+  display: block;
+  color: var(--navy);
+  line-height: 1.1;
+  margin-bottom: 6px;
+}
+
+.onboarding-flow article p {
+  margin: 0;
+  font-size: .84rem;
+}
+
 .checklist {
   display: grid;
   gap: 10px;
@@ -678,6 +735,82 @@ h3 {
 .pending-imports article strong {
   display: block;
   color: var(--navy);
+}
+
+.invite-builder {
+  display: grid;
+  grid-template-columns: minmax(320px, .95fr) 1.05fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+.invite-form,
+.invite-preview,
+.staged-invites article {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--soft);
+  padding: 18px;
+}
+
+.invite-form {
+  align-content: start;
+}
+
+.invite-form button {
+  align-self: end;
+}
+
+.invite-preview {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+}
+
+.invite-preview code {
+  display: block;
+  padding: 14px;
+  border: 1px dashed #afbed1;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--navy);
+  font-weight: 850;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.invite-preview p {
+  margin-bottom: 0;
+}
+
+.staged-invites {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.staged-invites article {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.staged-invites strong {
+  display: block;
+  color: var(--navy);
+}
+
+.staged-invites span,
+.staged-invites code {
+  display: block;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.staged-invites code {
+  color: var(--navy);
+  overflow-wrap: anywhere;
 }
 
 .password-setup,
@@ -1191,6 +1324,8 @@ h3 {
   .builder-grid,
   .leads-grid,
   .import-grid,
+  .invite-builder,
+  .onboarding-flow,
   .trainer-row,
   .trainer-site-card,
   .trainer-site-details,
@@ -1212,6 +1347,10 @@ h3 {
   .sidebar {
     padding: 18px;
   }
+  .brand img {
+    width: 148px;
+    height: 58px;
+  }
   .side-nav,
   .metrics,
   .form,
@@ -1222,11 +1361,21 @@ h3 {
   .site-strip {
     grid-template-columns: 1fr;
   }
+  .side-nav {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .side-nav button {
+    padding: 10px;
+    font-size: .82rem;
+  }
   .header-actions .btn,
   .settings-actions .btn {
     width: 100%;
   }
   .lead-card {
+    grid-template-columns: 1fr;
+  }
+  .staged-invites article {
     grid-template-columns: 1fr;
   }
   .lead-actions {
