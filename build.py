@@ -37,7 +37,7 @@ def hero(label,title,text,home=False,buttons=True):
     actions='<div class="hero-actions"><a class="btn btn-red" href="contact.html">Book Evaluation</a><a class="btn btn-outline" href="find-a-trainer.html">Find a Trainer</a></div>' if buttons else ''
     return f'''<section class="{"hero" if home else "page-hero"}"><img class="hero-bg" src="assets/ldtt-team-cover.jpg" alt="Lorenzo's Dog Training Team group photo"><div class="container"><div class="{"hero-copy" if home else "page-hero-copy"}"><span class="eyebrow">{label}</span><h1>{title}</h1><p class="lead">{text}</p>{actions}</div></div></section>'''
 def stats():
-    return '''<div class="stats-wrap"><div class="container stats"><div class="stat"><strong>40+</strong><span>Years Experience</span></div><div class="stat"><strong>Nationwide</strong><span>Trainer Network</span></div><div class="stat"><strong>Thousands</strong><span>Dogs Trained</span></div><div class="stat"><strong>3,700</strong><span>Sq. Ft. Facility</span></div></div></div>'''
+    return '''<div class="stats-wrap"><div class="container stats"><div class="stat"><strong>40+</strong><span>Years Experience</span></div><div class="stat"><strong>Nationwide</strong><span>Trainer Network</span></div><div class="stat"><strong>Thousands</strong><span>Dogs Trained</span></div><div class="stat"><strong>17,000</strong><span>Sq. Ft. Facility</span></div></div></div>'''
 def title(h,p): return f'<div class="section-title"><h2>{h}</h2><p>{p}</p></div>'
 def detail(h,p): return f'<article class="detail-card"><h3>{h}</h3><p>{p}</p></article>'
 def path(icon,h,p,url,featured=""): return f'<article class="path-card {featured}"><div class="icon">{icon}</div><h3>{h}</h3><p>{p}</p><a class="link" href="{url}">Explore this path →</a></article>'

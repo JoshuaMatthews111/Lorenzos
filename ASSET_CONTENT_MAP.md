@@ -29,7 +29,7 @@ Live site details carried into the redesign:
 - Basic Obedience commands: heel, sit, stay, come, down, sit-stay, down-stay.
 - Behavior issues: jumping, chewing, barking, soiling, pulling, aggression toward people/other dogs.
 - Specialty tracks: Object Retrieval, Utility Training, Service Training, Scent Work.
-- Facility: Cleveland, Ohio based, 3,700 sq. ft., obstacle course, indoor/outdoor boarding.
+- Facility: Cleveland, Ohio based, 17,000 sq. ft., obstacle course, indoor/outdoor boarding.
 - Corporate headquarters: 4805 Orchard Rd., Garfield Heights, OH 44128.
 - Trainer states from nav: California, Florida, Georgia, Indiana, Kentucky, Massachusetts, Michigan, New Hampshire, Ohio, Texas.
 - Trainer directory: 25 verified trainers with names, locations, and portrait assets from all 10 live state pages.

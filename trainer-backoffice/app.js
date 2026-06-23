@@ -35,6 +35,15 @@ const trainers = [
   ["Mike Davis", "Youngstown, OH", 5, 2, 1, "Draft"]
 ];
 
+const trainerSiteStats = [
+  { status: "Published & Active", tone: "live", theme: 0, clicks: 1248, forms: 67, rate: "5.4%", note: "Lead flow active" },
+  { status: "Published & Active", tone: "live", theme: 5, clicks: 982, forms: 44, rate: "4.5%", note: "Strong family-obedience traffic" },
+  { status: "Published & Active", tone: "live", theme: 8, clicks: 736, forms: 31, rate: "4.2%", note: "Protection page performing" },
+  { status: "Draft Site", tone: "draft", theme: 6, clicks: 184, forms: 7, rate: "3.8%", note: "Needs final review" },
+  { status: "Published & Active", tone: "live", theme: 2, clicks: 523, forms: 22, rate: "4.2%", note: "Reviews section active" },
+  { status: "Trainer Enrolled - Site Not Started", tone: "enrolled", theme: 10, clicks: 0, forms: 0, rate: "0%", note: "Invite accepted, setup pending" }
+];
+
 const leads = [
   ["Sarah Johnson", "Max", "Goldendoodle", "Website", "Obedience Training", "New", "May 13, 2025 10:00 AM", "Lorenzo office scheduled this lead for Friday 2:00 PM."],
   ["Mike Davis", "Rocky", "German Shepherd", "Google", "Behavior Modification", "Contacted", "May 14, 2025 3:30 PM", "Follow-up scheduled."],
@@ -586,7 +595,28 @@ function onboardingFlow() {
 }
 
 function trainerCards() {
-  return `<div class="trainer-card-grid">${trainers.map((trainer, index) => `<article class="network-card"><div class="site-thumb">${trainer[0]}<br>${trainer[1]}</div><h3>${trainer[0]}</h3><p>${trainer[1]} · Temp password: ${TEMP_PASSWORD}</p><div class="row-actions"><span class="status ${trainer[5] === "Live" ? "live" : "draft"}">${trainer[5] === "Live" ? "Trainer Portal Ready" : "Draft Site"}</span><button class="btn btn-outline" data-open-preview>View Trainer Site</button></div></article>`).join("")}</div>`;
+  return `<div class="trainer-card-grid">${trainers.map((trainer, index) => {
+    const stats = trainerSiteStats[index] || trainerSiteStats[0];
+    const theme = themes[stats.theme] || themes[0];
+    const image = themeImages[stats.theme] || themeImages[0];
+    return `<article class="network-card">
+      <div class="site-thumb network-thumb" style="background-image:linear-gradient(90deg, rgba(3,24,51,.88), rgba(3,24,51,.18)), url('${image}')">
+        <span>${escapeHtml(theme[0])}</span>
+        <strong>${escapeHtml(theme[1])}</strong>
+      </div>
+      <div class="network-card-head">
+        <div><h3>${trainer[0]}</h3><p>${trainer[1]} · Temp password: ${TEMP_PASSWORD}</p></div>
+        <span class="status ${stats.tone}">${stats.status}</span>
+      </div>
+      <div class="readiness-stats">
+        <div><strong>${stats.clicks.toLocaleString()}</strong><span>Site clicks</span></div>
+        <div><strong>${stats.forms.toLocaleString()}</strong><span>Forms submitted</span></div>
+        <div><strong>${stats.rate}</strong><span>Conversion</span></div>
+      </div>
+      <p class="network-note">${escapeHtml(stats.note)}</p>
+      <div class="row-actions"><button class="btn btn-outline" data-open-preview>View Trainer Site</button><button class="btn btn-outline" data-view="leads">View Leads</button></div>
+    </article>`;
+  }).join("")}</div>`;
 }
 
 function pipelineScreen(admin) {

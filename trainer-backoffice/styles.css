@@ -461,6 +461,7 @@ body.is-logged-in .login-screen { display: none; }
 .status.connected { background: #e8f8ef; color: var(--green); }
 .status.draft,
 .status.follow { background: #fff4df; color: #b56b00; }
+.status.enrolled { background: #eef3fa; color: #5d718e; }
 .status.new,
 .status.booked { background: #e9f1ff; color: #075ad7; }
 .status.offered { background: #f0ecff; color: var(--purple); }
@@ -843,11 +844,71 @@ body.is-logged-in .login-screen { display: none; }
 }
 .network-card .site-thumb {
   width: 100%;
-  height: 120px;
+  height: 136px;
+  margin-bottom: 12px;
+}
+.network-thumb {
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  padding: 14px;
+  color: #fff;
+  background-position: center;
+  background-size: cover;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.network-thumb span {
+  width: max-content;
+  border-radius: 999px;
+  background: rgba(255,255,255,.16);
+  border: 1px solid rgba(255,255,255,.26);
+  padding: 5px 8px;
+  font-size: .66rem;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.network-thumb strong {
+  font-size: 1.25rem;
+  line-height: 1.05;
+  max-width: 220px;
+  text-shadow: 0 10px 24px rgba(0,0,0,.35);
+}
+.network-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 12px;
 }
 .network-card h3 { margin: 0 0 3px; color: var(--navy); }
 .network-card p { margin: 0 0 12px; color: var(--muted); font-size: .84rem; }
+.readiness-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.readiness-stats div {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 10px;
+}
+.readiness-stats strong {
+  display: block;
+  color: var(--navy);
+  font-size: 1.05rem;
+}
+.readiness-stats span {
+  color: var(--muted);
+  font-size: .68rem;
+  font-weight: 850;
+}
+.network-note {
+  min-height: 20px;
+}
 
 .wizard-layout {
   display: grid;
