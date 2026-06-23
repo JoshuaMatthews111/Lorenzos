@@ -1040,8 +1040,6 @@ body.is-logged-in .login-screen { display: none; }
   display: grid;
   align-content: center;
 }
-.theme-card:nth-child(2n) .theme-shot { background-image: linear-gradient(90deg, rgba(3,24,51,.86), rgba(3,24,51,.15)), url("../assets/facility-campus-clean-overview.png"); }
-.theme-card:nth-child(3n) .theme-shot { background-image: linear-gradient(90deg, rgba(3,24,51,.9), rgba(3,24,51,.22)), url("../assets/facility-purpose-aerial-clean.png"); }
 .theme-shot strong {
   display: block;
   font-size: 1.3rem;
@@ -1294,10 +1292,21 @@ body.is-logged-in .login-screen { display: none; }
 .media-image {
   height: 150px;
   background: url("../assets/ldtt-team-cover.jpg") center / cover;
+  position: relative;
 }
-.media-card:nth-child(2n) .media-image { background-image: url("../assets/facility-campus-clean-overview.png"); }
-.media-card:nth-child(3n) .media-image { background-image: url("../assets/facility-entry.jpg"); }
-.media-card:nth-child(4n) .media-image { background-image: url("../assets/facility-purpose-aerial-clean.png"); }
+.play-badge {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(7,31,70,.82);
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(0,0,0,.25);
+}
 .media-body { padding: 12px; }
 .media-body h3 { margin: 0 0 4px; color: var(--navy); }
 .media-body p { margin: 0 0 8px; color: var(--muted); font-size: .82rem; }

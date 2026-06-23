@@ -63,6 +63,32 @@ const themes = [
   ["Advanced Specialty", "Business & Facility Training", "Training for your team. Results for your business.", "Best for Businesses"]
 ];
 
+const themeImages = [
+  "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1551717743-49959800b1f6?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1525253013412-55c1a69a5738?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1560743173-567a3b5658b1?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1554692918-08fa0fdc9db3?auto=format&fit=crop&w=900&q=80",
+  "https://images.unsplash.com/photo-1601758125946-6ec2ef64daf8?auto=format&fit=crop&w=900&q=80"
+];
+
+const mediaImages = [
+  "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1529472119196-cb724127a98e?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1507146426996-ef05306b995a?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1530281700549-e82e7bf110d6?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80",
+  "https://images.unsplash.com/photo-1551717743-49959800b1f6?auto=format&fit=crop&w=800&q=80"
+];
+
 const defaultState = {
   role: "",
   activeView: "dashboard",
@@ -558,7 +584,7 @@ function themePickerScreen() {
 }
 
 function themeCard(theme, index) {
-  return `<article class="theme-card"><div class="theme-shot"><strong>${theme[2]}</strong><button class="btn btn-red" style="width:max-content;margin-top:10px">Book an Evaluation</button></div><div class="theme-body"><h3>${theme[1]}</h3><p><span class="status live">${theme[3]}</span></p><div class="row-actions"><button class="btn btn-outline">Preview Desktop</button><button class="btn btn-outline">Preview Mobile</button></div><button class="btn btn-red btn-full" data-theme="${index}">${state.selectedTheme === index ? "Selected" : "Use This Style"}</button></div></article>`;
+  return `<article class="theme-card"><div class="theme-shot" style="background-image:linear-gradient(90deg, rgba(3,24,51,.9), rgba(3,24,51,.18)), url('${themeImages[index]}')"><strong>${theme[2]}</strong><button class="btn btn-red" style="width:max-content;margin-top:10px">Book an Evaluation</button></div><div class="theme-body"><h3>${theme[1]}</h3><p><span class="status live">${theme[3]}</span></p><div class="row-actions"><button class="btn btn-outline" data-theme="${index}">Preview Desktop</button><button class="btn btn-outline" data-theme="${index}">Preview Mobile</button></div><button class="btn btn-red btn-full" data-theme="${index}">${state.selectedTheme === index ? "Selected" : "Use This Style"}</button></div></article>`;
 }
 
 function profileCard() {
@@ -579,8 +605,8 @@ function heroSettings() {
 }
 
 function mediaLibraryScreen(title = "Media Library") {
-  const cards = [["Heel Training Session","MP4 · 120 MB","Published"],["Rocky Progress","MP4 · 85 MB","Published"],["Place Command","MP4 · 96 MB","Pending"],["Recall Practice","MP4 · 75 MB","Published"],["Team Photo","JPG · 2.3 MB","Published"],["Training Facility","JPG · 1.8 MB","Published"],["Google Review - 5 Stars","PNG · 620 KB","Published"],["Facebook Review","PNG · 612 KB","Pending"]];
-  return `<section class="panel pad"><div class="panel-head"><h2>${title}</h2><button class="btn btn-red">Upload Now</button></div><div class="media-tabs"><button class="active">All</button><button>Videos</button><button>Photos</button><button>Screenshots</button><button>Logos</button><button>Reviews</button><button>Testimonials</button></div><div class="media-grid">${cards.map(card => `<article class="media-card"><div class="media-image"></div><div class="media-body"><h3>${card[0]}</h3><p>${card[1]}</p><span class="status ${card[2] === "Published" ? "live" : "draft"}">${card[2]}</span></div></article>`).join("")}</div><div class="storage-bar"><span></span></div><p class="panel-copy">Storage Used: 2.4 GB of 10 GB</p></section>`;
+  const cards = [["Heel Training Session","Video · trainer media","Published"],["Client Before / After","Video · progress proof","Published"],["Place Command","Video · obedience clip","Pending"],["Recall Practice","Video · field work","Published"],["Trainer Headshot","Photo · profile image","Published"],["Training Dog Gallery","Photo · site gallery","Published"],["Google Review Screenshot","Review · proof asset","Published"],["Facebook Review Screenshot","Review · pending approval","Pending"]];
+  return `<section class="panel pad"><div class="panel-head"><h2>${title}</h2><button class="btn btn-red">Upload Now</button></div><p class="panel-copy" style="margin-bottom:14px">Trainer media library for each white-label site: videos, dog photos, review screenshots, logos, and testimonial assets.</p><div class="media-tabs"><button class="active">All</button><button>Videos</button><button>Photos</button><button>Screenshots</button><button>Logos</button><button>Reviews</button><button>Testimonials</button></div><div class="media-grid">${cards.map((card, index) => `<article class="media-card"><div class="media-image" style="background-image:url('${mediaImages[index]}')">${index < 4 ? `<span class="play-badge">▶</span>` : ""}</div><div class="media-body"><h3>${card[0]}</h3><p>${card[1]}</p><span class="status ${card[2] === "Published" ? "live" : "draft"}">${card[2]}</span></div></article>`).join("")}</div><div class="storage-bar"><span></span></div><p class="panel-copy">Storage Used: 2.4 GB of 10 GB</p></section>`;
 }
 
 function calendarSlots() {
