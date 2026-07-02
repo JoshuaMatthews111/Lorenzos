@@ -1,5 +1,5 @@
-const STORE_KEY = "lorenzoTrainerNetworkVisualPortal.v1";
-const SESSION_KEY = "lorenzoTrainerNetworkSession.v1";
+const STORE_KEY = "lorenzoBackOfficePrototype.v2";
+const SESSION_KEY = "lorenzoBackOfficeSession.v2";
 const TEMP_PASSWORD = "doglovers26";
 
 const icons = {
@@ -26,114 +26,94 @@ const dogImages = [
   "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=120&q=60"
 ];
 
-const trainers = [
-  ["Eric Beck", "Cleveland, OH", 18, 8, 6, "Live"],
-  ["Stephanie Palmer", "Akron, OH", 12, 5, 3, "Live"],
-  ["Robert Stephan", "Mentor, OH", 9, 4, 2, "Live"],
-  ["Jenn Studer", "Medina, OH", 7, 3, 2, "Draft"],
-  ["Ariel Kapela", "Parma, OH", 6, 3, 1, "Live"],
-  ["Mike Davis", "Youngstown, OH", 5, 2, 1, "Draft"]
+const layoutImages = [
+  "../assets/ldtt-team-cover.jpg",
+  "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=1100&q=80",
+  "https://images.unsplash.com/photo-1560743173-567a3b5658b1?auto=format&fit=crop&w=1100&q=80"
 ];
 
-const trainerSiteStats = [
-  { status: "Published & Active", tone: "live", theme: 0, clicks: 1248, forms: 67, rate: "5.4%", note: "Lead flow active" },
-  { status: "Published & Active", tone: "live", theme: 5, clicks: 982, forms: 44, rate: "4.5%", note: "Strong family-obedience traffic" },
-  { status: "Published & Active", tone: "live", theme: 8, clicks: 736, forms: 31, rate: "4.2%", note: "Protection page performing" },
-  { status: "Draft Site", tone: "draft", theme: 6, clicks: 184, forms: 7, rate: "3.8%", note: "Needs final review" },
-  { status: "Published & Active", tone: "live", theme: 2, clicks: 523, forms: 22, rate: "4.2%", note: "Reviews section active" },
-  { status: "Trainer Enrolled - Site Not Started", tone: "enrolled", theme: 10, clicks: 0, forms: 0, rate: "0%", note: "Invite accepted, setup pending" }
+const approvedLayouts = [
+  { id: "classic", name: "Lorenzo Classic", headline: "Professional dog training backed by Lorenzo's proven system.", tag: "Best for obedience and family training" },
+  { id: "proof", name: "Results & Reviews", headline: "Real results for real homes.", tag: "Best for proof and conversion" },
+  { id: "specialty", name: "Advanced Service Profile", headline: "Advanced training with office-guided support.", tag: "Best for specialty and service work" }
 ];
 
-const leads = [
-  ["Sarah Johnson", "Max", "Goldendoodle", "Website", "Obedience Training", "New", "May 13, 2025 10:00 AM", "Lorenzo office scheduled this lead for Friday 2:00 PM."],
-  ["Mike Davis", "Rocky", "German Shepherd", "Google", "Behavior Modification", "Contacted", "May 14, 2025 3:30 PM", "Follow-up scheduled."],
-  ["Jessica Miller", "Luna", "Labrador Retriever", "Referral", "Puppy Training", "Evaluation Booked", "May 16, 2025 11:00 AM", ""],
-  ["Emily Wilson", "Teddy", "French Bulldog", "Facebook", "Obedience Training", "Follow-Up Scheduled", "May 19, 2025 2:00 PM", ""],
-  ["Chris Brown", "Bailey", "Golden Retriever", "Website", "Board & Train", "Program Offered", "May 20, 2025 6:00 PM", ""],
-  ["Amanda Lee", "Bella", "Husky", "Referral", "Board & Train", "Client Won", "-", "Great fit. Training begins 5/26/25."],
-  ["Robert Johnson", "Duke", "Pit Bull Mix", "Google", "Aggression Rehab", "Lost", "-", "Lost: Chose another trainer closer to home."]
+const leadStatuses = [
+  "New Inquiry",
+  "Office Contacted",
+  "Engaged Lead: No Outcome",
+  "Follow Up Call Needed",
+  "Evaluation Scheduled",
+  "Evaluation Complete",
+  "First Session / Payment",
+  "Became a Client",
+  "Lost / No Response",
+  "Lost / Price Concern",
+  "Lost / Not Ready",
+  "Lost / Chose Another Provider",
+  "Bad Lead",
+  "Do Not Contact",
+  "Archived"
 ];
 
-const availabilityDays = ["Mon 24", "Tue 25", "Wed 26", "Thu 27", "Fri 28", "Sat 29", "Sun 30"];
-const availabilityTimes = ["9:00 AM", "10:30 AM", "12:00 PM", "1:30 PM", "3:00 PM", "4:30 PM", "6:00 PM"];
-
-const themes = [
-  ["Lorenzo Classic", "Service-First Local Trainer", "Real Training. Real Results.", "Best for Obedience"],
-  ["Lorenzo Classic", "Trainer Authority Bio", "Leadership. Relationship. Results.", "Best for Authority"],
-  ["Lorenzo Classic", "Reviews & Results", "Trusted by dog owners. Proven by results.", "Best for Reviews"],
-  ["Lorenzo Classic", "Evaluation-First Conversion", "Start with an evaluation. End with results.", "Best for Conversions"],
-  ["Premium Local Pro", "Modern Local Expert", "Cleveland's Premier Dog Training Expert", "Best for Local SEO"],
-  ["Premium Local Pro", "Family Obedience Specialist", "Better behavior. Stronger family bond.", "Best for Families"],
-  ["Premium Local Pro", "Behavior Modification Specialist", "Real change starts with understanding.", "Best for Behavior Issues"],
-  ["Premium Local Pro", "Clean Consultation Page", "Let's create the right plan for your dog.", "Best for Lead Conversion"],
-  ["Advanced Specialty", "Protection Training", "Protect. Deter. Defend.", "Best for Protection"],
-  ["Advanced Specialty", "Service & Assistance Dogs", "Trained to serve. Built to help.", "Best for Service Dogs"],
-  ["Advanced Specialty", "Scent Work / Retrieval", "Scent. Focus. Retrieve.", "Best for Scent Work"],
-  ["Advanced Specialty", "Business & Facility Training", "Training for your team. Results for your business.", "Best for Businesses"]
-];
-
-const themeImages = [
-  "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1551717743-49959800b1f6?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1537151625747-768eb6cf92b2?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1525253013412-55c1a69a5738?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1560743173-567a3b5658b1?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1589941013453-ec89f33b5e95?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1554692918-08fa0fdc9db3?auto=format&fit=crop&w=900&q=80",
-  "https://images.unsplash.com/photo-1601758125946-6ec2ef64daf8?auto=format&fit=crop&w=900&q=80"
-];
-
-const mediaImages = [
-  "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1529472119196-cb724127a98e?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1507146426996-ef05306b995a?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1530281700549-e82e7bf110d6?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1551717743-49959800b1f6?auto=format&fit=crop&w=800&q=80"
-];
+const clientStatuses = ["Active", "Past", "Won", "Lost", "Bad Lead", "Do Not Contact"];
 
 const defaultState = {
   role: "",
   activeView: "dashboard",
-  selectedTheme: 0,
+  selectedTrainerId: "eric-beck",
+  clientFilter: "Active",
+  leadDateRange: "60",
+  customLeadStart: "2026-06-01",
+  customLeadEnd: "2026-06-24",
   inviteDraft: { name: "", email: "", phone: "", market: "" },
   stagedInvites: [],
-  availability: {
-    selected: ["Mon 24|9:00 AM", "Mon 24|1:30 PM", "Tue 25|10:30 AM", "Wed 26|3:00 PM", "Thu 27|9:00 AM", "Fri 28|4:30 PM"],
-    slotType: "In-person consultation",
-    interval: "30 min",
-    slotModes: {
-      "Mon 24|9:00 AM": "In-person consultation",
-      "Mon 24|1:30 PM": "Online consultation",
-      "Tue 25|10:30 AM": "Online consultation",
-      "Wed 26|3:00 PM": "In-person consultation",
-      "Thu 27|9:00 AM": "In-person consultation",
-      "Fri 28|4:30 PM": "Online consultation"
-    }
-  },
-  trainer: {
-    companyName: "Lorenzo's Dog Training Team",
-    logoData: "",
-    trainerName: "Eric Beck",
-    title: "Certified Lorenzo Trainer",
-    slogan: "Professional dog training in Cleveland backed by Lorenzo's proven system.",
-    phone: "(866) 436-4959",
-    email: "trainer@lorenzosdogtrainingteam.com",
-    market: "Cleveland, OH",
-    serviceArea: "Cleveland, Garfield Heights, Akron, and surrounding Northeast Ohio areas",
-    instagram: "https://instagram.com/yourcompany",
-    facebook: "https://facebook.com/yourcompany",
-    google: "https://g.page/yourcompany",
-    headline: "Professional dog training in Cleveland backed by Lorenzo's proven system.",
-    subheadline: "Obedience training, behavior modification, puppy training, and more for real results in the real world.",
-    cta: "Book an Evaluation"
-  }
+  importDraft: "Client Name,Phone,Email,Dog Name,Dog Breed,Trainer Assigned,Status,SMS Consent,Email Consent,Source,Notes\nMaria Thompson,(216) 555-1188,maria@example.com,Cooper,Border Collie,Eric Beck,Active,Yes,Yes,Alpha,Needs review request\nDerek Hall,(330) 555-7712,derek@example.com,Zeus,German Shepherd,Stephanie Palmer,Do Not Contact,No,No,QuickBooks,Asked not to be contacted\nSarah Johnson,(216) 555-0100,sarah@example.com,Max,Goldendoodle,Eric Beck,Won,Yes,Yes,Spreadsheet,Imported from old client list",
+  trainers: [
+    {
+      id: "eric-beck",
+      name: "Eric Beck",
+      market: "Cleveland, OH",
+      serviceArea: "Cleveland, Garfield Heights, Akron, and Northeast Ohio",
+      phone: "(866) 436-4959",
+      email: "eric@lorenzosdogtrainingteam.com",
+      bio: "Eric helps families build reliable obedience, calmer behavior, and better owner leadership using Lorenzo's proven training system.",
+      layout: "classic",
+      pageStatus: "Published",
+      locked: true,
+      clicks: 1248,
+      forms: 67,
+      conversions: 9,
+      image: "../assets/ldtt-team-cover.jpg"
+    },
+    { id: "stephanie-palmer", name: "Stephanie Palmer", market: "Akron, OH", serviceArea: "Akron, Canton, and surrounding communities", phone: "(866) 436-4959", email: "stephanie@lorenzosdogtrainingteam.com", bio: "Stephanie works with owners to create structure, consistency, and real-world obedience at home and in public.", layout: "proof", pageStatus: "Published", locked: true, clicks: 982, forms: 44, conversions: 6, image: layoutImages[1] },
+    { id: "robert-stephan", name: "Robert Stephan", market: "Mentor, OH", serviceArea: "Mentor, Lake County, and Northeast Ohio", phone: "(866) 436-4959", email: "robert@lorenzosdogtrainingteam.com", bio: "Robert supports behavior modification and obedience plans built around timing, technique, and owner follow-through.", layout: "classic", pageStatus: "Published", locked: true, clicks: 736, forms: 31, conversions: 4, image: layoutImages[2] },
+    { id: "jenn-studer", name: "Jenn Studer", market: "Medina, OH", serviceArea: "Medina and surrounding communities", phone: "(866) 436-4959", email: "jenn@lorenzosdogtrainingteam.com", bio: "Jenn's trainer page is being prepared by the office team.", layout: "proof", pageStatus: "Draft", locked: false, clicks: 184, forms: 7, conversions: 1, image: layoutImages[1] },
+    { id: "ariel-kapela", name: "Ariel Kapela", market: "Parma, OH", serviceArea: "Parma, Cleveland west side, and nearby communities", phone: "(866) 436-4959", email: "ariel@lorenzosdogtrainingteam.com", bio: "Ariel focuses on clear owner communication and reliable behavior in daily life.", layout: "classic", pageStatus: "Published", locked: true, clicks: 523, forms: 22, conversions: 3, image: layoutImages[0] },
+    { id: "mike-davis", name: "Mike Davis", market: "Youngstown, OH", serviceArea: "Youngstown and surrounding areas", phone: "(866) 436-4959", email: "mike@lorenzosdogtrainingteam.com", bio: "Mike is enrolled. The office has not started this trainer page yet.", layout: "specialty", pageStatus: "No Site Started", locked: false, clicks: 0, forms: 0, conversions: 0, image: layoutImages[2] }
+  ],
+  leads: [
+    { id: "lead-1", owner: "Sarah Johnson", dog: "Max", breed: "Goldendoodle", source: "Website", service: "Obedience Training", trainerId: "eric-beck", status: "Evaluation Scheduled", createdAt: "2026-06-23", next: "Jun 25, 2026 10:00 AM", note: "Office scheduled phone consultation for Friday at 2:00 PM.", visits: 4, submitted: true },
+    { id: "lead-2", owner: "Mike Davis", dog: "Rocky", breed: "German Shepherd", source: "Google", service: "Behavior Modification", trainerId: "eric-beck", status: "Office Contacted", createdAt: "2026-06-18", next: "Jun 26, 2026 3:30 PM", note: "Follow-up call needed. Owner asked about reactivity around other dogs.", visits: 2, submitted: true },
+    { id: "lead-3", owner: "Jessica Miller", dog: "Luna", breed: "Labrador Retriever", source: "Referral", service: "Puppy Training", trainerId: "stephanie-palmer", status: "Evaluation Complete", createdAt: "2026-06-10", next: "Jun 27, 2026 11:00 AM", note: "Evaluation complete. Program options sent by office.", visits: 1, submitted: true },
+    { id: "lead-4", owner: "Emily Wilson", dog: "Teddy", breed: "French Bulldog", source: "Facebook", service: "Obedience Training", trainerId: "robert-stephan", status: "Follow Up Call Needed", createdAt: "2026-06-03", next: "Jun 28, 2026 2:00 PM", note: "Office left voicemail. Needs second call.", visits: 5, submitted: true },
+    { id: "lead-5", owner: "Chris Brown", dog: "Bailey", breed: "Golden Retriever", source: "Website", service: "Board & Train", trainerId: "jenn-studer", status: "Engaged Lead: No Outcome", createdAt: "2026-05-25", next: "Jun 29, 2026 6:00 PM", note: "Owner engaged with office, but no outcome selected yet.", visits: 3, submitted: true },
+    { id: "lead-6", owner: "Amanda Lee", dog: "Bella", breed: "Husky", source: "Referral", service: "Board & Train", trainerId: "eric-beck", status: "Became a Client", createdAt: "2026-05-12", next: "-", note: "First session/payment confirmed. Training begins 6/26/26.", visits: 3, submitted: true },
+    { id: "lead-7", owner: "Robert Johnson", dog: "Duke", breed: "Pit Bull Mix", source: "Google", service: "Behavior Modification", trainerId: "ariel-kapela", status: "Lost / Chose Another Provider", createdAt: "2026-04-29", next: "-", note: "Chose another trainer closer to home.", visits: 1, submitted: true },
+    { id: "lead-8", owner: "Mark Allen", dog: "Rex", breed: "Doberman", source: "Website", service: "Protection Training", trainerId: "mike-davis", status: "First Session / Payment", createdAt: "2026-04-18", next: "Jun 30, 2026", note: "Payment confirmed by office; trainer handoff pending.", visits: 6, submitted: true }
+  ],
+  clients: [
+    { id: "client-1", name: "Amanda Lee", phone: "(216) 555-0198", email: "amanda@example.com", dog: "Bella", breed: "Husky", trainerId: "eric-beck", status: "Won", source: "Referral", importedSource: "Manual", smsConsent: "Yes", emailConsent: "Yes", dateStarted: "2025-05-26", lastContacted: "2025-05-20", notes: "Active board and train client." },
+    { id: "client-2", name: "Rebecca Rottman", phone: "(440) 555-0222", email: "rebecca@example.com", dog: "Maverick", breed: "Labrador", trainerId: "robert-stephan", status: "Past", source: "Google", importedSource: "Alpha", smsConsent: "Yes", emailConsent: "Yes", dateStarted: "2024-08-12", lastContacted: "2025-05-10", notes: "Great candidate for review request." },
+    { id: "client-3", name: "Derek Hall", phone: "(330) 555-7712", email: "derek@example.com", dog: "Zeus", breed: "German Shepherd", trainerId: "stephanie-palmer", status: "Do Not Contact", source: "QuickBooks", importedSource: "QuickBooks", smsConsent: "No", emailConsent: "No", dateStarted: "2023-11-02", lastContacted: "2024-01-15", notes: "Opted out. Block from campaigns." },
+    { id: "client-4", name: "Lindsey Grant", phone: "(216) 555-3355", email: "lindsey@example.com", dog: "Milo", breed: "Corgi", trainerId: "ariel-kapela", status: "Bad Lead", source: "Spreadsheet", importedSource: "Spreadsheet", smsConsent: "Unknown", emailConsent: "Unknown", dateStarted: "", lastContacted: "2025-04-03", notes: "Not a fit. Exclude by default." }
+  ],
+  submissions: [
+    { id: "sub-1", trainerId: "eric-beck", type: "Review", title: "Google review screenshot from Becca Lynn", status: "Pending", note: "Trainer uploaded proof from recent behavior modification client." },
+    { id: "sub-2", trainerId: "stephanie-palmer", type: "Photo", title: "Loose leash training photo", status: "Approved", note: "Approved for trainer page gallery." },
+    { id: "sub-3", trainerId: "robert-stephan", type: "Review", title: "Client testimonial about reactivity", status: "Declined", note: "Need clearer screenshot before publishing." }
+  ],
+  importedPreview: []
 };
 
 let state = loadState();
@@ -144,18 +124,18 @@ function loadState() {
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
     const merged = { ...structuredClone(defaultState), ...saved };
-    merged.trainer = { ...structuredClone(defaultState.trainer), ...(saved.trainer || {}) };
-    merged.availability = { ...structuredClone(defaultState.availability), ...(saved.availability || {}) };
-    if (!merged.trainer.companyName || merged.trainer.companyName === "Your Company Name") {
-      merged.trainer.companyName = defaultState.trainer.companyName;
-    }
-    if (!merged.availability.interval && merged.availability.buffer) merged.availability.interval = merged.availability.buffer;
-    if (!merged.availability.slotModes) merged.availability.slotModes = {};
-    merged.availability.selected.forEach((slot, index) => {
-      if (!merged.availability.slotModes[slot]) {
-        merged.availability.slotModes[slot] = index % 2 ? "Online consultation" : "In-person consultation";
-      }
+    ["trainers", "leads", "clients", "submissions", "stagedInvites"].forEach(key => {
+      merged[key] = Array.isArray(saved[key]) ? saved[key] : structuredClone(defaultState[key]);
     });
+    merged.leadDateRange = saved.leadDateRange || defaultState.leadDateRange;
+    merged.customLeadStart = saved.customLeadStart || defaultState.customLeadStart;
+    merged.customLeadEnd = saved.customLeadEnd || defaultState.customLeadEnd;
+    merged.leads = merged.leads.map((lead, index) => ({
+      ...lead,
+      createdAt: lead.createdAt || defaultState.leads[index % defaultState.leads.length].createdAt,
+      status: normalizeLeadStatus(lead.status)
+    }));
+    merged.inviteDraft = { ...defaultState.inviteDraft, ...(saved.inviteDraft || {}) };
     return merged;
   } catch {
     return structuredClone(defaultState);
@@ -170,10 +150,10 @@ function loadSession() {
   }
 }
 
-function saveState(message) {
+function saveState(message, skipRender = false) {
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
   if (message) showToast(message);
-  render();
+  if (!skipRender) render();
 }
 
 function saveSession(role) {
@@ -186,10 +166,10 @@ function applyUrlState() {
   const params = new URLSearchParams(window.location.search);
   const role = params.get("role");
   const view = params.get("view");
-  if (role === "admin" || (role === "trainer" && params.get("temp") === TEMP_PASSWORD)) {
-    saveSession(role);
-  }
+  const trainerId = params.get("trainer");
+  if (role === "admin" || (role === "trainer" && params.get("temp") === TEMP_PASSWORD)) saveSession(role);
   if (view) state.activeView = view;
+  if (trainerId && state.trainers.some(t => t.id === trainerId)) state.selectedTrainerId = trainerId;
 }
 
 function showToast(message) {
@@ -205,16 +185,46 @@ function icon(name) {
   return `<span class="nav-icon">${icons[name] || icons.dashboard}</span>`;
 }
 
+function trainerById(id = state.selectedTrainerId) {
+  return state.trainers.find(trainer => trainer.id === id) || state.trainers[0];
+}
+
+function trainerName(id) {
+  return trainerById(id)?.name || "Unassigned";
+}
+
+function currentTrainerId() {
+  return "eric-beck";
+}
+
+function trainerLeads(id = currentTrainerId()) {
+  return state.leads.filter(lead => lead.trainerId === id);
+}
+
+function conversionStatuses() {
+  return ["Became a Client", "First Session / Payment"];
+}
+
+function normalizeLeadStatus(status) {
+  const map = {
+    "Engaged Lead / No Outcome": "Engaged Lead: No Outcome",
+    "Follow-Up Needed": "Follow Up Call Needed",
+    "Follow-Up Scheduled": "Follow Up Call Needed",
+    "Evaluation Completed": "Evaluation Complete",
+    "Evaluation Booked": "Evaluation Scheduled",
+    "Client Won": "Became a Client"
+  };
+  return map[status] || status || "New Inquiry";
+}
+
 function render() {
   if (document.getElementById("publicSite")) {
     renderPublicSite();
     return;
   }
-
   document.body.classList.toggle("is-logged-in", session.loggedIn);
   document.body.classList.toggle("is-logged-out", !session.loggedIn);
   if (!session.loggedIn) return;
-
   renderSidebar();
   renderTopbar();
   renderView();
@@ -223,11 +233,12 @@ function render() {
 function adminNav() {
   return [
     ["dashboard", "Dashboard", "dashboard"],
-    ["site", "Trainer Network", "globe"],
+    ["trainerPages", "Trainer Pages", "globe"],
     ["trainers", "Trainers", "users"],
     ["leads", "Leads", "lead"],
-    ["calendar", "Calendar Queue", "calendar"],
     ["clients", "Clients", "users"],
+    ["import", "Client Import", "media"],
+    ["approvals", "Approvals", "star", pendingSubmissions().length],
     ["reports", "Reports", "report"],
     ["settings", "Settings", "settings"]
   ];
@@ -235,227 +246,183 @@ function adminNav() {
 
 function trainerNav() {
   return [
-    ["dashboard", "Trainer Dashboard", "dashboard"],
-    ["setup", "Website Setup", "monitor"],
-    ["site", "Customize Site", "edit"],
-    ["templates", "Design Templates", "monitor"],
-    ["leads", "Lead Inbox", "lead", 3],
-    ["calendar", "Calendar", "calendar"],
-    ["media", "Photos & Videos", "media"],
-    ["reviews", "Reviews", "star"],
-    ["domains", "Domains & DNS", "globe"],
-    ["business", "Trainer Business Path", "shield"],
+    ["dashboard", "Dashboard", "dashboard"],
+    ["leads", "My Leads", "lead", trainerLeads().filter(l => !["Archived", "Became a Client"].includes(l.status)).length],
+    ["myPage", "My Trainer Page", "monitor"],
+    ["performance", "Performance", "report"],
+    ["submitMedia", "Submit Photos/Videos", "media", trainerMediaSubmissions().filter(s => s.status === "Pending").length],
+    ["submitReviews", "Submit Reviews", "star", trainerReviewSubmissions().filter(s => s.status === "Pending").length],
     ["settings", "Settings", "settings"]
   ];
 }
 
 function renderSidebar() {
   const isAdmin = session.role === "admin";
-  const isSetupFlow = !isAdmin && ["setup", "templates"].includes(state.activeView);
-  if (isSetupFlow) {
-    document.getElementById("sidebar").innerHTML = `
-      <a class="brand-card" href="../index.html"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"></a>
-      <div>
-        <p class="portal-tag">Trainer Network Setup</p>
-        <h2 style="margin:6px 0 14px;color:#fff">${state.activeView === "templates" ? "Preview Templates" : "Website Setup Wizard"}</h2>
-      </div>
-      <div class="setup-steps">
-        ${["Business Identity","About & Trust","Services","Media Uploads","Availability","Preview Templates","Customize Site","Review & Publish"].map((step, index) => {
-          const active = (state.activeView === "setup" && index === 0) || (state.activeView === "templates" && index === 5);
-          const complete = state.activeView === "templates" ? index < 5 : index > 0 && index < 5;
-          return `<button class="wizard-step ${active ? "active" : ""} ${complete ? "complete" : ""}" data-view="${index === 5 ? "templates" : index === 6 ? "site" : "setup"}"><span class="step-num">${complete ? "✓" : index + 1}</span><div><strong>${step}</strong><span>${active ? "Current step" : complete ? "Completed" : "Coming next"}</span></div></button>`;
-        }).join("")}
-      </div>
-      <div class="side-spacer"></div>
-      <div class="progress-box"><strong>Setup Progress</strong><p>${state.activeView === "templates" ? "Step 6 of 8" : "Step 1 of 8"}</p><div class="progress-line"><span style="width:${state.activeView === "templates" ? "75%" : "12.5%"}"></span></div></div>
-      <div class="side-help"><strong>Need Help?</strong><p>Our team is here to help you build the perfect site.</p><button class="btn btn-outline btn-full">Contact Support</button></div>
-    `;
-    return;
-  }
   const nav = isAdmin ? adminNav() : trainerNav();
   document.getElementById("sidebar").innerHTML = `
     <a class="brand-card" href="../index.html"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"></a>
-    <div>
-      <p class="portal-tag">${isAdmin ? "Admin Portal" : "Trainer Network"}</p>
-    </div>
+    <div><p class="portal-tag">${isAdmin ? "Admin Portal" : "Trainer Portal"}</p></div>
     <nav class="side-nav" aria-label="${isAdmin ? "Admin" : "Trainer"} navigation">
       ${nav.map(([view, label, iconName, count]) => `
         <button class="nav-btn ${state.activeView === view ? "active" : ""}" data-view="${view}">
-          ${icon(iconName)}
-          <span>${label}</span>
-          ${count ? `<span class="nav-count">${count}</span>` : ""}
-        </button>
-      `).join("")}
+          ${icon(iconName)}<span>${label}</span>${count ? `<span class="nav-count">${count}</span>` : ""}
+        </button>`).join("")}
     </nav>
     <div class="side-spacer"></div>
     <div class="side-help">
-      <strong>${isAdmin ? "Trainer Network" : "Supabase-ready"}</strong>
-      <p>${isAdmin ? "Invite trainers, monitor leads, track scheduling outcomes, and review site readiness." : "Demo data saves in this browser now. Website setup, media, leads, and calendar screens are staged for backend connection."}</p>
-      ${isAdmin ? `<button class="btn btn-outline btn-full" data-view="site">Invite Trainer</button>` : ""}
+      <strong>${isAdmin ? "Office-Controlled Network" : "Locked Page Access"}</strong>
+      <p>${isAdmin ? "Office controls trainer pages, approvals, leads, clients, and reporting." : "Your public trainer page is managed by Lorenzo's office. Submit content for approval here."}</p>
+      ${isAdmin ? `<button class="btn btn-outline btn-full" data-view="trainerPages">Manage Trainer Pages</button>` : `<button class="btn btn-outline btn-full" data-view="submitMedia">Submit Content</button>`}
     </div>
     <div class="side-user">
-      <span class="avatar">${isAdmin ? "LO" : `<img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=90&q=60" alt="">`}</span>
-      <div><strong>${isAdmin ? "Lorenzo's Office" : "Eric Beck"}</strong><span>${isAdmin ? "Administrator" : "Certified Lorenzo Trainer"}</span></div>
-    </div>
-  `;
+      <span class="avatar">${isAdmin ? "LO" : "EB"}</span>
+      <div><strong>${isAdmin ? "Lorenzo's Office" : trainerById(currentTrainerId()).name}</strong><span>${isAdmin ? "Administrator" : "Certified Trainer"}</span></div>
+    </div>`;
 }
 
 function renderTopbar() {
   const isAdmin = session.role === "admin";
-  const titles = isAdmin
-    ? {
-        dashboard: ["Admin Dashboard", "Overview of your trainer network and lead activity"],
-        site: ["Trainer Network", "Invite trainers, review readiness, and open trainer site previews"],
-        trainers: ["Trainers", "Directory of active and staged trainers"],
-        leads: ["Leads Pipeline", "Office lead management and outcome tracking"],
-        calendar: ["Calendar Queue", "Requested evaluations and trainer availability"],
-        clients: ["Clients", "Client records across the network"],
-        reports: ["Reports", "Network activity and lead outcome reporting"],
-        settings: ["Settings", "Admin preferences and demo controls"]
-      }
-    : {
-        dashboard: [`Welcome back, ${state.trainer.trainerName}`, "Here's what's happening with your business."],
-        setup: ["Website Setup Wizard", "Your business details automatically populate every template."],
-        site: [state.trainer.companyName, "Powered by Lorenzo's Dog Training Team"],
-        templates: ["Preview Your Trainer Site", "Your details automatically populate every style. Switch styles without losing your information."],
-        leads: ["Leads Pipeline", "Track every lead from new contact to client won."],
-        calendar: ["Availability Calendar", "Select the times clients can request from your trainer site."],
-        media: ["Media & Reviews Library", "Upload training videos, photos, review screenshots, and testimonials."],
-        reviews: ["Reviews", "Collect and showcase proof from real training clients."],
-        domains: ["Domains & DNS", "Connect a custom domain to your trainer site."],
-        business: ["Trainer Business Path", "Build your client base inside Lorenzo's system."],
-        settings: ["Settings", "Trainer profile and demo controls."]
-      };
+  const titles = isAdmin ? {
+    dashboard: ["Admin Dashboard", "Network performance, lead outcomes, and conversion reporting."],
+    trainerPages: ["Trainer Pages", "Office-controlled trainer landing pages, publishing, and locking."],
+    trainers: ["Trainers", "Create and edit trainer profiles used by approved pages."],
+    leads: ["Leads", "Office-managed funnel from inquiry to paying client."],
+    clients: ["Client Database", "Central list for active, past, won, lost, bad lead, and do-not-contact records."],
+    import: ["Client Import", "Prototype CSV import with preview, duplicate checks, and consent protection."],
+    approvals: ["Media & Review Approvals", "Approve or decline trainer-submitted content before it appears publicly."],
+    reports: ["Conversion Reports", "Conversions count only first session/payment or became a client."],
+    settings: ["Settings", "Demo controls and localStorage status."]
+  } : {
+    dashboard: ["Dashboard", "Assigned leads, office notes, locked page access, and pending submissions."],
+    leads: ["My Leads", "See office notes and outcomes for leads assigned to you."],
+    myPage: ["My Trainer Page", "This page is controlled, published, and locked by Lorenzo's office."],
+    performance: ["Performance", "Basic lead and conversion numbers from office-managed tracking."],
+    submitMedia: ["Submit Photos/Videos", "Send training photos and videos to the office for approval."],
+    submitReviews: ["Submit Reviews", "Send reviews and testimonials to the office for approval."],
+    settings: ["Settings", "Trainer portal access and demo state."]
+  };
   const [title, sub] = titles[state.activeView] || titles.dashboard;
   document.getElementById("topbar").innerHTML = `
     <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
     <div class="top-actions">
-      ${isAdmin ? `
-        <button class="btn btn-outline">May 12 - May 18, 2025</button>
-        <button class="btn btn-outline">${icon("settings")} Filters</button>
-        <button class="btn btn-red">Export Report</button>
-      ` : `
-        <a class="btn btn-outline" href="site.html" target="_blank" rel="noopener">View My Site</a>
-        <button class="btn btn-red">${state.activeView === "site" ? "Publish Request" : "Book Evaluation"}</button>
-      `}
+      ${isAdmin ? `<button class="btn btn-outline">Demo: localStorage</button><button class="btn btn-outline">Filters</button><button class="btn btn-red" data-view="import">Import Clients</button>` : `<a class="btn btn-outline" href="site.html?trainer=${currentTrainerId()}" target="_blank" rel="noopener">Open My Page</a><button class="btn btn-red" data-view="submitMedia">Submit Content</button>`}
       <span class="bell">${icon("message")}</span>
-      <button class="profile-chip"><span class="avatar"><img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=90&q=60" alt=""></span><span><strong>${isAdmin ? "Eric Beck" : state.trainer.trainerName}</strong><small>${isAdmin ? "Administrator" : "Trainer"}</small></span></button>
-    </div>
-  `;
+      <button class="profile-chip"><span class="avatar">${isAdmin ? "LO" : "EB"}</span><span><strong>${isAdmin ? "Admin" : trainerById(currentTrainerId()).name}</strong><small>${isAdmin ? "Office" : "Trainer"}</small></span></button>
+    </div>`;
 }
 
 function renderView() {
   const target = document.getElementById("workspaceView");
-  const role = session.role;
-  if (role === "admin") {
-    target.innerHTML = adminScreens[state.activeView]?.() || adminScreens.dashboard();
-  } else {
-    target.innerHTML = trainerScreens[state.activeView]?.() || trainerScreens.dashboard();
-  }
+  const screens = session.role === "admin" ? adminScreens : trainerScreens;
+  target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
 }
 
 const adminScreens = {
   dashboard() {
+    const metrics = getMetrics();
     return `
       ${metricGrid([
-        ["users", "Total Trainers", "48", "+2 this week", "up"],
-        ["monitor", "Active Trainers", "42", "87% of total", ""],
-        ["lead", "New Leads", "68", "+14 this week", "up"],
-        ["calendar", "Evaluation Booked", "26", "+6 this week", "up"],
-        ["calendar", "Follow-Up Scheduled", "31", "+5 this week", "up"],
-        ["trophy", "Client Won", "18", "+3 this week", "up"],
-        ["settings", "Lost Leads", "9", "+2 this week", "down"]
+        ["monitor", "Site Visits / Clicks", metrics.visits, "Traffic only", ""],
+        ["lead", "Form Submissions", metrics.forms, "Inquiries only", ""],
+        ["calendar", "Evaluation Scheduled", metrics.evalScheduled, "Mid-funnel", "up"],
+        ["calendar", "Evaluation Complete", metrics.evalCompleted, "Decision point", "up"],
+        ["calendar", "Follow Up Call Needed", metrics.followUpNeeded, "Office action", "down"],
+        ["lead", "Engaged Lead: No Outcome", metrics.engagedNoOutcome, "Needs decision", ""],
+        ["trophy", "First Session / Payment", metrics.firstPayment, "Conversion event", "up"],
+        ["trophy", "Became a Client", metrics.clientWon, "Conversion event", "up"],
+        ["settings", "Lost / No Response", metrics.lostNoResponse, "Needs review", "down"]
       ])}
       <div class="dashboard-grid">
-        ${panel("Downline Performance <small>(This Month)</small>", `<button class="btn btn-outline">View Full Report</button>`, trainerPerformanceTable())}
-        ${panel("Calendar Queue <small>(Requested via Trainer Network)</small>", `<button class="btn btn-outline" data-view="calendar">View Calendar</button>`, calendarQueueTable())}
+        ${panel("Trainer-Specific Conversion", `<button class="btn btn-outline" data-view="reports">View Reports</button>`, trainerPerformanceTable())}
+        ${panel("Office Funnel", "", leadSummary())}
       </div>
       <div class="bottom-grid">
-        ${panel("Lead Outcome <small>(Update Lead Status)</small>", "", leadOutcomeTable())}
-        ${panel("Lead Outcome Summary <small>(This Month)</small>", "", leadSummary())}
-      </div>
-    `;
+        ${panel("Lead Status Updates", "", leadOutcomeTable())}
+        ${panel("Client Import Protection", `<button class="btn btn-red" data-view="import">Open Import</button>`, protectionSummary(), "pad")}
+      </div>`;
   },
-  site() {
-    return `
-      <div class="admin-network-grid">
-        ${panel("Invite Trainer Into Network", `<button class="btn btn-red" id="stageInvite">Stage Invite</button>`, inviteBuilder(), "pad")}
-        ${panel("Onboarding Flow", "", onboardingFlow(), "pad")}
-      </div>
-      <br>
-      ${panel("Trainer Network Readiness", `<button class="btn btn-outline">Bulk Import CSV</button>`, trainerCards())}
-    `;
-  },
-  leads() {
-    return pipelineScreen(true);
-  },
-  calendar() {
-    return adminCalendarScreen();
+  trainerPages() {
+    return `${panel("Approved Lorenzo-Branded Layouts", "", approvedLayoutCards(), "pad")}<br>${panel("Trainer Page Control", `<button class="btn btn-red" id="addTrainer">Create Trainer</button>`, trainerPageCards())}`;
   },
   trainers() {
-    return panel("Trainer Directory", `<button class="btn btn-red" data-view="site">Invite Trainer</button>`, trainerPerformanceTable());
+    return `<div class="admin-network-grid">${panel("Edit Selected Trainer", "", trainerAdminForm(), "pad")}${panel("Trainer Directory", "", trainerSelectList(), "pad")}</div>`;
+  },
+  leads() {
+    return panel("Office Lead Pipeline", `<button class="btn btn-outline" data-filter-leads="all">All Statuses</button><button class="btn btn-outline">Date Filter</button>`, leadPipelineTable(true), "pad");
   },
   clients() {
-    return panel("Clients", "", simpleClientTable());
+    return `${clientFilterBar()}${panel("Central Client Database", `<button class="btn btn-red" data-view="import">Import Clients</button>`, clientTable(), "pad")}`;
+  },
+  import() {
+    return `<div class="import-layout">${panel("1. Paste CSV / Spreadsheet Data", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div>`;
+  },
+  approvals() {
+    return panel("Pending Trainer Submissions", "", submissionsTable(true), "pad");
   },
   reports() {
-    return `${metricGrid([["lead","Total Leads","127","+18% this month","up"],["trophy","Client Won","18","+3 this week","up"],["calendar","Evaluations","26","+6 this week","up"],["monitor","Active Sites","42","87% of network",""]])}${panel("Lead Outcome Summary", "", leadSummary())}`;
+    const metrics = getMetrics();
+    return `
+      ${metricGrid([
+        ["monitor", "Visits", metrics.visits, "Not conversion", ""],
+        ["lead", "Inquiries", metrics.forms, "Not conversion", ""],
+        ["calendar", "Evaluation Complete", metrics.evalCompleted, "Funnel", "up"],
+        ["trophy", "True Conversions", metrics.trueConversions, "Won/payment only", "up"]
+      ])}
+      <div class="dashboard-grid">${panel("Conversion By Trainer", "", trainerPerformanceTable())}${panel("Lost Reasons", "", lostReasonsTable())}</div>
+      ${panel("Reporting Rule", "", `<p class="panel-copy">Conversions are counted only when a lead reaches <strong>First Session / Payment</strong> or <strong>Became a Client</strong>. Clicks and form submissions stay visible as traffic and inquiry metrics, but they do not inflate conversion reporting.</p>`, "pad")}`;
   },
   settings() {
-    return panel("Settings", "", `<p class="panel-copy">Demo settings are staged for Supabase Auth, role permissions, email invitations, SMS invitations, and trainer network import rules.</p><button class="btn btn-outline" id="logoutBtn">Log Out</button>`, "pad");
+    return panel("Settings", "", `<p class="panel-copy">This is a static/localStorage prototype. Supabase, real auth, email/SMS sending, campaign automation, and real database persistence are intentionally not connected yet.</p><br><button class="btn btn-outline" id="resetDemo">Reset Demo Data</button> <button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
   }
 };
 
 const trainerScreens = {
   dashboard() {
+    const trainer = trainerById(currentTrainerId());
+    const leads = trainerLeads(trainer.id);
+    const won = leads.filter(l => conversionStatuses().includes(l.status)).length;
     return `
-      <div class="trainer-dashboard-grid">
-        ${panel("Today's Overview", `<span>May 12, 2025</span>`, `<div class="overview-strip">${overviewItem("27","Total Leads","+3 this week")}${overviewItem("18","Active Clients","+2 this week")}${overviewItem("5","Evaluations","This week")}${overviewItem("7","Follow-Ups","Due this week")}</div>`, "pad")}
-        ${panel("My Trainer Site", `<button class="btn btn-outline" data-open-preview>View Site</button>`, `<div class="site-row"><div><span class="status live">Published</span><p class="panel-copy">ericbeckdogtraining.com</p><p><strong>Theme:</strong> ${escapeHtml(themes[state.selectedTheme][1])}</p><small>Last updated: May 10, 2025</small></div><div class="site-thumb">Professional dog training in Cleveland, OH</div></div>`, "pad")}
-        ${panel("Site Health", `<button class="btn btn-outline">View All</button>`, healthList(["Domain: Connected","SSL Certificate: Active","SEO: Good","Mobile Friendly: Passed"]), "pad")}
+      ${metricGrid([
+        ["lead", "Assigned Leads", leads.length, "Office-managed", ""],
+        ["calendar", "Evaluations Scheduled", leads.filter(l => l.status === "Evaluation Scheduled").length, "From office", "up"],
+        ["trophy", "Became Client / Paid", won, "True conversion", "up"],
+        ["media", "Pending Submissions", trainerSubmissions().filter(s => s.status === "Pending").length, "Awaiting approval", ""]
+      ])}
+      <div class="dashboard-grid">
+        ${panel("My Locked Trainer Page", `<a class="btn btn-outline" href="site.html?trainer=${trainer.id}" target="_blank" rel="noopener">View Page</a>`, lockedPageCard(trainer), "pad")}
+        ${panel("Assigned Leads & Office Notes", `<button class="btn btn-outline" data-view="leads">View All</button>`, leadPipelineTable(false), "pad")}
       </div>
       <div class="dashboard-grid">
-        ${panel("Lead Pipeline", `<button class="btn btn-red">+ Add Lead</button><button class="btn btn-outline" data-view="leads">View All Leads</button>`, pipelineBody(false))}
-        <div class="grid">
-          ${panel("Today's Calendar", `<button class="btn btn-outline">Request-Based Scheduling</button><button class="btn btn-outline">View Calendar</button>`, calendarSlots(), "pad")}
-          ${panel("Quick Actions", "", `<div class="quick-actions"><button class="btn btn-light">Add New Lead</button><button class="btn btn-light">Book Evaluation</button><button class="btn btn-light" data-view="media">Upload Media</button><button class="btn btn-light">Request Review</button></div>`, "pad")}
-        </div>
-      </div>
-      <div class="dashboard-grid">
-        ${panel("Site Performance <small>(This Month)</small>", "", `<div class="overview-strip">${overviewItem("1,248","Website Visitors","+18% last month")}${overviewItem("67","Evaluation Requests","+12% last month")}${overviewItem("23","New Leads","+15% last month")}${overviewItem("8","5-Star Reviews","+2 vs last month")}</div>`, "pad")}
-        ${panel("Media Center", "", `<div class="overview-strip">${overviewItem("12","Videos","Files")}${overviewItem("48","Photos","Files")}${overviewItem("6","Review Screenshots","Pending Approval")}</div><button class="btn btn-outline btn-full" data-view="media">Go to Media Library</button>`, "pad")}
-      </div>
-    `;
+        ${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}
+        ${panel("Submit Content For Approval", `<button class="btn btn-red" data-view="submitMedia">Submit Media</button><button class="btn btn-outline" data-view="submitReviews">Submit Reviews</button>`, `<p class="panel-copy">Photos, videos, reviews, screenshots, and testimonials go to Lorenzo's office before anything appears publicly.</p>`, "pad")}
+      </div>`;
   },
-  setup() {
-    return wizardScreen();
-  },
-  templates() {
-    return themePickerScreen();
-  },
-  site() {
-    return builderScreen();
+  myPage() {
+    const trainer = trainerById(currentTrainerId());
+    return `<div class="dashboard-grid"><section class="site-canvas locked-public-preview">${publicSiteMarkup(trainer)}</section>${panel("Locked Page Details", "", lockedPageDetails(trainer), "pad")}</div>`;
   },
   leads() {
-    return pipelineScreen(false);
+    return panel("Assigned Leads", "", leadPipelineTable(false), "pad");
   },
-  calendar() {
-    return trainerAvailabilityScreen();
+  performance() {
+    const trainer = trainerById(currentTrainerId());
+    const leads = filteredLeadRows(trainerLeads(trainer.id));
+    const trueConversions = leads.filter(l => conversionStatuses().includes(l.status)).length;
+    return `${metricGrid([
+      ["lead", "Leads In Range", leads.length, leadRangeLabel(), ""],
+      ["calendar", "Evaluation Complete", leads.filter(l => l.status === "Evaluation Complete").length, "Office status", "up"],
+      ["trophy", "Won / Paid", trueConversions, "True conversion", "up"],
+      ["monitor", "Page Forms", trainer.forms, "Read-only total", ""]
+    ])}${panel("Lead Performance By Date Range", "", leadPipelineTable(false), "pad")}${panel("Performance Notes", "", `<p class="panel-copy">These numbers are read-only for trainers. Lorenzo's office owns lead statuses and conversion rules, while this tab lets the trainer review lead activity by last 7 days, last 30 days, last 60 days, or a custom date range.</p>`, "pad")}`;
   },
-  media() {
-    return mediaLibraryScreen();
+  submitMedia() {
+    return `<div class="dashboard-grid">${panel("Submit Photos / Videos", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="media">Submit For Approval</button>`, submissionForm("media"), "pad")}${panel("My Photo / Video Status", "", submissionsTable(false, "media"), "pad")}</div>`;
   },
-  reviews() {
-    return mediaLibraryScreen("Reviews");
-  },
-  domains() {
-    return panel("Domains & DNS", "", `<p class="panel-copy">Connect the trainer's custom domain by adding the generated DNS records. Real domain verification will connect after backend setup.</p><div class="staged-link">CNAME www.ericbeckdogtraining.com → trainer-sites.lorenzosdogtrainingteam.com</div>`, "pad");
-  },
-  business() {
-    return panel("Trainer Business Path", "", `<h2>Become a Professional Trainer</h2><p class="panel-copy">Build your client base, manage your territory, and grow inside Lorenzo's Academy / Certification system. In business for yourself, but not by yourself.</p>`, "pad");
+  submitReviews() {
+    return `<div class="dashboard-grid">${panel("Submit Review / Testimonial", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="review">Submit For Approval</button>`, submissionForm("review"), "pad")}${panel("My Review Status", "", submissionsTable(false, "review"), "pad")}</div>`;
   },
   settings() {
-    return adminScreens.settings();
+    return panel("Trainer Settings", "", `<p class="panel-copy">Your profile and public page are managed by Lorenzo's office. Contact the office for changes to bio, market, phone, page layout, or published content.</p><br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
   }
 };
 
@@ -469,269 +436,338 @@ function panel(title, action, body, extra = "") {
   return `<section class="panel ${extra}"><div class="panel-head"><h2>${title}</h2><div class="row-actions">${action || ""}</div></div>${extra === "pad" ? body : `<div>${body}</div>`}</section>`;
 }
 
+function getMetrics() {
+  const visits = state.leads.reduce((sum, lead) => sum + Number(lead.visits || 0), 0) + state.trainers.reduce((sum, t) => sum + Number(t.clicks || 0), 0);
+  const forms = state.leads.filter(l => l.submitted).length + state.trainers.reduce((sum, t) => sum + Number(t.forms || 0), 0);
+  const evalScheduled = state.leads.filter(l => l.status === "Evaluation Scheduled").length;
+  const evalCompleted = state.leads.filter(l => l.status === "Evaluation Complete").length;
+  const followUpNeeded = state.leads.filter(l => l.status === "Follow Up Call Needed").length;
+  const engagedNoOutcome = state.leads.filter(l => l.status === "Engaged Lead: No Outcome").length;
+  const firstPayment = state.leads.filter(l => l.status === "First Session / Payment").length;
+  const clientWon = state.leads.filter(l => l.status === "Became a Client").length;
+  return { visits, forms, evalScheduled, evalCompleted, followUpNeeded, engagedNoOutcome, firstPayment, clientWon, trueConversions: firstPayment + clientWon, lostNoResponse: state.leads.filter(l => l.status === "Lost / No Response").length };
+}
+
 function trainerPerformanceTable() {
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Trainer</th><th>New Leads</th><th>Booked Evaluations</th><th>Client Won</th><th>Active Site</th></tr></thead><tbody>${trainers.map((trainer, index) => `
-    <tr><td><div class="row-person"><span class="avatar"><img src="https://images.unsplash.com/photo-${index % 2 ? "1494790108377-be9c29b29330" : "1560250097-0b93528c311a"}?auto=format&fit=crop&w=90&q=60" alt=""></span><div><strong>${trainer[0]}</strong><small>${trainer[1]}</small></div></div></td><td><strong>${trainer[2]}</strong></td><td><strong>${trainer[3]}</strong></td><td><strong>${trainer[4]}</strong></td><td><span class="status ${trainer[5] === "Live" ? "live" : "draft"}">${trainer[5]}</span></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Trainer</th><th>Page Status</th><th>Clicks</th><th>Forms</th><th>True Conversions</th><th>Rate</th></tr></thead><tbody>${state.trainers.map(trainer => {
+    const trainerLeadConversions = state.leads.filter(l => l.trainerId === trainer.id && conversionStatuses().includes(l.status)).length;
+    const conversions = Math.max(trainer.conversions || 0, trainerLeadConversions);
+    const rate = trainer.forms ? `${Math.round((conversions / trainer.forms) * 1000) / 10}%` : "0%";
+    return `<tr><td><div class="row-person"><span class="avatar">${initials(trainer.name)}</span><div><strong>${escapeHtml(trainer.name)}</strong><small>${escapeHtml(trainer.market)}</small></div></div></td><td>${pageStatusBadge(trainer)}</td><td><strong>${trainer.clicks}</strong></td><td><strong>${trainer.forms}</strong></td><td><strong>${conversions}</strong></td><td>${rate}</td></tr>`;
+  }).join("")}</tbody></table></div>`;
 }
 
-function calendarQueueTable() {
-  return `<div class="table-wrap"><table class="data-table queue-table"><thead><tr><th>Date & Time</th><th>Client / Dog</th><th>Requested Service</th><th>Trainer</th><th>Actions</th></tr></thead><tbody>${leads.slice(0, 5).map((lead, index) => `
-    <tr><td>May ${12 + index}<small>${index === 0 ? "Today" : index === 1 ? "Today" : "Tomorrow"}, ${index % 2 ? "1:00 PM" : "10:00 AM"}</small></td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2].split(" ")[0]})</small></div></div></td><td>${lead[4]}</td><td><div class="row-person"><span class="avatar"><img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=90&q=60" alt=""></span><div><strong>${trainers[index % trainers.length][0]}</strong><small>${trainers[index % trainers.length][1]}</small></div></div></td><td><button class="btn btn-outline">View</button></td></tr>`).join("")}</tbody></table></div>`;
+function leadDateControls() {
+  return `<div class="lead-date-controls">
+    <span>Lead date:</span>
+    ${[["7", "Last 7 Days"], ["30", "Last 30 Days"], ["60", "Last 60 Days"]].map(([value, label]) => `<button class="btn ${state.leadDateRange === value ? "btn-red" : "btn-outline"}" data-lead-range="${value}">${label}</button>`).join("")}
+    <button class="btn ${state.leadDateRange === "custom" ? "btn-red" : "btn-outline"}" data-lead-range="custom">Custom</button>
+    <input class="select-pill" type="date" name="lead-custom-start" value="${escapeHtml(state.customLeadStart)}">
+    <input class="select-pill" type="date" name="lead-custom-end" value="${escapeHtml(state.customLeadEnd)}">
+  </div>`;
 }
 
-function adminCalendarScreen() {
-  return `<div class="admin-calendar-layout">
-    ${panel("Calendar Queue", `<button class="btn btn-outline">View Calendar</button>`, calendarQueueTable())}
-    ${panel("Trainer Availability Snapshot", `<button class="btn btn-red">Schedule Selected</button>`, availabilitySummary(), "pad")}
-  </div>
-  <br>
-  ${panel("Office Scheduling Outcome", "", `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Requested Time</th><th>Office Outcome</th><th>Reason / Note</th></tr></thead><tbody>${leads.slice(0, 5).map((lead, index) => `<tr><td><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2]})</small></td><td>${trainers[index % trainers.length][0]}</td><td>${availabilityLabel(index)}</td><td><select class="select-pill"><option>Scheduled</option><option>Follow-up scheduled</option><option>Client did not choose service</option><option>Needs office review</option></select></td><td><input class="select-pill note-input" placeholder="Office note or lost reason"></td></tr>`).join("")}</tbody></table></div>`)}
-  `;
+function filteredLeadRows(rows) {
+  const sorted = [...rows].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  const end = state.leadDateRange === "custom" ? new Date(`${state.customLeadEnd}T23:59:59`) : new Date("2026-06-24T23:59:59");
+  const start = state.leadDateRange === "custom"
+    ? new Date(`${state.customLeadStart}T00:00:00`)
+    : new Date(end.getTime() - (Number(state.leadDateRange || 60) - 1) * 86400000);
+  return sorted.filter(lead => {
+    const created = new Date(`${lead.createdAt}T12:00:00`);
+    return created >= start && created <= end;
+  });
+}
+
+function leadRangeLabel() {
+  if (state.leadDateRange === "custom") return `${state.customLeadStart} to ${state.customLeadEnd}`;
+  return `last ${state.leadDateRange} days`;
 }
 
 function leadOutcomeTable() {
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead Date</th><th>Client / Dog</th><th>Service Interest</th><th>Current Status</th><th>Reason (if Lost)</th><th>Actions</th></tr></thead><tbody>${leads.map((lead, index) => `
-    <tr><td>May ${12 - index}, 2025</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]} (${lead[2]})</small></div></div></td><td>${lead[4]}</td><td><select class="select-pill" data-lead-index="${index}">${["New","Contacted","Evaluation Booked","Follow-Up Scheduled","Program Offered","Client Won","Lost"].map(status => `<option ${lead[5] === status ? "selected" : ""}>${status}</option>`).join("")}</select></td><td>${lead[5] === "Lost" ? `<select class="select-pill"><option>Price concern</option><option>No response</option><option>Chose another trainer/company</option><option>Location issue</option></select>` : "—"}</td><td><button class="btn btn-red">Update</button></td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Service</th><th>Status</th><th>Office Note</th><th>Action</th></tr></thead><tbody>${state.leads.map(lead => `
+    <tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} (${escapeHtml(lead.breed)})</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td><input class="select-pill note-input" data-lead-note="${lead.id}" value="${escapeHtml(lead.note)}"></td><td><button class="btn btn-red" data-save-lead="${lead.id}">Update</button></td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function leadPipelineTable(admin) {
+  const baseRows = admin ? state.leads : trainerLeads();
+  const rows = filteredLeadRows(baseRows);
+  return `${leadDateControls()}<p class="panel-copy" style="margin-bottom:12px">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}, sorted newest first.</p><div class="pipeline-tabs funnel-tabs">${leadStatusCounts(rows).map(([label, count]) => `<article><span>${escapeHtml(label)}</span><strong>${count}</strong></article>`).join("")}</div>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Lead Date</th><th>Owner / Dog</th><th>Source</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Office Notes</th></tr></thead><tbody>${rows.map((lead, index) => `<tr><td>${formatDate(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td>${escapeHtml(lead.source)}</td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="7">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+}
+
+function statusSelect(lead) {
+  return `<select class="select-pill" data-lead-status="${lead.id}">${leadStatuses.map(status => `<option ${lead.status === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}</select>`;
+}
+
+function leadStatusCounts(rows) {
+  return ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Follow Up Call Needed", "Evaluation Scheduled", "Evaluation Complete", "Became a Client"].map(status => [status, rows.filter(lead => lead.status === status).length]);
 }
 
 function leadSummary() {
-  const labels = [["New", 68, "#246bfe"], ["Contacted", 18, "#69b6ff"], ["Evaluation Booked", 14, "#7759d8"], ["Follow-Up Scheduled", 10, "#ff9f1a"], ["Program Offered", 8, "#20a566"], ["Client Won", 18, "#0b7e49"], ["Lost", 9, "#d20f32"]];
-  return `<div class="donut-panel"><div class="donut"></div><div class="legend">${labels.map(([name, value, color]) => `<div class="legend-row"><span class="dot" style="background:${color}"></span><span>${name}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
+  const labels = leadStatusCounts(state.leads);
+  return `<div class="donut-panel"><div class="donut"></div><div class="legend">${labels.map(([name, value], index) => `<div class="legend-row"><span class="dot" style="background:${["#246bfe", "#69b6ff", "#7759d8", "#ff9f1a", "#20a566", "#0b7e49", "#d20f32"][index]}"></span><span>${escapeHtml(name)}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
 }
 
-function availabilityKey(day, time) {
-  return `${day}|${time}`;
-}
-
-function isAvailable(day, time) {
-  return state.availability.selected.includes(availabilityKey(day, time));
-}
-
-function availabilityLabel(index = 0) {
-  const selected = state.availability.selected[index % Math.max(state.availability.selected.length, 1)] || "No time selected";
-  return selected === "No time selected" ? selected : `${selected.replace("|", " · ")} · ${slotModeLabel(selected)}`;
-}
-
-function openCountForDay(day) {
-  return state.availability.selected.filter(slot => slot.startsWith(`${day}|`)).length;
-}
-
-function selectedTheme() {
-  return themes[state.selectedTheme] || themes[0];
-}
-
-function selectedThemeImage() {
-  return themeImages[state.selectedTheme] || themeImages[0];
-}
-
-function themeClass() {
-  const group = selectedTheme()[0];
-  if (group === "Premium Local Pro") return "theme-premium";
-  if (group === "Advanced Specialty") return "theme-advanced";
-  return "theme-classic";
-}
-
-function companyLogo() {
-  return state.trainer.logoData || "../assets/lorenzo-logo-transparent.png";
-}
-
-function slotModeLabel(slot) {
-  return state.availability.slotModes?.[slot] || state.availability.slotType || "In-person consultation";
-}
-
-function slotModeClass(slot) {
-  return slotModeLabel(slot).toLowerCase().includes("online") ? "online" : "inperson";
-}
-
-function availabilitySummary() {
-  const inPerson = state.availability.selected.filter(slot => slotModeClass(slot) === "inperson").length;
-  const online = state.availability.selected.filter(slot => slotModeClass(slot) === "online").length;
-  return `<div class="availability-summary">
-    <div><strong>${state.availability.selected.length}</strong><span>Open request slots</span></div>
-    <div><strong>${inPerson} / ${online}</strong><span>In-person / online</span></div>
-    <div><strong>${state.availability.interval}</strong><span>Time intervals</span></div>
-  </div>
-  <div class="available-pill-row">${state.availability.selected.slice(0, 12).map(slot => `<span class="${slotModeClass(slot)}">${slot.replace("|", " · ")} · ${slotModeLabel(slot).replace(" consultation", "")}</span>`).join("") || "<span>No open times selected</span>"}</div>`;
-}
-
-function trainerAvailabilityScreen() {
-  return `<div class="availability-layout">
-    <section class="panel pad">
-      <div class="calendar-head">
-        <div><p class="step-label">Trainer Availability</p><h2>Select times clients can request.</h2><p class="panel-copy">Choose whether each available window is for an in-person consultation or an online consultation. These times appear on your trainer site exactly as selected.</p></div>
-        <div class="row-actions"><button class="btn btn-outline" id="clearAvailability">Clear</button><button class="btn btn-red" id="saveAvailability">Save Availability</button></div>
-      </div>
-      <div class="availability-tools">
-        <label>Availability Type<select name="availability-slotType"><option ${state.availability.slotType === "In-person consultation" ? "selected" : ""}>In-person consultation</option><option ${state.availability.slotType === "Online consultation" ? "selected" : ""}>Online consultation</option></select></label>
-        <label>Time Intervals<select name="availability-interval"><option ${state.availability.interval === "15 min" ? "selected" : ""}>15 min</option><option ${state.availability.interval === "30 min" ? "selected" : ""}>30 min</option><option ${state.availability.interval === "45 min" ? "selected" : ""}>45 min</option><option ${state.availability.interval === "60 min" ? "selected" : ""}>60 min</option></select></label>
-        <div class="mode-hint"><strong>How to use it</strong><span>Pick a type, then click times below. Click an open time again with another type selected to switch it.</span></div>
-      </div>
-      <div class="availability-calendar">
-        <div class="time-spacer"></div>${availabilityDays.map(day => `<div class="day-head">${day}<small>${openCountForDay(day)} open</small></div>`).join("")}
-        ${availabilityTimes.map(time => `<div class="time-head">${time}</div>${availabilityDays.map(day => { const key = availabilityKey(day, time); const available = isAvailable(day, time); return `<button class="slot-cell ${available ? `available ${slotModeClass(key)}` : ""}" data-slot="${key}"><strong>${available ? "Available" : "Closed"}</strong>${available ? `<small class="slot-mode ${slotModeClass(key)}">${slotModeClass(key) === "online" ? "Online" : "In person"}</small>` : `<small>Click to add</small>`}</button>`; }).join("")}`).join("")}
-      </div>
-    </section>
-    ${panel("Site Preview: Requestable Times", `<button class="btn btn-outline" data-view="site">View Site Builder</button>`, availabilitySummary(), "pad")}
+function protectionSummary() {
+  return `<div class="protection-list">
+    <div><strong>${state.clients.filter(c => c.status === "Do Not Contact").length}</strong><span>Do-not-contact records blocked</span></div>
+    <div><strong>${state.clients.filter(c => c.status === "Bad Lead").length}</strong><span>Bad leads excluded by default</span></div>
+    <div><strong>${state.clients.filter(c => c.smsConsent === "Unknown" || c.emailConsent === "Unknown").length}</strong><span>Unknown consent requires review</span></div>
   </div>`;
 }
 
-function inviteBuilder() {
-  const link = `${location.origin}${location.pathname}?role=trainer&temp=${TEMP_PASSWORD}&name=${encodeURIComponent(state.inviteDraft.name || "New Trainer")}&market=${encodeURIComponent(state.inviteDraft.market || "Market Pending")}`;
-  return `
-    <div class="invite-box">
-      <div class="field"><label>Trainer Name<input name="invite-name" value="${escapeHtml(state.inviteDraft.name)}" placeholder="Trainer name"></label></div>
-      <div class="field"><label>Email<input name="invite-email" value="${escapeHtml(state.inviteDraft.email)}" placeholder="trainer@email.com"></label></div>
-      <div class="field"><label>Phone<input name="invite-phone" value="${escapeHtml(state.inviteDraft.phone)}" placeholder="(555) 555-5555"></label></div>
-      <div class="field"><label>Market / Territory<input name="invite-market" value="${escapeHtml(state.inviteDraft.market)}" placeholder="Cleveland, OH"></label></div>
-    </div>
-    <br><div class="staged-link" id="inviteLink">${escapeHtml(link)}</div>
-    <br><div class="row-actions"><button class="btn btn-outline" id="copyInvite">Copy Link</button><a class="btn btn-outline" href="mailto:?subject=Your Lorenzo trainer portal is ready&body=${encodeURIComponent(link)}">Email Invite</a><a class="btn btn-outline" href="sms:?&body=${encodeURIComponent(link)}">Text Invite</a></div>
-    ${state.stagedInvites.length ? `<br><h3>Staged Invites</h3>${state.stagedInvites.map(invite => `<div class="staged-link"><strong>${escapeHtml(invite.name)}</strong><br>${escapeHtml(invite.link)}</div>`).join("<br>")}` : ""}
-  `;
+function approvedLayoutCards() {
+  return `<div class="layout-card-grid">${approvedLayouts.map((layout, index) => `<article class="layout-card"><div class="site-thumb network-thumb" style="background-image:linear-gradient(90deg, rgba(3,24,51,.88), rgba(3,24,51,.2)), url('${layoutImages[index]}')"><span>Approved Layout</span><strong>${escapeHtml(layout.headline)}</strong></div><h3>${escapeHtml(layout.name)}</h3><p>${escapeHtml(layout.tag)}</p><button class="btn btn-outline" data-assign-layout="${layout.id}">Apply To Selected Trainer</button></article>`).join("")}</div>`;
 }
 
-function onboardingFlow() {
-  return `<div class="checklist">${["Send onboarding invite","Trainer logs in with doglovers26","Trainer creates permanent password","Portal tutorial starts","Trainer completes site setup","Admin sees Trainer Portal Ready"].map((item, index) => `<div class="checkline"><span class="step-num">${index + 1}</span><div><strong>${item}</strong><small>${index === 0 ? "Copy, email, or text the invite link." : "Connected to backend later."}</small></div></div>`).join("")}</div>`;
+function trainerPageCards() {
+  return `<div class="trainer-card-grid">${state.trainers.map(trainer => `<article class="network-card"><div class="site-thumb network-thumb" style="background-image:linear-gradient(90deg, rgba(3,24,51,.88), rgba(3,24,51,.18)), url('${trainer.image || layoutImages[0]}')"><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name)} · ${escapeHtml(trainer.market)}</strong></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name)}</h3><p>${escapeHtml(trainer.serviceArea)}</p></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${trainer.clicks}</strong><span>Clicks</span></div><div><strong>${trainer.forms}</strong><span>Forms</span></div><div><strong>${trainer.conversions}</strong><span>Won/Paid</span></div></div><p class="network-note">${trainer.locked ? "Locked by office. Trainer can view only." : "Office draft. Not locked yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Edit</button><button class="btn btn-outline" data-preview-trainer="${trainer.id}">View Page</button><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? "Unlock" : "Publish & Lock"}</button></div></article>`).join("")}</div>`;
 }
 
-function trainerCards() {
-  return `<div class="trainer-card-grid">${trainers.map((trainer, index) => {
-    const stats = trainerSiteStats[index] || trainerSiteStats[0];
-    const theme = themes[stats.theme] || themes[0];
-    const image = themeImages[stats.theme] || themeImages[0];
-    return `<article class="network-card">
-      <div class="site-thumb network-thumb" style="background-image:linear-gradient(90deg, rgba(3,24,51,.88), rgba(3,24,51,.18)), url('${image}')">
-        <span>${escapeHtml(theme[0])}</span>
-        <strong>${escapeHtml(theme[1])}</strong>
-      </div>
-      <div class="network-card-head">
-        <div><h3>${trainer[0]}</h3><p>${trainer[1]} · Temp password: ${TEMP_PASSWORD}</p></div>
-        <span class="status ${stats.tone}">${stats.status}</span>
-      </div>
-      <div class="readiness-stats">
-        <div><strong>${stats.clicks.toLocaleString()}</strong><span>Site clicks</span></div>
-        <div><strong>${stats.forms.toLocaleString()}</strong><span>Forms submitted</span></div>
-        <div><strong>${stats.rate}</strong><span>Conversion</span></div>
-      </div>
-      <p class="network-note">${escapeHtml(stats.note)}</p>
-      <div class="row-actions"><button class="btn btn-outline" data-open-preview>View Trainer Site</button><button class="btn btn-outline" data-view="leads">View Leads</button></div>
-    </article>`;
-  }).join("")}</div>`;
+function trainerAdminForm() {
+  const t = trainerById();
+  return `<div class="form-grid">
+    ${[["name", "Trainer Name"], ["market", "Market"], ["phone", "Phone"], ["email", "Email"], ["serviceArea", "Service Area"]].map(([key, label]) => `<div class="field ${key === "serviceArea" ? "wide" : ""}"><label>${label}<input name="admin-trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}
+    <div class="field wide"><label>Approved Bio<textarea name="admin-trainer-bio">${escapeHtml(t.bio)}</textarea></label></div>
+    <div class="field"><label>Approved Layout<select name="admin-trainer-layout">${approvedLayouts.map(layout => `<option value="${layout.id}" ${t.layout === layout.id ? "selected" : ""}>${escapeHtml(layout.name)}</option>`).join("")}</select></label></div>
+    <div class="field"><label>Page Status<select name="admin-trainer-pageStatus"><option ${t.pageStatus === "No Site Started" ? "selected" : ""}>No Site Started</option><option ${t.pageStatus === "Draft" ? "selected" : ""}>Draft</option><option ${t.pageStatus === "Published" ? "selected" : ""}>Published</option></select></label></div>
+    <div class="field"><label>Locked<select name="admin-trainer-locked"><option value="true" ${t.locked ? "selected" : ""}>Locked</option><option value="false" ${!t.locked ? "selected" : ""}>Unlocked Draft</option></select></label></div>
+  </div><br><button class="btn btn-red" id="saveTrainerProfile">Save Trainer Profile</button>`;
 }
 
-function pipelineScreen(admin) {
-  return `${panel(admin ? "Leads Pipeline" : "Lead Pipeline", `<button class="btn btn-outline">All Sources</button><button class="btn btn-red">+ Add Lead</button>`, pipelineBody(true), "pad")}`;
+function trainerSelectList() {
+  return `<div class="trainer-select-list">${state.trainers.map(trainer => `<button class="trainer-select ${state.selectedTrainerId === trainer.id ? "active" : ""}" data-select-trainer="${trainer.id}"><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainer.market)} · ${trainer.pageStatus}${trainer.locked ? " · Locked" : ""}</span></button>`).join("")}</div>`;
 }
 
-function pipelineBody(showSearch) {
-  const counts = [["New", 27], ["Contacted", 18], ["Evaluation Booked", 12], ["Program Offered", 8], ["Client Won", 24], ["Lost", 6]];
-  return `
-    <div class="pipeline-tabs">${counts.map(([label, count]) => `<article><span>${label}</span><strong>${count}</strong></article>`).join("")}</div>
-    ${showSearch ? `<div class="row-actions" style="margin-bottom:12px"><input class="select-pill" style="min-width:260px" placeholder="Search leads..."><button class="btn btn-outline">Filters</button><button class="btn btn-outline">Export</button></div>` : ""}
-    <div class="table-wrap"><table class="data-table"><thead><tr><th>Owner / Dog</th><th>Breed</th><th>Service Interest</th><th>Status</th><th>Next Follow-Up</th><th>Admin Office Note</th></tr></thead><tbody>${leads.map((lead, index) => `<tr><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${lead[0]}</strong><small>${lead[1]}</small></div></div></td><td>${lead[2]}</td><td>${lead[4]}</td><td><span class="status ${statusClass(lead[5])}">${lead[5]}</span></td><td>${lead[6]}</td><td>${lead[7] || "—"}</td></tr>`).join("")}</tbody></table></div>`;
+function pageStatusBadge(trainer) {
+  const cls = trainer.pageStatus === "Published" ? "live" : trainer.pageStatus === "Draft" ? "draft" : "enrolled";
+  return `<span class="status ${cls}">${escapeHtml(trainer.pageStatus)}${trainer.locked ? " · Locked" : ""}</span>`;
 }
 
-function wizardScreen() {
-  return `<div class="wizard-layout wizard-layout-simple">
-    <div class="wizard-main">
-      <section class="wizard-card"><span class="step-label">Step 1 of 8</span><h2>Business Identity</h2><p class="panel-copy">Let's start with your business details. This information will automatically populate your website templates and pages.</p><div class="info-callout">${icon("lead")}<div><strong>Lorenzo's Dog Training Team appears by default until your company name is added.</strong><br>You only need to enter this once. We'll use it everywhere on your site.</div></div>${businessForm()}</section>
-      <section class="panel pad"><div class="row-actions" style="justify-content:space-between"><button class="btn btn-outline">Save Draft</button><div><button class="btn btn-outline">Back</button> <button class="btn btn-red" data-view="templates">Continue</button></div></div></section>
-    </div>
-    <div class="wizard-side">
-      ${panel("Live Header Preview", "", headerPreview(), "pad")}
-      ${panel("Completion Checklist", "", completionChecklist(), "pad")}
-      ${panel("What's next?", "", `<p class="panel-copy">Next, you'll tell your story and add credentials to build trust with your future clients.</p>`, "pad")}
-    </div>
+function layoutName(id) {
+  return approvedLayouts.find(layout => layout.id === id)?.name || approvedLayouts[0].name;
+}
+
+function lockedPageCard(trainer) {
+  return `<div class="locked-card"><div class="site-thumb network-thumb" style="background-image:linear-gradient(90deg, rgba(3,24,51,.88), rgba(3,24,51,.18)), url('${trainer.image || layoutImages[0]}')"><span>Powered by Lorenzo's Dog Training</span><strong>${escapeHtml(trainer.name)} · ${escapeHtml(trainer.market)}</strong></div><div><h3>${escapeHtml(layoutName(trainer.layout))}</h3><p class="panel-copy">${escapeHtml(trainer.bio)}</p><p>${pageStatusBadge(trainer)}</p></div></div>`;
+}
+
+function lockedPageDetails(trainer) {
+  return `<div class="lock-notice">${icon("shield")}<div><strong>Office-controlled and locked</strong><p>Lorenzo's office manages the bio, photos, reviews, layout, publishing, and page lock. Trainers submit content for approval.</p></div></div><ul class="health-list"><li><span class="check">✓</span> Brand-uniform Lorenzo page</li><li><span class="check">✓</span> Safer office consultation CTA</li><li><span class="check">✓</span> No trainer publish controls</li><li><span class="check">✓</span> No DNS or website builder access</li></ul>`;
+}
+
+function trainerAllowedList() {
+  return `<div class="permission-grid"><div><h3>Trainer can</h3><ul><li>View locked page</li><li>See assigned leads</li><li>Read office notes and outcomes</li><li>See basic performance numbers</li><li>Submit photos/reviews for approval</li></ul></div><div><h3>Trainer cannot</h3><ul><li>Edit website pages</li><li>Pick random themes</li><li>Publish pages</li><li>Manage DNS/domains</li><li>Control calendar builder</li><li>Mass message imported clients</li></ul></div></div>`;
+}
+
+function trainerSubmissions(id = currentTrainerId()) {
+  return state.submissions.filter(sub => sub.trainerId === id);
+}
+
+function pendingSubmissions() {
+  return state.submissions.filter(sub => sub.status === "Pending");
+}
+
+function trainerMediaSubmissions(id = currentTrainerId()) {
+  return trainerSubmissions(id).filter(sub => ["Photo", "Training Video", "Video"].includes(sub.type));
+}
+
+function trainerReviewSubmissions(id = currentTrainerId()) {
+  return trainerSubmissions(id).filter(sub => ["Review", "Testimonial"].includes(sub.type));
+}
+
+function submissionForm(kind = "media") {
+  const options = kind === "review" ? ["Review", "Testimonial"] : ["Photo", "Training Video"];
+  const placeholder = kind === "review" ? "Example: Google review screenshot" : "Example: Loose leash training video";
+  return `<div class="form-grid"><div class="field"><label>Submission Type<select name="submission-type">${options.map(option => `<option>${option}</option>`).join("")}</select></label></div><div class="field"><label>Title<input name="submission-title" placeholder="${placeholder}"></label></div><div class="field wide"><label>Notes<textarea name="submission-note" placeholder="Tell the office where this should be used."></textarea></label></div><div class="field wide"><label>Upload File<input type="file" disabled></label><p class="panel-copy">Demo only: click submit to create a pending localStorage submission.</p></div></div>`;
+}
+
+function submissionsTable(admin, kind = "all") {
+  const sourceRows = admin ? state.submissions : trainerSubmissions();
+  const rows = kind === "media" ? sourceRows.filter(sub => ["Photo", "Training Video", "Video"].includes(sub.type)) : kind === "review" ? sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)) : sourceRows;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Trainer</th><th>Type</th><th>Title</th><th>Status</th><th>Note</th>${admin ? "<th>Action</th>" : ""}</tr></thead><tbody>${rows.map(sub => `<tr><td>${escapeHtml(trainerName(sub.trainerId))}</td><td>${escapeHtml(sub.type)}</td><td><strong>${escapeHtml(sub.title)}</strong></td><td><span class="status ${submissionStatusClass(sub.status)}">${escapeHtml(sub.status)}</span></td><td>${escapeHtml(sub.note)}</td>${admin ? `<td><button class="btn btn-green" data-approve-submission="${sub.id}">Approve</button> <button class="btn btn-outline" data-decline-submission="${sub.id}">Decline</button></td>` : ""}</tr>`).join("")}</tbody></table></div>`;
+}
+
+function clientFilterBar() {
+  return `<div class="filter-bar">${clientStatuses.map(status => `<button class="btn ${state.clientFilter === status ? "btn-red" : "btn-outline"}" data-client-filter="${status}">${status}</button>`).join("")}</div>`;
+}
+
+function clientTable() {
+  const rows = state.clients.filter(c => state.clientFilter === "All" || c.status === state.clientFilter);
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Trainer</th><th>Status</th><th>Consent</th><th>Imported Source</th><th>Campaign Eligibility</th><th>Notes</th></tr></thead><tbody>${rows.map(client => `<tr><td><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.phone)} · ${escapeHtml(client.email)}</small></td><td>${escapeHtml(client.dog)}<small>${escapeHtml(client.breed)}</small></td><td>${escapeHtml(trainerName(client.trainerId))}</td><td><span class="status ${clientStatusClass(client.status)}">${escapeHtml(client.status)}</span></td><td>SMS: ${consentBadge(client.smsConsent)}<br>Email: ${consentBadge(client.emailConsent)}</td><td>${escapeHtml(client.importedSource)}</td><td>${campaignEligibility(client)}</td><td>${escapeHtml(client.notes)}</td></tr>`).join("")}</tbody></table></div>`;
+}
+
+function importInput() {
+  return `<p class="panel-copy">Paste CSV with headers. Expected fields can include Client Name, Phone, Email, Dog Name, Dog Breed, Trainer Assigned, Status, SMS Consent, Email Consent, Source, Notes.</p><br><textarea class="csv-input" id="csvInput">${escapeHtml(state.importDraft)}</textarea><br><br><label class="field">Imported Source<select id="importSource"><option>Spreadsheet</option><option>Alpha</option><option>QuickBooks</option><option>Manual</option></select></label>`;
+}
+
+function importPreview() {
+  if (!state.importedPreview.length) {
+    return `<div class="empty-state"><strong>No preview yet.</strong><p>Paste data, then click Preview Import. Nothing is imported until admin confirms.</p></div>`;
+  }
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Action</th><th>Client</th><th>Dog</th><th>Status</th><th>Consent</th><th>Warnings</th></tr></thead><tbody>${state.importedPreview.map((row, index) => `<tr><td><select class="select-pill" data-import-action="${index}"><option ${row.action === "Create" ? "selected" : ""}>Create</option><option ${row.action === "Update" ? "selected" : ""}>Update</option><option ${row.action === "Skip" ? "selected" : ""}>Skip</option><option ${row.action === "Merge" ? "selected" : ""}>Merge</option></select></td><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.phone)} · ${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.dog)}<small>${escapeHtml(row.breed)}</small></td><td><span class="status ${clientStatusClass(row.status)}">${escapeHtml(row.status)}</span></td><td>SMS: ${consentBadge(row.smsConsent)}<br>Email: ${consentBadge(row.emailConsent)}</td><td>${row.warnings.map(w => `<span class="warning-pill">${escapeHtml(w)}</span>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table></div><br><button class="btn btn-red" id="confirmImport">Confirm Import</button>`;
+}
+
+function parseCsv(text) {
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+  return lines.slice(1).map(line => {
+    const values = line.split(",").map(v => v.trim());
+    const get = (...keys) => {
+      const found = keys.map(k => headers.indexOf(k)).find(i => i >= 0);
+      return found >= 0 ? values[found] || "" : "";
+    };
+    const name = get("client name", "name");
+    const phone = get("phone", "phone number");
+    const email = get("email", "email address");
+    const status = normalizeClientStatus(get("status"));
+    const warnings = [];
+    const duplicate = state.clients.find(c => sameContact(c, { phone, email }));
+    if (duplicate) warnings.push("Possible duplicate");
+    if (status === "Do Not Contact") warnings.push("DNC blocked from campaigns");
+    if (status === "Bad Lead") warnings.push("Bad lead excluded by default");
+    const smsConsent = normalizeConsent(get("sms consent", "sms"));
+    const emailConsent = normalizeConsent(get("email consent", "email permission"));
+    if (smsConsent === "Unknown" || emailConsent === "Unknown") warnings.push("Unknown consent needs review");
+    return {
+      name,
+      phone,
+      email,
+      dog: get("dog name", "dog"),
+      breed: get("dog breed", "breed"),
+      trainerId: trainerIdFromName(get("trainer assigned", "trainer")),
+      status,
+      smsConsent,
+      emailConsent,
+      importedSource: get("source", "imported source") || document.getElementById("importSource")?.value || "Spreadsheet",
+      notes: get("notes", "note"),
+      warnings,
+      action: duplicate ? "Merge" : "Create"
+    };
+  });
+}
+
+function trainerIdFromName(name) {
+  if (!name) return currentTrainerId();
+  const found = state.trainers.find(t => t.name.toLowerCase() === name.toLowerCase());
+  return found?.id || currentTrainerId();
+}
+
+function normalizeClientStatus(value) {
+  const lower = String(value || "Active").toLowerCase();
+  if (lower.includes("do not") || lower.includes("dnc")) return "Do Not Contact";
+  if (lower.includes("bad")) return "Bad Lead";
+  if (lower.includes("past")) return "Past";
+  if (lower.includes("lost")) return "Lost";
+  if (lower.includes("won") || lower.includes("client")) return "Won";
+  return "Active";
+}
+
+function normalizeConsent(value) {
+  const lower = String(value || "").toLowerCase();
+  if (["yes", "y", "true", "approved", "opt-in", "opt in"].includes(lower)) return "Yes";
+  if (["no", "n", "false", "opt-out", "opt out"].includes(lower)) return "No";
+  return "Unknown";
+}
+
+function sameContact(a, b) {
+  const cleanPhone = value => String(value || "").replace(/\D/g, "");
+  return (a.email && b.email && a.email.toLowerCase() === b.email.toLowerCase()) || (cleanPhone(a.phone) && cleanPhone(a.phone) === cleanPhone(b.phone));
+}
+
+function campaignEligibility(client) {
+  if (client.status === "Do Not Contact") return `<span class="status lost">Blocked: DNC</span>`;
+  if (client.status === "Bad Lead") return `<span class="status lost">Excluded: Bad lead</span>`;
+  if (client.smsConsent !== "Yes" && client.emailConsent !== "Yes") return `<span class="status draft">Review consent</span>`;
+  return `<span class="status live">Eligible after admin review</span>`;
+}
+
+function consentBadge(value) {
+  const cls = value === "Yes" ? "live" : value === "No" ? "lost" : "draft";
+  return `<span class="status ${cls}">${escapeHtml(value)}</span>`;
+}
+
+function approvedClientRecord(row) {
+  return {
+    id: `client-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    dog: row.dog,
+    breed: row.breed,
+    trainerId: row.trainerId,
+    status: row.status,
+    source: row.importedSource,
+    importedSource: row.importedSource,
+    smsConsent: row.smsConsent,
+    emailConsent: row.emailConsent,
+    dateStarted: "",
+    lastContacted: "",
+    notes: row.notes
+  };
+}
+
+function lostReasonsTable() {
+  const lost = state.leads.filter(l => l.status.startsWith("Lost") || l.status === "Bad Lead" || l.status === "Do Not Contact");
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Trainer</th><th>Office Note</th></tr></thead><tbody>${lost.map(lead => `<tr><td>${escapeHtml(lead.owner)}<small>${escapeHtml(lead.dog)}</small></td><td><span class="status lost">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="4">No lost leads in current demo state.</td></tr>`}</tbody></table></div>`;
+}
+
+function publicSiteMarkup(trainer) {
+  const layout = approvedLayouts.find(l => l.id === trainer.layout) || approvedLayouts[0];
+  return `<div class="public-site-wrap">
+    <header class="site-header-preview"><div class="site-company-lockup"><img class="site-company-logo" src="../assets/lorenzo-logo-transparent.png" alt=""><strong>${escapeHtml(trainer.name)}<small>Powered by Lorenzo's Dog Training</small></strong></div><nav class="mock-nav"><a href="#services">Services</a><a href="#about">About</a><a href="#reviews">Reviews</a><a href="#contact">Contact</a></nav></header>
+    <section class="hero-preview public-hero" style="background-image:linear-gradient(90deg, rgba(3,24,51,.92), rgba(3,24,51,.26)), url('${trainer.image || layoutImages[0]}')"><div><span class="selected-template-pill light">${escapeHtml(layout.name)}</span><h2>${escapeHtml(layout.headline)}</h2><p>${escapeHtml(trainer.bio)}</p><div class="row-actions"><a class="btn btn-red" href="#contact">Schedule Phone Consultation</a><a class="btn btn-outline" href="#services">View Services</a></div><p class="powered-copy">Powered by Lorenzo's Dog Training</p></div></section>
+    <section class="service-preview" id="services"><p class="step-label">Training Services</p><h2>Training plans guided by Lorenzo's office and delivered through approved trainers.</h2><div class="service-cards">${["Obedience Training", "Behavior Modification", "Puppy Training", "Specialty Training"].map(service => `<article>${icon("shield")}<strong>${service}</strong><p class="panel-copy">Office-guided consultation and trainer matching.</p></article>`).join("")}</div></section>
+    <section class="service-preview" id="contact"><p class="step-label">Start With The Office</p><h2>Schedule a phone consultation.</h2><p class="panel-copy">Our office will contact you at your selected time to help get you connected with the right trainer.</p><div class="contact-card"><input placeholder="Your name"><input placeholder="Phone"><input placeholder="Dog name"><select><option>Obedience Training</option><option>Behavior Modification</option><option>Protection / Specialty Training</option></select><button class="btn btn-red">Request Office Call</button></div></section>
   </div>`;
-}
-
-function businessForm() {
-  const t = state.trainer;
-  const fields = [["companyName","Company Name *"],["slogan","Company Slogan"],["trainerName","Trainer Name *"],["title","Trainer Title"],["phone","Phone *"],["email","Email *"],["market","City / State *"],["serviceArea","Service Area *"]];
-  return `<div class="form-grid"><div class="field"><label>Company Logo<input type="file" name="trainer-logoData-file" accept="image/*"></label><div class="logo-preview">${state.trainer.logoData ? `<img src="${state.trainer.logoData}" alt="">` : `<img src="${companyLogo()}" alt="">`}</div></div>${fields.map(([key, label]) => `<div class="field"><label>${label}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}${["instagram","facebook","google"].map(key => `<div class="field"><label>${key[0].toUpperCase() + key.slice(1)}<input name="trainer-${key}" value="${escapeHtml(t[key])}"></label></div>`).join("")}</div>`;
-}
-
-function headerPreview() {
-  return `<div class="header-preview"><div class="preview-tabs"><span>Before (Default)</span><span class="active">After (Your Company)</span></div><div class="mock-header"><img src="../assets/lorenzo-logo-transparent.png" alt=""><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><div class="mock-header"><img src="${companyLogo()}" alt=""><strong>${escapeHtml(state.trainer.companyName)}<small>Powered by Lorenzo's Dog Training Team</small></strong><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div></div>`;
-}
-
-function completionChecklist() {
-  return `<div class="checklist">${["Company Name","Phone Number","Service Area","At least 1 Social Link"].map((item, index) => `<div class="checkline"><span class="check">${index === 1 ? "✓" : "○"}</span><div><strong>${item}</strong><small>${index === 1 ? "Add your primary phone number" : "Required before continuing"}</small></div></div>`).join("")}</div>`;
-}
-
-function themePickerScreen() {
-  const groups = ["Lorenzo Classic", "Premium Local Pro", "Advanced Specialty"];
-  return `<div class="theme-toolbar"><button class="btn btn-outline" data-view="dashboard">← Back to Trainer Office</button><span class="selected-template-pill">Using: ${escapeHtml(selectedTheme()[1])}</span><a class="btn btn-outline" href="site.html" target="_blank" rel="noopener">Open Selected Site</a></div><div class="theme-layout"><div>${groups.map(group => `<section class="theme-section"><div class="theme-title"><h2>${groups.indexOf(group) + 1}. ${group}</h2><p>${group === "Lorenzo Classic" ? "Timeless layouts with a focus on trust and results." : group === "Premium Local Pro" ? "Modern, premium designs that showcase expertise and local trust." : "Purpose-built layouts for specialty and advanced training businesses."}</p><strong>4 Styles</strong></div><div class="theme-grid">${themes.map((theme, index) => theme[0] === group ? themeCard(theme, index) : "").join("")}</div></section>`).join("")}</div>${profileCard()}</div>`;
-}
-
-function themeCard(theme, index) {
-  return `<article class="theme-card"><div class="theme-shot" style="background-image:linear-gradient(90deg, rgba(3,24,51,.9), rgba(3,24,51,.18)), url('${themeImages[index]}')"><strong>${theme[2]}</strong><button class="btn btn-red" style="width:max-content;margin-top:10px">Book an Evaluation</button></div><div class="theme-body"><h3>${theme[1]}</h3><p><span class="status live">${theme[3]}</span></p><div class="row-actions"><button class="btn btn-outline" data-theme="${index}">Preview Desktop</button><button class="btn btn-outline" data-theme="${index}">Preview Mobile</button></div><button class="btn btn-red btn-full" data-theme="${index}">${state.selectedTheme === index ? "Selected" : "Use This Style"}</button></div></article>`;
-}
-
-function profileCard() {
-  return `<aside class="panel profile-card"><button class="btn btn-outline" style="float:right" data-view="setup">Edit Details</button><img class="profile-logo" src="${companyLogo()}" alt=""><h2>Your Saved Site Profile</h2><h3>${escapeHtml(state.trainer.companyName)}</h3><p class="panel-copy">${escapeHtml(state.trainer.slogan)}</p><p><span class="selected-template-pill">Template: ${escapeHtml(selectedTheme()[1])}</span></p><ul class="profile-list"><li>${icon("users")}<div><strong>Trainer Name</strong><span>${escapeHtml(state.trainer.trainerName)}<br>${escapeHtml(state.trainer.title)}</span></div></li><li>${icon("globe")}<div><strong>Location</strong><span>${escapeHtml(state.trainer.market)}<br>Serving Northeast Ohio</span></div></li><li>${icon("message")}<div><strong>Phone</strong><span>${escapeHtml(state.trainer.phone)}</span></div></li><li>${icon("media")}<div><strong>Media Uploaded</strong><span>12 photos, 6 videos, 6 reviews</span></div></li></ul><button class="btn btn-outline btn-full" data-view="setup">Back to Edit Details</button><br><br><button class="btn btn-red btn-full" data-view="site">Continue to Customize Header & Hero</button></aside>`;
-}
-
-function builderScreen() {
-  return `<div class="builder-layout"><aside class="builder-panel"><button class="btn btn-outline btn-full" data-view="templates">← Back to Templates</button><br><h2>Section Flow</h2><p class="panel-copy">Drag to reorder approved sections.</p><div class="section-stack">${["Header","Hero","Services","Reviews","Training Videos","Photo Gallery","Availability Calendar","Consultation Form","About Trainer","Service Area","FAQ","Final CTA"].map((section, index) => `<div class="section-item ${index < 2 || index === 11 ? "locked" : ""}"><span>${section}</span><span>${index < 2 || index === 11 ? "Locked" : "⋮⋮"}</span></div>`).join("")}</div><br><button class="btn btn-navy btn-full">+ Add Section</button></aside><main class="site-canvas ${themeClass()}">${siteCanvas()}</main><aside class="builder-panel">${heroSettings()}</aside></div>`;
-}
-
-function siteCanvas() {
-  return `<div class="canvas-top"><strong>Desktop Preview</strong><span class="selected-template-pill">Template: ${escapeHtml(selectedTheme()[1])}</span><div class="canvas-tabs"><button>Lorenzo Default</button><button class="active">Company Name</button><button>Company Logo</button><button>Trainer Name</button></div></div><div class="site-header-preview"><div class="site-company-lockup"><img class="site-company-logo" src="${companyLogo()}" alt=""><strong>${escapeHtml(state.trainer.companyName)}<small>${escapeHtml(state.trainer.market)} · Powered by Lorenzo's Dog Training Team</small></strong></div><nav class="mock-nav"><a>Services</a><a>About</a><a>Reviews</a><a>Contact</a><button class="btn btn-red">Book Evaluation</button></nav></div><section class="hero-preview" style="background-image:linear-gradient(90deg, rgba(3,24,51,.92), rgba(3,24,51,.26)), url('${selectedThemeImage()}')"><div><span class="selected-template-pill light">${escapeHtml(selectedTheme()[0])}</span><div class="editable-box"><h2>${escapeHtml(state.trainer.headline || selectedTheme()[2])}</h2></div><div class="editable-box"><p>${escapeHtml(state.trainer.subheadline)}</p></div><div class="row-actions"><button class="btn btn-red">${escapeHtml(state.trainer.cta)}</button><button class="btn btn-outline">View Services</button></div><p style="margin-top:16px">Powered by Lorenzo's Dog Training Team</p></div></section><section class="service-preview"><p class="step-label">Our Services</p><h2>Training services built for real dogs and real owners.</h2><div class="service-cards">${["Obedience Training","Behavior Modification","Puppy Training","Board & Train"].map(service => `<article>${icon("shield")}<strong>${service}</strong><p class="panel-copy">Real-world results and owner leadership.</p></article>`).join("")}</div></section><section class="availability"><p class="step-label">Upcoming Availability</p><h2>Request an evaluation time.</h2><p class="panel-copy">Choose an available in-person or online consultation time from this trainer.</p><div class="calendar-grid">${state.availability.selected.slice(0, 6).map(slot => `<article><strong>${slot.split("|")[0]}</strong><button class="btn btn-outline">${slot.split("|")[1]}</button><small class="slot-mode ${slotModeClass(slot)}">${slotModeClass(slot) === "online" ? "Online" : "In person"}</small></article>`).join("") || `<article><strong>No times yet</strong><button class="btn btn-outline" data-view="calendar">Set Availability</button></article>`}</div></section>`;
-}
-
-function heroSettings() {
-  const t = state.trainer;
-  return `<h2>Hero Settings</h2><p class="panel-copy">Customize your hero section content.</p><div class="setting-stack"><div class="field"><label>Company Logo<input type="file" name="trainer-logoData-file" accept="image/*"></label><div class="logo-preview">${state.trainer.logoData ? `<img src="${state.trainer.logoData}" alt="">` : `<img src="${companyLogo()}" alt="">`}</div></div><div class="field"><label>Headline<textarea name="trainer-headline">${escapeHtml(t.headline)}</textarea></label></div><div class="field"><label>Subheadline<textarea name="trainer-subheadline">${escapeHtml(t.subheadline)}</textarea></label></div><div class="field"><label>CTA Button Text<input name="trainer-cta" value="${escapeHtml(t.cta)}"></label></div><div class="media-image" style="border-radius:10px;background-image:url('${selectedThemeImage()}')"></div><button class="btn btn-outline btn-full" data-view="templates">Change Template Image</button><div class="toggle-row"><strong>Show Lorenzo trust mark</strong><span class="toggle"></span></div><div class="field"><label>Header Style<select><option>${escapeHtml(selectedTheme()[1])}</option></select></label></div><button class="btn btn-red btn-full">Apply Changes</button></div>`;
-}
-
-function mediaLibraryScreen(title = "Media Library") {
-  const cards = [["Heel Training Session","Video · trainer media","Published"],["Client Before / After","Video · progress proof","Published"],["Place Command","Video · obedience clip","Pending"],["Recall Practice","Video · field work","Published"],["Trainer Headshot","Photo · profile image","Published"],["Training Dog Gallery","Photo · site gallery","Published"],["Google Review Screenshot","Review · proof asset","Published"],["Facebook Review Screenshot","Review · pending approval","Pending"]];
-  return `<section class="panel pad"><div class="panel-head"><h2>${title}</h2><button class="btn btn-red">Upload Now</button></div><p class="panel-copy" style="margin-bottom:14px">Trainer media library for each white-label site: videos, dog photos, review screenshots, logos, and testimonial assets.</p><div class="media-tabs"><button class="active">All</button><button>Videos</button><button>Photos</button><button>Screenshots</button><button>Logos</button><button>Reviews</button><button>Testimonials</button></div><div class="media-grid">${cards.map((card, index) => `<article class="media-card"><div class="media-image" style="background-image:url('${mediaImages[index]}')">${index < 4 ? `<span class="play-badge">▶</span>` : ""}</div><div class="media-body"><h3>${card[0]}</h3><p>${card[1]}</p><span class="status ${card[2] === "Published" ? "live" : "draft"}">${card[2]}</span></div></article>`).join("")}</div><div class="storage-bar"><span></span></div><p class="panel-copy">Storage Used: 2.4 GB of 10 GB</p></section>`;
-}
-
-function calendarSlots() {
-  const slots = state.availability.selected.slice(0, 6);
-  return `<div class="calendar-list">${slots.map(slot => { const [day, time] = slot.split("|"); return `<div class="time-slot"><strong>${time}</strong><div>${day}<small><span class="slot-mode ${slotModeClass(slot)}">${slotModeClass(slot) === "online" ? "Online" : "In person"}</span> · ${state.availability.interval} intervals</small></div><button class="btn btn-outline">Request This Time</button></div>`; }).join("") || `<div class="time-slot"><strong>--</strong><div>No requestable times yet<small>Set availability from Calendar</small></div><button class="btn btn-outline" data-view="calendar">Set Times</button></div>`}</div>`;
-}
-
-function overviewItem(value, label, note) {
-  return `<div class="overview-item"><strong>${value}</strong><span>${label}</span><small class="up">${note}</small></div>`;
-}
-
-function healthList(items) {
-  return `<ul class="health-list">${items.map(item => `<li><span><span class="check">✓</span> ${item}</span></li>`).join("")}</ul>`;
-}
-
-function simpleClientTable() {
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Program</th><th>Status</th></tr></thead><tbody>${leads.slice(0, 5).map((lead, i) => `<tr><td>${lead[0]}</td><td>${lead[1]}</td><td>${lead[4]}</td><td><span class="status ${statusClass(lead[5])}">${lead[5]}</span></td></tr>`).join("")}</tbody></table></div>`;
-}
-
-function statusClass(status) {
-  if (status === "Client Won") return "won";
-  if (status === "Lost") return "lost";
-  if (status === "Program Offered") return "offered";
-  if (status.includes("Follow")) return "follow";
-  if (status.includes("Booked") || status === "New") return "booked";
-  return "connected";
 }
 
 function renderPublicSite() {
-  const target = document.getElementById("publicSite");
-  if (!target) return;
-  target.innerHTML = `<div class="site-canvas ${themeClass()}" style="border:0;border-radius:0;box-shadow:none">${siteCanvas()}</div>`;
+  const params = new URLSearchParams(window.location.search);
+  const trainer = trainerById(params.get("trainer") || state.selectedTrainerId);
+  document.getElementById("publicSite").innerHTML = `<div class="site-canvas public-canvas">${publicSiteMarkup(trainer)}</div>`;
+}
+
+function statusClass(status) {
+  if (conversionStatuses().includes(status)) return "won";
+  if (status.startsWith("Lost") || status === "Bad Lead" || status === "Do Not Contact") return "lost";
+  if (status === "Engaged Lead: No Outcome") return "offered";
+  if (status.includes("Follow")) return "follow";
+  if (status.includes("Evaluation")) return "booked";
+  if (status === "New Inquiry") return "new";
+  return "connected";
+}
+
+function clientStatusClass(status) {
+  if (["Active", "Won"].includes(status)) return "won";
+  if (["Bad Lead", "Do Not Contact", "Lost"].includes(status)) return "lost";
+  if (status === "Past") return "connected";
+  return "draft";
+}
+
+function submissionStatusClass(status) {
+  if (status === "Approved") return "won";
+  if (status === "Declined") return "lost";
+  return "draft";
+}
+
+function initials(name) {
+  return String(name).split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  const date = new Date(`${value}T12:00:00`);
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
-document.addEventListener("click", (event) => {
+document.addEventListener("click", event => {
   const loginRole = event.target.closest("[data-login-role]");
   if (loginRole) {
     saveSession(loginRole.dataset.loginRole);
@@ -739,61 +775,105 @@ document.addEventListener("click", (event) => {
     saveState(`${loginRole.dataset.loginRole === "admin" ? "Admin" : "Trainer"} portal opened`);
     return;
   }
+  const trainerSelect = event.target.closest("[data-select-trainer]");
+  if (trainerSelect) state.selectedTrainerId = trainerSelect.dataset.selectTrainer;
   const view = event.target.closest("[data-view]");
   if (view) {
     state.activeView = view.dataset.view;
     saveState();
     return;
   }
-  const theme = event.target.closest("[data-theme]");
-  if (theme) {
-    state.selectedTheme = Number(theme.dataset.theme);
-    saveState("Theme selected");
+  const previewTrainer = event.target.closest("[data-preview-trainer]");
+  if (previewTrainer) {
+    window.open(`site.html?trainer=${previewTrainer.dataset.previewTrainer}`, "_blank", "noopener");
     return;
   }
-  if (event.target.closest("[data-open-preview]")) {
-    window.open("site.html", "_blank", "noopener");
+  const toggleLock = event.target.closest("[data-toggle-lock]");
+  if (toggleLock) {
+    const trainer = trainerById(toggleLock.dataset.toggleLock);
+    trainer.locked = !trainer.locked;
+    if (trainer.locked) trainer.pageStatus = "Published";
+    saveState(trainer.locked ? "Trainer page published and locked" : "Trainer page unlocked as office draft");
     return;
   }
-  if (event.target.id === "stageInvite") {
-    const link = document.getElementById("inviteLink")?.textContent || "";
-    state.stagedInvites.unshift({ name: state.inviteDraft.name || "New Trainer", link });
-    saveState("Trainer invite staged");
+  const assignLayout = event.target.closest("[data-assign-layout]");
+  if (assignLayout) {
+    trainerById().layout = assignLayout.dataset.assignLayout;
+    saveState("Approved layout assigned by office");
     return;
   }
-  if (event.target.id === "copyInvite") {
-    navigator.clipboard?.writeText(document.getElementById("inviteLink")?.textContent || "");
-    showToast("Invite link copied");
-    return;
-  }
-  const slot = event.target.closest("[data-slot]");
-  if (slot) {
-    const value = slot.dataset.slot;
-    const currentMode = state.availability.slotModes?.[value];
-    const nextMode = state.availability.slotType || "In-person consultation";
-    if (!state.availability.slotModes) state.availability.slotModes = {};
-    if (state.availability.selected.includes(value)) {
-      if (currentMode !== nextMode) {
-        state.availability.slotModes[value] = nextMode;
-      } else {
-        state.availability.selected = state.availability.selected.filter(item => item !== value);
-        delete state.availability.slotModes[value];
-      }
-    } else {
-      state.availability.selected = [...state.availability.selected, value];
-      state.availability.slotModes[value] = nextMode;
-    }
+  const clientFilter = event.target.closest("[data-client-filter]");
+  if (clientFilter) {
+    state.clientFilter = clientFilter.dataset.clientFilter;
     saveState();
     return;
   }
-  if (event.target.id === "clearAvailability") {
-    state.availability.selected = [];
-    state.availability.slotModes = {};
-    saveState("Availability cleared");
+  const leadRange = event.target.closest("[data-lead-range]");
+  if (leadRange) {
+    state.leadDateRange = leadRange.dataset.leadRange;
+    saveState(`Showing leads for ${leadRangeLabel()}`);
     return;
   }
-  if (event.target.id === "saveAvailability") {
-    saveState("Availability saved to trainer site preview");
+  const approve = event.target.closest("[data-approve-submission]");
+  if (approve) {
+    const sub = state.submissions.find(s => s.id === approve.dataset.approveSubmission);
+    if (sub) sub.status = "Approved";
+    saveState("Submission approved");
+    return;
+  }
+  const decline = event.target.closest("[data-decline-submission]");
+  if (decline) {
+    const sub = state.submissions.find(s => s.id === decline.dataset.declineSubmission);
+    if (sub) sub.status = "Declined";
+    saveState("Submission declined");
+    return;
+  }
+  if (event.target.id === "submitDemoContent") {
+    const type = document.querySelector('[name="submission-type"]')?.value || "Photo";
+    const title = document.querySelector('[name="submission-title"]')?.value || `${type} submission`;
+    const note = document.querySelector('[name="submission-note"]')?.value || "Submitted by trainer for office approval.";
+    state.submissions.unshift({ id: `sub-${Date.now()}`, trainerId: currentTrainerId(), type, title, note, status: "Pending" });
+    saveState("Submitted for admin approval");
+    return;
+  }
+  if (event.target.id === "previewImport") {
+    state.importDraft = document.getElementById("csvInput")?.value || state.importDraft;
+    state.importedPreview = parseCsv(state.importDraft);
+    saveState("Import preview ready");
+    return;
+  }
+  if (event.target.id === "loadSampleCsv") {
+    saveState("Sample CSV loaded");
+    return;
+  }
+  if (event.target.id === "confirmImport") {
+    const rowsToImport = state.importedPreview.filter(row => row.action !== "Skip");
+    rowsToImport.forEach(row => {
+      const duplicate = state.clients.find(c => sameContact(c, row));
+      if (duplicate && ["Update", "Merge"].includes(row.action)) Object.assign(duplicate, approvedClientRecord(row), { id: duplicate.id });
+      if (!duplicate && row.action === "Create") state.clients.unshift(approvedClientRecord(row));
+    });
+    state.importedPreview = [];
+    state.clientFilter = "Active";
+    saveState("Clients imported into local demo database");
+    return;
+  }
+  if (event.target.id === "addTrainer") {
+    const id = `trainer-${Date.now()}`;
+    state.trainers.unshift({ id, name: "New Trainer", market: "Market Pending", serviceArea: "Service area pending", phone: "(866) 436-4959", email: "trainer@lorenzosdogtrainingteam.com", bio: "Office needs to approve this trainer bio.", layout: "classic", pageStatus: "No Site Started", locked: false, clicks: 0, forms: 0, conversions: 0, image: layoutImages[0] });
+    state.selectedTrainerId = id;
+    state.activeView = "trainers";
+    saveState("Trainer created as office draft");
+    return;
+  }
+  if (event.target.id === "saveTrainerProfile") {
+    saveState("Trainer profile saved by office");
+    return;
+  }
+  if (event.target.id === "resetDemo") {
+    localStorage.removeItem(STORE_KEY);
+    state = structuredClone(defaultState);
+    saveState("Demo data reset");
     return;
   }
   if (event.target.id === "logoutBtn") {
@@ -803,42 +883,63 @@ document.addEventListener("click", (event) => {
   }
 });
 
-document.addEventListener("input", (event) => {
+document.addEventListener("input", event => {
   const field = event.target;
-  if (field.name?.startsWith("trainer-")) {
-    if (field.type === "file") return;
-    const key = field.name.replace("trainer-", "");
-    state.trainer[key] = field.value;
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    render();
+  if (field.name?.startsWith("admin-trainer-")) {
+    const trainer = trainerById();
+    const key = field.name.replace("admin-trainer-", "");
+    trainer[key] = key === "locked" ? field.value === "true" : field.value;
+    saveState(null, true);
   }
-  if (field.name?.startsWith("invite-")) {
-    const key = field.name.replace("invite-", "");
-    state.inviteDraft[key] = field.value;
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    render();
+  if (field.dataset.leadNote) {
+    const lead = state.leads.find(l => l.id === field.dataset.leadNote);
+    if (lead) lead.note = field.value;
+    saveState(null, true);
   }
-  if (field.name?.startsWith("availability-")) {
-    const key = field.name.replace("availability-", "");
-    state.availability[key] = field.type === "checkbox" ? field.checked : field.value;
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
-    render();
+  if (field.id === "csvInput") {
+    state.importDraft = field.value;
+    saveState(null, true);
+  }
+  if (field.name === "lead-custom-start") {
+    state.customLeadStart = field.value;
+    state.leadDateRange = "custom";
+    saveState(null, true);
+  }
+  if (field.name === "lead-custom-end") {
+    state.customLeadEnd = field.value;
+    state.leadDateRange = "custom";
+    saveState(null, true);
   }
 });
 
-document.addEventListener("change", (event) => {
-  const field = event.target;
-  if (field.name === "trainer-logoData-file" && field.files?.[0]) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.trainer.logoData = reader.result;
-      saveState("Company logo updated");
-    };
-    reader.readAsDataURL(field.files[0]);
+document.addEventListener("change", event => {
+  const statusField = event.target.closest("[data-lead-status]");
+  if (statusField) {
+    const lead = state.leads.find(l => l.id === statusField.dataset.leadStatus);
+    if (lead) lead.status = statusField.value;
+    saveState("Lead status updated");
+    return;
+  }
+  const actionField = event.target.closest("[data-import-action]");
+  if (actionField) {
+    const row = state.importedPreview[Number(actionField.dataset.importAction)];
+    if (row) row.action = actionField.value;
+    saveState(null, true);
+  }
+  if (event.target.name === "lead-custom-start" || event.target.name === "lead-custom-end") {
+    state.leadDateRange = "custom";
+    saveState("Custom lead date range applied");
+    return;
+  }
+  if (event.target.name?.startsWith("admin-trainer-")) {
+    const trainer = trainerById();
+    const key = event.target.name.replace("admin-trainer-", "");
+    trainer[key] = key === "locked" ? event.target.value === "true" : event.target.value;
+    saveState("Trainer profile field updated");
   }
 });
 
-document.addEventListener("submit", (event) => {
+document.addEventListener("submit", event => {
   event.preventDefault();
   if (event.target.id === "loginForm") {
     const username = event.target.elements.username.value.trim().toLowerCase();

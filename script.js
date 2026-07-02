@@ -21,6 +21,48 @@ buttons.forEach(button=>button.addEventListener('click',()=>{
   updateTrainers();
 }));
 
+const contactForm=document.querySelector('.contact-intake');
+if(contactForm){
+  const status=contactForm.querySelector('.form-status');
+  const setStatus=(message,type='success')=>{
+    if(!status) return;
+    status.className=`form-status ${type}`;
+    status.innerHTML=message;
+  };
+  const serialize=()=>{
+    const data=new FormData(contactForm);
+    data.set('timestamp',new Date().toISOString());
+    data.set('page_url',window.location.href);
+    data.set('source_page',document.title);
+    return data;
+  };
+  contactForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(!contactForm.reportValidity()) return;
+    const data=serialize();
+    const entries=Object.fromEntries(data.entries());
+    const submissions=JSON.parse(localStorage.getItem('ldttContactSubmissions.v1')||'[]');
+    submissions.push(entries);
+    localStorage.setItem('ldttContactSubmissions.v1',JSON.stringify(submissions));
+
+    const endpoint=contactForm.dataset.googleFormEndpoint;
+    if(endpoint){
+      try{
+        await fetch(endpoint,{method:'POST',mode:'no-cors',body:data});
+      }catch(error){
+        console.warn('LDTT form endpoint failed',error);
+      }
+    }
+
+    const forwardEmail=contactForm.dataset.forwardEmail||'production@lorenzosdogtrainingteam.com';
+    const subject=encodeURIComponent(`LDTT website inquiry: ${entries.first_name||''} ${entries.last_name||''}`.trim());
+    const body=encodeURIComponent(Object.entries(entries).map(([key,value])=>`${key}: ${value}`).join('\n'));
+    const mailto=`mailto:${forwardEmail}?subject=${subject}&body=${body}`;
+    setStatus(`Thank you for contacting Lorenzo's Dog Training Team. Your inquiry has been received. Someone from our team will reach out within 24-48 hours on business days. <a href="${mailto}">Send office email backup</a>`);
+    contactForm.reset();
+  });
+}
+
 const reviewButtons=[...document.querySelectorAll('.review-expand')];
 if(reviewButtons.length){
   const lightbox=document.createElement('div');
