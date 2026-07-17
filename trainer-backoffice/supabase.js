@@ -1,0 +1,274 @@
+(() => {
+  const config = window.LDTT_SUPABASE || {};
+  const STORAGE_KEY = "ldttPortalAuth.v1";
+
+  const enabled = Boolean(config.enabled && config.projectUrl && config.publishableKey);
+  const baseUrl = String(config.projectUrl || "").replace(/\/$/, "");
+  let refreshPromise = null;
+
+  function readSession() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    } catch {
+      return null;
+    }
+  }
+
+  function writeSession(session) {
+    if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+    else localStorage.removeItem(STORAGE_KEY);
+  }
+
+  function authHeaders(session = readSession()) {
+    const headers = {
+      apikey: config.publishableKey,
+      "Content-Type": "application/json"
+    };
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+    return headers;
+  }
+
+  async function request(path, options = {}) {
+    if (!enabled) throw new Error("Supabase is not configured");
+    const {
+      session: requestedSession,
+      retryAuth = true,
+      ...fetchOptions
+    } = options;
+    const currentSession = readSession();
+    if (
+      requestedSession !== null &&
+      retryAuth &&
+      currentSession?.refresh_token &&
+      Number(currentSession.expires_at || 0) <= Math.floor(Date.now() / 1000) + 30
+    ) {
+      await refreshSession();
+    }
+    const response = await fetch(`${baseUrl}${path}`, {
+      ...fetchOptions,
+      headers: {
+        ...authHeaders(requestedSession),
+        ...(options.headers || {})
+      }
+    });
+    if (response.status === 401 && requestedSession !== null && retryAuth && readSession()?.refresh_token) {
+      await refreshSession();
+      return request(path, { ...options, retryAuth: false });
+    }
+    const text = await response.text();
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = text;
+    }
+    if (!response.ok) {
+      const message = data?.msg || data?.message || data?.error_description || data?.error || text || `Request failed (${response.status})`;
+      throw new Error(message);
+    }
+    return data;
+  }
+
+  async function signIn(username, password) {
+    const aliases = {
+      admin: "production@lorenzosdogtrainingteam.com",
+      trainer: "trainer-demo@lorenzosdogtrainingteam.com"
+    };
+    const email = aliases[String(username).trim().toLowerCase()] || String(username).trim().toLowerCase();
+    const session = await request("/auth/v1/token?grant_type=password", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+      session: null
+    });
+    writeSession(session);
+    return session;
+  }
+
+  async function refreshSession() {
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = (async () => {
+      const current = readSession();
+      if (!current?.refresh_token) return null;
+      const refreshed = await request("/auth/v1/token?grant_type=refresh_token", {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: current.refresh_token }),
+        session: null,
+        retryAuth: false
+      });
+      writeSession(refreshed);
+      return refreshed;
+    })();
+    try {
+      return await refreshPromise;
+    } finally {
+      refreshPromise = null;
+    }
+  }
+
+  async function currentPortalUser() {
+    const session = readSession();
+    if (!session?.access_token) return null;
+    try {
+      const rows = await request(`/rest/v1/portal_users?select=*&user_id=eq.${encodeURIComponent(session.user.id)}&limit=1`);
+      return Array.isArray(rows) ? rows[0] || null : null;
+    } catch (error) {
+      if (/jwt|token|expired/i.test(error.message)) {
+        await refreshSession();
+        const next = readSession();
+        const rows = await request(`/rest/v1/portal_users?select=*&user_id=eq.${encodeURIComponent(next.user.id)}&limit=1`);
+        return Array.isArray(rows) ? rows[0] || null : null;
+      }
+      throw error;
+    }
+  }
+
+  async function signOut() {
+    const session = readSession();
+    try {
+      if (session?.access_token) await request("/auth/v1/logout", { method: "POST" });
+    } finally {
+      writeSession(null);
+    }
+  }
+
+  async function changePassword(password) {
+    const result = await request("/auth/v1/user", {
+      method: "PUT",
+      body: JSON.stringify({ password })
+    });
+    await rpc("complete_portal_password_change");
+    return result;
+  }
+
+  async function select(table, query = "select=*") {
+    return request(`/rest/v1/${table}?${query}`);
+  }
+
+  async function insert(table, body, options = {}) {
+    const query = options.onConflict ? `?on_conflict=${encodeURIComponent(options.onConflict)}` : "";
+    const prefer = ["return=representation"];
+    if (options.onConflict) prefer.push("resolution=merge-duplicates");
+    return request(`/rest/v1/${table}${query}`, {
+      method: "POST",
+      headers: { Prefer: prefer.join(",") },
+      body: JSON.stringify(body)
+    });
+  }
+
+  async function update(table, id, body) {
+    return request(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(body)
+    });
+  }
+
+  async function updateBy(table, column, value, body) {
+    return request(`/rest/v1/${table}?${encodeURIComponent(column)}=eq.${encodeURIComponent(value)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(body)
+    });
+  }
+
+  async function rpc(name, body = {}) {
+    return request(`/rest/v1/rpc/${encodeURIComponent(name)}`, {
+      method: "POST",
+      body: JSON.stringify(body)
+    });
+  }
+
+  async function upload(bucket, path, file) {
+    async function uploadOnce(retryAuth = true) {
+      const session = readSession();
+      const response = await fetch(`${baseUrl}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, {
+        method: "POST",
+        headers: {
+          apikey: config.publishableKey,
+          Authorization: `Bearer ${session?.access_token || ""}`,
+          "Content-Type": file.type || "application/octet-stream",
+          "x-upsert": "false"
+        },
+        body: file
+      });
+      if (response.status === 401 && retryAuth && session?.refresh_token) {
+        await refreshSession();
+        return uploadOnce(false);
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || "Upload failed");
+      return data;
+    }
+    return uploadOnce();
+  }
+
+  async function signedStorageUrl(bucket, path, expiresIn = 3600) {
+    if (!path || /^(data:|blob:|https?:|\/)/i.test(path)) return path || "";
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    const result = await request(`/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
+      method: "POST",
+      body: JSON.stringify({ expiresIn })
+    });
+    const signedPath = result?.signedURL || result?.signedUrl || "";
+    if (!signedPath) return "";
+    return signedPath.startsWith("http") ? signedPath : `${baseUrl}/storage/v1${signedPath}`;
+  }
+
+  function publicStorageUrl(bucket, path) {
+    if (!path) return "";
+    const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+    return `${baseUrl}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodedPath}`;
+  }
+
+  async function loadOperationalData() {
+    const [
+      trainers,
+      pages,
+      leads,
+      clients,
+      dogs,
+      applications,
+      submissions,
+      events,
+      portalUsers
+    ] = await Promise.all([
+      select("trainers", "select=*&order=full_name.asc"),
+      select("trainer_pages", "select=*&order=updated_at.desc"),
+      select("leads", "select=*&order=created_at.desc"),
+      select("clients", "select=*&order=created_at.desc"),
+      select("dogs", "select=*&order=created_at.desc"),
+      select("trainer_applications", "select=*&order=created_at.desc"),
+      select("content_submissions", "select=*&order=created_at.desc"),
+      select("site_events", "select=*&order=created_at.desc&limit=5000"),
+      select("portal_users", "select=*&order=created_at.desc")
+    ]);
+    return { trainers, pages, leads, clients, dogs, applications, submissions, events, portalUsers };
+  }
+
+  async function loadPublishedTrainer(slug) {
+    const trainers = await select("trainers", `select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`);
+    const trainer = trainers?.[0];
+    if (!trainer) return null;
+    const pages = await select("trainer_pages", `select=*&trainer_id=eq.${encodeURIComponent(trainer.id)}&page_status=eq.published&locked=eq.true&limit=1`);
+    return { trainer, page: pages?.[0] || null };
+  }
+
+  window.LDTT_PORTAL = {
+    enabled,
+    readSession,
+    signIn,
+    signOut,
+    changePassword,
+    currentPortalUser,
+    loadOperationalData,
+    loadPublishedTrainer,
+    select,
+    insert,
+    update,
+    updateBy,
+    rpc,
+    upload,
+    signedStorageUrl,
+    publicStorageUrl
+  };
+})();

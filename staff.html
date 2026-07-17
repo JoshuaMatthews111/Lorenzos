@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lorenzo Trainer Network Portal</title>
+  <meta name="description" content="Lorenzo's office-controlled trainer network portal for trainer pages, leads, clients, approvals, and reporting.">
+  <link rel="icon" href="assets/ldtt-favicon.png">
+  <link rel="stylesheet" href="trainer-backoffice/styles.css">
+</head>
+<body class="is-logged-out">
+  <section class="login-screen" id="loginScreen" aria-label="Trainer Network login">
+    <div class="login-card">
+      <img src="assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team">
+      <p class="eyebrow">Trainer Network</p>
+      <h1>Staff Login</h1>
+      <p>Authorized Lorenzo office staff and trainers can sign in with their assigned credentials.</p>
+      <form id="loginForm" class="login-form">
+          <label>Username or Email<input required name="username" placeholder="Username or email" autocomplete="username"></label>
+          <label>Password<input required name="password" type="password" placeholder="Password" autocomplete="current-password"></label>
+        <button class="btn btn-red" type="submit">Enter Portal</button>
+      </form>
+        <div class="login-status" id="loginStatus" role="status" aria-live="polite"></div>
+    </div>
+  </section>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="workspace">
+      <header class="topbar" id="topbar"></header>
+      <section id="workspaceView"></section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="supabase-config.js"></script>
+  <script src="trainer-roster.js"></script>
+  <script src="trainer-backoffice/supabase.js?v=20260717b"></script>
+  <script src="trainer-backoffice/app.js?v=20260717b"></script>
+</body>
+</html>

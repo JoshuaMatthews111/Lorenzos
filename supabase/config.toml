@@ -1,0 +1,7 @@
+project_id = "ptnzaeprvkgjgtupmcty"
+
+[functions.submit-contact]
+verify_jwt = false
+
+[functions.submit-trainer-application]
+verify_jwt = false

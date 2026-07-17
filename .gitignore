@@ -4,3 +4,8 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.vercel
+.env*
+.agents/
+.playwright-cli/
+skills-lock.json

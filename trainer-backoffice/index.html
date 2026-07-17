@@ -5,24 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo back-office prototype for office-controlled trainer pages, leads, clients, imports, approvals, and reporting.">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="/trainer-backoffice/styles.css">
 </head>
 <body class="is-logged-out">
-  <section class="login-screen" id="loginScreen" aria-label="Trainer Network demo login">
+  <section class="login-screen" id="loginScreen" aria-label="Trainer Network login">
     <div class="login-card">
       <img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team">
-      <p class="eyebrow">Trainer Network Demo</p>
+      <p class="eyebrow">Trainer Network</p>
       <h1>Trainers Login</h1>
-      <p>Use <strong>admin</strong> for the office dashboard or <strong>trainer</strong> for the trainer portal. Demo trainer password: <strong>doglovers26</strong>.</p>
+      <p>Authorized Lorenzo office staff and trainers can sign in with their assigned credentials.</p>
       <form id="loginForm" class="login-form">
-        <label>Username<input name="username" placeholder="admin or trainer" autocomplete="username"></label>
-        <label>Password<input name="password" type="password" placeholder="doglovers26" autocomplete="current-password"></label>
+        <label>Username or Email<input required name="username" placeholder="Username or email" autocomplete="username"></label>
+        <label>Password<input required name="password" type="password" placeholder="Password" autocomplete="current-password"></label>
         <button class="btn btn-red" type="submit">Enter Portal</button>
       </form>
-      <div class="quick-login">
-        <button class="btn btn-navy" type="button" data-login-role="admin">Enter as Admin</button>
-        <button class="btn btn-outline" type="button" data-login-role="trainer">Enter as Trainer</button>
-      </div>
+      <div class="login-status" id="loginStatus" role="status" aria-live="polite"></div>
     </div>
   </section>
 
@@ -35,6 +32,9 @@
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="app.js"></script>
+  <script src="/supabase-config.js"></script>
+  <script src="/trainer-roster.js"></script>
+  <script src="/trainer-backoffice/supabase.js?v=20260717b"></script>
+  <script src="/trainer-backoffice/app.js?v=20260717b"></script>
 </body>
 </html>
