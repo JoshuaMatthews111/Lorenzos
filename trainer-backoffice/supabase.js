@@ -131,11 +131,22 @@
     }
   }
 
-  async function changePassword(password) {
+  async function changePassword(password, profile = {}) {
     const result = await request("/auth/v1/user", {
       method: "PUT",
       body: JSON.stringify({ password })
     });
+    const session = readSession();
+    const firstName = String(profile.firstName || "").trim();
+    const lastName = String(profile.lastName || "").trim();
+    const displayName = [firstName, lastName].filter(Boolean).join(" ");
+    if (session?.user?.id && displayName) {
+      try {
+        await updateBy("portal_users", "user_id", session.user.id, { display_name: displayName });
+      } catch (error) {
+        console.warn("Portal display name could not be updated during password setup", error);
+      }
+    }
     await rpc("complete_portal_password_change");
     return result;
   }
@@ -168,6 +179,13 @@
       method: "PATCH",
       headers: { Prefer: "return=representation" },
       body: JSON.stringify(body)
+    });
+  }
+
+  async function remove(table, id) {
+    return request(`/rest/v1/${table}?id=eq.${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=representation" }
     });
   }
 
@@ -230,7 +248,8 @@
       applications,
       submissions,
       events,
-      portalUsers
+      portalUsers,
+      officeNotes
     ] = await Promise.all([
       select("trainers", "select=*&order=full_name.asc"),
       select("trainer_pages", "select=*&order=updated_at.desc"),
@@ -240,9 +259,10 @@
       select("trainer_applications", "select=*&order=created_at.desc"),
       select("content_submissions", "select=*&order=created_at.desc"),
       select("site_events", "select=*&order=created_at.desc&limit=5000"),
-      select("portal_users", "select=*&order=created_at.desc")
+      select("portal_users", "select=*&order=created_at.desc"),
+      select("office_notes", "select=*&order=created_at.desc&limit=5000")
     ]);
-    return { trainers, pages, leads, clients, dogs, applications, submissions, events, portalUsers };
+    return { trainers, pages, leads, clients, dogs, applications, submissions, events, portalUsers, officeNotes };
   }
 
   async function loadPublishedTrainer(slug) {
@@ -266,6 +286,7 @@
     insert,
     update,
     updateBy,
+    remove,
     rpc,
     upload,
     signedStorageUrl,

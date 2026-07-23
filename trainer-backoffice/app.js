@@ -1,6 +1,6 @@
 const STORE_KEY = "lorenzoBackOfficePrototype.v9";
 const SESSION_KEY = "lorenzoBackOfficeSession.v4";
-const TEMP_PASSWORD = "doglovers26";
+const TEMP_PASSWORD = ""; // temp passwords are issued by the office privately — never shipped in public code
 const SITE_EVENT_KEY = "ldttTrainerSiteEvents.v1";
 const REAL_TRAINERS = Array.isArray(window.LDTT_TRAINER_ROSTER) ? window.LDTT_TRAINER_ROSTER : [];
 const TRAINER_APPLICATION_FORM_EMBED = "https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform?embedded=true";
@@ -142,6 +142,7 @@ const defaultState = {
   activeView: "dashboard",
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
+  applicationFilter: "All",
   leadDateRange: "60",
   customLeadStart: toDateInputValue(defaultLeadStartDate),
   customLeadEnd: toDateInputValue(defaultLeadEndDate),
@@ -150,7 +151,20 @@ const defaultState = {
   leadTrainerFilter: "All",
   leadViewMode: "board",
   selectedLeadId: "",
+  selectedApplicationId: "",
+  selectedClientId: "",
+  selectedSubmissionId: "",
   onboardingStep: 1,
+  builderTab: "page",
+  builderSurface: "trainer",
+  builderPage: "home",
+  builderMainPage: "/index.html",
+  builderPortalView: "dashboard",
+  builderDevice: "desktop",
+  builderMode: "browse",
+  builderSelectedSelector: "",
+  siteBuilderEdits: {},
+  portalBuilderEdits: {},
   inviteDraft: { name: "", email: "", phone: "", market: "" },
   stagedInvites: [],
   importDraft: "Client Name,Phone,Email,Dog Name,Dog Breed,Trainer Assigned,Status,SMS Consent,Email Consent,Source,Notes\nMaria Thompson,(216) 555-1188,maria@example.com,Cooper,Border Collie,Eric Beck,Active,Yes,Yes,Alpha,Needs review request\nDerek Hall,(330) 555-7712,derek@example.com,Zeus,German Shepherd,Stephanie Palmer,Do Not Contact,No,No,QuickBooks,Asked not to be contacted\nSarah Johnson,(216) 555-0100,sarah@example.com,Max,Goldendoodle,Eric Beck,Won,Yes,Yes,Spreadsheet,Imported from old client list",
@@ -228,6 +242,7 @@ let portalUser = null;
 let remoteReady = false;
 let remoteEvents = [];
 let remotePortalUsers = [];
+let remoteOfficeNotes = [];
 applyUrlState();
 
 function loadState() {
@@ -393,22 +408,30 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     pageSlug: existing.pageSlug || remotePage?.slug?.replaceAll("-", "") || remoteTrainer.slug.replaceAll("-", ""),
     name: content.trainer_name || remoteTrainer.full_name,
     profileName: remoteTrainer.full_name,
+    publicName: remoteTrainer.full_name,
     market: content.market || remoteTrainer.market || "",
     profileMarket: remoteTrainer.market || "",
+    publicMarket: remoteTrainer.market || "",
     state: remoteTrainer.state || "",
     profileState: remoteTrainer.state || "",
+    publicState: remoteTrainer.state || "",
     serviceArea: content.service_area || remoteTrainer.service_area || "",
     profileServiceArea: remoteTrainer.service_area || "",
+    publicServiceArea: remoteTrainer.service_area || "",
     phone: remoteTrainer.phone || "(866) 436-4959",
     profilePhone: remoteTrainer.phone || "",
+    publicPhone: remoteTrainer.phone || "",
     email: remoteTrainer.email || "",
     profileEmail: remoteTrainer.email || "",
+    publicEmail: remoteTrainer.email || "",
     title: content.title || "Lorenzo's Certified Dog Trainer",
     profileTitle: content.title || "Lorenzo's Certified Dog Trainer",
     bio: remotePage?.approved_bio || content.bio || remoteTrainer.bio || "",
     profileBio: remoteTrainer.bio || "",
+    publicBio: remoteTrainer.bio || "",
     photo: content.headshot_url || remotePage?.approved_photo_urls?.[0] || remoteTrainer.headshot_url || existing.photo || "",
     profilePhoto: remoteTrainer.headshot_url || "",
+    publicPhoto: remoteTrainer.headshot_url || "",
     image: remotePage?.hero_image_url || content.hero_image_url || existing.image || trainerLandingDogs[templateFromDb(remotePage?.template_key)],
     companyLogo: remotePage?.logo_url || "",
     layout: templateFromDb(remotePage?.template_key),
@@ -416,7 +439,11 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     locked: Boolean(remotePage?.locked),
     accessStatus: remoteTrainer.access_status === "disabled" ? "Disabled" : "Active",
     specialties: Array.isArray(remoteTrainer.specialties) && remoteTrainer.specialties.length ? remoteTrainer.specialties : (existing.specialties || []),
+    profileSpecialtiesText: Array.isArray(remoteTrainer.specialties) ? remoteTrainer.specialties.join("\n") : "",
+    publicSpecialtiesText: Array.isArray(remoteTrainer.specialties) ? remoteTrainer.specialties.join("\n") : "",
     credentials: Array.isArray(remoteTrainer.credentials) && remoteTrainer.credentials.length ? remoteTrainer.credentials : (existing.credentials || []),
+    profileCredentialsText: Array.isArray(remoteTrainer.credentials) ? remoteTrainer.credentials.join("\n") : "",
+    publicCredentialsText: Array.isArray(remoteTrainer.credentials) ? remoteTrainer.credentials.join("\n") : "",
     socials: {
       facebook: remotePage?.social_facebook || socialLinks.facebook || "",
       instagram: remotePage?.social_instagram || socialLinks.instagram || "",
@@ -430,9 +457,13 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     review1Copy: content.review1_copy || existing.review1Copy || "Professional, patient, and focused on training that works in everyday life.",
     review2Author: content.review2_author || existing.review2Author || "Dog Owner",
     review2Copy: content.review2_copy || existing.review2Copy || "The office follow-up was clear and the training path was practical.",
-    review3Author: content.review3_author || existing.review3Author || "Verified Client",
-    review3Copy: content.review3_copy || existing.review3Copy || "Better communication, calmer behavior, and real-world results.",
-    styleSettings: {
+	    review3Author: content.review3_author || existing.review3Author || "Verified Client",
+	    review3Copy: content.review3_copy || existing.review3Copy || "Better communication, calmer behavior, and real-world results.",
+	    approvedReviews: Array.isArray(content.approved_reviews) ? content.approved_reviews : (existing.approvedReviews || []),
+	    liveEdits: Array.isArray(content.live_edits) ? content.live_edits : (existing.liveEdits || []),
+	    mediaLibrary: Array.isArray(content.media_library) ? content.media_library : (existing.mediaLibrary || []),
+	    hiddenSections: Array.isArray(content.hidden_sections) ? content.hidden_sections : (existing.hiddenSections || []),
+	    styleSettings: {
       fontFamily: styleSettings.font_family || "Inter",
       fontScale: Number(styleSettings.font_scale || 1),
       brandPrimary: styleSettings.brand_primary || "#071f44",
@@ -447,6 +478,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
 function remoteLeadToUi(row) {
   const raw = row.raw_payload || {};
   const trainer = state.trainers.find(item => item.remoteId === row.trainer_id || item.slug === row.trainer_slug);
+  const clientNote = row.comments || raw.comments || "";
   return {
     id: row.id,
     remoteId: row.id,
@@ -466,7 +498,8 @@ function remoteLeadToUi(row) {
     createdAt: String(row.created_at || "").slice(0, 10),
     next: raw.follow_up_date || "Office follow-up needed",
     followUpDate: raw.follow_up_date || "",
-    note: row.office_notes || row.comments || "",
+    clientNote,
+    note: row.office_notes || "",
     lostReason: row.lost_reason || "",
     doNotContact: row.status === "do_not_contact",
     utm_source: raw.utm_source || "",
@@ -508,12 +541,44 @@ function remoteApplicationToUi(row) {
 
 function remoteSubmissionToUi(row) {
   const trainer = state.trainers.find(item => item.remoteId === row.trainer_id);
-  const type = {
+  const isWebsiteReview = /^Website review from\s+/i.test(String(row.title || ""));
+  const type = isWebsiteReview ? "Review" : ({
     photo: "Photo",
     video: "Training Video",
     review: "Review",
     testimonial: "Testimonial"
-  }[row.submission_type] || "Photo";
+  }[row.submission_type] || "Photo");
+  const notes = String(row.notes || "");
+  const reviewMarker = "\nReview: ";
+  const reviewText = notes.includes(reviewMarker)
+    ? notes.slice(notes.indexOf(reviewMarker) + reviewMarker.length).trim()
+    : (["Review", "Testimonial"].includes(type) ? notes : "");
+  const submissionMetadata = notes.includes(reviewMarker) ? notes.slice(0, notes.indexOf(reviewMarker)) : "";
+  const reviewerName = String(row.title || "").replace(/^Website review from\s+/i, "").trim() || "Verified Client";
+  const reviewerMatch = notes.match(/Reviewer:\s*([^\n<]+?)\s*<([^>]+)>\.?/i);
+  const locationMatch = notes.match(/Client location:\s*([^\n.]+)\.?/i);
+  const permissionMatch = notes.match(/Permission to share:\s*([^\n.]+)\.?/i);
+  const attachedMatch = notes.match(/Attached file noted:\s*([^\n(]+?)\s*\(([^)]+)\)\.?/i);
+  const sourceLines = submissionMetadata.split("\n").filter(line => {
+    const cleanLine = line.trim();
+    return cleanLine
+      && !/^Review:\s*/i.test(cleanLine)
+      && !/^Reviewer:\s*/i.test(cleanLine)
+      && !/^Client location:\s*/i.test(cleanLine)
+      && !/^Permission to share:\s*/i.test(cleanLine)
+      && !/^Attached file noted:\s*/i.test(cleanLine);
+  });
+  const storedPath = String(row.storage_path || row.file_url || "");
+  const pathFileName = storedPath && !storedPath.startsWith("data:")
+    ? decodeURIComponent(storedPath.split("?")[0].split("/").pop() || "")
+    : "";
+  const fileName = attachedMatch?.[1]?.trim() || pathFileName;
+  const extension = fileName.split(".").pop()?.toLowerCase() || "";
+  const inferredFileType = ["mp4", "mov", "m4v", "webm"].includes(extension)
+    ? `video/${extension === "mov" ? "quicktime" : extension}`
+    : ["jpg", "jpeg", "png", "gif", "webp", "heic"].includes(extension)
+      ? `image/${extension === "jpg" ? "jpeg" : extension}`
+      : "";
   return {
     id: row.id,
     remoteId: row.id,
@@ -523,8 +588,17 @@ function remoteSubmissionToUi(row) {
     status: row.status ? row.status[0].toUpperCase() + row.status.slice(1) : "Pending",
     submittedAt: row.created_at,
     contentUrl: row.file_url || "",
-    reviewText: ["Review", "Testimonial"].includes(type) ? row.notes || "" : "",
-    note: row.office_notes || row.notes || ""
+    reviewerName: reviewerMatch?.[1]?.trim() || reviewerName,
+    reviewerEmail: reviewerMatch?.[2]?.trim() || "",
+    reviewerLocation: locationMatch?.[1]?.trim() || "",
+    permissionToShare: permissionMatch?.[1]?.trim() || "Not reported",
+    reviewText,
+    submissionComment: sourceLines.join("\n").trim(),
+    rawNotes: notes,
+    officeNote: row.office_notes || "",
+    note: row.office_notes || "",
+    fileName,
+    fileType: attachedMatch?.[2]?.trim() || inferredFileType
   };
 }
 
@@ -564,6 +638,7 @@ function mergeRemoteOperationalData(data) {
   state.clients = (data.clients || []).map(client => remoteClientToUi(client, data.dogs || []));
   remoteEvents = data.events || [];
   remotePortalUsers = data.portalUsers || [];
+  remoteOfficeNotes = data.officeNotes || [];
   remoteReady = true;
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
 }
@@ -575,6 +650,7 @@ async function prepareRemoteData(data) {
     try {
       return {
         ...row,
+        storage_path: row.file_url,
         file_url: await window.LDTT_PORTAL.signedStorageUrl("trainer-submissions", row.file_url)
       };
     } catch (error) {
@@ -613,12 +689,16 @@ function trainerDraftContent(trainer) {
     seo_description: trainer.seoDescription,
     review1_author: trainer.review1Author,
     review1_copy: trainer.review1Copy,
-    review2_author: trainer.review2Author,
-    review2_copy: trainer.review2Copy,
-    review3_author: trainer.review3Author,
-    review3_copy: trainer.review3Copy
-  };
-}
+	    review2_author: trainer.review2Author,
+	    review2_copy: trainer.review2Copy,
+	    review3_author: trainer.review3Author,
+	    review3_copy: trainer.review3Copy,
+	    approved_reviews: Array.isArray(trainer.approvedReviews) ? trainer.approvedReviews : [],
+	    live_edits: Array.isArray(trainer.liveEdits) ? trainer.liveEdits : [],
+	    media_library: Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [],
+	    hidden_sections: Array.isArray(trainer.hiddenSections) ? trainer.hiddenSections : []
+	  };
+	}
 
 function trainerPagePayload(trainer) {
   return {
@@ -652,23 +732,24 @@ async function persistTrainerRecord(trainer, options = {}) {
   if (!remoteReady || session.role !== "admin") return trainer;
   const trainerPayload = {
     slug: trainer.slug || slugify(trainer.name),
-    full_name: trainer.name,
-    email: trainer.email || null,
-    phone: trainer.phone || null,
-    market: trainer.market || null,
-    service_area: trainer.serviceArea || null,
-    state: trainer.state || stateFromMarket(trainer.market) || null,
-    bio: trainer.bio || null,
-    headshot_url: trainer.photo || null,
+    full_name: trainer.profileName || trainer.name,
+    email: trainer.profileEmail || trainer.email || null,
+    phone: trainer.profilePhone || trainer.phone || null,
+    market: trainer.profileMarket || trainer.market || null,
+    service_area: trainer.profileServiceArea || trainer.serviceArea || null,
+    state: trainer.profileState || trainer.state || stateFromMarket(trainer.profileMarket || trainer.market) || null,
+    bio: trainer.profileBio || null,
+    headshot_url: trainer.profilePhoto || null,
     status: "active",
     access_status: trainer.accessStatus === "Disabled" ? "disabled" : "active",
-    credentials: trainer.credentials || [],
-    specialties: trainer.specialties || [],
+    credentials: String(trainer.profileCredentialsText || "").split(/\n|,/).map(value => value.trim()).filter(Boolean),
+    specialties: String(trainer.profileSpecialtiesText || "").split(/\n|,/).map(value => value.trim()).filter(Boolean),
     social_links: trainer.socials || {}
   };
-  if (trainer.remoteId) {
+  const persistProfile = options.profileOnly || options.persistProfile || !trainer.remoteId;
+  if (trainer.remoteId && persistProfile) {
     await window.LDTT_PORTAL.update("trainers", trainer.remoteId, trainerPayload);
-  } else {
+  } else if (!trainer.remoteId) {
     const inserted = await window.LDTT_PORTAL.insert("trainers", trainerPayload, { onConflict: "slug" });
     const savedTrainer = inserted?.[0];
     if (!savedTrainer?.id) throw new Error("Trainer record could not be created");
@@ -691,6 +772,25 @@ async function persistTrainerRecord(trainer, options = {}) {
   return findTrainer(trainer.remoteId) || trainer;
 }
 
+async function persistPublicTrainerField(trainer, profileKey) {
+  if (!remoteReady || session.role !== "admin" || !trainer?.remoteId) return;
+  const fieldMap = {
+    profileName: ["full_name", trainer.profileName],
+    profileMarket: ["market", trainer.profileMarket || null],
+    profileState: ["state", trainer.profileState || null],
+    profileServiceArea: ["service_area", trainer.profileServiceArea || null],
+    profilePhone: ["phone", trainer.profilePhone || null],
+    profileEmail: ["email", trainer.profileEmail || null],
+    profileBio: ["bio", trainer.profileBio || null],
+    profilePhoto: ["headshot_url", trainer.profilePhoto || null],
+    profileSpecialtiesText: ["specialties", String(trainer.profileSpecialtiesText || "").split(/\n|,/).map(value => value.trim()).filter(Boolean)],
+    profileCredentialsText: ["credentials", String(trainer.profileCredentialsText || "").split(/\n|,/).map(value => value.trim()).filter(Boolean)]
+  };
+  const target = fieldMap[profileKey];
+  if (!target) throw new Error("This profile field is not connected to the public trainer record");
+  await window.LDTT_PORTAL.update("trainers", trainer.remoteId, { [target[0]]: target[1] });
+}
+
 async function persistLeadRecord(lead) {
   if (!remoteReady || session.role !== "admin" || !lead?.remoteId) return;
   await window.LDTT_PORTAL.update("leads", lead.remoteId, {
@@ -710,6 +810,36 @@ async function persistLeadWorkflow(lead) {
   // dog atomically. Avoid a second browser insert that could race the trigger.
 }
 
+function portalDisplayName(userId) {
+  const user = remotePortalUsers.find(item => item.user_id === userId);
+  return user?.display_name || (user?.role === "admin" ? "Office Admin" : "Trainer");
+}
+
+function officeNotesFor(entityType, entityId) {
+  if (!entityId) return [];
+  return remoteOfficeNotes
+    .filter(note => note.entity_type === entityType && note.entity_id === entityId)
+    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+}
+
+function officeNoteTimeline(entityType, entityId) {
+  const notes = officeNotesFor(entityType, entityId);
+  if (!notes.length) return `<p class="panel-copy">No office notes have been added yet.</p>`;
+  return `<div class="office-note-timeline">${notes.map(note => `<article><strong>${escapeHtml(portalDisplayName(note.created_by))}</strong><time>${escapeHtml(note.created_at ? new Date(note.created_at).toLocaleString() : "")}</time><p>${escapeHtml(note.note)}</p></article>`).join("")}</div>`;
+}
+
+async function addOfficeNote(entityType, entityId, note) {
+  if (!remoteReady || session.role !== "admin" || !entityId || !note.trim()) return null;
+  const inserted = await window.LDTT_PORTAL.insert("office_notes", {
+    entity_type: entityType,
+    entity_id: entityId,
+    note: note.trim(),
+    created_by: portalUser?.user_id || null
+  });
+  await reloadRemoteData();
+  return inserted?.[0] || null;
+}
+
 async function persistApplicationRecord(application) {
   if (!remoteReady || session.role !== "admin" || !application?.remoteId) return;
   await window.LDTT_PORTAL.update("trainer_applications", application.remoteId, {
@@ -724,6 +854,69 @@ async function persistSubmissionRecord(submission) {
     status: String(submission.status || "Pending").toLowerCase(),
     office_notes: submission.note || null
   });
+}
+
+function defaultReviewDisplayOptions(submission = {}) {
+  return {
+    showText: true,
+    showMedia: Boolean(submission.contentUrl),
+    showAuthor: true,
+    showLocation: Boolean(submission.reviewerLocation)
+  };
+}
+
+function publishedReviewForSubmission(submission) {
+  if (!submission?.remoteId) return null;
+  const trainer = trainerById(submission.trainerId);
+  return (trainer?.approvedReviews || []).find(review => review.submission_id === submission.remoteId) || null;
+}
+
+function reviewDisplayOptionsFor(submission = {}) {
+  return {
+    ...defaultReviewDisplayOptions(submission),
+    ...(publishedReviewForSubmission(submission)?.display || {}),
+    ...(submission.reviewDisplay || {})
+  };
+}
+
+async function publishApprovedReview(submission) {
+  if (!submission?.remoteId || !["Review", "Testimonial"].includes(submission.type)) {
+    if (submission) {
+      submission.status = "Approved";
+      await persistSubmissionRecord(submission);
+    }
+    return;
+  }
+  const trainer = trainerById(submission.trainerId);
+  if (!trainer?.pageId) throw new Error("This trainer does not have a published landing page yet");
+  const publishedReview = {
+    submission_id: submission.remoteId,
+    author: submission.reviewerName || "Verified Client",
+    copy: submission.reviewText || submission.note || "",
+    location: submission.reviewerLocation || "",
+    media_url: submission.contentUrl || "",
+    media_type: submission.fileType || "",
+    media_name: submission.fileName || "",
+    display: reviewDisplayOptionsFor(submission),
+    published_at: new Date().toISOString()
+  };
+  trainer.approvedReviews = [
+    ...(trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId),
+    publishedReview
+  ];
+  submission.status = "Approved";
+  await persistSubmissionRecord(submission);
+  await persistTrainerRecord(trainer, { publish: true });
+}
+
+async function deletePublishedReview(submission) {
+  if (!submission?.remoteId) return;
+  const trainer = trainerById(submission.trainerId);
+  if (submission.status === "Approved" && trainer?.pageId) {
+    trainer.approvedReviews = (trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId);
+    await persistTrainerRecord(trainer, { publish: true });
+  }
+  await window.LDTT_PORTAL.remove("content_submissions", submission.remoteId);
 }
 
 async function persistTrainerAccess(trainer) {
@@ -796,9 +989,11 @@ async function runRemoteMutation(message, action, options = {}) {
     if (options.reload !== false) await reloadRemoteData();
     if (message) showToast(message);
     if (options.render !== false) render();
+    return true;
   } catch (error) {
     console.error(`LDTT ${message || "save"} failed`, error);
     showToast(`Could not save: ${error.message}`);
+    return false;
   }
 }
 
@@ -835,6 +1030,17 @@ function showToast(message) {
   showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
 }
 
+function showActionConfirmation(title, message) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "action-confirmation-dialog";
+  dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">✓</div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p><button type="button" class="btn btn-red action-confirmation-done">Done</button>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.querySelectorAll(".action-confirmation-close,.action-confirmation-done").forEach(button => button.addEventListener("click", close));
+  dialog.addEventListener("click", event => { if (event.target === dialog) close(); });
+  dialog.showModal();
+}
+
 function icon(name) {
   return `<span class="nav-icon">${icons[name] || icons.dashboard}</span>`;
 }
@@ -855,6 +1061,331 @@ function trainerPageHref(trainerOrId) {
   const trainer = typeof trainerOrId === "string" ? trainerById(trainerOrId) : trainerOrId;
   if (trainer?.pageSlug && trainer.pageStatus === "Published") return `/${trainer.pageSlug}`;
   return `${templatePageFile(trainer.layout)}?trainer=${trainer.id}&layout=${trainer.layout}`;
+}
+
+function builderPages() {
+  return [
+    { id: "home", label: "Landing Page" },
+    { id: "services", label: "Services Section" },
+    { id: "trainer", label: "Trainer Bio" },
+    { id: "reviews", label: "Reviews" },
+    { id: "contact", label: "Lead Form" }
+  ];
+}
+
+function builderSurfaces() {
+  return [
+    { id: "trainer", label: "Trainer Landing Page" },
+    { id: "site", label: "Main Website Pages" },
+    { id: "portal", label: "Trainer Portal UI" }
+  ];
+}
+
+function mainWebsitePages() {
+  return [
+    { id: "/index.html", label: "Home" },
+    { id: "/dog-training.html", label: "Dog Training" },
+    { id: "/behavior-help.html", label: "Behavior Help" },
+    { id: "/specialty-advanced.html", label: "Specialty Training" },
+    { id: "/become-a-trainer.html", label: "Become a Trainer" },
+    { id: "/find-a-trainer.html", label: "Find a Trainer" },
+    { id: "/facility.html", label: "Our Facility" },
+    { id: "/about.html", label: "About" },
+    { id: "/contact.html", label: "Contact" }
+  ];
+}
+
+function portalPreviewViews() {
+  return [
+    { id: "dashboard", label: "Trainer Dashboard" },
+    { id: "leads", label: "My Leads" },
+    { id: "myPage", label: "My Trainer Page" },
+    { id: "performance", label: "Performance" },
+    { id: "submitMedia", label: "Submit Photos/Videos" },
+    { id: "submitReviews", label: "Submit Reviews" },
+    { id: "settings", label: "Settings" }
+  ];
+}
+
+function currentBuilderKey() {
+  if (state.builderSurface === "site") return state.builderMainPage || "/index.html";
+  if (state.builderSurface === "portal") return state.builderPortalView || "dashboard";
+  return state.builderPage || "home";
+}
+
+function activeBuilderEdits() {
+  const key = currentBuilderKey();
+  if (state.builderSurface === "site") return state.siteBuilderEdits?.[key] || [];
+  if (state.builderSurface === "portal") return state.portalBuilderEdits?.[key] || [];
+  return trainerById()?.liveEdits || [];
+}
+
+function setActiveBuilderEdits(edits) {
+  const key = currentBuilderKey();
+  if (state.builderSurface === "site") {
+    state.siteBuilderEdits = { ...(state.siteBuilderEdits || {}), [key]: edits };
+    return;
+  }
+  if (state.builderSurface === "portal") {
+    state.portalBuilderEdits = { ...(state.portalBuilderEdits || {}), [key]: edits };
+    return;
+  }
+  trainerById().liveEdits = edits;
+}
+
+function liveEditsForPage(trainer, page = state.builderPage || "home") {
+  if (state.builderSurface !== "trainer") return activeBuilderEdits();
+  return (trainer?.liveEdits || []).filter(edit => (edit.page || "home") === page || page === "home");
+}
+
+function applyLiveEditsToDocument(doc, edits = []) {
+  if (!doc || !Array.isArray(edits)) return;
+  edits.forEach(edit => {
+    if (!edit?.k) return;
+    let target;
+    try {
+      target = doc.querySelector(edit.k);
+    } catch {
+      target = null;
+    }
+    if (!target) return;
+    if (edit.t === "text") target.textContent = edit.v || "";
+    if (edit.t === "html") target.innerHTML = edit.v || "";
+    if (edit.t === "img") {
+      target.setAttribute("src", edit.v || "");
+      target.setAttribute("srcset", "");
+    }
+    if (edit.t === "video") {
+      if (target.tagName === "VIDEO") {
+        target.setAttribute("src", edit.v || "");
+        target.controls = true;
+      } else {
+        target.innerHTML = "";
+        const video = doc.createElement("video");
+        video.setAttribute("src", edit.v || "");
+        video.setAttribute("controls", "");
+        video.setAttribute("playsinline", "");
+        target.appendChild(video);
+      }
+    }
+    if (edit.t === "style" && edit.prop) target.style[edit.prop] = edit.v || "";
+  });
+}
+
+function applySectionBuilderSettings(doc, trainer) {
+  if (!doc || !trainer) return;
+  const hidden = new Set(trainer.hiddenSections || []);
+  const selectors = {
+    hero: ".lp5-hero,.lp6-hero,.lp3-hero",
+    stats: ".lp-stats,.lp5-trust",
+    services: ".lp-services",
+    trainer: ".lp5-trainer,.lp6-trainer,.lp3-trainer",
+    reviews: ".lp-reviews",
+    process: ".lp-process",
+    consultation: ".lp-final,.lp5-final,.lp6-cta,.lp3-contact",
+    footer: ".trainer-landing-footer"
+  };
+  Object.entries(selectors).forEach(([key, selector]) => {
+    doc.querySelectorAll(selector).forEach(element => {
+      element.hidden = hidden.has(key);
+    });
+  });
+  const page = doc.querySelector(".lp-page");
+  if (!page || !Array.isArray(trainer.sectionOrder)) return;
+  const movable = ["services", "trainer", "reviews"];
+  const savedMiddleOrder = trainer.sectionOrder.filter(key => movable.includes(key));
+  const safeOrder = [
+    "hero",
+    "stats",
+    ...savedMiddleOrder,
+    ...movable.filter(key => !savedMiddleOrder.includes(key)),
+    "process",
+    "consultation",
+    "footer"
+  ];
+  safeOrder.forEach(key => {
+    doc.querySelectorAll(selectors[key]).forEach(element => {
+      if (element?.parentElement === page) page.appendChild(element);
+    });
+  });
+}
+
+function selectorForElement(element) {
+  if (!element || !element.tagName || element === element.ownerDocument.body) return "body";
+  if (element.id) return `#${CSS.escape(element.id)}`;
+  const parts = [];
+  let current = element;
+  while (current && current.nodeType === 1 && current !== current.ownerDocument.body) {
+    let part = current.tagName.toLowerCase();
+    const className = String(current.className || "").split(/\s+/).filter(Boolean).slice(0, 2).map(name => `.${CSS.escape(name)}`).join("");
+    if (className) part += className;
+    const parent = current.parentElement;
+    if (parent) {
+      const siblings = Array.from(parent.children).filter(child => child.tagName === current.tagName);
+      if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(current) + 1})`;
+    }
+    parts.unshift(part);
+    current = parent;
+    if (parts.length >= 5) break;
+  }
+  return parts.join(" > ");
+}
+
+function upsertLiveEdit(trainer, edit) {
+  if (!edit?.k) return;
+  const edits = activeBuilderEdits().slice();
+  const page = currentBuilderKey();
+  const index = edits.findIndex(item => item.k === edit.k && item.t === edit.t && (item.page || "home") === page && (item.prop || "") === (edit.prop || ""));
+  const next = {
+    page,
+    surface: state.builderSurface || "trainer",
+    label: edit.label || edit.k,
+    updatedAt: new Date().toISOString(),
+    ...edit
+  };
+  if (index >= 0) edits[index] = { ...edits[index], ...next };
+  else edits.push(next);
+  setActiveBuilderEdits(edits);
+  if (state.builderSurface === "trainer") {
+    trainer.pageStatus = "Draft";
+    trainer.locked = false;
+  }
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  if (state.builderSurface === "trainer") scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer), 900);
+}
+
+function removeLiveEdit(index) {
+  const trainer = trainerById();
+  const edits = activeBuilderEdits().slice();
+  if (!edits[index]) return;
+  edits.splice(index, 1);
+  setActiveBuilderEdits(edits);
+  if (state.builderSurface === "trainer") {
+    trainer.pageStatus = "Draft";
+    trainer.locked = false;
+  }
+  saveState("Builder edit removed");
+}
+
+function renderLiveEditList(trainer) {
+  const edits = activeBuilderEdits();
+  if (!edits.length) return `<p class="builder-empty">No live edits yet. Click text, images, or sections in the preview to customize them.</p>`;
+  return `<div class="builder-change-list">${edits.map((edit, index) => `<article><div><strong>${escapeHtml(edit.label || edit.k)}</strong><span>${escapeHtml(edit.t)} · ${escapeHtml(edit.surface || state.builderSurface)} · ${escapeHtml(edit.page || "home")}</span></div><button class="btn btn-outline btn-small" type="button" data-remove-live-edit="${index}">Remove</button></article>`).join("")}</div>`;
+}
+
+function renderMediaLibrary(trainer) {
+  const media = trainer.mediaLibrary || [];
+  return `<div class="builder-media-grid">${media.map(item => `<article><div class="builder-media-thumb">${item.type === "video" ? `<video src="${escapeHtml(item.url)}" muted playsinline></video>` : `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name || "Builder media")}">`}</div><strong>${escapeHtml(item.name || "Uploaded media")}</strong><span>${escapeHtml(item.type || "image")} · ${Math.round((item.size || 0) / 1024 / 1024 * 10) / 10} MB</span><button class="btn btn-outline btn-small" type="button" data-use-media="${escapeHtml(item.url)}" data-media-kind="${escapeHtml(item.type || "image")}">Use On Selected Element</button></article>`).join("") || `<p class="builder-empty">Upload photos, logos, or videos. Large videos will be compressed when the browser supports it, or the editor will ask for an external video URL.</p>`}</div>`;
+}
+
+function markBuilderDraftDirty(message = "Builder change saved to draft") {
+  const trainer = trainerById();
+  if (state.builderSurface === "trainer") {
+    trainer.pageStatus = "Draft";
+    trainer.locked = false;
+  }
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  if (state.builderSurface === "trainer") scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer), 900);
+  if (message) showToast(message);
+}
+
+function mediaKind(file) {
+  return file.type.startsWith("video/") ? "video" : "image";
+}
+
+async function compressImageFile(file) {
+  if (!file.type.startsWith("image/") || file.size < 8 * 1024 * 1024) return file;
+  const bitmap = await createImageBitmap(file);
+  const maxWidth = 2200;
+  const scale = Math.min(1, maxWidth / bitmap.width);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const context = canvas.getContext("2d");
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", 0.82));
+  if (!blob || blob.size >= file.size) return file;
+  return new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+}
+
+function supportedVideoMime() {
+  return ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(type => window.MediaRecorder?.isTypeSupported?.(type)) || "";
+}
+
+async function compressVideoFile(file) {
+  if (!file.type.startsWith("video/") || file.size < 48 * 1024 * 1024) return file;
+  const mimeType = supportedVideoMime();
+  if (!mimeType) throw new Error("This browser cannot compress large videos. Upload the video to YouTube, Vimeo, Loom, Dropbox, or Drive and paste the link instead.");
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.src = URL.createObjectURL(file);
+  await new Promise((resolve, reject) => {
+    video.onloadedmetadata = resolve;
+    video.onerror = () => reject(new Error("Video could not be read for compression"));
+  });
+  const maxWidth = 1280;
+  const scale = Math.min(1, maxWidth / video.videoWidth);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(320, Math.round(video.videoWidth * scale));
+  canvas.height = Math.max(180, Math.round(video.videoHeight * scale));
+  const context = canvas.getContext("2d");
+  const stream = canvas.captureStream(24);
+  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
+  const chunks = [];
+  recorder.ondataavailable = event => {
+    if (event.data?.size) chunks.push(event.data);
+  };
+  const draw = () => {
+    if (video.paused || video.ended) return;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    requestAnimationFrame(draw);
+  };
+  await new Promise((resolve, reject) => {
+    recorder.onstop = resolve;
+    recorder.onerror = () => reject(new Error("Video compression failed"));
+    recorder.start(1000);
+    video.play().then(draw).catch(reject);
+    video.onended = () => recorder.stop();
+    window.setTimeout(() => {
+      if (recorder.state !== "inactive") recorder.stop();
+    }, Math.min(Math.max(video.duration || 60, 8), 180) * 1000);
+  });
+  URL.revokeObjectURL(video.src);
+  const blob = new Blob(chunks, { type: mimeType });
+  if (!blob.size || blob.size >= file.size) return file;
+  return new File([blob], file.name.replace(/\.[^.]+$/, ".webm"), { type: "video/webm" });
+}
+
+function normalizeVideoUrl(value) {
+  const url = String(value || "").trim();
+  if (!url) return "";
+  if (/youtube\.com\/watch\?v=/.test(url)) return url.replace("watch?v=", "embed/");
+  if (/youtu\.be\//.test(url)) return url.replace("https://youtu.be/", "https://www.youtube.com/embed/");
+  if (/vimeo\.com\/\d+/.test(url)) return url.replace("https://vimeo.com/", "https://player.vimeo.com/video/");
+  return url;
+}
+
+async function uploadBuilderMedia(file, slot = "mediaLibrary") {
+  const trainer = trainerById();
+  if (!file) return null;
+  if (!window.LDTT_PORTAL?.upload) throw new Error("Supabase storage is not connected yet");
+  showToast(file.type.startsWith("video/") && file.size > 48 * 1024 * 1024 ? "Compressing large video. This may take a moment." : "Preparing media upload...");
+  const prepared = file.type.startsWith("video/") ? await compressVideoFile(file) : await compressImageFile(file);
+  const extension = prepared.name.includes(".") ? prepared.name.split(".").pop().toLowerCase() : (prepared.type.startsWith("video/") ? "webm" : "jpg");
+  const safeSlot = slot === "selectedMedia" ? "selected" : slot;
+  const path = `${trainer.remoteId || slugify(trainer.name)}/${safeSlot}-${Date.now()}.${extension}`;
+  await window.LDTT_PORTAL.upload("trainer-page-assets", path, prepared);
+  const url = window.LDTT_PORTAL.publicStorageUrl("trainer-page-assets", path);
+  trainer.mediaLibrary = Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [];
+  trainer.mediaLibrary.unshift({
+    type: mediaKind(prepared),
+    url,
+    name: prepared.name,
+    size: prepared.size,
+    uploadedAt: new Date().toISOString()
+  });
+  return { url, type: mediaKind(prepared) };
 }
 
 function trainerName(id) {
@@ -906,6 +1437,13 @@ function render() {
   renderSidebar();
   renderTopbar();
   renderView();
+  window.setTimeout(() => {
+    const frame = document.getElementById("pageEditorPreview");
+    if (frame) {
+      frame.addEventListener("load", () => injectLiveBuilder(frame), { once: true });
+      injectLiveBuilder(frame);
+    }
+  }, 120);
 }
 
 async function bootstrapApplication() {
@@ -979,7 +1517,7 @@ function adminNav() {
     ["applications", "Applications", "message", applicationRows().length],
     ["clients", "Clients", "users"],
     ["import", "Client Import", "media"],
-    ["approvals", "Approvals", "star", pendingSubmissions().length],
+    ["approvals", "Reviews", "star", pendingReviewSubmissions().length],
     ["reports", "Reports", "report"],
     ["settings", "Settings", "settings"]
   ];
@@ -999,7 +1537,7 @@ function trainerNav() {
 
 function renderSidebar() {
   const isAdmin = session.role === "admin";
-  const passwordSetupRequired = !isAdmin && Boolean(portalUser?.must_change_password);
+  const passwordSetupRequired = Boolean(portalUser?.must_change_password);
   const nav = isAdmin
     ? adminNav()
     : passwordSetupRequired
@@ -1017,7 +1555,7 @@ function renderSidebar() {
     <div class="side-spacer"></div>
     <div class="side-help">
       <strong>${isAdmin ? "Office-Controlled Network" : "Locked Page Access"}</strong>
-      <p>${isAdmin ? "Office controls trainer pages, approvals, leads, clients, and reporting." : "Your public trainer page is managed by Lorenzo's office. Submit content for approval here."}</p>
+      <p>${isAdmin ? "Office controls trainer pages, reviews, leads, clients, and reporting." : "Your public trainer page is managed by Lorenzo's office. Submit content for approval here."}</p>
       ${isAdmin
         ? `<button class="btn btn-outline btn-full" data-view="trainerPages">Manage Trainer Pages</button>`
         : passwordSetupRequired
@@ -1032,17 +1570,17 @@ function renderSidebar() {
 
 function renderTopbar() {
   const isAdmin = session.role === "admin";
-  const passwordSetupRequired = !isAdmin && Boolean(portalUser?.must_change_password);
+  const passwordSetupRequired = Boolean(portalUser?.must_change_password);
   const titles = isAdmin ? {
     dashboard: ["Admin Dashboard", "Network performance, lead outcomes, and conversion reporting."],
     trainerPages: ["Trainer Landing Pages", "Three approved designs, page performance, publishing, and locking."],
-    pageEditor: ["Live Trainer Page Editor", "Edit office-approved page content and branding with a real-time preview."],
+    pageEditor: ["Full Site Builder", "Edit trainer pages, main website pages, and trainer portal screens with a real-time preview."],
     trainers: ["Trainer Onboarding", "Collect the trainer's account, media, credentials, reviews, SEO, and approved design."],
     leads: ["Leads", "Office-managed funnel from inquiry to paying client."],
     applications: ["Trainer Applications", "Recruiting submissions from the website application form."],
     clients: ["Client Database", "Central list for active, past, won, lost, bad lead, and do-not-contact records."],
     import: ["Client Import", "Prototype CSV import with preview, duplicate checks, and consent protection."],
-    approvals: ["Media & Review Approvals", "Approve or decline trainer-submitted content before it appears publicly."],
+    approvals: ["Trainer Reviews", "Read the complete review, inspect attached photos or videos, and publish or reject each submission."],
     reports: ["Conversion Reports", "Conversions count only first session/payment or became a client."],
     settings: ["Settings", "Portal access, database status, and account controls."]
   } : {
@@ -1055,7 +1593,7 @@ function renderTopbar() {
     settings: ["Settings", "Trainer portal access and account security."]
   };
   const [title, sub] = passwordSetupRequired
-    ? ["Secure Your Account", "Replace the temporary password before using the trainer portal."]
+    ? ["Secure Your Account", "Enter your name and replace the temporary password before using the portal."]
     : titles[state.activeView] || titles.dashboard;
   document.getElementById("topbar").innerHTML = `
     <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
@@ -1073,7 +1611,7 @@ function renderTopbar() {
 function renderView() {
   const target = document.getElementById("workspaceView");
   const screens = session.role === "admin" ? adminScreens : trainerScreens;
-  if (session.role === "trainer" && portalUser?.must_change_password) {
+  if (portalUser?.must_change_password) {
     state.activeView = "settings";
   }
   target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
@@ -1130,7 +1668,7 @@ const adminScreens = {
     return `<div class="import-layout">${panel("1. Paste CSV / Spreadsheet Data", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div>`;
   },
   approvals() {
-    return panel("Pending Trainer Submissions", "", submissionsTable(true), "pad");
+    return panel("Trainer Review Inbox", "", submissionsTable(true, "review"), "pad");
   },
   reports() {
     const metrics = getMetrics();
@@ -1145,8 +1683,8 @@ const adminScreens = {
       <div class="dashboard-grid">${panel("Conversion By Trainer", "", trainerPerformanceTable())}${panel("Lost Reasons", "", lostReasonsTable())}</div>
       ${panel("Reporting Rule", "", `<p class="panel-copy">Conversions are counted only when a lead reaches <strong>First Session / Payment</strong> or <strong>Became a Client</strong>. Clicks and form submissions stay visible as traffic and inquiry metrics, but they do not inflate conversion reporting.</p>`, "pad")}`;
   },
-  settings() {
-    return panel("Settings", "", `<p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p><br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
+    settings() {
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}<p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p><br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
   }
 };
 
@@ -1196,9 +1734,15 @@ const trainerScreens = {
     return `<div class="dashboard-grid">${panel("Submit Review / Testimonial", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="review">Submit For Approval</button>`, submissionForm("review"), "pad")}${panel("My Review Status", "", submissionsTable(false, "review"), "pad")}</div>`;
   },
   settings() {
-    return panel("Trainer Settings", "", `${portalUser?.must_change_password ? `<form id="changePasswordForm" class="password-change-form"><h3>Create your permanent password</h3><p class="panel-copy">Your temporary password worked. Choose a permanent password before continuing.</p><label>New Password<input required minlength="10" name="password" type="password" autocomplete="new-password"></label><label>Confirm Password<input required minlength="10" name="confirmation" type="password" autocomplete="new-password"></label><button class="btn btn-red" type="submit">Save Permanent Password</button><div id="passwordStatus" role="status" aria-live="polite"></div></form><hr>` : ""}<p class="panel-copy">Your profile and public page are managed by Lorenzo's office. Contact the office for changes to bio, market, phone, page layout, or published content.</p><br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
+    return panel("Trainer Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}<p class="panel-copy">Your profile and public page are managed by Lorenzo's office. Contact the office for changes to bio, market, phone, page layout, or published content.</p><br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
   }
 };
+
+function passwordSetupForm() {
+  const [firstName = "", ...rest] = String(portalUser?.display_name || "").replace(/\([^)]*\)/g, "").trim().split(/\s+/).filter(Boolean);
+  const lastName = rest.join(" ");
+  return `<form id="changePasswordForm" class="password-change-form"><h3>Create your permanent password</h3><p class="panel-copy">Your temporary password worked. Confirm your name and choose a permanent password before continuing.</p><div class="form-grid-two"><label>First Name<input required name="firstName" autocomplete="given-name" value="${escapeHtml(firstName || "")}"></label><label>Last Name<input required name="lastName" autocomplete="family-name" value="${escapeHtml(lastName || "")}"></label></div><label>New Password<input required minlength="10" name="password" type="password" autocomplete="new-password"></label><label>Confirm Password<input required minlength="10" name="confirmation" type="password" autocomplete="new-password"></label><button class="btn btn-red" type="submit">Save Permanent Password</button><div id="passwordStatus" role="status" aria-live="polite"></div></form>`;
+}
 
 function metricGrid(items) {
   return `<div class="metrics-grid ${items.length === 4 ? "trainer-metrics" : ""}">${items.map(([iconName, label, value, change, tone]) => `
@@ -1388,7 +1932,7 @@ function leadOutcomeTable() {
 function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const rows = filteredLeadRows(baseRows);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead Date</th><th>Owner / Dog</th><th>Contact</th><th>Source</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Office Notes</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDate(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(lead.phone || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${escapeHtml(lead.source)}</td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="8">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead Date</th><th>Owner / Dog</th><th>Contact</th><th>Source</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDate(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(lead.phone || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${escapeHtml(lead.source)}</td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="8">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   return `${leadDateControls()}${leadWorkspaceControls(admin)}<p class="panel-copy lead-result-count">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}.</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table"><summary>Open detailed table view</summary>${table}</details>` : ""}${leadDetailPanel()}`;
 }
 
@@ -1410,7 +1954,7 @@ function leadKanban(rows) {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(lead.phone || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${deliveryBadges(lead)}<label>Status${statusSelect(lead)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label><label>Office notes<textarea data-lead-detail-note="${lead.id}">${escapeHtml(lead.note || "")}</textarea></label><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><button class="btn btn-outline" data-archive-lead="${lead.id}">Archive lead</button></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(lead.phone || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${deliveryBadges(lead)}<label>Status${statusSelect(lead)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label><section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><button class="btn btn-outline" data-archive-lead="${lead.id}">Archive lead</button></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -1482,7 +2026,31 @@ function trainerAdminForm() {
 }
 
 function pageEditorPreviewDocument(trainer) {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/"><link rel="stylesheet" href="/trainer-backoffice/styles.css"><style>html,body{margin:0;background:#fff}.office-lead-form{pointer-events:none}</style></head><body>${publicSiteMarkup(trainer)}</body></html>`;
+  const edits = JSON.stringify(trainer.liveEdits || []).replace(/</g, "\\u003c");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/"><link rel="stylesheet" href="/trainer-backoffice/styles.css"><style>html,body{margin:0;background:#fff}.office-lead-form{pointer-events:none}</style></head><body>${publicSiteMarkup(trainer)}<script>window.__LDTT_LIVE_EDITS__=${edits};(${applyLiveEditsToDocument.toString()})(document, window.__LDTT_LIVE_EDITS__);<\/script></body></html>`;
+}
+
+function portalEditorPreviewDocument() {
+  const previousView = state.activeView;
+  const previousRole = session.role;
+  const view = state.builderPortalView || "dashboard";
+  session.role = "trainer";
+  const content = trainerScreens[view]?.() || trainerScreens.dashboard();
+  session.role = previousRole;
+  state.activeView = previousView;
+  const edits = JSON.stringify(activeBuilderEdits()).replace(/</g, "\\u003c");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/"><link rel="stylesheet" href="/trainer-backoffice/styles.css"><style>body{margin:0;background:#eef4fb}.portal-preview-shell{display:grid;grid-template-columns:260px 1fr;min-height:100vh}.portal-preview-sidebar{background:#062247;color:#fff;padding:22px}.portal-preview-sidebar img{width:170px;background:#fff;border-radius:14px;padding:10px}.portal-preview-sidebar button{display:block;width:100%;margin:10px 0;padding:12px;border:0;border-radius:10px;text-align:left;font-weight:800}.portal-preview-main{padding:24px}.portal-preview-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}.portal-preview-top h1{margin:0;color:#082754}</style></head><body><div class="portal-preview-shell"><aside class="portal-preview-sidebar"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><p>Trainer Portal Preview</p>${portalPreviewViews().map(item => `<button>${escapeHtml(item.label)}</button>`).join("")}</aside><main class="portal-preview-main"><div class="portal-preview-top"><h1>${escapeHtml(portalPreviewViews().find(item => item.id === view)?.label || "Trainer Portal")}</h1><strong>${escapeHtml(trainerById(currentTrainerId()).name)}</strong></div>${content}</main></div><script>window.__LDTT_LIVE_EDITS__=${edits};(${applyLiveEditsToDocument.toString()})(document, window.__LDTT_LIVE_EDITS__);<\/script></body></html>`;
+}
+
+function builderPreviewConfig(trainer) {
+  if (state.builderSurface === "site") {
+    const src = `${state.builderMainPage || "/index.html"}${(state.builderMainPage || "").includes("?") ? "&" : "?"}builderPreview=1`;
+    return { kind: "src", value: src, label: mainWebsitePages().find(page => page.id === state.builderMainPage)?.label || "Main Website" };
+  }
+  if (state.builderSurface === "portal") {
+    return { kind: "srcdoc", value: portalEditorPreviewDocument(), label: portalPreviewViews().find(page => page.id === state.builderPortalView)?.label || "Trainer Portal" };
+  }
+  return { kind: "srcdoc", value: pageEditorPreviewDocument(trainer), label: builderPages().find(page => page.id === state.builderPage)?.label || "Trainer Landing Page" };
 }
 
 function trainerPageEditor() {
@@ -1492,43 +2060,50 @@ function trainerPageEditor() {
   const field = (label, name, value, options = {}) => `<label class="${options.wide ? "wide" : ""}"><span>${escapeHtml(label)}</span>${options.area
     ? `<textarea data-editor-field="${name}">${escapeHtml(value || "")}</textarea>`
     : `<input ${options.type ? `type="${options.type}"` : ""} data-editor-field="${name}" value="${escapeHtml(value || "")}">`}</label>`;
-  const srcdoc = escapeHtml(pageEditorPreviewDocument(trainer));
-  return `<section class="page-editor-shell">
+  const preview = builderPreviewConfig(trainer);
+  const activeTab = state.builderTab || "page";
+  const tabs = [["page", "Page"], ["sections", "Sections"], ["media", "Media"], ["style", "Style"], ["history", "History"]];
+  const selectedLabel = state.builderSelectedSelector ? `Selected: ${state.builderSelectedSelector}` : "Switch to Edit Overlay, then click an editable area in the preview.";
+  const sectionOrder = trainer.sectionOrder || ["hero", "stats", "services", "trainer", "reviews", "consultation"];
+  const hiddenSections = trainer.hiddenSections || [];
+  const sectionControls = state.builderSurface !== "trainer"
+    ? `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Section reordering is protected for main website and portal screens. Use Edit Overlay to select text, images, buttons, and cards directly in the preview.</p></div>`
+    : `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Reorder or hide approved sections. Header, form routing, and Lorenzo trust elements stay protected.</p><div class="builder-section-list">${sectionOrder.map((section, index) => `<article><strong>${escapeHtml(section)}</strong><label><input type="checkbox" data-section-visible="${escapeHtml(section)}" ${hiddenSections.includes(section) ? "" : "checked"}> Visible</label><div><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Up</button><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="1" ${index === sectionOrder.length - 1 ? "disabled" : ""}>Down</button></div></article>`).join("")}</div></div>`;
+  const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3><label><span>Trainer</span><select data-editor-trainer>${state.trainers.map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio", "bio", trainer.bio, { area: true })}</div>`;
+  const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
+  const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Drive, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
+  const controls = {
+    page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${selectedElementControls}`,
+    sections: sectionControls,
+    media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images</h3>${field("Trainer Photo URL", "photo", trainer.photo)}<label class="editor-upload"><span>Upload Trainer Photo</span><input type="file" accept="image/*" data-editor-upload="photo"></label>${field("Hero Image URL", "image", trainer.image)}<label class="editor-upload"><span>Upload Hero Image</span><input type="file" accept="image/*,video/*" data-editor-upload="image"></label>${field("Logo URL", "companyLogo", trainer.companyLogo)}<label class="editor-upload"><span>Upload Logo</span><input type="file" accept="image/*" data-editor-upload="companyLogo"></label></div>`,
+    style: `<div class="editor-control-section"><h3>Typography & Color</h3><label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS","Impact"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label><label><span>Type Scale</span><input type="range" min="0.85" max="1.25" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label><label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label><label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label></div><div class="editor-control-section"><h3>Approved Reviews</h3>${field("Review 1 Client", "review1Author", trainer.review1Author)}${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}${field("Review 2 Client", "review2Author", trainer.review2Author)}${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}${field("Review 3 Client", "review3Author", trainer.review3Author)}${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}</div>`,
+    history: `<div class="editor-control-section"><h3>Live Edits</h3>${renderLiveEditList(trainer)}<button class="btn btn-outline" type="button" data-reset-live-edits>Reset All Live Edits</button></div>`
+  };
+  const pagePicker = state.builderSurface === "site"
+    ? `<label><span>Website Page</span><select data-builder-main-page>${mainWebsitePages().map(page => `<option value="${page.id}" ${page.id === state.builderMainPage ? "selected" : ""}>${page.label}</option>`).join("")}</select></label>`
+    : state.builderSurface === "portal"
+      ? `<label><span>Portal Screen</span><select data-builder-portal-view>${portalPreviewViews().map(page => `<option value="${page.id}" ${page.id === state.builderPortalView ? "selected" : ""}>${page.label}</option>`).join("")}</select></label>`
+      : `<label><span>Page Area</span><select data-builder-page>${builderPages().map(page => `<option value="${page.id}" ${page.id === state.builderPage ? "selected" : ""}>${page.label}</option>`).join("")}</select></label>`;
+  return `<section class="page-editor-shell pro-builder fullscreen-builder">
     <header class="page-editor-topbar">
-      <div><p class="portal-tag">Office-Controlled Builder</p><h2>${escapeHtml(trainer.name)} Trainer Page</h2><p>Click into the controls, change approved content, and see the same renderer used by the live page.</p></div>
-      <div class="row-actions"><button class="btn btn-outline" data-editor-save="draft">Save Draft</button><button class="btn btn-red" data-editor-save="publish">Publish & Lock</button></div>
+      <div><p class="portal-tag">Full-Screen Site Builder</p><h2>${escapeHtml(builderSurfaces().find(item => item.id === state.builderSurface)?.label || "Site Builder")}</h2><p>Use Browse to click around like a visitor. Turn Edit Overlay on only when the office wants to select and edit content.</p></div>
+      <div class="row-actions"><button class="btn btn-outline" data-view="trainerPages">Back To Trainer Network</button><button class="btn btn-outline" data-editor-save="draft">Save Draft</button>${state.builderSurface === "trainer" ? `<button class="btn btn-red" data-editor-save="publish">Publish & Lock Trainer Page</button>` : `<button class="btn btn-red" data-editor-save="draft">Save Workspace Changes</button>`}</div>
     </header>
+    <nav class="builder-toolbar">
+      <label><span>Edit Target</span><select data-builder-surface>${builderSurfaces().map(surface => `<option value="${surface.id}" ${surface.id === state.builderSurface ? "selected" : ""}>${surface.label}</option>`).join("")}</select></label>
+      ${pagePicker}
+      <div class="builder-mode-group"><button class="${state.builderMode === "edit" ? "active" : ""}" type="button" data-builder-mode="edit">Edit Overlay</button><button class="${state.builderMode === "browse" ? "active" : ""}" type="button" data-builder-mode="browse">Browse</button></div>
+      <div class="builder-mode-group"><button class="${state.builderDevice !== "mobile" ? "active" : ""}" type="button" data-builder-device="desktop">Desktop</button><button class="${state.builderDevice === "mobile" ? "active" : ""}" type="button" data-builder-device="mobile">Mobile</button></div>
+      <span class="builder-save-state">${state.builderMode === "edit" ? "Editing Enabled" : "Browse Mode"} · ${escapeHtml(preview.label)}</span>
+    </nav>
     <div class="page-editor-grid">
       <aside class="page-editor-controls">
-        <label><span>Trainer</span><select data-editor-trainer>${state.trainers.map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label>
-        <label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>
-        ${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}
-        ${field("Subheadline", "tagline", trainer.tagline, { area: true })}
-        ${field("Trainer Bio", "bio", trainer.bio, { area: true })}
-        ${field("Trainer Photo URL", "photo", trainer.photo)}
-        <label class="editor-upload"><span>Upload Trainer Photo</span><input type="file" accept="image/*" data-editor-upload="photo"></label>
-        ${field("Hero Image URL", "image", trainer.image)}
-        <label class="editor-upload"><span>Upload Hero Image</span><input type="file" accept="image/*" data-editor-upload="image"></label>
-        ${field("Logo URL", "companyLogo", trainer.companyLogo)}
-        <label class="editor-upload"><span>Upload Logo</span><input type="file" accept="image/*" data-editor-upload="companyLogo"></label>
-        <div class="editor-control-section"><h3>Typography & Color</h3>
-          <label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label>
-          <label><span>Type Scale</span><input type="range" min="0.9" max="1.15" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label>
-          <label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label>
-          <label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label>
-        </div>
-        <div class="editor-control-section"><h3>Approved Reviews</h3>
-          ${field("Review 1 Client", "review1Author", trainer.review1Author)}
-          ${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}
-          ${field("Review 2 Client", "review2Author", trainer.review2Author)}
-          ${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}
-          ${field("Review 3 Client", "review3Author", trainer.review3Author)}
-          ${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}
-        </div>
+        <div class="builder-tabs">${tabs.map(([id, label]) => `<button type="button" class="${activeTab === id ? "active" : ""}" data-builder-tab="${id}">${label}</button>`).join("")}</div>
+        ${controls[activeTab] || controls.page}
       </aside>
-      <main class="page-editor-canvas">
-        <div class="page-editor-device-bar"><span>Live Desktop Preview</span><strong>${escapeHtml(trainer.pageStatus)}${trainer.locked ? " · Locked" : ""}</strong></div>
-        <iframe id="pageEditorPreview" title="${escapeHtml(trainer.name)} live trainer page preview" srcdoc="${srcdoc}"></iframe>
+      <main class="page-editor-canvas ${state.builderDevice === "mobile" ? "mobile-device" : ""}">
+        <div class="page-editor-device-bar"><span>${state.builderMode === "edit" ? "Live Overlay Editor" : "Browse Preview"} · ${escapeHtml(preview.label)}</span><strong>${state.builderSurface === "trainer" ? `${escapeHtml(trainer.pageStatus)}${trainer.locked ? " · Locked" : ""}` : "Workspace Draft"}</strong></div>
+        <iframe id="pageEditorPreview" title="${escapeHtml(preview.label)} live preview" ${preview.kind === "src" ? `src="${escapeHtml(preview.value)}"` : `srcdoc="${escapeHtml(preview.value)}"`}></iframe>
       </main>
     </div>
   </section>`;
@@ -1536,22 +2111,86 @@ function trainerPageEditor() {
 
 function refreshPageEditorPreview() {
   const frame = document.getElementById("pageEditorPreview");
-  if (frame) frame.srcdoc = pageEditorPreviewDocument(trainerById());
+  if (frame) {
+    const preview = builderPreviewConfig(trainerById());
+    if (preview.kind === "src") {
+      frame.removeAttribute("srcdoc");
+      frame.src = preview.value;
+    } else {
+      frame.removeAttribute("src");
+      frame.srcdoc = preview.value;
+    }
+    frame.addEventListener("load", () => injectLiveBuilder(frame), { once: true });
+  }
+}
+
+function injectLiveBuilder(frame) {
+  if (!frame || state.activeView !== "pageEditor") return;
+  const doc = frame.contentDocument;
+  if (!doc) return;
+  applyLiveEditsToDocument(doc, activeBuilderEdits());
+  if (state.builderSurface === "trainer") applySectionBuilderSettings(doc, trainerById());
+  if (state.builderMode !== "edit") return;
+  if (!doc.getElementById("ldtt-builder-style")) {
+    const style = doc.createElement("style");
+    style.id = "ldtt-builder-style";
+    style.textContent = `
+      [data-ldtt-editable-hover]{outline:2px solid #0b6bff!important;outline-offset:4px!important;cursor:pointer!important}
+      [data-ldtt-selected]{outline:3px solid #d80f35!important;outline-offset:5px!important}
+      [contenteditable="true"]{box-shadow:0 0 0 4px rgba(216,15,53,.18)!important;border-radius:6px!important}
+    `;
+    doc.head.appendChild(style);
+  }
+  const candidates = doc.querySelectorAll("h1,h2,h3,h4,p,li,span,strong,a,button,img,video,section,article,.card,.panel,.metric-card,.nav-btn,.btn,.lp-service-grid article,.landing-service-card,.lp-final,.lp5-final,.lp6-cta,.lp3-contact,.landing-reviews,.lp-process,.lp-services");
+  candidates.forEach(element => {
+    if (element.closest("form") || element.closest(".office-lead-form")) return;
+    element.addEventListener("mouseenter", () => element.setAttribute("data-ldtt-editable-hover", "true"));
+    element.addEventListener("mouseleave", () => element.removeAttribute("data-ldtt-editable-hover"));
+    element.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      doc.querySelectorAll("[data-ldtt-selected]").forEach(item => item.removeAttribute("data-ldtt-selected"));
+      element.setAttribute("data-ldtt-selected", "true");
+      const selector = selectorForElement(element);
+      state.builderSelectedSelector = selector;
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      const label = element.textContent?.trim()?.slice(0, 64) || element.alt || element.tagName.toLowerCase();
+      const isText = !["IMG", "VIDEO"].includes(element.tagName) && element.children.length < 2;
+      if (isText) {
+        element.setAttribute("contenteditable", "true");
+        element.focus();
+        const range = doc.createRange();
+        range.selectNodeContents(element);
+        range.collapse(false);
+        const selection = doc.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        const saveText = () => {
+          element.removeAttribute("contenteditable");
+          upsertLiveEdit(trainerById(), { t: "text", k: selector, v: element.textContent, label });
+          showToast("Text saved to builder draft");
+        };
+        element.addEventListener("blur", saveText, { once: true });
+      } else {
+        showToast("Element selected. Use the media, style, or history controls to edit it.");
+      }
+    });
+  });
 }
 
 function profileFieldPairs() {
   return [
-    { profile: "profileName", landing: "name", label: "Trainer Name" },
+    { profile: "profileName", public: "publicName", landing: "name", label: "Trainer Name" },
     { profile: "profileTitle", landing: "title", label: "Professional Title" },
-    { profile: "profileMarket", landing: "market", label: "City / Market" },
-    { profile: "profileState", landing: "state", label: "State" },
-    { profile: "profileServiceArea", landing: "serviceArea", label: "Service Area", area: true },
-    { profile: "profilePhone", landing: "phone", label: "Public Phone" },
-    { profile: "profileEmail", landing: "email", label: "Public Email" },
-    { profile: "profileBio", landing: "bio", label: "Trainer Bio", area: true },
-    { profile: "profilePhoto", landing: "photo", label: "Trainer Photo URL" },
-    { profile: "profileSpecialtiesText", landing: "specialties", label: "Specialties", area: true, list: true },
-    { profile: "profileCredentialsText", landing: "credentials", label: "Credentials", area: true, list: true }
+    { profile: "profileMarket", public: "publicMarket", landing: "market", label: "City / Market" },
+    { profile: "profileState", public: "publicState", landing: "state", label: "State" },
+    { profile: "profileServiceArea", public: "publicServiceArea", landing: "serviceArea", label: "Service Area", area: true },
+    { profile: "profilePhone", public: "publicPhone", landing: "phone", label: "Public Phone" },
+    { profile: "profileEmail", public: "publicEmail", landing: "email", label: "Public Email" },
+    { profile: "profileBio", public: "publicBio", landing: "bio", label: "Trainer Bio", area: true },
+    { profile: "profilePhoto", public: "publicPhoto", landing: "photo", label: "Trainer Photo URL" },
+    { profile: "profileSpecialtiesText", public: "publicSpecialtiesText", landing: "specialties", label: "Specialties", area: true, list: true },
+    { profile: "profileCredentialsText", public: "publicCredentialsText", landing: "credentials", label: "Credentials", area: true, list: true }
   ];
 }
 
@@ -1566,20 +2205,23 @@ function normalizedSyncValue(value) {
 
 function syncRow(trainer, pair) {
   const profileValue = fieldValue(trainer, pair.profile);
+  const publicValue = pair.public ? fieldValue(trainer, pair.public) : profileValue;
   const landingValue = fieldValue(trainer, pair.landing);
-  const matches = normalizedSyncValue(profileValue) === normalizedSyncValue(landingValue);
+  const publicMatches = normalizedSyncValue(profileValue) === normalizedSyncValue(publicValue);
+  const landingMatches = normalizedSyncValue(profileValue) === normalizedSyncValue(landingValue);
   const control = pair.area
     ? `<textarea data-profile-field="${pair.profile}" placeholder="${escapeHtml(pair.label)}">${escapeHtml(profileValue)}</textarea>`
     : `<input data-profile-field="${pair.profile}" value="${escapeHtml(profileValue)}" placeholder="${escapeHtml(pair.label)}">`;
-  return `<article class="profile-sync-row ${matches ? "matches" : "mismatch"}">
+  return `<article class="profile-sync-row ${publicMatches && landingMatches ? "matches" : "mismatch"}">
     <label><span>${escapeHtml(pair.label)}</span>${control}</label>
-    <div class="sync-meta"><span class="sync-state ${matches ? "match" : "mismatch"}">${matches ? "Matches landing page" : "Does not match landing page"}</span><button class="btn btn-outline btn-small" type="button" data-sync-profile-field="${pair.profile}" data-landing-field="${pair.landing}" data-sync-list="${pair.list ? "true" : "false"}">Update landing page</button></div>
+    ${pair.public ? `<div class="sync-meta"><span class="sync-state ${publicMatches ? "match" : "mismatch"}">${publicMatches ? "✓ Matches public profile" : "Needs public profile update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-public-field="${pair.profile}">Update frontend</button></div>` : ""}
+    <div class="sync-meta"><span class="sync-state ${landingMatches ? "match" : "mismatch"}">${landingMatches ? "✓ Matches landing page" : "Needs landing page update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-profile-field="${pair.profile}" data-landing-field="${pair.landing}" data-sync-list="${pair.list ? "true" : "false"}">Update landing page</button></div>
   </article>`;
 }
 
 function trainerProfileEditor(trainer) {
   return `<section class="profile-editor-panel">
-    <div class="profile-editor-head"><div><p class="portal-tag">Profile Editor</p><h2>Trainer profile source of truth</h2><p>These fields manage the trainer profile. Use the small sync button under an individual field only when that exact field should update the public landing page.</p></div><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Landing Page</a></div>
+    <div class="profile-editor-head"><div><p class="portal-tag">Profile Editor</p><h2>Trainer profile source of truth</h2><p>Edit once, then use the separate checkmarked controls to update the public trainer directory/profile or the trainer's landing page field.</p></div><div class="row-actions"><a class="btn btn-outline" href="/trainer-bio-${escapeHtml(trainer.slug)}.html" target="_blank" rel="noopener">View Public Profile</a><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Landing Page</a></div></div>
     <div class="profile-sync-grid">${profileFieldPairs().map(pair => syncRow(trainer, pair)).join("")}</div>
   </section>`;
 }
@@ -1617,6 +2259,10 @@ function trainerSubmissions(id = currentTrainerId()) {
 
 function pendingSubmissions() {
   return state.submissions.filter(sub => sub.status === "Pending");
+}
+
+function pendingReviewSubmissions() {
+  return state.submissions.filter(sub => sub.status === "Pending" && ["Review", "Testimonial"].includes(sub.type));
 }
 
 function trainerMediaSubmissions(id = currentTrainerId()) {
@@ -1679,6 +2325,7 @@ function trainerApplicationGoogleFormPanel() {
       <span class="status live">Google Sheet + Recruiting Email + Supabase</span>
       <p>The office can work from the shared inbox below. Website applications continue to email recruiting@lorenzosdogtrainingteam.com and log to the connected Google Sheet, while Supabase provides the shared recruiting status and office-note record.</p>
       <div class="action-row"><a class="btn btn-red" href="${TRAINER_APPLICATION_RESPONSE_SHEET}" target="_blank" rel="noopener">Open Google Response Sheet</a><a class="btn btn-outline" href="../trainer-application.html" target="_blank" rel="noopener">Preview Website Application</a></div>
+      <p class="panel-copy">The office workflow lives here. Google remains the intake backup, but status changes and notes should be managed in this portal so recruiting decisions stay centralized.</p>
     </div>
   </div>`;
 }
@@ -1698,7 +2345,8 @@ function contactSubmissionRows() {
     status: row.status || "New Inquiry",
     createdAt: (row.timestamp || new Date().toISOString()).slice(0, 10),
     next: "Office follow-up needed",
-    note: row.office_note || row.comments || "Stored from the main contact form.",
+    clientNote: row.comments || "",
+    note: row.office_note || "",
     followUpDate: row.follow_up_date || "",
     lostReason: row.lost_reason || "",
     doNotContact: Boolean(row.do_not_contact),
@@ -1736,8 +2384,17 @@ function updateLeadRecord(id, changes) {
 }
 
 function applicationTable() {
-  const rows = applicationRows();
-  return `<div class="application-sheet-actions"><span class="status live">Shared application response inbox</span><p>Review the applicant, change recruiting status, and leave office notes. These workflow updates save to Supabase without changing the Google Sheet or recruiting-email delivery.</p></div><div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Location</th><th>Contact</th><th>Eligibility</th><th>Experience</th><th>Status</th><th>Office Notes / Action Taken</th><th>Delivery</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => `<tr><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(formatApplicationDate(app.createdAt))}</small></td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td><small>Work eligible: ${escapeHtml(app.legally_eligible || "—")}</small><small>Drug test: ${escapeHtml(app.drug_test || "—")}</small><small>Travel to Cleveland: ${escapeHtml(app.cleveland_training || "—")}</small></td><td><small>Dog comfort: ${escapeHtml(app.comfortable_dogs || "—")}</small><small>Owns dogs: ${escapeHtml(app.owns_dogs || "—")}</small><small>Referral: ${escapeHtml(app.referral_source || "—")}</small></td><td><select class="select-pill" data-application-status="${escapeHtml(app.id)}">${["New Application","Under Review","Discovery Follow-Up","Interview Scheduled","Moved Forward","Declined","Archived"].map(status => `<option ${status === (app.status || "New Application") ? "selected" : ""}>${status}</option>`).join("")}</select></td><td><textarea class="application-note-input" data-application-note="${escapeHtml(app.id)}" placeholder="Office notes, calls made, interview result, next step...">${escapeHtml(app.note || "")}</textarea></td><td><small>Sheet: ${escapeHtml(app.delivery_google || "attempted")}</small><small>Email: ${escapeHtml(app.delivery_email || "attempted")}</small><small>Supabase: ${escapeHtml(app.delivery_supabase || "confirmed")}</small></td><td><details><summary>Open full record</summary>${applicationDetailGrid(app)}</details></td></tr>`).join("") || `<tr><td colspan="9">No trainer applications found yet.</td></tr>`}</tbody></table></div>`;
+  const statusOptions = ["All", "New Application", "Under Review", "Discovery Follow-Up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
+  const rows = applicationRows()
+    .filter(app => state.applicationFilter === "All" || (app.status || "New Application") === state.applicationFilter)
+    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return `<div class="application-sheet-actions"><span class="status live">Shared application response inbox</span><p>Review the applicant, change recruiting status, and leave office notes. These workflow updates save to Supabase without changing the Google Sheet or recruiting-email delivery.</p></div>
+  <div class="filter-bar">${statusOptions.map(status => `<button class="btn ${state.applicationFilter === status ? "btn-red" : "btn-outline"}" data-application-filter="${escapeHtml(status)}">${escapeHtml(status)}</button>`).join("")}</div>
+  <div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Location</th><th>Contact</th><th>Eligibility</th><th>Experience</th><th>Status</th><th>Office Notes / Action Taken</th><th>Delivery</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(formatApplicationDate(app.createdAt))}</small></td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td><small>Work eligible: ${escapeHtml(app.legally_eligible || "—")}</small><small>Drug test: ${escapeHtml(app.drug_test || "—")}</small><small>Travel to Cleveland: ${escapeHtml(app.cleveland_training || "—")}</small></td><td><small>Dog comfort: ${escapeHtml(app.comfortable_dogs || "—")}</small><small>Owns dogs: ${escapeHtml(app.owns_dogs || "—")}</small><small>Referral: ${escapeHtml(app.referral_source || "—")}</small></td><td>${applicationStatusSelect(app)}</td><td><textarea class="application-note-input" data-application-note="${escapeHtml(app.id)}" placeholder="Office notes, calls made, interview result, next step...">${escapeHtml(app.note || "")}</textarea></td><td><small>Sheet: ${escapeHtml(app.delivery_google || "attempted")}</small><small>Email: ${escapeHtml(app.delivery_email || "attempted")}</small><small>Supabase: ${escapeHtml(app.delivery_supabase || "confirmed")}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`).join("") || `<tr><td colspan="9">No trainer applications found yet.</td></tr>`}</tbody></table></div>${applicationDetailPanel()}`;
+}
+
+function applicationStatusSelect(app) {
+  return `<select class="select-pill" data-application-status="${escapeHtml(app.id)}">${["New Application","Under Review","Discovery Follow-Up","Interview Scheduled","Moved Forward","Declined","Archived"].map(status => `<option ${status === (app.status || "New Application") ? "selected" : ""}>${status}</option>`).join("")}</select>`;
 }
 
 function applicationDetailGrid(app) {
@@ -1775,6 +2432,12 @@ function applicationDetailGrid(app) {
   return `<div class="application-detail-grid">${fields.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`).join("")}</div>`;
 }
 
+function applicationDetailPanel() {
+  const app = applicationRows().find(item => item.id === state.selectedApplicationId);
+  if (!app) return "";
+  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-application aria-label="Close">×</button><span class="portal-tag">Application Detail</span><h2>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</h2><p>${escapeHtml([app.city, app.state].filter(Boolean).join(", ") || "Location pending")}</p><div class="lead-contact-grid"><div><span>Email</span><strong>${escapeHtml(app.email || "—")}</strong></div><div><span>Phone</span><strong>${escapeHtml(app.phone || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml([app.address_line_1, app.address_line_2, app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}</strong></div><div><span>Referral</span><strong>${escapeHtml(app.referral_source || "—")}</strong></div><div><span>Status</span><strong>${escapeHtml(app.status || "New Application")}</strong></div><div><span>Submitted</span><strong>${escapeHtml(formatApplicationDate(app.createdAt))}</strong></div></div><label>Status${applicationStatusSelect(app)}</label><label>Office notes<textarea data-application-note="${escapeHtml(app.id)}">${escapeHtml(app.note || "")}</textarea></label>${applicationDetailGrid(app)}</aside><div class="lead-detail-scrim" data-close-application></div>`;
+}
+
 function formatApplicationDate(value) {
   if (!value) return state.remoteReady ? "Not reported" : "Browser fallback record";
   if (/^\d{4}-\d{2}-\d{2}/.test(value)) return formatDate(value.slice(0, 10));
@@ -1794,7 +2457,7 @@ function submissionsTable(admin, kind = "all") {
   const sourceRows = admin ? state.submissions : trainerSubmissions();
   const rows = kind === "media" ? sourceRows.filter(sub => ["Photo", "Training Video", "Video"].includes(sub.type)) : kind === "review" ? sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)) : sourceRows;
   if (!rows.length) return `<div class="empty-state"><strong>No submissions found.</strong><p>Trainer photos, videos, and reviews will appear here as soon as they are submitted.</p></div>`;
-  return `<div class="submission-review-grid">${rows.map(sub => submissionReviewCard(sub, admin)).join("")}</div>`;
+  return `<div class="submission-review-grid">${rows.map(sub => submissionReviewCard(sub, admin)).join("")}</div>${admin ? submissionDetailPanel() : ""}`;
 }
 
 function submissionReviewCard(sub, admin) {
@@ -1802,19 +2465,64 @@ function submissionReviewCard(sub, admin) {
   let preview = `<div class="submission-placeholder"><span>${icon(sub.type === "Photo" ? "media" : "star")}</span><strong>No file attached</strong></div>`;
   if (sub.contentUrl && isVideo) preview = `<video class="submission-media" controls preload="metadata"><source src="${escapeHtml(sub.contentUrl)}" type="${escapeHtml(sub.fileType || "video/mp4")}">Your browser cannot preview this video.</video>`;
   else if (sub.contentUrl) preview = `<button class="submission-image-button" type="button" data-open-submission-media="${escapeHtml(sub.id)}" aria-label="Open ${escapeHtml(sub.title)}"><img class="submission-media" src="${escapeHtml(sub.contentUrl)}" alt="${escapeHtml(sub.title)}"></button>`;
-  const writtenContent = sub.reviewText ? `<blockquote class="submission-review-copy">“${escapeHtml(sub.reviewText)}”</blockquote>` : "";
+  const writtenContent = sub.reviewText
+    ? `<div class="submission-content-block"><span>Written review</span><blockquote class="submission-review-copy">“${escapeHtml(sub.reviewText)}”</blockquote></div>`
+    : `<div class="submission-content-block missing"><span>Written review</span><p>No written review was included.</p></div>`;
+  const reviewerDetails = [
+    sub.reviewerName ? `<span><b>Reviewer</b>${escapeHtml(sub.reviewerName)}</span>` : "",
+    sub.reviewerEmail ? `<span><b>Email</b>${escapeHtml(sub.reviewerEmail)}</span>` : "",
+    sub.reviewerLocation ? `<span><b>Location</b>${escapeHtml(sub.reviewerLocation)}</span>` : "",
+    sub.permissionToShare ? `<span><b>Permission</b>${escapeHtml(sub.permissionToShare)}</span>` : ""
+  ].filter(Boolean).join("");
+  const displayControls = admin && ["Review", "Testimonial"].includes(sub.type)
+    ? reviewDisplayControlsMarkup(sub)
+    : "";
+  const actionButtons = sub.status === "Approved"
+    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(sub.id)}">Publish / refresh landing page</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete review</button>`
+    : `<button class="btn btn-green" data-approve-submission="${escapeHtml(sub.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(sub.id)}">Reject</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete review</button>`;
   return `<article class="submission-review-card">
     <div class="submission-preview">${preview}</div>
     <div class="submission-review-body">
       <div class="submission-review-meta"><span class="submission-type">${escapeHtml(sub.type)}</span><span class="status ${submissionStatusClass(sub.status)}">${escapeHtml(sub.status)}</span></div>
       <h3>${escapeHtml(sub.title)}</h3>
       <p class="submission-trainer">Submitted by <strong>${escapeHtml(trainerName(sub.trainerId))}</strong>${sub.submittedAt ? ` · ${escapeHtml(new Date(sub.submittedAt).toLocaleDateString())}` : ""}</p>
+      ${reviewerDetails ? `<div class="submission-reviewer-details">${reviewerDetails}</div>` : ""}
       ${writtenContent}
-      <div class="submission-office-note"><span>Trainer note</span><p>${escapeHtml(sub.note || "No note supplied.")}</p></div>
+      ${sub.submissionComment ? `<div class="submission-content-block"><span>Submission details</span><p>${escapeHtml(sub.submissionComment)}</p></div>` : ""}
+      ${displayControls}
+      <div class="submission-office-note"><span>${admin ? "Office comments" : "Trainer note"}</span>${admin ? `<textarea data-submission-note="${escapeHtml(sub.id)}" placeholder="Add the office decision, follow-up, or publishing note...">${escapeHtml(sub.officeNote || sub.note || "")}</textarea>` : `<p>${escapeHtml(sub.submissionComment || sub.note || "No note supplied.")}</p>`}</div>
       ${sub.fileName ? `<p class="submission-file-name">File: ${escapeHtml(sub.fileName)}</p>` : ""}
-      ${admin ? `<div class="submission-actions"><button class="btn btn-green" data-approve-submission="${escapeHtml(sub.id)}">Approve</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(sub.id)}">Decline</button></div>` : ""}
+      ${admin ? `<div class="submission-actions">${actionButtons}<button class="btn btn-outline" type="button" data-open-submission-detail="${escapeHtml(sub.id)}">View full submission</button></div>` : ""}
     </div>
   </article>`;
+}
+
+function reviewDisplayControlsMarkup(submission) {
+  const options = reviewDisplayOptionsFor(submission);
+  const hasMedia = Boolean(submission.contentUrl);
+  const hasLocation = Boolean(submission.reviewerLocation);
+  const controls = [
+    ["showText", "Review text", true],
+    ["showMedia", "Photo / video", hasMedia],
+    ["showAuthor", "Reviewer name", true],
+    ["showLocation", "Client location", hasLocation]
+  ];
+  return `<section class="review-display-controls"><span>Show on landing page</span><div>${controls.map(([key, label, enabled]) => `<label class="${enabled ? "" : "disabled"}"><input type="checkbox" data-review-display="${escapeHtml(submission.id)}" data-review-display-key="${key}" ${options[key] ? "checked" : ""} ${enabled ? "" : "disabled"}>${escapeHtml(label)}</label>`).join("")}</div></section>`;
+}
+
+function submissionDetailPanel() {
+  const submission = state.submissions.find(item => item.id === state.selectedSubmissionId);
+  if (!submission) return "";
+  const isVideo = String(submission.fileType || "").startsWith("video/");
+  const media = submission.contentUrl
+    ? isVideo
+      ? `<video class="submission-detail-media" controls preload="metadata" src="${escapeHtml(submission.contentUrl)}"></video>`
+      : `<button class="submission-image-button submission-detail-image" type="button" data-open-submission-media="${escapeHtml(submission.id)}"><img src="${escapeHtml(submission.contentUrl)}" alt="${escapeHtml(submission.title)}"></button>`
+    : `<div class="submission-placeholder submission-detail-placeholder"><strong>No photo or video attached</strong></div>`;
+  const actions = submission.status === "Approved"
+    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(submission.id)}">Publish / refresh landing page</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete review</button>`
+    : `<button class="btn btn-green" data-approve-submission="${escapeHtml(submission.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(submission.id)}">Reject</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete review</button>`;
+  return `<aside class="lead-detail-panel submission-detail-panel"><button class="detail-close" data-close-submission aria-label="Close">×</button><span class="portal-tag">Review Submission</span><h2>${escapeHtml(submission.title)}</h2><p>${escapeHtml(submission.type)} for ${escapeHtml(trainerName(submission.trainerId))}</p>${media}<div class="lead-contact-grid"><div><span>Reviewer</span><strong>${escapeHtml(submission.reviewerName || "—")}</strong></div><div><span>Reviewer email</span><strong>${escapeHtml(submission.reviewerEmail || "—")}</strong></div><div><span>Client location</span><strong>${escapeHtml(submission.reviewerLocation || "Not provided")}</strong></div><div><span>Status</span><strong>${escapeHtml(submission.status)}</strong></div><div><span>Permission to share</span><strong>${escapeHtml(submission.permissionToShare || "Not reported")}</strong></div><div class="wide"><span>Submitted</span><strong>${escapeHtml(submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : "—")}</strong></div></div><section class="submission-detail-copy"><span>Actual written review</span><blockquote>${escapeHtml(submission.reviewText || "No written review was included.")}</blockquote></section>${submission.submissionComment ? `<section class="submission-detail-copy"><span>Submission details</span><p>${escapeHtml(submission.submissionComment)}</p></section>` : ""}${reviewDisplayControlsMarkup(submission)}<label>Office comments<textarea data-submission-note="${escapeHtml(submission.id)}" placeholder="Add the office decision, follow-up, or publishing note...">${escapeHtml(submission.officeNote || submission.note || "")}</textarea></label><div class="row-actions">${actions}</div></aside><div class="lead-detail-scrim" data-close-submission></div>`;
 }
 
 function readSubmissionFile(file) {
@@ -1839,6 +2547,20 @@ function openSubmissionMedia(submission) {
   dialog.showModal();
 }
 
+function openPublicReviewMedia(trigger) {
+  const mediaUrl = trigger?.dataset.mediaUrl || "";
+  if (!mediaUrl) return;
+  const title = trigger.dataset.mediaTitle || "Approved review";
+  const dialog = document.createElement("dialog");
+  dialog.className = "submission-media-dialog";
+  dialog.innerHTML = `<button type="button" class="submission-dialog-close" aria-label="Close preview">×</button><div class="submission-dialog-content"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(title)}"><h3>${escapeHtml(title)}</h3><p>Approved Lorenzo's Dog Training Team review media</p></div>`;
+  document.body.appendChild(dialog);
+  const close = () => { dialog.close(); dialog.remove(); };
+  dialog.querySelector(".submission-dialog-close").addEventListener("click", close);
+  dialog.addEventListener("click", event => { if (event.target === dialog) close(); });
+  dialog.showModal();
+}
+
 function clientFilterBar() {
   return `<div class="filter-bar">${clientStatuses.map(status => `<button class="btn ${state.clientFilter === status ? "btn-red" : "btn-outline"}" data-client-filter="${status}">${status}</button>`).join("")}</div>`;
 }
@@ -1853,7 +2575,21 @@ function convertedLeadQueue() {
 
 function clientTable() {
   const rows = state.clients.filter(c => state.clientFilter === "All" || c.status === state.clientFilter);
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Trainer</th><th>Status</th><th>Consent</th><th>Imported Source</th><th>Campaign Eligibility</th><th>Notes</th></tr></thead><tbody>${rows.map(client => `<tr><td><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.phone)} · ${escapeHtml(client.email)}</small></td><td>${escapeHtml(client.dog)}<small>${escapeHtml(client.breed)}</small></td><td>${escapeHtml(trainerName(client.trainerId))}</td><td><span class="status ${clientStatusClass(client.status)}">${escapeHtml(client.status)}</span></td><td>SMS: ${consentBadge(client.smsConsent)}<br>Email: ${consentBadge(client.emailConsent)}</td><td>${escapeHtml(client.importedSource)}</td><td>${campaignEligibility(client)}</td><td>${escapeHtml(client.notes)}</td></tr>`).join("")}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Trainer</th><th>Status</th><th>Consent</th><th>Imported Source</th><th>Campaign Eligibility</th><th>Notes</th></tr></thead><tbody>${rows.map(client => `<tr data-open-client="${escapeHtml(client.id)}"><td><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.phone)} · ${escapeHtml(client.email)}</small></td><td>${escapeHtml(client.dog)}<small>${escapeHtml(client.breed)}</small></td><td>${escapeHtml(trainerName(client.trainerId))}</td><td><span class="status ${clientStatusClass(client.status)}">${escapeHtml(client.status)}</span></td><td>SMS: ${consentBadge(client.smsConsent)}<br>Email: ${consentBadge(client.emailConsent)}</td><td>${escapeHtml(client.importedSource)}</td><td>${campaignEligibility(client)}</td><td>${escapeHtml(client.notes)}</td></tr>`).join("") || `<tr><td colspan="8">No client records match this filter yet.</td></tr>`}</tbody></table></div>${clientDetailPanel()}`;
+}
+
+function clientStatusSelect(client) {
+  return `<select class="select-pill" data-client-status="${escapeHtml(client.id)}">${clientStatuses.filter(status => status !== "All").map(status => `<option ${client.status === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}</select>`;
+}
+
+function consentSelect(clientId, type, current) {
+  return `<select class="select-pill" data-client-consent="${escapeHtml(clientId)}" data-consent-type="${escapeHtml(type)}">${["Yes", "No", "Unknown"].map(option => `<option ${current === option ? "selected" : ""}>${option}</option>`).join("")}</select>`;
+}
+
+function clientDetailPanel() {
+  const client = state.clients.find(item => item.id === state.selectedClientId);
+  if (!client) return "";
+  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-client aria-label="Close">×</button><span class="portal-tag">Client Record</span><h2>${escapeHtml(client.name)}</h2><p>${escapeHtml(client.dog || "Dog pending")} · ${escapeHtml(client.breed || "Breed pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(client.phone || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(client.email || "—")}</strong></div><div><span>Trainer</span><strong>${escapeHtml(trainerName(client.trainerId))}</strong></div><div><span>Imported Source</span><strong>${escapeHtml(client.importedSource || "Manual")}</strong></div></div><label>Status${clientStatusSelect(client)}</label><label>Date started<input class="select-pill" type="date" data-client-date-started="${escapeHtml(client.id)}" value="${escapeHtml(client.dateStarted || "")}"></label><label>Last contacted<input class="select-pill" type="date" data-client-last-contacted="${escapeHtml(client.id)}" value="${escapeHtml(client.lastContacted || "")}"></label><label>SMS consent${consentSelect(client.id, "sms", client.smsConsent || "Unknown")}</label><label>Email consent${consentSelect(client.id, "email", client.emailConsent || "Unknown")}</label><label>Client record summary<textarea data-client-note="${escapeHtml(client.id)}">${escapeHtml(client.notes || "")}</textarea></label><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("client", client.remoteId)}<textarea data-new-office-note="${escapeHtml(client.remoteId || "")}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="client" data-entity-id="${escapeHtml(client.remoteId || "")}">Add Office Note</button></section><button class="btn btn-red" data-save-client="${escapeHtml(client.id)}">Save Client Record</button></aside><div class="lead-detail-scrim" data-close-client></div>`;
 }
 
 function importInput() {
@@ -2045,10 +2781,48 @@ function trainerSocialMarkup(trainer) {
 
 function trainerReviewsMarkup(trainer) {
   const reviews = [1, 2, 3].map((number, index) => ({
+    id: `default-${number}`,
     author: trainer[`review${number}Author`] || ["Jessica R.", "Michael T.", "Sarah L."][index],
-    copy: trainer[`review${number}Copy`] || `${trainer.name} was professional, patient, and explained the training process clearly.`
-  }));
-  return `<div class="trainer-review-grid">${reviews.map(review => `<article class="trainer-review-card"><div class="review-stars">★★★★★</div><p>${escapeHtml(review.copy)}</p><strong>${escapeHtml(review.author)}</strong></article>`).join("")}</div>`;
+    copy: trainer[`review${number}Copy`] || `${trainer.name} was professional, patient, and explained the training process clearly.`,
+    location: "",
+    mediaUrl: "",
+    mediaType: "",
+    display: { showText: true, showMedia: false, showAuthor: true, showLocation: false }
+  })).concat((trainer.approvedReviews || []).map((review, index) => ({
+    id: review.submission_id || `approved-${index}`,
+    author: review.author || "Verified Client",
+    copy: review.copy || "",
+    location: review.location || "",
+    mediaUrl: review.media_url || "",
+    mediaType: review.media_type || "",
+    mediaName: review.media_name || "",
+    display: {
+      showText: review.display?.showText !== false,
+      showMedia: review.display?.showMedia !== false,
+      showAuthor: review.display?.showAuthor !== false,
+      showLocation: Boolean(review.display?.showLocation)
+    }
+  })).filter(review => review.copy || review.mediaUrl));
+  return `<div class="trainer-review-carousel" aria-label="Approved trainer reviews">${reviews.map(review => trainerReviewCardMarkup(review)).join("")}</div>`;
+}
+
+function trainerReviewCardMarkup(review) {
+  const showMedia = review.display.showMedia && review.mediaUrl;
+  const showText = review.display.showText && review.copy;
+  const showAuthor = review.display.showAuthor && review.author;
+  const showLocation = review.display.showLocation && review.location;
+  const isVideo = String(review.mediaType || "").startsWith("video/") || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(String(review.mediaUrl || ""));
+  const media = showMedia
+    ? `<div class="trainer-review-media">${isVideo ? `<video controls preload="metadata" src="${escapeHtml(review.mediaUrl)}"></video>` : `<button type="button" data-open-public-review-media="${escapeHtml(review.id)}" data-media-url="${escapeHtml(review.mediaUrl)}" data-media-title="${escapeHtml(review.author || "Approved review")}"><img src="${escapeHtml(review.mediaUrl)}" alt="${escapeHtml(review.mediaName || `${review.author || "Client"} review photo`)}"></button>`}</div>`
+    : "";
+  return `<article class="trainer-review-card ${showMedia ? "has-media" : ""}">
+    ${media}
+    <div class="trainer-review-content">
+      <div class="review-stars" aria-label="5 star review">★★★★★</div>
+      ${showText ? `<p>${escapeHtml(review.copy)}</p>` : `<p class="media-only-review">Approved ${isVideo ? "video" : "photo"} review from a Lorenzo client.</p>`}
+      <footer>${showAuthor ? `<strong>${escapeHtml(review.author)}</strong>` : ""}${showLocation ? `<span>${escapeHtml(review.location)}</span>` : ""}</footer>
+    </div>
+  </article>`;
 }
 
 function trainerBioSpotlight(trainer) {
@@ -2061,6 +2835,25 @@ function trainerCredibilityBar() {
   return `<section class="credibility-strip"><article><strong>40+</strong><span>Years Of Experience</span></article><article><strong>100,000+</strong><span>Dogs Trained Of All Breeds</span></article><article><strong>50+</strong><span>Professional Trainers Nationwide</span></article><article><strong>100%</strong><span>Commitment To You And Your Dog</span></article></section>`;
 }
 
+const heardAboutUsOptions = [
+  ["", "Select one"],
+  ["My Veternarian", "My Veterinarian"],
+  ["My Dog Walker", "My Dog Walker"],
+  ["My Dog Groomer", "My Dog Groomer"],
+  ["My Pet Store", "My Pet Store"],
+  ["My Neighbor", "My Neighbor"],
+  ["Your Website", "Your Website"],
+  ["Your Trainer", "Your Trainer"],
+  ["A Former Client", "A Former Client"],
+  ["Google Search", "Google Search"],
+  ["Facebook or Instagram", "Facebook or Instagram"],
+  ["Other", "Other"]
+];
+
+function heardAboutUsSelect(selected = "") {
+  return `<select required name="heard_about_us">${heardAboutUsOptions.map(([value, label]) => `<option value="${escapeHtml(value)}"${selected === value ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}</select>`;
+}
+
 function officeLeadFormMarkup(trainer, compact = false) {
   return `<form class="landing-form-card office-lead-form ${compact ? "compact" : ""}" id="contact" data-trainer-id="${escapeHtml(trainer.id)}">
     <h3>Book your free consultation</h3>
@@ -2071,7 +2864,6 @@ function officeLeadFormMarkup(trainer, compact = false) {
     <input type="hidden" name="trainer_market" value="${escapeHtml(trainer.market)}">
     <input type="hidden" name="trainer_city" value="${escapeHtml(trainerCity(trainer))}">
     <input type="hidden" name="trainer_state" value="${escapeHtml(trainer.state || "")}">
-    <input type="hidden" name="heard_about_us" value="Your Trainer">
     <input type="hidden" name="vet_or_previous_client" value="${escapeHtml(trainer.name)}">
     <input type="hidden" name="source_page" value="${escapeHtml(trainer.pageSlug || trainer.slug || trainer.id)}">
     <div class="landing-form-grid">
@@ -2091,7 +2883,7 @@ function officeLeadFormMarkup(trainer, compact = false) {
         </select>
       </label>
       <label class="wide">Your dog and goals *<textarea required name="comments" placeholder="Tell us about your dog, behavior concerns, and training goals."></textarea></label>
-      <details class="landing-more-fields wide"><summary>Required address and referral details</summary><div class="landing-more-grid"><label>Address Line 1 *<input required name="address_line_1" autocomplete="address-line1" placeholder="Address Line 1"></label><label>Address Line 2 <small>(optional)</small><input name="address_line_2" autocomplete="address-line2" placeholder="Address Line 2"></label><label>City *<input required name="city" autocomplete="address-level2" placeholder="City"></label><label>State *<input required name="state" autocomplete="address-level1" placeholder="State"></label><label>ZIP Code *<input required name="zip" autocomplete="postal-code" placeholder="ZIP Code"></label><label class="wide trainer-locked-field">How did you hear about us?<input value="Your Trainer" readonly disabled aria-disabled="true"></label></div></details>
+      <details class="landing-more-fields wide"><summary>Required address and referral details</summary><div class="landing-more-grid"><label>Address Line 1 *<input required name="address_line_1" autocomplete="address-line1" placeholder="Address Line 1"></label><label>Address Line 2 <small>(optional)</small><input name="address_line_2" autocomplete="address-line2" placeholder="Address Line 2"></label><label>City *<input required name="city" autocomplete="address-level2" placeholder="City"></label><label>State *<input required name="state" autocomplete="address-level1" placeholder="State"></label><label>ZIP Code *<input required name="zip" autocomplete="postal-code" placeholder="ZIP Code"></label><label class="wide">How did you hear about us? *${heardAboutUsSelect()}</label></div></details>
       <label class="landing-consent wide"><input required type="checkbox" name="sms_consent" value="yes"><span>I agree to receive recurring messages from Lorenzo's Dog Training Team. Reply STOP to opt out.</span></label>
       <div class="landing-form-status wide" role="status" aria-live="polite"></div>
       <button class="btn btn-red wide" type="submit">Book My Free Consultation</button>
@@ -2118,7 +2910,9 @@ function trainerLocationLabel(trainer) {
 }
 
 function landingFooter(trainer) {
-  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainer.market)}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a></div></footer>`;
+  const trainerSlug = trainer.slug || trainer.id || "";
+  const homeHref = `index.html?trainer_source=${encodeURIComponent(trainerSlug)}&trainer_name=${encodeURIComponent(trainer.name)}&source_page=trainer_landing_footer`;
+  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p><a class="trainer-footer-home-link" href="${homeHref}">Visit Lorenzo's Dog Training Team home</a></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainer.market)}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a></div></footer>`;
 }
 
 function serviceCardsMarkup(layoutId) {
@@ -2144,6 +2938,30 @@ function processSectionMarkup() {
   return `<section class="landing-process"><div class="landing-section-heading"><h2>How it works</h2></div><div class="landing-how-it-works"><div><strong>1</strong><span>Request your free consultation</span><small>Tell the office about your dog and goals.</small></div><div><strong>2</strong><span>Complete an evaluation</span><small>We assess the dog, owner, home, and priorities.</small></div><div><strong>3</strong><span>Follow a tailored plan</span><small>Your trainer teaches the dog and owner together.</small></div><div><strong>4</strong><span>Build lasting results</span><small>Practice leadership, rules, and boundaries in real life.</small></div></div></section>`;
 }
 
+function publicReviewFormMarkup(trainer) {
+  return `<details class="lp-submit-review" id="submit-review">
+    <summary><span>Submit a Review</span><small>Share text, photos, or videos for office approval.</small></summary>
+    <form class="public-review-form" data-trainer-id="${escapeHtml(trainer.id)}" enctype="multipart/form-data">
+      <input type="hidden" name="trainer_name" value="${escapeHtml(trainer.name)}">
+      <input type="hidden" name="trainer_slug" value="${escapeHtml(trainer.slug || trainer.id)}">
+      <input type="hidden" name="trainer_market" value="${escapeHtml(trainer.market)}">
+      <input type="hidden" name="trainer_city" value="${escapeHtml(trainerCity(trainer))}">
+      <input type="hidden" name="trainer_state" value="${escapeHtml(trainer.state || "")}">
+      <input type="hidden" name="source_page" value="${escapeHtml(trainer.pageSlug || trainer.slug || trainer.id)} review submission">
+      <div class="public-review-grid">
+        <label>Your Name *<input required name="reviewer_name" autocomplete="name" placeholder="Your name"></label>
+        <label>Email *<input required type="email" name="reviewer_email" autocomplete="email" placeholder="Email address"></label>
+        <label class="wide">Location <small>(optional)</small><input name="client_location" autocomplete="address-level2" placeholder="City, State"></label>
+        <label class="wide">Review or testimonial *<textarea required name="review_text" placeholder="Tell us about your experience and the results you saw."></textarea></label>
+        <label class="wide">Upload photo or video <input type="file" name="review_file" accept="image/*,video/*"></label>
+        <label class="public-review-consent wide"><input required type="checkbox" name="permission_to_share" value="yes"><span>I confirm Lorenzo's Dog Training Team may review and use this content after office approval.</span></label>
+        <div class="public-review-status wide" role="status" aria-live="polite"></div>
+        <button class="btn btn-red wide" type="submit">Submit For Office Approval</button>
+      </div>
+    </form>
+  </details>`;
+}
+
 function publicSiteMarkup(trainer) {
   const params = new URLSearchParams(window.location.search);
   const forcedLayout = document.body.dataset.layout || params.get("layout");
@@ -2165,7 +2983,7 @@ function publicSiteMarkup(trainer) {
   const brandBadge = `<div class="ldtt-affiliation"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><div><strong>Lorenzo's Certified Dog Trainer</strong><span>Powered by Lorenzo's Dog Training Team</span></div></div>`;
   const stats = `<section class="lp-stats"><article><strong>40+</strong><span>Years of experience</span></article><article><strong>100,000+</strong><span>Dogs trained of all breeds</span></article><article><strong>50+</strong><span>Professional trainers nationwide</span></article><article><strong>100%</strong><span>Commitment to you and your dog</span></article></section>`;
   const services = `<section class="lp-services" id="services"><div class="lp-heading"><span>Training for real life</span><h2>Three solutions. One goal: a better dog.</h2><p>Professional dog training in ${market} for dogs of any age, size, breed, and temperament.</p></div><div class="lp-service-grid"><article><b>01</b><h3>Dog Obedience</h3><p>Build dependable heel, sit, stay, come, down, and real-world control.</p><ul><li>Puppy foundations</li><li>On-leash obedience</li><li>Advanced off-leash training</li></ul></article><article><b>02</b><h3>Behavior Modification</h3><p>Structured help for aggression, reactivity, barking, pulling, jumping, and house-soiling.</p><ul><li>Aggression and reactivity</li><li>Anxiety and fear</li><li>Leadership and boundaries</li></ul></article><article><b>03</b><h3>Specialty Training</h3><p>Purpose-driven programs for service tasks, protection, scent work, utility, and retrieval.</p><ul><li>Service and assistance dogs</li><li>Protection training</li><li>Scent, utility, and retrieval</li></ul></article></div></section>`;
-  const reviews = `<section class="lp-reviews" id="reviews"><div class="lp-heading"><span>Real people. Real results.</span><h2>What local clients say</h2></div>${trainerReviewsMarkup(trainer)}</section>`;
+  const reviews = `<section class="lp-reviews" id="reviews"><div class="lp-heading"><span>Real people. Real results.</span><h2>What local clients say</h2></div>${trainerReviewsMarkup(trainer)}${publicReviewFormMarkup(trainer)}</section>`;
   const process = `<section class="lp-process"><div class="lp-heading"><span>A clear path forward</span><h2>How training begins</h2></div><div class="lp-process-grid"><article><b>1</b><h3>Request a consultation</h3><p>Tell Lorenzo's office about your dog, household, and goals.</p></article><article><b>2</b><h3>Complete an evaluation</h3><p>Your trainer assesses temperament, timing, handling, and priorities.</p></article><article><b>3</b><h3>Follow your plan</h3><p>The dog and owner learn together through technique and consistency.</p></article><article><b>4</b><h3>Build lasting results</h3><p>Use leadership, rules, and boundaries in everyday life.</p></article></div></section>`;
   const footer = `<section class="lp-final"><div><span>Start with Lorenzo's office</span><h2>Ready for a better life with your dog?</h2><p>Request your consultation today. The office will contact you within 1-3 business days.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}`;
 
@@ -2187,6 +3005,8 @@ function renderPublicSite() {
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = trainer.seoDescription || `Professional dog obedience training and behavior modification with ${trainer.name} in ${trainer.market}, backed by Lorenzo's Dog Training Team.`;
   document.getElementById("publicSite").innerHTML = publicSiteMarkup(trainer);
+  applyLiveEditsToDocument(document, trainer.liveEdits || []);
+  applySectionBuilderSettings(document, trainer);
   recordTrainerPageView(trainer);
 }
 
@@ -2296,6 +3116,34 @@ async function submitToSupabase(functionName, entries) {
   return response.json();
 }
 
+async function submitPublicReviewToBackend(entries) {
+  const response = await fetch("/api/submit-content-review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(entries)
+  });
+  const text = await response.text();
+  let result = {};
+  try {
+    result = text ? JSON.parse(text) : {};
+  } catch {
+    result = { message: text };
+  }
+  if (!response.ok || result.ok === false) {
+    throw new Error(result.message || `Review backend failed (${response.status})`);
+  }
+  return result;
+}
+
+async function submitPublicReview(entries) {
+  try {
+    return await submitPublicReviewToBackend(entries);
+  } catch (backendError) {
+    console.warn("LDTT public review API failed; trying Supabase Edge Function fallback", backendError);
+    return submitToSupabase("submit-content-review", entries);
+  }
+}
+
 async function submitLandingEmail(entries, trainer) {
   const payload = new FormData();
   Object.entries(entries).forEach(([key, value]) => payload.append(key, value));
@@ -2345,6 +3193,11 @@ async function submitLandingGoogleSheet(entries, trainer) {
 }
 
 document.addEventListener("click", async event => {
+  const publicReviewMedia = event.target.closest("[data-open-public-review-media]");
+  if (publicReviewMedia) {
+    openPublicReviewMedia(publicReviewMedia);
+    return;
+  }
   const leadView = event.target.closest("[data-lead-view]");
   if (leadView) { state.leadViewMode = leadView.dataset.leadView; saveState(); return; }
   const openLead = event.target.closest("[data-open-lead]");
@@ -2365,6 +3218,32 @@ document.addEventListener("click", async event => {
     else saveState("Lead status and office notes saved");
     return;
   }
+  const addNote = event.target.closest("[data-add-office-note]");
+  if (addNote) {
+    const entityType = addNote.dataset.addOfficeNote;
+    const entityId = addNote.dataset.entityId;
+    if (!remoteReady || !entityId) {
+      showToast("Office notes require the shared Supabase record to be loaded first.");
+      return;
+    }
+    const textarea = document.querySelector(`[data-new-office-note="${CSS.escape(entityId)}"]`);
+    const note = textarea?.value || "";
+    if (!note.trim()) {
+      showToast("Add a note before saving.");
+      return;
+    }
+    addNote.setAttribute("disabled", "disabled");
+    try {
+      await addOfficeNote(entityType, entityId, note);
+      showToast("Office note saved with timestamp and user.");
+      render();
+    } catch (error) {
+      console.error("Office note save failed", error);
+      showToast(`Office note could not be saved: ${error.message}`);
+      addNote.removeAttribute("disabled");
+    }
+    return;
+  }
   const trainerSelect = event.target.closest("[data-select-trainer]");
   if (trainerSelect) {
     state.selectedTrainerId = trainerSelect.dataset.selectTrainer;
@@ -2376,9 +3255,9 @@ document.addEventListener("click", async event => {
   }
   const view = event.target.closest("[data-view]");
   if (view) {
-    if (session.role === "trainer" && portalUser?.must_change_password && view.dataset.view !== "settings") {
+    if (portalUser?.must_change_password && view.dataset.view !== "settings") {
       state.activeView = "settings";
-      saveState("Create your permanent password before using the trainer portal");
+      saveState("Create your permanent password before using the portal");
       return;
     }
     state.activeView = view.dataset.view;
@@ -2450,6 +3329,7 @@ document.addEventListener("click", async event => {
   const syncProfileField = event.target.closest("[data-sync-profile-field]");
   if (syncProfileField) {
     const trainer = trainerById();
+    const keepPublished = trainer.pageStatus === "Published" || trainer.locked;
     const profileKey = syncProfileField.dataset.syncProfileField;
     const landingKey = syncProfileField.dataset.landingField;
     const value = fieldValue(trainer, profileKey);
@@ -2458,8 +3338,18 @@ document.addEventListener("click", async event => {
       : value;
     if (landingKey === "email") trainer.username = value;
     trainer.pageStatus = trainer.pageStatus === "No Site Started" ? "Draft" : trainer.pageStatus;
-    if (remoteReady) runRemoteMutation(`${landingKey.replace(/([A-Z])/g, " $1")} synced to landing page`, () => persistTrainerRecord(trainer));
+    if (remoteReady) runRemoteMutation(
+      `${landingKey.replace(/([A-Z])/g, " $1")} synced to landing page`,
+      () => persistTrainerRecord(trainer, keepPublished ? { publish: true } : {})
+    );
     else saveState(`${landingKey.replace(/([A-Z])/g, " $1")} synced to landing page`);
+    return;
+  }
+  const syncPublicField = event.target.closest("[data-sync-public-field]");
+  if (syncPublicField) {
+    const trainer = trainerById();
+    if (remoteReady) runRemoteMutation("Public trainer profile field updated", () => persistPublicTrainerField(trainer, syncPublicField.dataset.syncPublicField));
+    else saveState("Public trainer profile updated");
     return;
   }
   const onboardingStep = event.target.closest("[data-onboarding-step]");
@@ -2475,6 +3365,14 @@ document.addEventListener("click", async event => {
   const clientFilter = event.target.closest("[data-client-filter]");
   if (clientFilter) {
     state.clientFilter = clientFilter.dataset.clientFilter;
+    state.selectedClientId = "";
+    saveState();
+    return;
+  }
+  const applicationFilter = event.target.closest("[data-application-filter]");
+  if (applicationFilter) {
+    state.applicationFilter = applicationFilter.dataset.applicationFilter;
+    state.selectedApplicationId = "";
     saveState();
     return;
   }
@@ -2483,6 +3381,7 @@ document.addEventListener("click", async event => {
     const lead = allLeadRows().find(item => item.id === convertLead.dataset.convertLead);
     const client = upsertClientFromLead(lead);
     state.clientFilter = "Active";
+    state.selectedClientId = client?.id || "";
     if (remoteReady) runRemoteMutation("Client record created or updated from paid/won lead", () => persistClientRecord(client));
     else saveState("Client record created or updated from paid/won lead");
     return;
@@ -2496,14 +3395,48 @@ document.addEventListener("click", async event => {
   const approve = event.target.closest("[data-approve-submission]");
   if (approve) {
     const sub = state.submissions.find(s => s.id === approve.dataset.approveSubmission);
-    if (sub) sub.status = "Approved";
-    if (remoteReady) runRemoteMutation("Submission approved", () => persistSubmissionRecord(sub));
-    else saveState("Submission approved");
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Submission approved", () => publishApprovedReview(sub));
+      if (saved && ["Review", "Testimonial"].includes(sub?.type)) showActionConfirmation("Review published", `The approved review is now live on ${trainerName(sub.trainerId)}'s landing page.`);
+    } else saveState("Submission approved");
+    return;
+  }
+  const publishReview = event.target.closest("[data-publish-review]");
+  if (publishReview) {
+    const sub = state.submissions.find(s => s.id === publishReview.dataset.publishReview);
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Review landing page refreshed", () => publishApprovedReview(sub));
+      if (saved) showActionConfirmation("Review published", `The review is now live on ${trainerName(sub.trainerId)}'s landing page.`);
+    }
+    return;
+  }
+  const deleteReview = event.target.closest("[data-delete-review]");
+  if (deleteReview) {
+    const sub = state.submissions.find(s => s.id === deleteReview.dataset.deleteReview);
+    if (!sub || !window.confirm(`Delete this review from ${sub.reviewerName || "the reviewer"}? This cannot be undone.`)) return;
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Published review deleted", () => deletePublishedReview(sub));
+      if (saved) showActionConfirmation("Review deleted", sub.status === "Approved" ? "The review has been removed from the trainer's public landing page and the review inbox." : "The review has been removed from the review inbox.");
+    } else {
+      state.submissions = state.submissions.filter(item => item.id !== sub.id);
+      saveState("Review deleted");
+    }
     return;
   }
   const openSubmission = event.target.closest("[data-open-submission-media]");
   if (openSubmission) {
     openSubmissionMedia(state.submissions.find(item => item.id === openSubmission.dataset.openSubmissionMedia));
+    return;
+  }
+  const openSubmissionDetail = event.target.closest("[data-open-submission-detail]");
+  if (openSubmissionDetail) {
+    state.selectedSubmissionId = openSubmissionDetail.dataset.openSubmissionDetail;
+    saveState();
+    return;
+  }
+  if (event.target.closest("[data-close-submission]")) {
+    state.selectedSubmissionId = "";
+    saveState();
     return;
   }
   const decline = event.target.closest("[data-decline-submission]");
@@ -2512,6 +3445,35 @@ document.addEventListener("click", async event => {
     if (sub) sub.status = "Declined";
     if (remoteReady) runRemoteMutation("Submission declined", () => persistSubmissionRecord(sub));
     else saveState("Submission declined");
+    return;
+  }
+  const openApplication = event.target.closest("[data-open-application]");
+  if (openApplication) {
+    state.selectedApplicationId = openApplication.dataset.openApplication;
+    saveState();
+    return;
+  }
+  if (event.target.closest("[data-close-application]")) {
+    state.selectedApplicationId = "";
+    saveState();
+    return;
+  }
+  const openClient = event.target.closest("[data-open-client]");
+  if (openClient) {
+    state.selectedClientId = openClient.dataset.openClient;
+    saveState();
+    return;
+  }
+  if (event.target.closest("[data-close-client]")) {
+    state.selectedClientId = "";
+    saveState();
+    return;
+  }
+  const saveClient = event.target.closest("[data-save-client]");
+  if (saveClient) {
+    const client = state.clients.find(item => item.id === saveClient.dataset.saveClient);
+    if (remoteReady) runRemoteMutation("Client record saved", () => persistClientRecord(client));
+    else saveState("Client record saved");
     return;
   }
   if (event.target.id === "submitDemoContent") {
@@ -2552,7 +3514,9 @@ document.addEventListener("click", async event => {
             submission_type: type === "Training Video" ? "video" : type.toLowerCase(),
             title,
             file_url: storedPath || null,
-            notes: reviewText || note || null,
+            notes: ["Review", "Testimonial"].includes(type)
+              ? [`Trainer portal review submission for ${trainer.name}.`, note ? `Submitted note: ${note}.` : "", `Review: ${reviewText}`].filter(Boolean).join("\n")
+              : note || null,
             status: "pending"
           });
         });
@@ -2619,11 +3583,91 @@ document.addEventListener("click", async event => {
   }
   const editorSave = event.target.closest("[data-editor-save]");
   if (editorSave) {
+    if (state.builderSurface !== "trainer") {
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      showToast("Builder workspace changes saved");
+      return;
+    }
     const publish = editorSave.dataset.editorSave === "publish";
     const trainer = trainerById();
     trainer.pageStatus = publish ? "Published" : "Draft";
     trainer.locked = publish;
     runRemoteMutation(publish ? "Trainer page published and locked" : "Trainer page draft saved", () => persistTrainerRecord(trainer, { publish }));
+    return;
+  }
+  const builderTab = event.target.closest("[data-builder-tab]");
+  if (builderTab) {
+    state.builderTab = builderTab.dataset.builderTab;
+    saveState();
+    return;
+  }
+  const builderMode = event.target.closest("[data-builder-mode]");
+  if (builderMode) {
+    state.builderMode = builderMode.dataset.builderMode;
+    saveState();
+    return;
+  }
+  const builderDevice = event.target.closest("[data-builder-device]");
+  if (builderDevice) {
+    state.builderDevice = builderDevice.dataset.builderDevice;
+    saveState();
+    return;
+  }
+  const removeEdit = event.target.closest("[data-remove-live-edit]");
+  if (removeEdit) {
+    removeLiveEdit(Number(removeEdit.dataset.removeLiveEdit));
+    return;
+  }
+  if (event.target.closest("[data-reset-live-edits]")) {
+    const trainer = trainerById();
+    setActiveBuilderEdits([]);
+    if (state.builderSurface === "trainer") {
+      trainer.pageStatus = "Draft";
+      trainer.locked = false;
+    }
+    saveState("All live builder edits reset");
+    return;
+  }
+  const moveSection = event.target.closest("[data-section-move]");
+  if (moveSection) {
+    const trainer = trainerById();
+    trainer.sectionOrder = trainer.sectionOrder || ["hero", "stats", "services", "trainer", "reviews", "consultation"];
+    const index = trainer.sectionOrder.indexOf(moveSection.dataset.sectionMove);
+    const nextIndex = index + Number(moveSection.dataset.direction);
+    if (index >= 0 && nextIndex >= 0 && nextIndex < trainer.sectionOrder.length) {
+      const [section] = trainer.sectionOrder.splice(index, 1);
+      trainer.sectionOrder.splice(nextIndex, 0, section);
+      markBuilderDraftDirty("Section order saved to draft");
+      render();
+    }
+    return;
+  }
+  const useMedia = event.target.closest("[data-use-media]");
+  if (useMedia) {
+    const trainer = trainerById();
+    if (!state.builderSelectedSelector) {
+      showToast("Select an image, video, or section in the preview first.");
+      return;
+    }
+    const type = useMedia.dataset.mediaKind === "video" ? "video" : "img";
+    upsertLiveEdit(trainer, { t: type, k: state.builderSelectedSelector, v: useMedia.dataset.useMedia, label: "Selected media replacement" });
+    refreshPageEditorPreview();
+    showToast("Media applied to selected element");
+    return;
+  }
+  if (event.target.closest("[data-apply-embed-video]")) {
+    const trainer = trainerById();
+    const field = document.querySelector("[data-builder-embed-url]");
+    const url = normalizeVideoUrl(field?.value);
+    if (!state.builderSelectedSelector || !url) {
+      showToast("Select a preview area and paste a video URL first.");
+      return;
+    }
+    upsertLiveEdit(trainer, { t: "video", k: state.builderSelectedSelector, v: url, label: "External video embed" });
+    trainer.mediaLibrary = Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [];
+    trainer.mediaLibrary.unshift({ type: "video", url, name: "External video", size: 0, uploadedAt: new Date().toISOString() });
+    refreshPageEditorPreview();
+    showToast("Video added to builder draft");
     return;
   }
   if (event.target.id === "resetDemo") {
@@ -2665,6 +3709,9 @@ document.addEventListener("input", event => {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
     return;
   }
+  if (field.dataset.builderEmbedUrl !== undefined) {
+    return;
+  }
   if (field.name?.startsWith("admin-trainer-social-")) {
     const trainer = trainerById();
     const key = field.name.replace("admin-trainer-social-", "");
@@ -2699,6 +3746,21 @@ document.addEventListener("input", event => {
     scheduleRemoteSave(`application-${application?.id}`, () => persistApplicationRecord(application));
     saveState(null, true);
   }
+  if (field.dataset.submissionNote) {
+    const submission = state.submissions.find(item => item.id === field.dataset.submissionNote);
+    if (submission) {
+      submission.note = field.value;
+      scheduleRemoteSave(`submission-${submission.id}`, () => persistSubmissionRecord(submission));
+      saveState(null, true);
+    }
+  }
+  if (field.dataset.clientNote) {
+    const client = state.clients.find(item => item.id === field.dataset.clientNote);
+    if (client) {
+      client.notes = field.value;
+      saveState(null, true);
+    }
+  }
   if (field.dataset.leadSearch !== undefined) { state.leadSearch = field.value; saveState(null, true); }
   if (field.id === "csvInput") {
     state.importDraft = field.value;
@@ -2722,6 +3784,43 @@ document.addEventListener("change", async event => {
     saveState();
     return;
   }
+  if (event.target.dataset.builderPage !== undefined) {
+    state.builderPage = event.target.value;
+    state.builderSelectedSelector = "";
+    saveState();
+    return;
+  }
+  if (event.target.dataset.builderMainPage !== undefined) {
+    state.builderMainPage = event.target.value;
+    state.builderSelectedSelector = "";
+    saveState();
+    return;
+  }
+  if (event.target.dataset.builderPortalView !== undefined) {
+    state.builderPortalView = event.target.value;
+    state.builderSelectedSelector = "";
+    saveState();
+    return;
+  }
+  if (event.target.dataset.builderSurface !== undefined) {
+    state.builderSurface = event.target.value;
+    state.builderSelectedSelector = "";
+    state.builderMode = "browse";
+    saveState();
+    return;
+  }
+  const sectionVisible = event.target.closest("[data-section-visible]");
+  if (sectionVisible) {
+    const trainer = trainerById();
+    trainer.hiddenSections = Array.isArray(trainer.hiddenSections) ? trainer.hiddenSections : [];
+    const section = sectionVisible.dataset.sectionVisible;
+    trainer.hiddenSections = sectionVisible.checked
+      ? trainer.hiddenSections.filter(item => item !== section)
+      : Array.from(new Set([...trainer.hiddenSections, section]));
+    markBuilderDraftDirty("Section visibility saved to draft");
+    render();
+    return;
+  }
   if (event.target.dataset.editorField || event.target.dataset.editorStyle) {
     refreshPageEditorPreview();
     return;
@@ -2729,24 +3828,28 @@ document.addEventListener("change", async event => {
   const editorUpload = event.target.closest("[data-editor-upload]");
   if (editorUpload?.files?.[0]) {
     const file = editorUpload.files[0];
-    if (file.size > 10 * 1024 * 1024) {
-      showToast("Choose an image smaller than 10 MB");
-      editorUpload.value = "";
-      return;
-    }
     const trainer = trainerById();
     try {
-      const extension = file.name.includes(".") ? file.name.split(".").pop().toLowerCase() : "jpg";
-      const path = `${trainer.remoteId || slugify(trainer.name)}/${editorUpload.dataset.editorUpload}-${Date.now()}.${extension}`;
-      await window.LDTT_PORTAL.upload("trainer-page-assets", path, file);
-      trainer[editorUpload.dataset.editorUpload] = window.LDTT_PORTAL.publicStorageUrl("trainer-page-assets", path);
+      const slot = editorUpload.dataset.editorUpload;
+      const uploaded = await uploadBuilderMedia(file, slot);
+      if (!uploaded) return;
+      if (slot === "selectedMedia") {
+        if (!state.builderSelectedSelector) {
+          showToast("Media uploaded. Select a preview element to place it.");
+        } else {
+          upsertLiveEdit(trainer, { t: uploaded.type === "video" ? "video" : "img", k: state.builderSelectedSelector, v: uploaded.url, label: "Selected media replacement" });
+        }
+      } else if (slot !== "mediaLibrary") {
+        trainer[slot] = uploaded.url;
+      }
       trainer.pageStatus = "Draft";
       trainer.locked = false;
       refreshPageEditorPreview();
-      showToast("Image uploaded. Save the draft when ready.");
+      markBuilderDraftDirty("Media uploaded and builder draft saved");
     } catch (error) {
-      showToast(`Image upload failed: ${error.message}`);
+      showToast(`Media upload failed: ${error.message}`);
     }
+    editorUpload.value = "";
     return;
   }
   if (event.target.dataset.leadSearch !== undefined) { state.leadSearch = event.target.value; saveState(); return; }
@@ -2824,6 +3927,69 @@ document.addEventListener("change", async event => {
     const application = updateApplicationRecord(applicationStatus.dataset.applicationStatus, { status: applicationStatus.value });
     if (remoteReady) runRemoteMutation("Trainer application status updated", () => persistApplicationRecord(application));
     else saveState("Trainer application status updated");
+    return;
+  }
+  const applicationNote = event.target.closest("[data-application-note]");
+  if (applicationNote) {
+    const application = updateApplicationRecord(applicationNote.dataset.applicationNote, { note: applicationNote.value });
+    if (remoteReady) runRemoteMutation("Trainer application office note saved", () => persistApplicationRecord(application), { render: false });
+    else saveState("Trainer application office note saved", true);
+    return;
+  }
+  const submissionNote = event.target.closest("[data-submission-note]");
+  if (submissionNote) {
+    const submission = state.submissions.find(item => item.id === submissionNote.dataset.submissionNote);
+    if (submission) submission.note = submissionNote.value;
+    if (remoteReady) runRemoteMutation("Submission note saved", () => persistSubmissionRecord(submission), { render: false });
+    else saveState("Submission note saved", true);
+    return;
+  }
+  const reviewDisplay = event.target.closest("[data-review-display]");
+  if (reviewDisplay) {
+    const submission = state.submissions.find(item => item.id === reviewDisplay.dataset.reviewDisplay);
+    if (submission) {
+      submission.reviewDisplay = {
+        ...reviewDisplayOptionsFor(submission),
+        [reviewDisplay.dataset.reviewDisplayKey]: reviewDisplay.checked
+      };
+      saveState("Review display choice saved", true);
+    }
+    return;
+  }
+  const clientStatus = event.target.closest("[data-client-status]");
+  if (clientStatus) {
+    const client = state.clients.find(item => item.id === clientStatus.dataset.clientStatus);
+    if (client) client.status = clientStatus.value;
+    saveState("Client status updated");
+    return;
+  }
+  const clientConsent = event.target.closest("[data-client-consent]");
+  if (clientConsent) {
+    const client = state.clients.find(item => item.id === clientConsent.dataset.clientConsent);
+    const key = clientConsent.dataset.consentType === "sms" ? "smsConsent" : "emailConsent";
+    if (client) client[key] = clientConsent.value;
+    saveState("Client consent updated");
+    return;
+  }
+  const clientDateStarted = event.target.closest("[data-client-date-started]");
+  if (clientDateStarted) {
+    const client = state.clients.find(item => item.id === clientDateStarted.dataset.clientDateStarted);
+    if (client) client.dateStarted = clientDateStarted.value;
+    saveState("Client start date updated");
+    return;
+  }
+  const clientLastContacted = event.target.closest("[data-client-last-contacted]");
+  if (clientLastContacted) {
+    const client = state.clients.find(item => item.id === clientLastContacted.dataset.clientLastContacted);
+    if (client) client.lastContacted = clientLastContacted.value;
+    saveState("Client last-contacted date updated");
+    return;
+  }
+  const clientNote = event.target.closest("[data-client-note]");
+  if (clientNote) {
+    const client = state.clients.find(item => item.id === clientNote.dataset.clientNote);
+    if (client) client.notes = clientNote.value;
+    saveState("Client note updated", true);
     return;
   }
   const actionField = event.target.closest("[data-import-action]");
@@ -2946,17 +4112,108 @@ document.addEventListener("submit", async event => {
     }, 10000);
     return;
   }
+  if (event.target.classList.contains("public-review-form")) {
+    if (event.target.dataset.submitting === "true") return;
+    if (!event.target.reportValidity()) return;
+    const submitButton = event.target.querySelector('button[type="submit"]');
+    const formStatus = event.target.querySelector(".public-review-status");
+    const setReviewStatus = (message, type = "success") => {
+      if (!formStatus) return;
+      formStatus.className = `public-review-status ${type}`;
+      formStatus.textContent = message;
+    };
+    const trainerId = event.target.dataset.trainerId || currentTrainerId();
+    const trainer = trainerById(trainerId);
+    const entries = formEntries(event.target);
+    const file = event.target.querySelector('input[name="review_file"]')?.files?.[0] || null;
+    if (file && file.size > 25 * 1024 * 1024) {
+      setReviewStatus("Please upload a file under 25 MB for this review form. Larger training videos can be uploaded inside the portal media tools.", "error");
+      return;
+    }
+    event.target.dataset.submitting = "true";
+    submitButton?.setAttribute("disabled", "disabled");
+    setReviewStatus("Review received. It is now pending office approval.");
+    showFormSuccessModal("Thank you. Your review was submitted for Lorenzo's office to review before it is posted.");
+    try {
+      const fileDataUrl = file ? await readSubmissionFile(file) : "";
+      const localPreviewUrl = file && file.size <= 1024 * 1024 ? fileDataUrl : "";
+      const submissionId = `public-review-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const submission = {
+        id: submissionId,
+        trainerId,
+        type: "Review",
+        title: `Website review from ${entries.reviewer_name || "Client"}`,
+        note: `Submitted from ${trainer.name}'s public landing page. Email: ${entries.reviewer_email || "not supplied"}. Permission to share: ${entries.permission_to_share || "no"}.`,
+        reviewText: entries.review_text || "",
+        reviewerName: entries.reviewer_name || "",
+        reviewerEmail: entries.reviewer_email || "",
+        reviewerLocation: entries.client_location || "",
+        contentUrl: localPreviewUrl,
+        fileName: file?.name || "",
+        fileType: file?.type || "",
+        submittedAt: new Date().toISOString(),
+        status: "Pending",
+        delivery_supabase: window.LDTT_SUPABASE?.enabled ? "pending" : "not_connected"
+      };
+      state.submissions.unshift(submission);
+      saveState("Review submitted for admin approval", true);
+      event.target.reset();
+      const payload = {
+        ...entries,
+        submission_id: submissionId,
+        trainer_id: trainer.remoteId || "",
+        trainer_name: trainer.name,
+        trainer_slug: trainer.slug || trainer.id,
+        trainer_market: trainer.market,
+        trainer_city: trainerCity(trainer),
+        trainer_state: trainer.state || "",
+        page_url: window.location.href,
+        source_page: `${trainer.name} trainer landing page review form`,
+        timestamp: new Date().toISOString(),
+        file: file ? {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          data_url: fileDataUrl
+        } : null
+      };
+      submitPublicReview(payload).then(result => {
+        submission.delivery_supabase = result?.skipped ? "not_connected" : "confirmed";
+        submission.remoteId = result?.submission_id || submission.remoteId;
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      }).catch(error => {
+        submission.delivery_supabase = "failed";
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        console.warn("LDTT public review save failed", error);
+      });
+    } catch (error) {
+      console.warn("LDTT public review read failed", error);
+      setReviewStatus("We could not read that file. Please try again or submit without an attachment.", "error");
+    } finally {
+      window.setTimeout(() => {
+        delete event.target.dataset.submitting;
+        submitButton?.removeAttribute("disabled");
+      }, 4000);
+    }
+    return;
+  }
   if (event.target.id === "changePasswordForm") {
+    const firstName = event.target.elements.firstName?.value.trim() || "";
+    const lastName = event.target.elements.lastName?.value.trim() || "";
     const password = event.target.elements.password.value;
     const confirmation = event.target.elements.confirmation.value;
     const status = document.getElementById("passwordStatus");
+    if (!firstName || !lastName) {
+      status.textContent = "Please enter your first and last name.";
+      return;
+    }
     if (password !== confirmation) {
       status.textContent = "Passwords do not match.";
       return;
     }
     try {
       status.textContent = "Saving your permanent password...";
-      await window.LDTT_PORTAL.changePassword(password);
+      await window.LDTT_PORTAL.changePassword(password, { firstName, lastName });
       portalUser = await window.LDTT_PORTAL.currentPortalUser();
       status.textContent = "Permanent password saved.";
       render();

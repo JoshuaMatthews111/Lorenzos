@@ -7,6 +7,33 @@ const buttons=[...document.querySelectorAll('.filter-btn')];
 const cards=[...document.querySelectorAll('.trainer-card')];
 const count=document.querySelector('#trainerCount');
 let filter='';
+
+const escapePublicText=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const paragraphizeTrainerBio=text=>{
+  const clean=String(text||'').trim();
+  if(!clean) return '<p>Full trainer bio is pending office approval for the new site.</p>';
+  return clean.split(/\n{2,}|(?<=\.)\s+(?=[A-Z][a-z])/).map(part=>part.trim()).filter(Boolean).map(part=>`<p>${escapePublicText(part)}</p>`).join('');
+};
+const publicTrainerLocation=record=>{
+  const market=String(record?.market||'').trim();
+  const state=String(record?.state||'').trim();
+  if(!market) return state;
+  if(!state||market.includes(',')) return market;
+  return `${market}, ${state}`;
+};
+const publicTrainerProfilesPromise=(async()=>{
+  const config=window.LDTT_SUPABASE||{};
+  if(!config.enabled||!config.projectUrl||!config.publishableKey) return new Map();
+  try{
+    const response=await fetch(`${String(config.projectUrl).replace(/\/$/,'')}/rest/v1/trainers?select=slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active&access_status=eq.active`,{headers:{apikey:config.publishableKey}});
+    if(!response.ok) throw new Error(`Trainer profile request failed (${response.status})`);
+    const rows=await response.json();
+    return new Map((rows||[]).map(row=>[row.slug,row]));
+  }catch(error){
+    console.warn('Live trainer profiles could not be loaded',error);
+    return new Map();
+  }
+})();
 function updateTrainers(){
   const term=((search?.value||'')+' '+filter).trim().toLowerCase();
   cards.forEach(card=>card.hidden=term&&!term.split(/\s+/).every(word=>card.dataset.search.includes(word)));
@@ -20,6 +47,38 @@ buttons.forEach(button=>button.addEventListener('click',()=>{
   filter=button.dataset.filter;
   updateTrainers();
 }));
+
+publicTrainerProfilesPromise.then(profiles=>{
+  document.querySelectorAll('[data-trainer-slug]').forEach(card=>{
+    const record=profiles.get(card.dataset.trainerSlug);
+    if(!record) return;
+    const location=publicTrainerLocation(record);
+    const name=card.querySelector('.trainer-info h3');
+    if(name&&record.full_name) name.textContent=record.full_name;
+    const stateTag=card.querySelector('.trainer-info .tag');
+    if(stateTag&&record.state) stateTag.textContent=record.state;
+    const locationNode=card.querySelector('.trainer-card-location');
+    if(locationNode) locationNode.textContent=location;
+    card.dataset.search=`${record.full_name||''} ${location} ${record.service_area||''}`.toLowerCase();
+  });
+  updateTrainers();
+  const profile=document.querySelector('[data-trainer-profile-slug]');
+  if(!profile) return;
+  const record=profiles.get(profile.dataset.trainerProfileSlug);
+  if(!record) return;
+  const location=publicTrainerLocation(record);
+  const image=profile.querySelector('.trainer-profile-photo img');
+  if(image&&record.headshot_url){image.src=record.headshot_url;image.alt=`${record.full_name} trainer bio photo`;}
+  const tag=profile.querySelector('.tag');
+  if(tag&&record.state) tag.textContent=record.state;
+  const title=profile.querySelector('h1');
+  if(title&&record.full_name) title.textContent=record.full_name;
+  const locationNode=profile.querySelector('.trainer-profile-location');
+  if(locationNode) locationNode.textContent=location;
+  document.querySelectorAll('[data-trainer-profile-name]').forEach(node=>node.textContent=record.full_name||node.textContent);
+  const fullBio=document.querySelector('[data-trainer-profile-bio]');
+  if(fullBio&&record.bio) fullBio.innerHTML=paragraphizeTrainerBio(record.bio);
+});
 
 const trainerBioButtons=[...document.querySelectorAll('.trainer-bio-open')];
 const trainerBioDataElement=document.querySelector('#trainerBioData');
@@ -63,12 +122,13 @@ if(trainerBioButtons.length&&trainerBioDataElement){
     modal.classList.remove('open');
     document.body.classList.remove('bio-open');
   };
-  const paragraphize=text=>{
-    const clean=(text||'').trim();
-    if(!clean) return '<p>Full trainer bio is pending office approval for the new site.</p>';
-    return clean.split(/\n{2,}|(?<=\.)\s+(?=[A-Z][a-z])/).map(part=>part.trim()).filter(Boolean).map(part=>`<p>${part.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]))}</p>`).join('');
-  };
-  trainerBioButtons.forEach(button=>button.addEventListener('click',()=>{
+  trainerBioButtons.forEach(button=>button.addEventListener('click',async()=>{
+    const liveProfiles=await publicTrainerProfilesPromise;
+    const live=liveProfiles.get(button.dataset.trainerSlug);
+    if(live&&trainerBioData[button.dataset.trainerSlug]){
+      const current=trainerBioData[button.dataset.trainerSlug];
+      trainerBioData[button.dataset.trainerSlug]={...current,name:live.full_name||current.name,location:publicTrainerLocation(live)||current.location,state:live.state||current.state,bio:live.bio||current.bio,bioPhoto:live.headshot_url||current.bioPhoto,cardPhoto:live.headshot_url||current.cardPhoto};
+    }
     const record=trainerBioData[button.dataset.trainerSlug];
     if(!record) return;
     image.src=record.bioPhoto||record.cardPhoto;
@@ -76,7 +136,7 @@ if(trainerBioButtons.length&&trainerBioDataElement){
     tag.textContent=record.state||'Lorenzo Trainer';
     title.textContent=record.name;
     location.textContent=record.location||'';
-    copy.innerHTML=paragraphize(record.bio);
+    copy.innerHTML=paragraphizeTrainerBio(record.bio);
     scheduleLink.href=`${record.pageSlug||record.slug.replaceAll('-','')}.html#contact`;
     scheduleLink.textContent='Schedule This Trainer';
     modal.classList.add('open');
@@ -191,6 +251,38 @@ const submitToSupabase=async (functionName,entries)=>{
   return response.json();
 };
 
+const TRAINER_ATTRIBUTION_KEY='ldttTrainerAttribution.v1';
+
+const persistTrainerAttributionFromUrl=()=>{
+  const params=new URLSearchParams(window.location.search);
+  const trainerSource=params.get('trainer_source');
+  if(!trainerSource) return;
+  const attribution={
+    trainer_slug:trainerSource,
+    trainer_name:params.get('trainer_name')||'',
+    source_page:params.get('source_page')||document.title,
+    captured_at:new Date().toISOString(),
+    landing_referrer:document.referrer||''
+  };
+  sessionStorage.setItem(TRAINER_ATTRIBUTION_KEY,JSON.stringify(attribution));
+};
+
+const applyStoredTrainerAttribution=data=>{
+  let attribution=null;
+  try{
+    attribution=JSON.parse(sessionStorage.getItem(TRAINER_ATTRIBUTION_KEY)||'null');
+  }catch(error){
+    attribution=null;
+  }
+  if(!attribution) return;
+  if(!data.get('trainer_name')&&attribution.trainer_name) data.set('trainer_name',attribution.trainer_name);
+  if(!data.get('assigned_trainer')&&attribution.trainer_name) data.set('assigned_trainer',attribution.trainer_name);
+  if(!data.get('trainer_slug')&&attribution.trainer_slug) data.set('trainer_slug',attribution.trainer_slug);
+  if(!data.get('trainer_referral_source')) data.set('trainer_referral_source',attribution.source_page||'trainer_landing_footer');
+};
+
+persistTrainerAttributionFromUrl();
+
 const showFormSuccessModal=(message)=>{
   let modal=document.querySelector('.form-success-modal');
   if(!modal){
@@ -234,6 +326,7 @@ const wireAsyncForm=(form,{storageKey,successMessage,onSubmit})=>{
     data.set('timestamp',new Date().toISOString());
     data.set('page_url',window.location.href);
     data.set('source_page',document.title);
+    applyStoredTrainerAttribution(data);
     return data;
   };
   form.addEventListener('submit',event=>{
@@ -312,6 +405,7 @@ if(contactForm){
       if(googleEndpoint){
         const googlePayload=new FormData();
         const mapping={
+          trainer_name:'entry.732274329',
           first_name:'entry.2076204969',
           last_name:'entry.1657690671',
           address_line_1:'entry.1231537394',
@@ -326,6 +420,7 @@ if(contactForm){
           vet_or_previous_client:'entry.1616503040',
           comments:'entry.1517896175',
         };
+        entries.trainer_name=entries.trainer_name||entries.assigned_trainer||'Office / Not sure';
         Object.entries(mapping).forEach(([fieldName,entryName])=>{
           const value=entries[fieldName];
           if(value) googlePayload.append(entryName,value);
