@@ -266,8 +266,14 @@
   }
 
   async function loadPublishedTrainer(slug) {
-    const trainers = await select("trainers", `select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`);
-    const trainer = trainers?.[0];
+    const requested = String(slug || "").trim();
+    let trainers = await select("trainers", `select=*&slug=eq.${encodeURIComponent(requested)}&limit=1`);
+    let trainer = trainers?.[0];
+    if (!trainer && requested) {
+      const compact = requested.replaceAll("-", "").toLowerCase();
+      trainers = await select("trainers", "select=*");
+      trainer = trainers.find(item => String(item.slug || "").replaceAll("-", "").toLowerCase() === compact) || null;
+    }
     if (!trainer) return null;
     const pages = await select("trainer_pages", `select=*&trainer_id=eq.${encodeURIComponent(trainer.id)}&page_status=eq.published&locked=eq.true&limit=1`);
     return { trainer, page: pages?.[0] || null };

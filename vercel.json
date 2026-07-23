@@ -1,3 +1,9 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/:trainer",
+      "destination": "/trainer-backoffice/right-trainer-results.html?trainer=:trainer"
+    }
+  ]
 }

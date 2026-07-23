@@ -676,6 +676,92 @@ function slugify(value) {
     .replace(/^-+|-+$/g, "");
 }
 
+function trainerDisplaySlug(trainer) {
+  const current = slugify(trainer?.slug || "");
+  const nameSlug = slugify(trainer?.profileName || trainer?.name || "");
+  const draftLikeSlugs = new Set(["", "new-trainer", "trainer", "draft-trainer", "office-draft"]);
+  if (nameSlug && !["new-trainer", "trainer"].includes(nameSlug) && (trainer?.isOfficeDraft || draftLikeSlugs.has(current) || /^office-draft-\d+$/.test(current))) {
+    return nameSlug;
+  }
+  return current || nameSlug || `office-draft-${Date.now()}`;
+}
+
+function trainerPublicSlug(trainer) {
+  return trainerDisplaySlug(trainer).replaceAll("-", "");
+}
+
+function isDraftTrainer(trainer) {
+  return Boolean(trainer?.isOfficeDraft) || ["No Site Started", "Draft"].includes(trainer?.pageStatus) || /^office-draft-\d+$/.test(String(trainer?.slug || ""));
+}
+
+function createOfficeTrainerDraft() {
+  const id = `office-draft-${Date.now()}`;
+  return {
+    id,
+    slug: id,
+    pageSlug: id.replaceAll("-", ""),
+    isOfficeDraft: true,
+    name: "New Trainer Draft",
+    profileName: "",
+    publicName: "",
+    title: "Lorenzo's Certified Dog Trainer",
+    profileTitle: "Lorenzo's Certified Dog Trainer",
+    username: "",
+    temporaryPassword: TEMP_PASSWORD,
+    accessStatus: "Active",
+    market: "Market Pending",
+    profileMarket: "",
+    state: "State Pending",
+    profileState: "",
+    serviceArea: "Service area pending",
+    profileServiceArea: "",
+    phone: "(866) 436-4959",
+    profilePhone: "",
+    email: "",
+    profileEmail: "",
+    tagline: "Obedience. Behavior solutions. Real results.",
+    heroHeadline: "Professional dog training for real-life results.",
+    bio: "Office needs to approve this trainer bio.",
+    profileBio: "",
+    seoTitle: "Local Dog Trainer | Lorenzo's Dog Training Team",
+    seoDescription: "Professional dog obedience training and behavior modification backed by Lorenzo's Dog Training Team.",
+    layout: "mock-5",
+    pageStatus: "No Site Started",
+    locked: false,
+    clicks: 0,
+    forms: 0,
+    conversions: 0,
+    image: trainerLandingDogs["mock-5"],
+    photo: "../assets/lorenzo-logo-transparent.png",
+    profilePhoto: "",
+    cardPhoto: "../assets/lorenzo-logo-transparent.png",
+    companyLogo: "../assets/lorenzo-logo-transparent.png",
+    specialties: ["Obedience Training", "Behavior Modification"],
+    profileSpecialtiesText: "Obedience Training\nBehavior Modification",
+    credentials: ["Lorenzo's Certified Dog Trainer", "Powered by Lorenzo's Dog Training Team"],
+    profileCredentialsText: "Lorenzo's Certified Dog Trainer\nPowered by Lorenzo's Dog Training Team",
+    review1Author: "Client Name",
+    review1Copy: "Office-approved client testimonial.",
+    review2Author: "Client Name",
+    review2Copy: "Office-approved client testimonial.",
+    review3Author: "Client Name",
+    review3Copy: "Office-approved client testimonial.",
+    socials: { facebook: "", instagram: "", tiktok: "" }
+  };
+}
+
+function refreshDraftTrainerIdentity(trainer, changedKey = "") {
+  if (!trainer) return;
+  const displayName = String(trainer.profileName || trainer.name || "").trim();
+  if (displayName && displayName !== "New Trainer Draft" && displayName !== "New Trainer") {
+    trainer.name = displayName;
+    if (isDraftTrainer(trainer) || changedKey === "name" || changedKey === "profileName") {
+      trainer.slug = trainerDisplaySlug(trainer);
+      trainer.pageSlug = trainerPublicSlug(trainer);
+    }
+  }
+}
+
 function trainerDraftContent(trainer) {
   return {
     trainer_name: trainer.name,
@@ -701,9 +787,10 @@ function trainerDraftContent(trainer) {
 	}
 
 function trainerPagePayload(trainer) {
+  const slug = trainerDisplaySlug(trainer);
   return {
     trainer_id: trainer.remoteId,
-    slug: trainer.slug || slugify(trainer.name),
+    slug,
     template_key: templateToDb(trainer.layout),
     page_status: "draft",
     locked: false,
@@ -730,8 +817,12 @@ function trainerPagePayload(trainer) {
 
 async function persistTrainerRecord(trainer, options = {}) {
   if (!remoteReady || session.role !== "admin") return trainer;
+  const slug = trainerDisplaySlug(trainer);
+  trainer.slug = slug;
+  trainer.pageSlug = trainerPublicSlug(trainer);
+  if (trainer.profileName) trainer.name = trainer.profileName;
   const trainerPayload = {
-    slug: trainer.slug || slugify(trainer.name),
+    slug,
     full_name: trainer.profileName || trainer.name,
     email: trainer.profileEmail || trainer.email || null,
     phone: trainer.profilePhone || trainer.phone || null,
@@ -755,6 +846,7 @@ async function persistTrainerRecord(trainer, options = {}) {
     if (!savedTrainer?.id) throw new Error("Trainer record could not be created");
     trainer.remoteId = savedTrainer.id;
     trainer.slug = savedTrainer.slug;
+    trainer.pageSlug = trainerPublicSlug(trainer);
   }
   if (!options.profileOnly) {
     const pagePayload = trainerPagePayload(trainer);
@@ -997,6 +1089,18 @@ async function runRemoteMutation(message, action, options = {}) {
   }
 }
 
+async function deleteTrainerDraft(trainer) {
+  if (!trainer) return false;
+  if (remoteReady && trainer.remoteId) {
+    await window.LDTT_PORTAL.remove("trainers", trainer.remoteId);
+  }
+  state.trainers = state.trainers.filter(item => item.id !== trainer.id && item.remoteId !== trainer.remoteId);
+  state.selectedTrainerId = state.trainers[0]?.id || "";
+  state.activeView = "trainerPages";
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  return true;
+}
+
 const remoteSaveTimers = new Map();
 function scheduleRemoteSave(key, action, delay = 650) {
   if (!remoteReady) return;
@@ -1046,7 +1150,7 @@ function icon(name) {
 }
 
 function trainerById(id = state.selectedTrainerId) {
-  return state.trainers.find(trainer => trainer.id === id) || state.trainers[0];
+  return findTrainer(id) || state.trainers[0];
 }
 
 function templatePageFile(layoutId) {
@@ -1057,9 +1161,18 @@ function templatePreviewHref(layoutId) {
   return `${templatePageFile(layoutId)}?trainer=${state.selectedTrainerId || currentTrainerId()}&layout=${layoutId}`;
 }
 
+function requestedPublicTrainerKey() {
+  const params = new URLSearchParams(window.location.search);
+  const explicit = document.body.dataset.trainer || params.get("trainer") || "";
+  if (explicit) return explicit;
+  const path = window.location.pathname.replace(/^\/+|\/+$/g, "");
+  if (!path || path.includes("/") || ["staff", "contact", "find-a-trainer", "trainer-application"].includes(path)) return "";
+  return path;
+}
+
 function trainerPageHref(trainerOrId) {
   const trainer = typeof trainerOrId === "string" ? trainerById(trainerOrId) : trainerOrId;
-  if (trainer?.pageSlug && trainer.pageStatus === "Published") return `/${trainer.pageSlug}`;
+  if (trainer?.pageSlug && trainer.pageStatus === "Published") return `/${trainerPublicSlug(trainer)}`;
   return `${templatePageFile(trainer.layout)}?trainer=${trainer.id}&layout=${trainer.layout}`;
 }
 
@@ -1450,7 +1563,7 @@ async function bootstrapApplication() {
   const publicTarget = document.getElementById("publicSite");
   if (publicTarget) {
     renderPublicSite();
-    const requested = document.body.dataset.trainer || new URLSearchParams(window.location.search).get("trainer") || "";
+    const requested = requestedPublicTrainerKey();
     const localTrainer = findTrainer(requested);
     const slug = localTrainer?.slug || requested;
     if (window.LDTT_PORTAL?.enabled && slug) {
@@ -1986,7 +2099,8 @@ function approvedLayoutCards() {
 function trainerPageCards() {
   return `<div class="trainer-card-grid">${state.trainers.map(trainer => {
     const stats = realTrainerStats(trainer);
-    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainer.image || trainer.photo || layoutImages[0])}" alt="${escapeHtml(trainer.name)} landing page hero"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name)}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name)}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Open Setup</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Live Page</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? "Return To Draft" : "Publish & Lock"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button></div></article>`;
+    const canDelete = isDraftTrainer(trainer) && !trainer.locked;
+    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainer.image || trainer.photo || trainer.companyLogo || layoutImages[0])}" alt="${escapeHtml(trainer.name || "Trainer Draft")} landing page hero"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Open Setup</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Live Page</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? "Return To Draft" : "Publish & Lock"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
   }).join("")}</div>`;
 }
 
@@ -2228,7 +2342,7 @@ function trainerProfileEditor(trainer) {
 
 function trainerSelectList() {
   const groups = [...new Set(state.trainers.map(trainer => trainer.state || "Office Added"))];
-  return `<div class="trainer-roster-summary"><strong>${state.trainers.length} trainers available</strong><span>Select any frontend trainer to populate the office setup wizard with their real bio, location, and photos.</span></div>${groups.map(stateName => `<section class="trainer-state-group"><h3>${escapeHtml(stateName)}</h3><div class="trainer-select-list">${state.trainers.filter(trainer => (trainer.state || "Office Added") === stateName).map(trainer => `<button class="trainer-select ${state.selectedTrainerId === trainer.id ? "active" : ""}" data-select-trainer="${trainer.id}"><img src="${escapeHtml(trainer.cardPhoto || trainer.photo)}" alt=""><span><strong>${escapeHtml(trainer.name)}</strong><small>${escapeHtml(trainer.market)} · ${trainer.pageStatus}${trainer.locked ? " · Locked" : ""}</small></span></button>`).join("")}</div></section>`).join("")}`;
+  return `<div class="trainer-roster-summary"><strong>${state.trainers.length} trainers available</strong><span>Select any frontend trainer to populate the office setup wizard with their real bio, location, and photos.</span></div>${groups.map(stateName => `<section class="trainer-state-group"><h3>${escapeHtml(stateName)}</h3><div class="trainer-select-list">${state.trainers.filter(trainer => (trainer.state || "Office Added") === stateName).map(trainer => `<button class="trainer-select ${state.selectedTrainerId === trainer.id ? "active" : ""}" data-select-trainer="${trainer.id}"><img src="${escapeHtml(trainer.cardPhoto || trainer.photo || trainer.companyLogo || "../assets/lorenzo-logo-transparent.png")}" alt=""><span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)} · ${trainer.pageStatus}${trainer.locked ? " · Locked" : ""}</small></span></button>`).join("")}</div></section>`).join("")}`;
 }
 
 function pageStatusBadge(trainer) {
@@ -3000,7 +3114,7 @@ function publicSiteMarkup(trainer) {
 
 function renderPublicSite() {
   const params = new URLSearchParams(window.location.search);
-  const trainer = trainerById(document.body.dataset.trainer || params.get("trainer") || state.selectedTrainerId);
+  const trainer = trainerById(requestedPublicTrainerKey() || params.get("trainer") || state.selectedTrainerId);
   document.title = trainer.seoTitle || `${trainer.name} Dog Training in ${trainer.market} | Lorenzo's Dog Training Team`;
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = trainer.seoDescription || `Professional dog obedience training and behavior modification with ${trainer.name} in ${trainer.market}, backed by Lorenzo's Dog Training Team.`;
@@ -3308,6 +3422,22 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  const deleteTrainer = event.target.closest("[data-delete-trainer]");
+  if (deleteTrainer) {
+    const trainer = trainerById(deleteTrainer.dataset.deleteTrainer);
+    if (!trainer || !isDraftTrainer(trainer) || trainer.locked) {
+      showToast("Only unlocked office drafts can be deleted.");
+      return;
+    }
+    if (!window.confirm(`Delete the draft for ${trainer.name || "this trainer"}? This preserves other trainer records and leads.`)) return;
+    if (remoteReady) {
+      runRemoteMutation("Trainer draft deleted", () => deleteTrainerDraft(trainer));
+    } else {
+      deleteTrainerDraft(trainer);
+      saveState("Trainer draft deleted");
+    }
+    return;
+  }
   const assignLayout = event.target.closest("[data-assign-layout]");
   if (assignLayout) {
     const trainer = trainerById();
@@ -3568,12 +3698,13 @@ document.addEventListener("click", async event => {
     return;
   }
   if (event.target.id === "addTrainer") {
-    const id = `trainer-${Date.now()}`;
-    state.trainers.unshift({ id, name: "New Trainer", title: "Lorenzo's Certified Dog Trainer", username: "trainer@lorenzosdogtrainingteam.com", temporaryPassword: TEMP_PASSWORD, accessStatus: "Active", market: "Market Pending", state: "State Pending", serviceArea: "Service area pending", phone: "(866) 436-4959", email: "trainer@lorenzosdogtrainingteam.com", tagline: "Obedience. Behavior solutions. Real results.", heroHeadline: "Professional dog training for real-life results.", bio: "Office needs to approve this trainer bio.", seoTitle: "Local Dog Trainer | Lorenzo's Dog Training Team", seoDescription: "Professional dog obedience training and behavior modification backed by Lorenzo's Dog Training Team.", layout: "mock-5", pageStatus: "No Site Started", locked: false, clicks: 0, forms: 0, conversions: 0, image: "../assets/trainer-bio-photos/eric-beck.jpg", photo: "../assets/trainer-headshots/Eric Beck TC 2 360_x_360.jpg", companyLogo: "", specialties: ["Obedience Training", "Behavior Modification"], credentials: ["Lorenzo's Certified Dog Trainer", "Powered by Lorenzo's Dog Training Team"], review1Author: "Client Name", review1Copy: "Office-approved client testimonial.", review2Author: "Client Name", review2Copy: "Office-approved client testimonial.", review3Author: "Client Name", review3Copy: "Office-approved client testimonial.", socials: { facebook: "", instagram: "", tiktok: "" } });
-    state.selectedTrainerId = id;
+    const trainer = createOfficeTrainerDraft();
+    state.trainers.unshift(trainer);
+    state.selectedTrainerId = trainer.id;
     state.activeView = "trainers";
     state.onboardingStep = 1;
-    saveState("Trainer created as office draft");
+    if (remoteReady) runRemoteMutation("Trainer created as office draft", () => persistTrainerRecord(trainer));
+    else saveState("Trainer created as office draft");
     return;
   }
   if (event.target.id === "saveTrainerProfile") {
@@ -3723,12 +3854,16 @@ document.addEventListener("input", event => {
     const key = field.name.replace("admin-trainer-", "");
     trainer[key] = key === "locked" ? field.value === "true" : field.value;
     if (key === "email") trainer.username = field.value;
+    if (key === "name" && !trainer.profileName) trainer.profileName = field.value;
     if (key === "specialtiesText") trainer.specialties = field.value.split(/\n|,/).map(value => value.trim()).filter(Boolean);
     if (key === "credentialsText") trainer.credentials = field.value.split(/\n|,/).map(value => value.trim()).filter(Boolean);
+    refreshDraftTrainerIdentity(trainer, key);
     saveState(null, true);
   }
   if (field.dataset.profileField) {
-    trainerById()[field.dataset.profileField] = field.value;
+    const trainer = trainerById();
+    trainer[field.dataset.profileField] = field.value;
+    refreshDraftTrainerIdentity(trainer, field.dataset.profileField);
     saveState(null, true);
   }
   if (field.dataset.leadNote) {
@@ -3868,6 +4003,10 @@ document.addEventListener("change", async event => {
         const path = `${trainer.remoteId || slugify(trainer.name)}/${upload.dataset.trainerUpload}-${Date.now()}.${extension}`;
         await window.LDTT_PORTAL.upload("trainer-page-assets", path, file);
         trainer[upload.dataset.trainerUpload] = window.LDTT_PORTAL.publicStorageUrl("trainer-page-assets", path);
+        if (upload.dataset.trainerUpload === "photo") {
+          trainer.profilePhoto = trainer.profilePhoto || trainer.photo;
+          trainer.cardPhoto = trainer.cardPhoto || trainer.photo;
+        }
         await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer));
       } catch (error) {
         showToast(`Image upload failed: ${error.message}`);
@@ -3876,6 +4015,10 @@ document.addEventListener("change", async event => {
       const reader = new FileReader();
       reader.onload = () => {
         trainer[upload.dataset.trainerUpload] = reader.result;
+        if (upload.dataset.trainerUpload === "photo") {
+          trainer.profilePhoto = trainer.profilePhoto || trainer.photo;
+          trainer.cardPhoto = trainer.cardPhoto || trainer.photo;
+        }
         saveState("Image uploaded to trainer setup preview");
       };
       reader.readAsDataURL(file);
@@ -4008,10 +4151,14 @@ document.addEventListener("change", async event => {
     const key = event.target.name.replace("admin-trainer-", "");
     trainer[key] = key === "locked" ? event.target.value === "true" : event.target.value;
     if (key === "layout") trainer.pageStatus = trainer.pageStatus === "No Site Started" ? "Draft" : trainer.pageStatus;
+    if (key === "name" && !trainer.profileName) trainer.profileName = event.target.value;
+    refreshDraftTrainerIdentity(trainer, key);
     saveState("Trainer profile field updated");
   }
   if (event.target.dataset.profileField) {
-    trainerById()[event.target.dataset.profileField] = event.target.value;
+    const trainer = trainerById();
+    trainer[event.target.dataset.profileField] = event.target.value;
+    refreshDraftTrainerIdentity(trainer, event.target.dataset.profileField);
     saveState("Trainer profile source field saved");
     return;
   }
