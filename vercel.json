@@ -1,9 +1,12 @@
 {
   "cleanUrls": true,
-  "rewrites": [
+  "routes": [
     {
-      "source": "/:trainer",
-      "destination": "/trainer-backoffice/right-trainer-results.html"
+      "handle": "filesystem"
+    },
+    {
+      "src": "^/([a-zA-Z0-9-]+)/?$",
+      "dest": "/trainer-backoffice/right-trainer-results.html"
     }
   ]
 }
