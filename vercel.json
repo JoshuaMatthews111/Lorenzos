@@ -5,7 +5,7 @@
       "handle": "filesystem"
     },
     {
-      "src": "^/([a-zA-Z0-9-]+)/?$",
+      "src": "/([a-zA-Z0-9-]+)/?",
       "dest": "/trainer-backoffice/right-trainer-results.html"
     }
   ]
