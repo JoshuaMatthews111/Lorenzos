@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/:trainer",
-      "destination": "/trainer-backoffice/right-trainer-results.html?trainer=:trainer"
+      "destination": "/trainer-backoffice/right-trainer-results.html"
     }
   ]
 }
