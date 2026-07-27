@@ -563,6 +563,107 @@ if(trainerApplicationForm){
   });
 }
 
+const readReviewFile=file=>new Promise((resolve,reject)=>{
+  if(!file){resolve('');return}
+  const reader=new FileReader();
+  reader.onload=()=>resolve(reader.result);
+  reader.onerror=()=>reject(reader.error||new Error('The file could not be read.'));
+  reader.readAsDataURL(file);
+});
+
+const homepageReviewForm=document.querySelector('.home-public-review-form');
+if(homepageReviewForm){
+  homepageReviewForm.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const form=event.currentTarget;
+    if(form.dataset.submitting==='true') return;
+    if(!form.reportValidity()) return;
+    const status=form.querySelector('.public-review-status');
+    const button=form.querySelector('button[type="submit"]');
+    const setStatus=(message,type='success')=>{
+      if(!status) return;
+      status.className=`public-review-status ${type}`;
+      status.textContent=message;
+    };
+    const entries=Object.fromEntries(new FormData(form).entries());
+    const file=form.querySelector('input[name="review_file"]')?.files?.[0]||null;
+    if(file&&file.size>25*1024*1024){
+      setStatus('Please upload a file under 25 MB for this review form.', 'error');
+      return;
+    }
+    form.dataset.submitting='true';
+    button?.setAttribute('disabled','disabled');
+    setStatus('Review received. It is now pending office approval.');
+    showFormSuccessModal('Thank you. Your review was submitted for Lorenzo’s office to review before it is posted.');
+    try{
+      const fileDataUrl=await readReviewFile(file);
+      const payload={
+        ...entries,
+        submission_id:`homepage-review-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        page_url:window.location.href,
+        timestamp:new Date().toISOString(),
+        file:file?{name:file.name,type:file.type,size:file.size,data_url:fileDataUrl}:null
+      };
+      await fetch('/api/submit-content-review',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload)
+      }).then(async response=>{
+        if(!response.ok){
+          const text=await response.text();
+          throw new Error(text||'Review submission failed');
+        }
+        return response.json();
+      });
+      form.reset();
+    }catch(error){
+      console.warn('LDTT homepage review submission failed',error);
+      setStatus('Your review was captured locally, but we could not send it to the office queue. Please try again.', 'error');
+    }finally{
+      window.setTimeout(()=>{
+        delete form.dataset.submitting;
+        button?.removeAttribute('disabled');
+      },4000);
+    }
+  });
+}
+
+const approvedHomeReviews=document.querySelector('#approved-home-reviews');
+const approvedHomeReviewRail=approvedHomeReviews?.querySelector('.homepage-approved-review-carousel');
+async function loadApprovedHomepageReviews(){
+  const config=window.LDTT_SUPABASE||{};
+  if(!approvedHomeReviews||!approvedHomeReviewRail||!config.enabled||!config.projectUrl||!config.publishableKey) return;
+  try{
+    const base=String(config.projectUrl).replace(/\/$/,'');
+    const url=`${base}/rest/v1/content_submissions?select=id,title,notes,file_url,file_type,created_at&submission_type=eq.review&status=eq.approved&notes=ilike.*homepage%20review%20form*&order=created_at.desc&limit=12`;
+    const response=await fetch(url,{headers:{apikey:config.publishableKey,Authorization:`Bearer ${config.publishableKey}`}});
+    if(!response.ok) throw new Error(`Approved homepage reviews request failed (${response.status})`);
+    const rows=await response.json();
+    if(!Array.isArray(rows)||!rows.length) return;
+    const cards=rows.map(row=>{
+      const notes=String(row.notes||'');
+      const reviewer=(String(row.title||'').replace(/^Website review from\s+/i,'').trim())||'Verified Client';
+      const reviewMarker='\nReview: ';
+      const reviewText=notes.includes(reviewMarker)?notes.slice(notes.indexOf(reviewMarker)+reviewMarker.length).trim():notes;
+      const locationMatch=notes.match(/Client location:\s*([^\n.]+)\.?/i);
+      const location=locationMatch?.[1]?.trim()||'';
+      const fileUrl=String(row.file_url||'').trim();
+      const fileType=String(row.file_type||'').toLowerCase();
+      const media=fileUrl
+        ? fileType.startsWith('video/')
+          ? `<video controls preload="metadata" src="${escapePublicText(fileUrl)}"></video>`
+          : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy">`
+        : '';
+      return `<article class="homepage-approved-review-card">${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><div class="big-stars">★★★★★</div><blockquote>${escapePublicText(reviewText||'Office-approved client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
+    }).join('');
+    approvedHomeReviewRail.innerHTML=cards;
+    approvedHomeReviews.hidden=false;
+  }catch(error){
+    console.warn('Approved homepage reviews could not be loaded',error);
+  }
+}
+loadApprovedHomepageReviews();
+
 const reviewButtons=[...document.querySelectorAll('.review-expand')];
 if(reviewButtons.length){
   const lightbox=document.createElement('div');

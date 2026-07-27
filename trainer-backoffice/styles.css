@@ -3981,3 +3981,27 @@ body.form-modal-open {
 .office-note-timeline strong,.office-note-timeline time{display:block}
 .office-note-timeline time{font-size:.72rem;color:#64748b;margin:2px 0 6px}
 .lead-detail-panel .detail-note-block textarea{width:100%;min-height:84px;margin-top:8px}
+
+/* Public trainer landing review CTAs */
+.landing-review-nav,
+.trainer-footer-review-link{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border-radius:999px;
+  background:#d80f35;
+  color:#fff!important;
+  padding:10px 15px;
+  font-weight:950;
+  box-shadow:0 12px 28px rgba(216,15,53,.22);
+}
+.landing-review-nav:hover,
+.trainer-footer-review-link:hover{
+  background:#f01842;
+  transform:translateY(-1px);
+}
+.trainer-footer-review-link{
+  width:max-content;
+  margin-top:8px;
+}

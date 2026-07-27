@@ -541,6 +541,8 @@ function remoteApplicationToUi(row) {
 
 function remoteSubmissionToUi(row) {
   const trainer = state.trainers.find(item => item.remoteId === row.trainer_id);
+  const notes = String(row.notes || "");
+  const isHomepageReview = /homepage review form|Lorenzo's Dog Training Team homepage/i.test(notes);
   const isWebsiteReview = /^Website review from\s+/i.test(String(row.title || ""));
   const type = isWebsiteReview ? "Review" : ({
     photo: "Photo",
@@ -548,7 +550,6 @@ function remoteSubmissionToUi(row) {
     review: "Review",
     testimonial: "Testimonial"
   }[row.submission_type] || "Photo");
-  const notes = String(row.notes || "");
   const reviewMarker = "\nReview: ";
   const reviewText = notes.includes(reviewMarker)
     ? notes.slice(notes.indexOf(reviewMarker) + reviewMarker.length).trim()
@@ -582,7 +583,7 @@ function remoteSubmissionToUi(row) {
   return {
     id: row.id,
     remoteId: row.id,
-    trainerId: trainer?.id || "",
+    trainerId: trainer?.id || (isHomepageReview ? "lorenzos-team" : ""),
     type,
     title: row.title || `${type} submission`,
     status: row.status ? row.status[0].toUpperCase() + row.status.slice(1) : "Pending",
@@ -980,6 +981,11 @@ async function publishApprovedReview(submission) {
     return;
   }
   const trainer = trainerById(submission.trainerId);
+  if (submission.trainerId === "lorenzos-team") {
+    submission.status = "Approved";
+    await persistSubmissionRecord(submission);
+    return;
+  }
   if (!trainer?.pageId) throw new Error("This trainer does not have a published landing page yet");
   const publishedReview = {
     submission_id: submission.remoteId,
@@ -1502,6 +1508,7 @@ async function uploadBuilderMedia(file, slot = "mediaLibrary") {
 }
 
 function trainerName(id) {
+  if (id === "lorenzos-team") return "Lorenzo's Dog Training Team";
   return findTrainer(id)?.name || "Unassigned";
 }
 
@@ -3012,7 +3019,7 @@ function commonFooterFunnel(trainer) {
 
 function landingHeader(trainer) {
   const logo = trainer.companyLogo || "/assets/lorenzo-logo-white.png";
-  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a><a href="#reviews">Results</a><a href="#contact">Contact</a></nav></header>`;
+  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a><a href="#reviews">Results</a><a class="landing-review-nav" href="#submit-review">Leave Review</a><a href="#contact">Contact</a></nav></header>`;
 }
 
 function trainerCity(trainer) {
@@ -3026,7 +3033,7 @@ function trainerLocationLabel(trainer) {
 function landingFooter(trainer) {
   const trainerSlug = trainer.slug || trainer.id || "";
   const homeHref = `index.html?trainer_source=${encodeURIComponent(trainerSlug)}&trainer_name=${encodeURIComponent(trainer.name)}&source_page=trainer_landing_footer`;
-  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p><a class="trainer-footer-home-link" href="${homeHref}">Visit Lorenzo's Dog Training Team home</a></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainer.market)}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a></div></footer>`;
+  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p><a class="trainer-footer-home-link" href="${homeHref}">Visit Lorenzo's Dog Training Team home</a></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainer.market)}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a><a class="trainer-footer-review-link" href="#submit-review">Leave Review</a></div></footer>`;
 }
 
 function serviceCardsMarkup(layoutId) {
