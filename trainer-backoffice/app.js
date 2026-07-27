@@ -947,10 +947,14 @@ async function persistApplicationRecord(application) {
 
 async function persistSubmissionRecord(submission) {
   if (!remoteReady || session.role !== "admin" || !submission?.remoteId) return;
-  await window.LDTT_PORTAL.update("content_submissions", submission.remoteId, {
+  const assignedTrainer = trainerById(submission.trainerId);
+  const payload = {
     status: String(submission.status || "Pending").toLowerCase(),
     office_notes: submission.note || null
-  });
+  };
+  if (submission.trainerId === "lorenzos-team") payload.trainer_id = null;
+  else if (assignedTrainer?.remoteId) payload.trainer_id = assignedTrainer.remoteId;
+  await window.LDTT_PORTAL.update("content_submissions", submission.remoteId, payload);
 }
 
 function defaultReviewDisplayOptions(submission = {}) {
@@ -2628,7 +2632,7 @@ function submissionReviewCard(sub, admin) {
     sub.permissionToShare ? `<span><b>Permission</b>${escapeHtml(sub.permissionToShare)}</span>` : ""
   ].filter(Boolean).join("");
   const displayControls = admin && ["Review", "Testimonial"].includes(sub.type)
-    ? reviewDisplayControlsMarkup(sub)
+    ? reviewAssignmentControlsMarkup(sub) + reviewDisplayControlsMarkup(sub)
     : "";
   const actionButtons = sub.status === "Approved"
     ? `<button class="btn btn-green" data-publish-review="${escapeHtml(sub.id)}">Publish / refresh</button><button class="btn btn-outline" data-unpublish-review="${escapeHtml(sub.id)}">Unpublish</button><button class="btn btn-outline" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`
@@ -2667,6 +2671,27 @@ function reviewDisplayControlsMarkup(submission) {
   return `<section class="review-display-controls"><span>Show on landing page</span><div>${controls.map(([key, label, enabled]) => `<label class="${enabled ? "" : "disabled"}"><input type="checkbox" data-review-display="${escapeHtml(submission.id)}" data-review-display-key="${key}" ${options[key] ? "checked" : ""} ${enabled ? "" : "disabled"}>${escapeHtml(label)}</label>`).join("")}</div></section>`;
 }
 
+function reviewAssignmentControlsMarkup(submission) {
+  if (!["Review", "Testimonial"].includes(submission?.type)) return "";
+  const trainerOptions = (state.trainers || [])
+    .filter(trainer => trainer?.id && trainer.name)
+    .map(trainer => {
+      const location = [trainer.city, trainer.state].filter(Boolean).join(", ") || trainer.market || "Trainer page";
+      return `<option value="${escapeHtml(trainer.id)}" ${submission.trainerId === trainer.id ? "selected" : ""}>${escapeHtml(trainer.name)} · ${escapeHtml(location)}</option>`;
+    }).join("");
+  const selectedHomepage = !submission.trainerId || submission.trainerId === "lorenzos-team";
+  return `<section class="review-assignment-controls">
+    <label>
+      <span>Assign review to</span>
+      <select data-review-assign-trainer="${escapeHtml(submission.id)}">
+        <option value="lorenzos-team" ${selectedHomepage ? "selected" : ""}>Homepage / Main Website</option>
+        ${trainerOptions}
+      </select>
+    </label>
+    <small>Use this when a homepage review should be published on a specific trainer page.</small>
+  </section>`;
+}
+
 function submissionDetailPanel() {
   const submission = state.submissions.find(item => item.id === state.selectedSubmissionId);
   if (!submission) return "";
@@ -2683,7 +2708,7 @@ function submissionDetailPanel() {
     : submission.status === "Deleted"
       ? `<button class="btn btn-outline" data-restore-review="${escapeHtml(submission.id)}">Restore to pending</button>`
       : `<button class="btn btn-green" data-approve-submission="${escapeHtml(submission.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(submission.id)}">Reject</button><button class="btn btn-outline" data-archive-review="${escapeHtml(submission.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete</button>`;
-  return `<aside class="lead-detail-panel submission-detail-panel"><button class="detail-close" data-close-submission aria-label="Close">×</button><span class="portal-tag">Review Submission</span><h2>${escapeHtml(submission.title)}</h2><p>${escapeHtml(submission.type)} source: ${escapeHtml(sourceLabel)}</p><div class="submission-rating detail-rating" aria-label="${rating} star review">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>${media}<div class="lead-contact-grid"><div><span>Reviewer</span><strong>${escapeHtml(submission.reviewerName || "—")}</strong></div><div><span>Reviewer email</span><strong>${escapeHtml(submission.reviewerEmail || "—")}</strong></div><div><span>Client location</span><strong>${escapeHtml(submission.reviewerLocation || "Not provided")}</strong></div><div><span>Status</span><strong>${escapeHtml(submission.status)}</strong></div><div><span>Source</span><strong>${escapeHtml(sourceLabel)}</strong></div><div><span>Permission to share</span><strong>${escapeHtml(submission.permissionToShare || "Not reported")}</strong></div><div class="wide"><span>Submitted</span><strong>${escapeHtml(submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : "—")}</strong></div></div><section class="submission-detail-copy"><span>Actual written review</span><blockquote>${escapeHtml(submission.reviewText || "No written review was included.")}</blockquote></section>${submission.submissionComment ? `<section class="submission-detail-copy"><span>Submission details</span><p>${escapeHtml(submission.submissionComment)}</p></section>` : ""}${reviewDisplayControlsMarkup(submission)}<label>Office comments<textarea data-submission-note="${escapeHtml(submission.id)}" placeholder="Add the office decision, follow-up, or publishing note...">${escapeHtml(submission.officeNote || submission.note || "")}</textarea></label><div class="row-actions">${actions}</div></aside><div class="lead-detail-scrim" data-close-submission></div>`;
+  return `<aside class="lead-detail-panel submission-detail-panel"><button class="detail-close" data-close-submission aria-label="Close">×</button><span class="portal-tag">Review Submission</span><h2>${escapeHtml(submission.title)}</h2><p>${escapeHtml(submission.type)} source: ${escapeHtml(sourceLabel)}</p><div class="submission-rating detail-rating" aria-label="${rating} star review">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>${media}<div class="lead-contact-grid"><div><span>Reviewer</span><strong>${escapeHtml(submission.reviewerName || "—")}</strong></div><div><span>Reviewer email</span><strong>${escapeHtml(submission.reviewerEmail || "—")}</strong></div><div><span>Client location</span><strong>${escapeHtml(submission.reviewerLocation || "Not provided")}</strong></div><div><span>Status</span><strong>${escapeHtml(submission.status)}</strong></div><div><span>Source</span><strong>${escapeHtml(sourceLabel)}</strong></div><div><span>Permission to share</span><strong>${escapeHtml(submission.permissionToShare || "Not reported")}</strong></div><div class="wide"><span>Submitted</span><strong>${escapeHtml(submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : "—")}</strong></div></div><section class="submission-detail-copy"><span>Actual written review</span><blockquote>${escapeHtml(submission.reviewText || "No written review was included.")}</blockquote></section>${submission.submissionComment ? `<section class="submission-detail-copy"><span>Submission details</span><p>${escapeHtml(submission.submissionComment)}</p></section>` : ""}${reviewAssignmentControlsMarkup(submission)}${reviewDisplayControlsMarkup(submission)}<label>Office comments<textarea data-submission-note="${escapeHtml(submission.id)}" placeholder="Add the office decision, follow-up, or publishing note...">${escapeHtml(submission.officeNote || submission.note || "")}</textarea></label><div class="row-actions">${actions}</div></aside><div class="lead-detail-scrim" data-close-submission></div>`;
 }
 
 function readSubmissionFile(file) {
@@ -4006,6 +4031,21 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
+  const reviewAssignTrainer = event.target.closest("[data-review-assign-trainer]");
+  if (reviewAssignTrainer) {
+    const sub = state.submissions.find(s => s.id === reviewAssignTrainer.dataset.reviewAssignTrainer);
+    if (!sub) return;
+    sub.trainerId = reviewAssignTrainer.value || "lorenzos-team";
+    sub.reviewDisplay = reviewDisplayOptionsFor(sub);
+    const assignmentLabel = sub.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(sub.trainerId);
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Review assignment saved", () => persistSubmissionRecord(sub));
+      if (saved) showActionConfirmation("Review assignment saved", `This review is now assigned to ${assignmentLabel}.`);
+    } else {
+      saveState("Review assignment saved");
+    }
+    return;
+  }
   if (event.target.dataset.editorTrainer !== undefined) {
     state.selectedTrainerId = event.target.value;
     saveState();

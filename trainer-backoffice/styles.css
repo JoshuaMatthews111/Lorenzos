@@ -3827,6 +3827,40 @@ body.form-modal-open {
   width: auto;
 }
 
+.review-assignment-controls {
+  width: 100%;
+  border: 1px solid #d8e2ef;
+  border-radius: 14px;
+  background: #fff7f9;
+  margin-top: 16px;
+  padding: 14px;
+}
+.review-assignment-controls label {
+  display: grid;
+  gap: 8px;
+}
+.review-assignment-controls span {
+  color: #5b6b82;
+  font-size: .78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.review-assignment-controls select {
+  width: 100%;
+  border: 1px solid #cbd8e8;
+  border-radius: 10px;
+  color: #082754;
+  font-weight: 850;
+  padding: 10px 12px;
+}
+.review-assignment-controls small {
+  display: block;
+  color: #53657c;
+  line-height: 1.45;
+  margin-top: 8px;
+}
+
 .trainer-review-carousel {
   display: grid;
   grid-auto-columns: minmax(310px, 410px);
