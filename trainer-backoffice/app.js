@@ -144,6 +144,7 @@ const defaultState = {
   clientFilter: "Active",
   applicationFilter: "All",
   reviewSubmissionFilter: "Active",
+  reviewSort: "Newest",
   leadDateRange: "60",
   customLeadStart: toDateInputValue(defaultLeadStartDate),
   customLeadEnd: toDateInputValue(defaultLeadEndDate),
@@ -2467,8 +2468,9 @@ function trainerApplicationGoogleFormPanel() {
     <div class="source-record-note">
       <span class="status live">Google Sheet + Recruiting Email + Supabase</span>
       <p>The office can work from the shared inbox below. Website applications continue to email recruiting@lorenzosdogtrainingteam.com and log to the connected Google Sheet, while Supabase provides the shared recruiting status and office-note record.</p>
-      <div class="action-row"><a class="btn btn-red" href="${TRAINER_APPLICATION_RESPONSE_SHEET}" target="_blank" rel="noopener">Open Google Response Sheet</a><a class="btn btn-outline" href="../trainer-application.html" target="_blank" rel="noopener">Preview Website Application</a></div>
+      <div class="action-row"><a class="btn btn-red" href="${TRAINER_APPLICATION_RESPONSE_SHEET}" target="_blank" rel="noopener">Open Google Response Sheet</a><button class="btn btn-outline" type="button" data-export-applications>Export Applications CSV</button><a class="btn btn-outline" href="../trainer-application.html" target="_blank" rel="noopener">Preview Website Application</a></div>
       <p class="panel-copy">The office workflow lives here. Google remains the intake backup, but status changes and notes should be managed in this portal so recruiting decisions stay centralized.</p>
+      <p class="panel-copy"><strong>Application sheet audit:</strong> the connected Google application form currently exposes fewer field IDs than the custom application page sends. That can make an application appear in Supabase/admin and email while the Google response sheet is incomplete. Use the response sheet link above as the source-of-record check until the final Google Form/question mapping is re-exported.</p>
     </div>
   </div>`;
 }
@@ -2540,6 +2542,33 @@ function applicationStatusSelect(app) {
   return `<select class="select-pill" data-application-status="${escapeHtml(app.id)}">${["New Application","Under Review","Discovery Follow-Up","Interview Scheduled","Moved Forward","Declined","Archived"].map(status => `<option ${status === (app.status || "New Application") ? "selected" : ""}>${status}</option>`).join("")}</select>`;
 }
 
+function exportApplicationsCsv() {
+  const headers = [
+    "Submitted", "First Name", "Last Name", "Email", "Phone", "Address Line 1", "Address Line 2", "City", "State", "ZIP",
+    "Referral Source", "Status", "Office Notes", "Legally Eligible", "Drug Test", "Felony", "Comfortable With Dogs",
+    "Dog Bite History", "Owns Dogs", "Physical Condition", "Work Out", "Lift 100", "Run 2 Miles", "Team Player",
+    "Reliable Vehicle", "Driver License", "Cleveland Training", "Education", "Additional Training", "Signature"
+  ];
+  const fields = [
+    "createdAt", "first_name", "last_name", "email", "phone", "address_line_1", "address_line_2", "city", "state", "zip",
+    "referral_source", "status", "note", "legally_eligible", "drug_test", "felony", "comfortable_dogs",
+    "dog_bite_history", "owns_dogs", "physical_condition", "workout", "lift_100", "run_2_miles", "team_player",
+    "reliable_vehicle", "drivers_license", "cleveland_training", "education_level", "additional_training", "signature"
+  ];
+  const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const rows = applicationRows().map(app => fields.map(field => escapeCsv(app[field])).join(","));
+  const csv = [headers.map(escapeCsv).join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ldtt-trainer-applications-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function applicationDetailGrid(app) {
   const fields = [
     ["Applicant", `${app.first_name || ""} ${app.last_name || ""}`.trim()],
@@ -2609,10 +2638,54 @@ function submissionsTable(admin, kind = "all") {
     });
   }
   const toolbar = admin && kind === "review"
-    ? `<div class="review-inbox-tabs">${tabs.map(tab => `<button type="button" class="${reviewFilter === tab ? "active" : ""}" data-review-submission-filter="${escapeHtml(tab)}">${escapeHtml(tab)} <span>${sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)).filter(sub => tab === "Active" ? !["Archived", "Deleted"].includes(sub.status) : (sub.status === tab || (tab === "Pending" && sub.status === "Declined"))).length}</span></button>`).join("")}</div>`
+    ? `<div class="review-inbox-tabs">${tabs.map(tab => `<button type="button" class="${reviewFilter === tab ? "active" : ""}" data-review-submission-filter="${escapeHtml(tab)}">${escapeHtml(tab)} <span>${sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)).filter(sub => tab === "Active" ? !["Archived", "Deleted"].includes(sub.status) : (sub.status === tab || (tab === "Pending" && sub.status === "Declined"))).length}</span></button>`).join("")}</div>
+      <div class="review-list-toolbar"><div><strong>Review submissions</strong><span>Open a row for full details, or use quick actions without leaving the list.</span></div><label>Sort<select data-review-sort><option ${state.reviewSort === "Newest" ? "selected" : ""}>Newest</option><option ${state.reviewSort === "Oldest" ? "selected" : ""}>Oldest</option><option ${state.reviewSort === "Status" ? "selected" : ""}>Status</option><option ${state.reviewSort === "Source" ? "selected" : ""}>Source</option><option ${state.reviewSort === "Rating" ? "selected" : ""}>Rating</option></select></label></div>`
     : "";
   if (!rows.length) return `${toolbar}<div class="empty-state"><strong>No submissions found.</strong><p>Trainer photos, videos, and reviews will appear here as soon as they are submitted.</p></div>${admin ? submissionDetailPanel() : ""}`;
+  if (admin && kind === "review") return `${toolbar}${submissionReviewList(sortReviewRows(rows))}${submissionDetailPanel()}`;
   return `${toolbar}<div class="submission-review-grid">${rows.map(sub => submissionReviewCard(sub, admin)).join("")}</div>${admin ? submissionDetailPanel() : ""}`;
+}
+
+function sortReviewRows(rows) {
+  const sort = state.reviewSort || "Newest";
+  return [...rows].sort((a, b) => {
+    if (sort === "Oldest") return new Date(a.submittedAt || 0) - new Date(b.submittedAt || 0);
+    if (sort === "Status") return String(a.status || "").localeCompare(String(b.status || ""));
+    if (sort === "Source") {
+      const aSource = a.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(a.trainerId);
+      const bSource = b.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(b.trainerId);
+      return aSource.localeCompare(bSource);
+    }
+    if (sort === "Rating") return Number(b.starRating || 0) - Number(a.starRating || 0);
+    return new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0);
+  });
+}
+
+function submissionReviewList(rows) {
+  return `<div class="submission-review-list-shell"><table class="submission-review-list"><thead><tr><th>Review</th><th>Source</th><th>Status</th><th>Office Note</th><th>Quick Actions</th></tr></thead><tbody>${rows.map(sub => {
+    const isVideo = ["Training Video", "Video"].includes(sub.type) || String(sub.fileType || "").startsWith("video/");
+    const sourceLabel = sub.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(sub.trainerId);
+    const rating = Math.max(1, Math.min(5, Number(sub.starRating || 5)));
+    const thumbnail = sub.contentUrl
+      ? isVideo
+        ? `<button class="review-list-thumb video" type="button" data-open-submission-media="${escapeHtml(sub.id)}"><span>▶</span></button>`
+        : `<button class="review-list-thumb" type="button" data-open-submission-media="${escapeHtml(sub.id)}"><img src="${escapeHtml(sub.contentUrl)}" alt="${escapeHtml(sub.title)}"></button>`
+      : `<button class="review-list-thumb empty" type="button" data-open-submission-detail="${escapeHtml(sub.id)}">${icon("star")}</button>`;
+    const reviewer = sub.reviewerName || "Reviewer not named";
+    const excerpt = sub.reviewText || sub.submissionComment || "No written review text was included.";
+    const actionButtons = sub.status === "Approved"
+      ? `<button class="btn btn-green btn-small" data-publish-review="${escapeHtml(sub.id)}">Publish</button><button class="btn btn-outline btn-small" data-unpublish-review="${escapeHtml(sub.id)}">Unpublish</button><button class="btn btn-outline btn-small" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-small btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`
+      : sub.status === "Deleted"
+        ? `<button class="btn btn-outline btn-small" data-restore-review="${escapeHtml(sub.id)}">Restore</button>`
+        : `<button class="btn btn-green btn-small" data-approve-submission="${escapeHtml(sub.id)}">Approve</button><button class="btn btn-outline btn-small" data-decline-submission="${escapeHtml(sub.id)}">Reject</button><button class="btn btn-outline btn-small" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-small btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`;
+    return `<tr>
+      <td class="review-list-main"><div>${thumbnail}<div><strong>${escapeHtml(sub.title || "Review submission")}</strong><span class="submission-rating">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><p>${escapeHtml(excerpt)}</p><small>${escapeHtml(reviewer)}${sub.reviewerLocation ? ` · ${escapeHtml(sub.reviewerLocation)}` : ""}</small></div></div></td>
+      <td><strong>${escapeHtml(sourceLabel)}</strong><small>${escapeHtml(sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString() : "Date pending")}</small></td>
+      <td><span class="status ${submissionStatusClass(sub.status)}">${escapeHtml(sub.status || "Pending")}</span></td>
+      <td><textarea class="review-list-note" data-submission-note="${escapeHtml(sub.id)}" placeholder="Office note...">${escapeHtml(sub.officeNote || sub.note || "")}</textarea></td>
+      <td><div class="review-list-actions">${actionButtons}<button class="btn btn-outline btn-small" type="button" data-open-submission-detail="${escapeHtml(sub.id)}">Open</button></div></td>
+    </tr>`;
+  }).join("")}</tbody></table></div>`;
 }
 
 function submissionReviewCard(sub, admin) {
@@ -3686,6 +3759,11 @@ document.addEventListener("click", async event => {
     saveState();
     return;
   }
+  if (event.target.closest("[data-export-applications]")) {
+    exportApplicationsCsv();
+    showToast("Trainer applications CSV downloaded for Google Sheet backfill");
+    return;
+  }
   const decline = event.target.closest("[data-decline-submission]");
   if (decline) {
     const sub = state.submissions.find(s => s.id === decline.dataset.declineSubmission);
@@ -4031,6 +4109,12 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
+  const reviewSort = event.target.closest("[data-review-sort]");
+  if (reviewSort) {
+    state.reviewSort = reviewSort.value;
+    saveState();
+    return;
+  }
   const reviewAssignTrainer = event.target.closest("[data-review-assign-trainer]");
   if (reviewAssignTrainer) {
     const sub = state.submissions.find(s => s.id === reviewAssignTrainer.dataset.reviewAssignTrainer);
