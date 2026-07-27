@@ -143,6 +143,7 @@ const defaultState = {
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
   applicationFilter: "All",
+  reviewSubmissionFilter: "Active",
   leadDateRange: "60",
   customLeadStart: toDateInputValue(defaultLeadStartDate),
   customLeadEnd: toDateInputValue(defaultLeadEndDate),
@@ -557,6 +558,7 @@ function remoteSubmissionToUi(row) {
   const submissionMetadata = notes.includes(reviewMarker) ? notes.slice(0, notes.indexOf(reviewMarker)) : "";
   const reviewerName = String(row.title || "").replace(/^Website review from\s+/i, "").trim() || "Verified Client";
   const reviewerMatch = notes.match(/Reviewer:\s*([^\n<]+?)\s*<([^>]+)>\.?/i);
+  const ratingMatch = notes.match(/Star rating:\s*([1-5])/i);
   const locationMatch = notes.match(/Client location:\s*([^\n.]+)\.?/i);
   const permissionMatch = notes.match(/Permission to share:\s*([^\n.]+)\.?/i);
   const attachedMatch = notes.match(/Attached file noted:\s*([^\n(]+?)\s*\(([^)]+)\)\.?/i);
@@ -565,6 +567,7 @@ function remoteSubmissionToUi(row) {
     return cleanLine
       && !/^Review:\s*/i.test(cleanLine)
       && !/^Reviewer:\s*/i.test(cleanLine)
+      && !/^Star rating:\s*/i.test(cleanLine)
       && !/^Client location:\s*/i.test(cleanLine)
       && !/^Permission to share:\s*/i.test(cleanLine)
       && !/^Attached file noted:\s*/i.test(cleanLine);
@@ -591,6 +594,7 @@ function remoteSubmissionToUi(row) {
     contentUrl: row.file_url || "",
     reviewerName: reviewerMatch?.[1]?.trim() || reviewerName,
     reviewerEmail: reviewerMatch?.[2]?.trim() || "",
+    starRating: ratingMatch?.[1] || "5",
     reviewerLocation: locationMatch?.[1]?.trim() || "",
     permissionToShare: permissionMatch?.[1]?.trim() || "Not reported",
     reviewText,
@@ -954,6 +958,7 @@ function defaultReviewDisplayOptions(submission = {}) {
     showText: true,
     showMedia: Boolean(submission.contentUrl),
     showAuthor: true,
+    showRating: true,
     showLocation: Boolean(submission.reviewerLocation)
   };
 }
@@ -990,6 +995,7 @@ async function publishApprovedReview(submission) {
   const publishedReview = {
     submission_id: submission.remoteId,
     author: submission.reviewerName || "Verified Client",
+    rating: submission.starRating || "5",
     copy: submission.reviewText || submission.note || "",
     location: submission.reviewerLocation || "",
     media_url: submission.contentUrl || "",
@@ -1014,7 +1020,19 @@ async function deletePublishedReview(submission) {
     trainer.approvedReviews = (trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId);
     await persistTrainerRecord(trainer, { publish: true });
   }
-  await window.LDTT_PORTAL.remove("content_submissions", submission.remoteId);
+  submission.status = "Deleted";
+  await persistSubmissionRecord(submission);
+}
+
+async function unpublishApprovedReview(submission, status = "Unpublished") {
+  if (!submission?.remoteId) return;
+  const trainer = trainerById(submission.trainerId);
+  if (trainer?.pageId) {
+    trainer.approvedReviews = (trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId);
+    await persistTrainerRecord(trainer, { publish: true });
+  }
+  submission.status = status;
+  await persistSubmissionRecord(submission);
 }
 
 async function persistTrainerAccess(trainer) {
@@ -2576,13 +2594,27 @@ function submissionForm(kind = "media") {
 
 function submissionsTable(admin, kind = "all") {
   const sourceRows = admin ? state.submissions : trainerSubmissions();
-  const rows = kind === "media" ? sourceRows.filter(sub => ["Photo", "Training Video", "Video"].includes(sub.type)) : kind === "review" ? sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)) : sourceRows;
-  if (!rows.length) return `<div class="empty-state"><strong>No submissions found.</strong><p>Trainer photos, videos, and reviews will appear here as soon as they are submitted.</p></div>`;
-  return `<div class="submission-review-grid">${rows.map(sub => submissionReviewCard(sub, admin)).join("")}</div>${admin ? submissionDetailPanel() : ""}`;
+  let rows = kind === "media" ? sourceRows.filter(sub => ["Photo", "Training Video", "Video"].includes(sub.type)) : kind === "review" ? sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)) : sourceRows;
+  const tabs = ["Active", "Pending", "Approved", "Unpublished", "Archived", "Deleted"];
+  const reviewFilter = state.reviewSubmissionFilter || "Active";
+  if (admin && kind === "review") {
+    rows = rows.filter(sub => {
+      const status = sub.status || "Pending";
+      if (reviewFilter === "Active") return !["Archived", "Deleted"].includes(status);
+      return status === reviewFilter || (reviewFilter === "Pending" && status === "Declined");
+    });
+  }
+  const toolbar = admin && kind === "review"
+    ? `<div class="review-inbox-tabs">${tabs.map(tab => `<button type="button" class="${reviewFilter === tab ? "active" : ""}" data-review-submission-filter="${escapeHtml(tab)}">${escapeHtml(tab)} <span>${sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)).filter(sub => tab === "Active" ? !["Archived", "Deleted"].includes(sub.status) : (sub.status === tab || (tab === "Pending" && sub.status === "Declined"))).length}</span></button>`).join("")}</div>`
+    : "";
+  if (!rows.length) return `${toolbar}<div class="empty-state"><strong>No submissions found.</strong><p>Trainer photos, videos, and reviews will appear here as soon as they are submitted.</p></div>${admin ? submissionDetailPanel() : ""}`;
+  return `${toolbar}<div class="submission-review-grid">${rows.map(sub => submissionReviewCard(sub, admin)).join("")}</div>${admin ? submissionDetailPanel() : ""}`;
 }
 
 function submissionReviewCard(sub, admin) {
   const isVideo = ["Training Video", "Video"].includes(sub.type) || String(sub.fileType || "").startsWith("video/");
+  const sourceLabel = sub.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(sub.trainerId);
+  const rating = Math.max(1, Math.min(5, Number(sub.starRating || 5)));
   let preview = `<div class="submission-placeholder"><span>${icon(sub.type === "Photo" ? "media" : "star")}</span><strong>No file attached</strong></div>`;
   if (sub.contentUrl && isVideo) preview = `<video class="submission-media" controls preload="metadata"><source src="${escapeHtml(sub.contentUrl)}" type="${escapeHtml(sub.fileType || "video/mp4")}">Your browser cannot preview this video.</video>`;
   else if (sub.contentUrl) preview = `<button class="submission-image-button" type="button" data-open-submission-media="${escapeHtml(sub.id)}" aria-label="Open ${escapeHtml(sub.title)}"><img class="submission-media" src="${escapeHtml(sub.contentUrl)}" alt="${escapeHtml(sub.title)}"></button>`;
@@ -2599,14 +2631,17 @@ function submissionReviewCard(sub, admin) {
     ? reviewDisplayControlsMarkup(sub)
     : "";
   const actionButtons = sub.status === "Approved"
-    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(sub.id)}">Publish / refresh landing page</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete review</button>`
-    : `<button class="btn btn-green" data-approve-submission="${escapeHtml(sub.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(sub.id)}">Reject</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete review</button>`;
+    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(sub.id)}">Publish / refresh</button><button class="btn btn-outline" data-unpublish-review="${escapeHtml(sub.id)}">Unpublish</button><button class="btn btn-outline" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`
+    : sub.status === "Deleted"
+      ? `<button class="btn btn-outline" data-restore-review="${escapeHtml(sub.id)}">Restore to pending</button>`
+      : `<button class="btn btn-green" data-approve-submission="${escapeHtml(sub.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(sub.id)}">Reject</button><button class="btn btn-outline" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`;
   return `<article class="submission-review-card">
     <div class="submission-preview">${preview}</div>
     <div class="submission-review-body">
       <div class="submission-review-meta"><span class="submission-type">${escapeHtml(sub.type)}</span><span class="status ${submissionStatusClass(sub.status)}">${escapeHtml(sub.status)}</span></div>
       <h3>${escapeHtml(sub.title)}</h3>
-      <p class="submission-trainer">Submitted by <strong>${escapeHtml(trainerName(sub.trainerId))}</strong>${sub.submittedAt ? ` · ${escapeHtml(new Date(sub.submittedAt).toLocaleDateString())}` : ""}</p>
+      <p class="submission-trainer">Source: <strong>${escapeHtml(sourceLabel)}</strong>${sub.submittedAt ? ` · ${escapeHtml(new Date(sub.submittedAt).toLocaleDateString())}` : ""}</p>
+      <div class="submission-rating" aria-label="${rating} star review">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>
       ${reviewerDetails ? `<div class="submission-reviewer-details">${reviewerDetails}</div>` : ""}
       ${writtenContent}
       ${sub.submissionComment ? `<div class="submission-content-block"><span>Submission details</span><p>${escapeHtml(sub.submissionComment)}</p></div>` : ""}
@@ -2626,6 +2661,7 @@ function reviewDisplayControlsMarkup(submission) {
     ["showText", "Review text", true],
     ["showMedia", "Photo / video", hasMedia],
     ["showAuthor", "Reviewer name", true],
+    ["showRating", "Star rating", true],
     ["showLocation", "Client location", hasLocation]
   ];
   return `<section class="review-display-controls"><span>Show on landing page</span><div>${controls.map(([key, label, enabled]) => `<label class="${enabled ? "" : "disabled"}"><input type="checkbox" data-review-display="${escapeHtml(submission.id)}" data-review-display-key="${key}" ${options[key] ? "checked" : ""} ${enabled ? "" : "disabled"}>${escapeHtml(label)}</label>`).join("")}</div></section>`;
@@ -2635,15 +2671,19 @@ function submissionDetailPanel() {
   const submission = state.submissions.find(item => item.id === state.selectedSubmissionId);
   if (!submission) return "";
   const isVideo = String(submission.fileType || "").startsWith("video/");
+  const sourceLabel = submission.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(submission.trainerId);
+  const rating = Math.max(1, Math.min(5, Number(submission.starRating || 5)));
   const media = submission.contentUrl
     ? isVideo
       ? `<video class="submission-detail-media" controls preload="metadata" src="${escapeHtml(submission.contentUrl)}"></video>`
       : `<button class="submission-image-button submission-detail-image" type="button" data-open-submission-media="${escapeHtml(submission.id)}"><img src="${escapeHtml(submission.contentUrl)}" alt="${escapeHtml(submission.title)}"></button>`
     : `<div class="submission-placeholder submission-detail-placeholder"><strong>No photo or video attached</strong></div>`;
   const actions = submission.status === "Approved"
-    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(submission.id)}">Publish / refresh landing page</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete review</button>`
-    : `<button class="btn btn-green" data-approve-submission="${escapeHtml(submission.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(submission.id)}">Reject</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete review</button>`;
-  return `<aside class="lead-detail-panel submission-detail-panel"><button class="detail-close" data-close-submission aria-label="Close">×</button><span class="portal-tag">Review Submission</span><h2>${escapeHtml(submission.title)}</h2><p>${escapeHtml(submission.type)} for ${escapeHtml(trainerName(submission.trainerId))}</p>${media}<div class="lead-contact-grid"><div><span>Reviewer</span><strong>${escapeHtml(submission.reviewerName || "—")}</strong></div><div><span>Reviewer email</span><strong>${escapeHtml(submission.reviewerEmail || "—")}</strong></div><div><span>Client location</span><strong>${escapeHtml(submission.reviewerLocation || "Not provided")}</strong></div><div><span>Status</span><strong>${escapeHtml(submission.status)}</strong></div><div><span>Permission to share</span><strong>${escapeHtml(submission.permissionToShare || "Not reported")}</strong></div><div class="wide"><span>Submitted</span><strong>${escapeHtml(submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : "—")}</strong></div></div><section class="submission-detail-copy"><span>Actual written review</span><blockquote>${escapeHtml(submission.reviewText || "No written review was included.")}</blockquote></section>${submission.submissionComment ? `<section class="submission-detail-copy"><span>Submission details</span><p>${escapeHtml(submission.submissionComment)}</p></section>` : ""}${reviewDisplayControlsMarkup(submission)}<label>Office comments<textarea data-submission-note="${escapeHtml(submission.id)}" placeholder="Add the office decision, follow-up, or publishing note...">${escapeHtml(submission.officeNote || submission.note || "")}</textarea></label><div class="row-actions">${actions}</div></aside><div class="lead-detail-scrim" data-close-submission></div>`;
+    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(submission.id)}">Publish / refresh</button><button class="btn btn-outline" data-unpublish-review="${escapeHtml(submission.id)}">Unpublish</button><button class="btn btn-outline" data-archive-review="${escapeHtml(submission.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete</button>`
+    : submission.status === "Deleted"
+      ? `<button class="btn btn-outline" data-restore-review="${escapeHtml(submission.id)}">Restore to pending</button>`
+      : `<button class="btn btn-green" data-approve-submission="${escapeHtml(submission.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(submission.id)}">Reject</button><button class="btn btn-outline" data-archive-review="${escapeHtml(submission.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete</button>`;
+  return `<aside class="lead-detail-panel submission-detail-panel"><button class="detail-close" data-close-submission aria-label="Close">×</button><span class="portal-tag">Review Submission</span><h2>${escapeHtml(submission.title)}</h2><p>${escapeHtml(submission.type)} source: ${escapeHtml(sourceLabel)}</p><div class="submission-rating detail-rating" aria-label="${rating} star review">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>${media}<div class="lead-contact-grid"><div><span>Reviewer</span><strong>${escapeHtml(submission.reviewerName || "—")}</strong></div><div><span>Reviewer email</span><strong>${escapeHtml(submission.reviewerEmail || "—")}</strong></div><div><span>Client location</span><strong>${escapeHtml(submission.reviewerLocation || "Not provided")}</strong></div><div><span>Status</span><strong>${escapeHtml(submission.status)}</strong></div><div><span>Source</span><strong>${escapeHtml(sourceLabel)}</strong></div><div><span>Permission to share</span><strong>${escapeHtml(submission.permissionToShare || "Not reported")}</strong></div><div class="wide"><span>Submitted</span><strong>${escapeHtml(submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : "—")}</strong></div></div><section class="submission-detail-copy"><span>Actual written review</span><blockquote>${escapeHtml(submission.reviewText || "No written review was included.")}</blockquote></section>${submission.submissionComment ? `<section class="submission-detail-copy"><span>Submission details</span><p>${escapeHtml(submission.submissionComment)}</p></section>` : ""}${reviewDisplayControlsMarkup(submission)}<label>Office comments<textarea data-submission-note="${escapeHtml(submission.id)}" placeholder="Add the office decision, follow-up, or publishing note...">${escapeHtml(submission.officeNote || submission.note || "")}</textarea></label><div class="row-actions">${actions}</div></aside><div class="lead-detail-scrim" data-close-submission></div>`;
 }
 
 function readSubmissionFile(file) {
@@ -2904,6 +2944,7 @@ function trainerReviewsMarkup(trainer) {
   const reviews = [1, 2, 3].map((number, index) => ({
     id: `default-${number}`,
     author: trainer[`review${number}Author`] || ["Jessica R.", "Michael T.", "Sarah L."][index],
+    rating: trainer[`review${number}Rating`] || "5",
     copy: trainer[`review${number}Copy`] || `${trainer.name} was professional, patient, and explained the training process clearly.`,
     location: "",
     mediaUrl: "",
@@ -2912,6 +2953,7 @@ function trainerReviewsMarkup(trainer) {
   })).concat((trainer.approvedReviews || []).map((review, index) => ({
     id: review.submission_id || `approved-${index}`,
     author: review.author || "Verified Client",
+    rating: review.rating || "5",
     copy: review.copy || "",
     location: review.location || "",
     mediaUrl: review.media_url || "",
@@ -2921,6 +2963,7 @@ function trainerReviewsMarkup(trainer) {
       showText: review.display?.showText !== false,
       showMedia: review.display?.showMedia !== false,
       showAuthor: review.display?.showAuthor !== false,
+      showRating: review.display?.showRating !== false,
       showLocation: Boolean(review.display?.showLocation)
     }
   })).filter(review => review.copy || review.mediaUrl));
@@ -2931,15 +2974,17 @@ function trainerReviewCardMarkup(review) {
   const showMedia = review.display.showMedia && review.mediaUrl;
   const showText = review.display.showText && review.copy;
   const showAuthor = review.display.showAuthor && review.author;
+  const showRating = review.display.showRating !== false;
   const showLocation = review.display.showLocation && review.location;
   const isVideo = String(review.mediaType || "").startsWith("video/") || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(String(review.mediaUrl || ""));
+  const rating = Math.max(1, Math.min(5, Number(review.rating || 5)));
   const media = showMedia
     ? `<div class="trainer-review-media">${isVideo ? `<video controls preload="metadata" src="${escapeHtml(review.mediaUrl)}"></video>` : `<button type="button" data-open-public-review-media="${escapeHtml(review.id)}" data-media-url="${escapeHtml(review.mediaUrl)}" data-media-title="${escapeHtml(review.author || "Approved review")}"><img src="${escapeHtml(review.mediaUrl)}" alt="${escapeHtml(review.mediaName || `${review.author || "Client"} review photo`)}"></button>`}</div>`
     : "";
   return `<article class="trainer-review-card ${showMedia ? "has-media" : ""}">
     ${media}
     <div class="trainer-review-content">
-      <div class="review-stars" aria-label="5 star review">★★★★★</div>
+      ${showRating ? `<div class="review-stars" aria-label="${rating} star review">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>` : ""}
       ${showText ? `<p>${escapeHtml(review.copy)}</p>` : `<p class="media-only-review">Approved ${isVideo ? "video" : "photo"} review from a Lorenzo client.</p>`}
       <footer>${showAuthor ? `<strong>${escapeHtml(review.author)}</strong>` : ""}${showLocation ? `<span>${escapeHtml(review.location)}</span>` : ""}</footer>
     </div>
@@ -3072,6 +3117,7 @@ function publicReviewFormMarkup(trainer) {
       <div class="public-review-grid">
         <label>Your Name *<input required name="reviewer_name" autocomplete="name" placeholder="Your name"></label>
         <label>Email *<input required type="email" name="reviewer_email" autocomplete="email" placeholder="Email address"></label>
+        <label>Star Rating *<select required name="star_rating"><option value="">Select rating</option><option value="5">5 Stars</option><option value="4">4 Stars</option><option value="3">3 Stars</option><option value="2">2 Stars</option><option value="1">1 Star</option></select></label>
         <label class="wide">Location <small>(optional)</small><input name="client_location" autocomplete="address-level2" placeholder="City, State"></label>
         <label class="wide">Review or testimonial *<textarea required name="review_text" placeholder="Tell us about your experience and the results you saw."></textarea></label>
         <label class="wide">Upload photo or video <input type="file" name="review_file" accept="image/*,video/*"></label>
@@ -3513,6 +3559,13 @@ document.addEventListener("click", async event => {
     saveState();
     return;
   }
+  const reviewSubmissionFilter = event.target.closest("[data-review-submission-filter]");
+  if (reviewSubmissionFilter) {
+    state.reviewSubmissionFilter = reviewSubmissionFilter.dataset.reviewSubmissionFilter;
+    state.selectedSubmissionId = "";
+    saveState();
+    return;
+  }
   const convertLead = event.target.closest("[data-convert-lead]");
   if (convertLead) {
     const lead = allLeadRows().find(item => item.id === convertLead.dataset.convertLead);
@@ -3534,7 +3587,7 @@ document.addEventListener("click", async event => {
     const sub = state.submissions.find(s => s.id === approve.dataset.approveSubmission);
     if (remoteReady) {
       const saved = await runRemoteMutation("Submission approved", () => publishApprovedReview(sub));
-      if (saved && ["Review", "Testimonial"].includes(sub?.type)) showActionConfirmation("Review published", `The approved review is now live on ${trainerName(sub.trainerId)}'s landing page.`);
+      if (saved && ["Review", "Testimonial"].includes(sub?.type)) showActionConfirmation("Review published", sub.trainerId === "lorenzos-team" ? "The approved review is now available for the homepage review carousel." : `The approved review is now live on ${trainerName(sub.trainerId)}'s landing page.`);
     } else saveState("Submission approved");
     return;
   }
@@ -3550,14 +3603,46 @@ document.addEventListener("click", async event => {
   const deleteReview = event.target.closest("[data-delete-review]");
   if (deleteReview) {
     const sub = state.submissions.find(s => s.id === deleteReview.dataset.deleteReview);
-    if (!sub || !window.confirm(`Delete this review from ${sub.reviewerName || "the reviewer"}? This cannot be undone.`)) return;
+    if (!sub || !window.confirm(`Move this review from ${sub.reviewerName || "the reviewer"} to Deleted?`)) return;
     if (remoteReady) {
       const saved = await runRemoteMutation("Published review deleted", () => deletePublishedReview(sub));
-      if (saved) showActionConfirmation("Review deleted", sub.status === "Approved" ? "The review has been removed from the trainer's public landing page and the review inbox." : "The review has been removed from the review inbox.");
+      if (saved) showActionConfirmation("Review deleted", "The review was removed from public display and moved to the Deleted tab.");
     } else {
-      state.submissions = state.submissions.filter(item => item.id !== sub.id);
-      saveState("Review deleted");
+      sub.status = "Deleted";
+      saveState("Review moved to Deleted");
     }
+    return;
+  }
+  const unpublishReview = event.target.closest("[data-unpublish-review]");
+  if (unpublishReview) {
+    const sub = state.submissions.find(s => s.id === unpublishReview.dataset.unpublishReview);
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Review unpublished", () => unpublishApprovedReview(sub, "Unpublished"));
+      if (saved) showActionConfirmation("Review unpublished", "The review was removed from public display and kept in the review inbox.");
+    } else if (sub) {
+      sub.status = "Unpublished";
+      saveState("Review unpublished");
+    }
+    return;
+  }
+  const archiveReview = event.target.closest("[data-archive-review]");
+  if (archiveReview) {
+    const sub = state.submissions.find(s => s.id === archiveReview.dataset.archiveReview);
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Review archived", () => unpublishApprovedReview(sub, "Archived"));
+      if (saved) showActionConfirmation("Review archived", "The review was removed from active review lists and moved to Archive.");
+    } else if (sub) {
+      sub.status = "Archived";
+      saveState("Review archived");
+    }
+    return;
+  }
+  const restoreReview = event.target.closest("[data-restore-review]");
+  if (restoreReview) {
+    const sub = state.submissions.find(s => s.id === restoreReview.dataset.restoreReview);
+    if (sub) sub.status = "Pending";
+    if (remoteReady) runRemoteMutation("Review restored to pending", () => persistSubmissionRecord(sub));
+    else saveState("Review restored to pending");
     return;
   }
   const openSubmission = event.target.closest("[data-open-submission-media]");
@@ -4297,7 +4382,8 @@ document.addEventListener("submit", async event => {
         trainerId,
         type: "Review",
         title: `Website review from ${entries.reviewer_name || "Client"}`,
-        note: `Submitted from ${trainer.name}'s public landing page. Email: ${entries.reviewer_email || "not supplied"}. Permission to share: ${entries.permission_to_share || "no"}.`,
+        note: `Submitted from ${trainer.name}'s public landing page. Email: ${entries.reviewer_email || "not supplied"}. Star rating: ${entries.star_rating || "5"}. Permission to share: ${entries.permission_to_share || "no"}.`,
+        starRating: entries.star_rating || "5",
         reviewText: entries.review_text || "",
         reviewerName: entries.reviewer_name || "",
         reviewerEmail: entries.reviewer_email || "",

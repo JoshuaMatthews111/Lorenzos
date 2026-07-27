@@ -78,6 +78,7 @@ module.exports = async function handler(req, res) {
     const trainerSlug = clean(payload.trainer_slug, 160);
     const permission = clean(payload.permission_to_share, 80);
     const reviewerLocation = clean(payload.client_location || payload.reviewer_location, 160);
+    const starRating = clean(payload.star_rating || payload.rating || "5", 10);
     const sourcePage = clean(payload.source_page || payload.page_url || "trainer landing page", 500);
     const file = payload.file || null;
 
@@ -103,6 +104,7 @@ module.exports = async function handler(req, res) {
         `Public landing page review submission for ${trainerName || trainerSlug}.`,
         `Submitted from: ${sourcePage}.`,
         `Reviewer: ${reviewerName} <${reviewerEmail}>.`,
+        `Star rating: ${/^[1-5]$/.test(starRating) ? starRating : "5"}.`,
         reviewerLocation ? `Client location: ${reviewerLocation}.` : "",
         `Permission to share: ${permission || "not confirmed"}.`,
         attachedLine,

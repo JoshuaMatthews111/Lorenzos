@@ -4005,3 +4005,84 @@ body.form-modal-open {
   width:max-content;
   margin-top:8px;
 }
+.public-review-grid select{
+  width:100%;
+  margin-top:6px;
+  padding:12px;
+  border:1px solid #cbd8e8;
+  border-radius:10px;
+  background:#fff;
+  color:#082754;
+  font:inherit;
+}
+
+/* Review inbox refinements */
+.review-inbox-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:0 0 16px;
+  padding:8px;
+  border:1px solid #d9e4f1;
+  border-radius:16px;
+  background:#f7fbff;
+}
+.review-inbox-tabs button{
+  border:1px solid #d3dfed;
+  border-radius:999px;
+  background:#fff;
+  color:#082754;
+  padding:10px 13px;
+  font-weight:900;
+  cursor:pointer;
+}
+.review-inbox-tabs button.active{
+  background:#082754;
+  border-color:#082754;
+  color:#fff;
+  box-shadow:0 10px 22px rgba(8,39,84,.18);
+}
+.review-inbox-tabs span{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:22px;
+  height:22px;
+  margin-left:6px;
+  border-radius:999px;
+  background:rgba(216,15,53,.12);
+  color:#d80f35;
+  font-size:.75rem;
+}
+.review-inbox-tabs button.active span{
+  background:rgba(255,255,255,.18);
+  color:#fff;
+}
+.submission-rating{
+  color:#f5b301;
+  letter-spacing:.08em;
+  font-size:1.05rem;
+  font-weight:950;
+  margin:0 0 10px;
+}
+.detail-rating{
+  margin-top:-8px;
+  margin-bottom:14px;
+  font-size:1.25rem;
+}
+.submission-review-card{
+  position:relative;
+}
+.submission-review-body h3{
+  margin-bottom:6px;
+}
+.submission-trainer strong{
+  color:#082754;
+}
+.submission-actions{
+  flex-wrap:wrap;
+}
+.submission-actions .btn,
+.row-actions .btn{
+  min-height:38px;
+}

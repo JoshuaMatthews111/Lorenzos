@@ -572,6 +572,30 @@ const readReviewFile=file=>new Promise((resolve,reject)=>{
 });
 
 const homepageReviewForm=document.querySelector('.home-public-review-form');
+const homeReviewModal=document.querySelector('.home-review-modal');
+const openHomeReviewButtons=[...document.querySelectorAll('[data-open-home-review], a[href="#home-review-form"]')];
+const closeHomeReview=()=>{
+  if(!homeReviewModal) return;
+  homeReviewModal.classList.remove('open');
+  homeReviewModal.setAttribute('aria-hidden','true');
+  document.body.classList.remove('review-modal-open');
+};
+const openHomeReview=()=>{
+  if(!homeReviewModal) return;
+  homeReviewModal.classList.add('open');
+  homeReviewModal.setAttribute('aria-hidden','false');
+  document.body.classList.add('review-modal-open');
+  homeReviewModal.querySelector('input,select,textarea,button')?.focus();
+};
+openHomeReviewButtons.forEach(button=>button.addEventListener('click',event=>{
+  event.preventDefault();
+  openHomeReview();
+}));
+homeReviewModal?.querySelector('.home-review-modal-close')?.addEventListener('click',closeHomeReview);
+homeReviewModal?.addEventListener('click',event=>{if(event.target===homeReviewModal) closeHomeReview()});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&homeReviewModal?.classList.contains('open')) closeHomeReview()});
+if(window.location.hash==='#home-review-form') window.setTimeout(openHomeReview,250);
+
 if(homepageReviewForm){
   homepageReviewForm.addEventListener('submit',async event=>{
     event.preventDefault();
@@ -616,6 +640,7 @@ if(homepageReviewForm){
         return response.json();
       });
       form.reset();
+      window.setTimeout(closeHomeReview,900);
     }catch(error){
       console.warn('LDTT homepage review submission failed',error);
       setStatus('Your review was captured locally, but we could not send it to the office queue. Please try again.', 'error');
@@ -628,11 +653,12 @@ if(homepageReviewForm){
   });
 }
 
-const approvedHomeReviews=document.querySelector('#approved-home-reviews');
-const approvedHomeReviewRail=approvedHomeReviews?.querySelector('.homepage-approved-review-carousel');
+const reviewCarousel=document.querySelector('[data-review-carousel]');
+const reviewRail=reviewCarousel?.querySelector('.review-shot-grid');
+const approvedHomeReviewRail=reviewRail;
 async function loadApprovedHomepageReviews(){
   const config=window.LDTT_SUPABASE||{};
-  if(!approvedHomeReviews||!approvedHomeReviewRail||!config.enabled||!config.projectUrl||!config.publishableKey) return;
+  if(!approvedHomeReviewRail||!config.enabled||!config.projectUrl||!config.publishableKey) return;
   try{
     const base=String(config.projectUrl).replace(/\/$/,'');
     const url=`${base}/rest/v1/content_submissions?select=id,title,notes,file_url,file_type,created_at&submission_type=eq.review&status=eq.approved&notes=ilike.*homepage%20review%20form*&order=created_at.desc&limit=12`;
@@ -649,20 +675,31 @@ async function loadApprovedHomepageReviews(){
       const location=locationMatch?.[1]?.trim()||'';
       const fileUrl=String(row.file_url||'').trim();
       const fileType=String(row.file_type||'').toLowerCase();
+      const ratingMatch=notes.match(/Star rating:\s*([1-5])/i);
+      const rating=Math.max(1,Math.min(5,Number(ratingMatch?.[1]||5)));
       const media=fileUrl
         ? fileType.startsWith('video/')
           ? `<video controls preload="metadata" src="${escapePublicText(fileUrl)}"></video>`
           : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy">`
         : '';
-      return `<article class="homepage-approved-review-card">${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><div class="big-stars">★★★★★</div><blockquote>${escapePublicText(reviewText||'Office-approved client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
+      return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Office-approved review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote>${escapePublicText(reviewText||'Office-approved client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
     }).join('');
-    approvedHomeReviewRail.innerHTML=cards;
-    approvedHomeReviews.hidden=false;
+    approvedHomeReviewRail.insertAdjacentHTML('beforeend',cards);
   }catch(error){
     console.warn('Approved homepage reviews could not be loaded',error);
   }
 }
 loadApprovedHomepageReviews();
+
+if(reviewCarousel&&reviewRail){
+  const scrollReview=direction=>{
+    const card=reviewRail.querySelector('.review-shot-card');
+    const amount=card?card.getBoundingClientRect().width+22:reviewCarousel.clientWidth;
+    reviewCarousel.scrollBy({left:direction*amount,behavior:'smooth'});
+  };
+  document.querySelector('[data-review-carousel-prev]')?.addEventListener('click',()=>scrollReview(-1));
+  document.querySelector('[data-review-carousel-next]')?.addEventListener('click',()=>scrollReview(1));
+}
 
 const reviewButtons=[...document.querySelectorAll('.review-expand')];
 if(reviewButtons.length){
