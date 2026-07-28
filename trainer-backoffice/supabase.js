@@ -19,6 +19,10 @@
     else localStorage.removeItem(STORAGE_KEY);
   }
 
+  function currentAuthUser() {
+    return readSession()?.user || null;
+  }
+
   function authHeaders(session = readSession()) {
     const headers = {
       apikey: config.publishableKey,
@@ -286,6 +290,7 @@
     signOut,
     changePassword,
     currentPortalUser,
+    currentAuthUser,
     loadOperationalData,
     loadPublishedTrainer,
     select,

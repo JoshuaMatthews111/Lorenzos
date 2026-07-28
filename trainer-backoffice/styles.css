@@ -4132,3 +4132,16 @@ body.form-modal-open {
 .row-actions .btn{
   min-height:38px;
 }
+
+.application-sheet-frame{width:100%;height:560px;border:1px solid var(--line);border-radius:14px;background:#fff;margin-top:18px}
+.application-detail-panel,.lead-detail-panel:has(.application-detail-grid){width:min(920px,calc(100vw - 24px));overflow-y:auto;padding-bottom:48px}
+.application-detail-grid strong{white-space:pre-wrap;overflow-wrap:anywhere}
+.client-import-panel{margin-top:20px;border:1px solid var(--line);border-radius:18px;background:#fff;overflow:hidden}
+.client-import-panel>summary{cursor:pointer;padding:18px 22px;font-weight:950;color:var(--navy);background:#f7faff}
+.client-import-panel[open]>summary{border-bottom:1px solid var(--line)}
+.client-import-panel .import-layout{padding:18px}
+.client-import-file{display:grid;gap:8px;margin-bottom:10px;font-weight:900;color:var(--navy)}
+.client-import-file input{padding:12px;border:1px dashed #9bb0cb;border-radius:12px;background:#f8fbff}
+.import-file-status{margin:8px 0 12px;color:var(--muted);font-size:.88rem}
+.review-list-actions button[disabled]{opacity:.55;cursor:wait}
+@media(max-width:760px){.application-sheet-frame{height:460px}.application-detail-panel{width:100vw}.client-import-panel .import-layout{padding:10px}}

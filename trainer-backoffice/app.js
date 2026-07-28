@@ -6,6 +6,7 @@ const REAL_TRAINERS = Array.isArray(window.LDTT_TRAINER_ROSTER) ? window.LDTT_TR
 const TRAINER_APPLICATION_FORM_EMBED = "https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform?embedded=true";
 const TRAINER_APPLICATION_FORM_LINK = "https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform";
 const TRAINER_APPLICATION_RESPONSE_SHEET = "https://docs.google.com/spreadsheets/d/1RsF2HajyVxctqHhWGxzJ-ZLqGrlO4gwJ3B9URfgezOI/edit?usp=sharing";
+const TRAINER_APPLICATION_RESPONSE_SHEET_EMBED = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSUZLKmnCY48EIZoHiI5SKNrW7sz3-LuvrvX1CGAP4R71M83Vb-zwn6YDEFpXp67yiTM5jELesML5sw/pubhtml?widget=true&headers=false";
 
 const icons = {
   dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>`,
@@ -584,13 +585,19 @@ function remoteSubmissionToUi(row) {
     : ["jpg", "jpeg", "png", "gif", "webp", "heic"].includes(extension)
       ? `image/${extension === "jpg" ? "jpeg" : extension}`
       : "";
+  const officeNote = String(row.office_notes || "");
+  const workflowMatch = officeNote.match(/\[\[review_workflow:(unpublished|deleted|archived)\]\]/i);
+  const workflowStatus = workflowMatch
+    ? workflowMatch[1][0].toUpperCase() + workflowMatch[1].slice(1).toLowerCase()
+    : (row.status ? row.status[0].toUpperCase() + row.status.slice(1) : "Pending");
+  const cleanOfficeNote = officeNote.replace(/\s*\[\[review_workflow:(?:unpublished|deleted|archived)\]\]\s*/ig, "").trim();
   return {
     id: row.id,
     remoteId: row.id,
     trainerId: trainer?.id || (isHomepageReview ? "lorenzos-team" : ""),
     type,
     title: row.title || `${type} submission`,
-    status: row.status ? row.status[0].toUpperCase() + row.status.slice(1) : "Pending",
+    status: workflowStatus,
     submittedAt: row.created_at,
     contentUrl: row.file_url || "",
     reviewerName: reviewerMatch?.[1]?.trim() || reviewerName,
@@ -601,8 +608,8 @@ function remoteSubmissionToUi(row) {
     reviewText,
     submissionComment: sourceLines.join("\n").trim(),
     rawNotes: notes,
-    officeNote: row.office_notes || "",
-    note: row.office_notes || "",
+    officeNote: cleanOfficeNote,
+    note: cleanOfficeNote,
     fileName,
     fileType: attachedMatch?.[2]?.trim() || inferredFileType
   };
@@ -948,10 +955,23 @@ async function persistApplicationRecord(application) {
 
 async function persistSubmissionRecord(submission) {
   if (!remoteReady || session.role !== "admin" || !submission?.remoteId) return;
-  const assignedTrainer = trainerById(submission.trainerId);
+  const assignedTrainer = state.trainers.find(trainer => trainer.id === submission.trainerId);
+  const requestedStatus = String(submission.status || "Pending");
+  const statusMap = {
+    Pending: "pending",
+    Approved: "approved",
+    Declined: "declined",
+    Archived: "archived",
+    Unpublished: "archived",
+    Deleted: "archived"
+  };
+  const workflowMarker = ["Archived", "Unpublished", "Deleted"].includes(requestedStatus)
+    ? `[[review_workflow:${requestedStatus.toLowerCase()}]]`
+    : "";
+  const officeNote = [String(submission.note || submission.officeNote || "").trim(), workflowMarker].filter(Boolean).join("\n");
   const payload = {
-    status: String(submission.status || "Pending").toLowerCase(),
-    office_notes: submission.note || null
+    status: statusMap[requestedStatus] || "pending",
+    office_notes: officeNote || null
   };
   if (submission.trainerId === "lorenzos-team") payload.trainer_id = null;
   else if (assignedTrainer?.remoteId) payload.trainer_id = assignedTrainer.remoteId;
@@ -970,7 +990,7 @@ function defaultReviewDisplayOptions(submission = {}) {
 
 function publishedReviewForSubmission(submission) {
   if (!submission?.remoteId) return null;
-  const trainer = trainerById(submission.trainerId);
+  const trainer = state.trainers.find(item => item.id === submission.trainerId);
   return (trainer?.approvedReviews || []).find(review => review.submission_id === submission.remoteId) || null;
 }
 
@@ -990,7 +1010,7 @@ async function publishApprovedReview(submission) {
     }
     return;
   }
-  const trainer = trainerById(submission.trainerId);
+  const trainer = state.trainers.find(item => item.id === submission.trainerId);
   if (submission.trainerId === "lorenzos-team") {
     submission.status = "Approved";
     await persistSubmissionRecord(submission);
@@ -1020,7 +1040,7 @@ async function publishApprovedReview(submission) {
 
 async function deletePublishedReview(submission) {
   if (!submission?.remoteId) return;
-  const trainer = trainerById(submission.trainerId);
+  const trainer = state.trainers.find(item => item.id === submission.trainerId);
   if (submission.status === "Approved" && trainer?.pageId) {
     trainer.approvedReviews = (trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId);
     await persistTrainerRecord(trainer, { publish: true });
@@ -1031,7 +1051,7 @@ async function deletePublishedReview(submission) {
 
 async function unpublishApprovedReview(submission, status = "Unpublished") {
   if (!submission?.remoteId) return;
-  const trainer = trainerById(submission.trainerId);
+  const trainer = state.trainers.find(item => item.id === submission.trainerId);
   if (trainer?.pageId) {
     trainer.approvedReviews = (trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId);
     await persistTrainerRecord(trainer, { publish: true });
@@ -1577,6 +1597,9 @@ function render() {
   if (session.role === "trainer" && portalUser?.must_change_password) {
     state.activeView = "settings";
   }
+  if (session.role === "admin" && !canAccessAdminView(state.activeView)) {
+    state.activeView = "dashboard";
+  }
   renderSidebar();
   renderTopbar();
   renderView();
@@ -1651,7 +1674,7 @@ async function bootstrapApplication() {
 }
 
 function adminNav() {
-  return [
+  const items = [
     ["dashboard", "Dashboard", "dashboard"],
     ["trainerPages", "Trainer Pages", "globe"],
     ["pageEditor", "Page Editor", "edit"],
@@ -1659,11 +1682,30 @@ function adminNav() {
     ["leads", "Leads", "lead"],
     ["applications", "Applications", "message", applicationRows().length],
     ["clients", "Clients", "users"],
-    ["import", "Client Import", "media"],
     ["approvals", "Reviews", "star", pendingReviewSubmissions().length],
     ["reports", "Reports", "report"],
     ["settings", "Settings", "settings"]
   ];
+  return isOfficeAdmin()
+    ? items.filter(([view]) => ["dashboard", "trainers", "leads", "applications", "clients", "reports", "settings"].includes(view))
+    : items;
+}
+
+function portalEmail() {
+  return String(window.LDTT_PORTAL?.currentAuthUser?.()?.email || "").trim().toLowerCase();
+}
+
+function isOfficeAdmin() {
+  if (portalUser?.permission_level) return portalUser.permission_level === "office_admin";
+  return new Set([
+    "marksprouse@lorenzosdogtrainingteam.com",
+    "biancamiller@lorenzosdogtrainingteam.com",
+    "bridgettemullins@lorenzosdogtrainingteam.com"
+  ]).has(portalEmail());
+}
+
+function canAccessAdminView(view) {
+  return !isOfficeAdmin() || ["dashboard", "trainers", "leads", "applications", "clients", "reports", "settings"].includes(view);
 }
 
 function trainerNav() {
@@ -1742,7 +1784,7 @@ function renderTopbar() {
     <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
     <div class="top-actions">
       ${isAdmin
-        ? `<button class="btn btn-red add-trainer-primary" id="addTrainer">+ Add New Trainer</button><button class="btn btn-outline">Filters</button><button class="btn btn-outline" data-view="import">Import Clients</button>`
+        ? `${isOfficeAdmin() ? "" : `<button class="btn btn-red add-trainer-primary" id="addTrainer">+ Add New Trainer</button>`}<button class="btn btn-outline">Filters</button>${isOfficeAdmin() ? "" : `<button class="btn btn-outline" data-open-client-import>Import Clients</button>`}`
         : passwordSetupRequired
           ? ""
           : `<a class="btn btn-outline" href="${trainerPageHref(currentTrainerId())}" target="_blank" rel="noopener">Open My Page</a><button class="btn btn-red" data-view="submitMedia">Submit Content</button>`}
@@ -1757,6 +1799,7 @@ function renderView() {
   if (portalUser?.must_change_password) {
     state.activeView = "settings";
   }
+  if (session.role === "admin" && !canAccessAdminView(state.activeView)) state.activeView = "dashboard";
   target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
 }
 
@@ -1781,7 +1824,7 @@ const adminScreens = {
       </div>
       <div class="bottom-grid">
         ${panel("Lead Status Updates", "", leadOutcomeTable())}
-        ${panel("Client Import Protection", `<button class="btn btn-red" data-view="import">Open Import</button>`, protectionSummary(), "pad")}
+        ${panel("Client Import Protection", `${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Open Import</button>`}`, protectionSummary(), "pad")}
       </div>`;
   },
   trainerPages() {
@@ -1791,7 +1834,9 @@ const adminScreens = {
     return trainerPageEditor();
   },
   trainers() {
-    return `${trainerAdminForm()}<br>${panel("Existing Trainer Profiles", `<button class="btn btn-red" id="addTrainer">+ Add New Trainer</button>`, trainerSelectList(), "pad")}`;
+    return isOfficeAdmin()
+      ? panel("Trainer Directory (View Only)", "", trainerReadOnlyDirectory(), "pad")
+      : `${trainerAdminForm()}<br>${panel("Existing Trainer Profiles", `<button class="btn btn-red" id="addTrainer">+ Add New Trainer</button>`, trainerSelectList(), "pad")}`;
   },
   leads() {
     return `${leadSourceRecordNotice()}${panel("Office Lead Pipeline", `<button class="btn btn-outline" data-filter-leads="all">All Statuses</button><button class="btn btn-outline">Date Filter</button>`, leadPipelineTable(true), "pad")}`;
@@ -1805,7 +1850,8 @@ const adminScreens = {
     ])}${panel("Trainer Application Response Sheet", `<a class="btn btn-red" href="${TRAINER_APPLICATION_RESPONSE_SHEET}" target="_blank" rel="noopener">Open Response Sheet</a>`, trainerApplicationGoogleFormPanel(), "pad")}<br>${panel("Trainer Application Inbox", "", applicationTable(), "pad")}`;
   },
   clients() {
-    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${panel("Central Client Database", `<button class="btn btn-red" data-view="import">Import Clients</button>`, clientTable(), "pad")}`;
+    const importer = isOfficeAdmin() ? "" : `<details class="client-import-panel" id="clientImportPanel"><summary>Import Existing Clients</summary><div class="import-layout">${panel("1. Upload CSV, Excel, or PDF", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div></details>`;
+    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${panel("Central Client Database", `${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Import Clients</button>`}`, clientTable(), "pad")}${importer}`;
   },
   import() {
     return `<div class="import-layout">${panel("1. Paste CSV / Spreadsheet Data", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div>`;
@@ -2375,6 +2421,10 @@ function trainerSelectList() {
   return `<div class="trainer-roster-summary"><strong>${state.trainers.length} trainers available</strong><span>Select any frontend trainer to populate the office setup wizard with their real bio, location, and photos.</span></div>${groups.map(stateName => `<section class="trainer-state-group"><h3>${escapeHtml(stateName)}</h3><div class="trainer-select-list">${state.trainers.filter(trainer => (trainer.state || "Office Added") === stateName).map(trainer => `<button class="trainer-select ${state.selectedTrainerId === trainer.id ? "active" : ""}" data-select-trainer="${trainer.id}"><img src="${escapeHtml(trainer.cardPhoto || trainer.photo || trainer.companyLogo || "../assets/lorenzo-logo-transparent.png")}" alt=""><span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)} · ${trainer.pageStatus}${trainer.locked ? " · Locked" : ""}</small></span></button>`).join("")}</div></section>`).join("")}`;
 }
 
+function trainerReadOnlyDirectory() {
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Trainer</th><th>Market</th><th>Service Area</th><th>Page Status</th><th>Access</th></tr></thead><tbody>${state.trainers.map(trainer => `<tr><td><strong>${escapeHtml(trainer.name)}</strong><small>${escapeHtml(trainer.email || "No email listed")}</small></td><td>${escapeHtml(trainer.market || "—")}</td><td>${escapeHtml(trainer.serviceArea || "—")}</td><td>${pageStatusBadge(trainer)}</td><td><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "live"}">${escapeHtml(trainer.accessStatus || "Active")}</span></td></tr>`).join("")}</tbody></table></div><p class="panel-copy">Office Admin access is view-only here. Super Admins control trainer profiles, landing pages, publishing, and account access.</p>`;
+}
+
 function pageStatusBadge(trainer) {
   const cls = trainer.pageStatus === "Published" ? "live" : trainer.pageStatus === "Draft" ? "draft" : "enrolled";
   const label = trainer.pageStatus === "No Site Started" ? "Trainer Enrolled · No Site Started" : `${trainer.pageStatus}${trainer.locked ? " · Locked" : ""}`;
@@ -2470,8 +2520,9 @@ function trainerApplicationGoogleFormPanel() {
       <p>The office can work from the shared inbox below. Website applications continue to email recruiting@lorenzosdogtrainingteam.com and log to the connected Google Sheet, while Supabase provides the shared recruiting status and office-note record.</p>
       <div class="action-row"><a class="btn btn-red" href="${TRAINER_APPLICATION_RESPONSE_SHEET}" target="_blank" rel="noopener">Open Google Response Sheet</a><button class="btn btn-outline" type="button" data-export-applications>Export Applications CSV</button><a class="btn btn-outline" href="../trainer-application.html" target="_blank" rel="noopener">Preview Website Application</a></div>
       <p class="panel-copy">The office workflow lives here. Google remains the intake backup, but status changes and notes should be managed in this portal so recruiting decisions stay centralized.</p>
-      <p class="panel-copy"><strong>Application sheet audit:</strong> the connected Google application form currently exposes fewer field IDs than the custom application page sends. That can make an application appear in Supabase/admin and email while the Google response sheet is incomplete. Use the response sheet link above as the source-of-record check until the final Google Form/question mapping is re-exported.</p>
+      <p class="panel-copy"><strong>Response-sheet source of record:</strong> this published view shows the actual Google Sheet rows without opening the application questionnaire.</p>
     </div>
+    <iframe class="application-sheet-frame" src="${TRAINER_APPLICATION_RESPONSE_SHEET_EMBED}" title="Published trainer application response sheet" loading="lazy"></iframe>
   </div>`;
 }
 
@@ -2601,6 +2652,19 @@ function applicationDetailGrid(app) {
     ["Employment 3", [app.employment_3_company, app.employment_3_job_title, app.employment_3_status].filter(Boolean).join(" · ")],
     ["Signature", app.signature]
   ];
+  const coveredKeys = new Set([
+    "id", "remoteId", "createdAt", "status", "note", "office_notes", "raw_payload", "delivery_google", "delivery_email", "delivery_supabase",
+    "first_name", "last_name", "email", "phone", "address_line_1", "address_line_2", "city", "state", "zip", "referral_source",
+    "birthdate", "legally_eligible", "drug_test", "felony", "felony_explanation", "comfortable_dogs", "dog_bite_history", "owns_dogs",
+    "owned_dogs_description", "physical_condition", "workout", "lift_100", "run_2_miles", "smoke", "team_player", "reliable_vehicle",
+    "drivers_license", "cleveland_training", "education_level", "additional_training", "employment_1_company", "employment_1_job_title",
+    "employment_1_status", "employment_2_company", "employment_2_job_title", "employment_2_status", "employment_3_company", "employment_3_job_title",
+    "employment_3_status", "signature"
+  ]);
+  Object.entries(app).forEach(([key, value]) => {
+    if (coveredKeys.has(key) || value === "" || value == null || typeof value === "object") return;
+    fields.push([key.replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase()), value]);
+  });
   return `<div class="application-detail-grid">${fields.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`).join("")}</div>`;
 }
 
@@ -2628,17 +2692,18 @@ function submissionForm(kind = "media") {
 function submissionsTable(admin, kind = "all") {
   const sourceRows = admin ? state.submissions : trainerSubmissions();
   let rows = kind === "media" ? sourceRows.filter(sub => ["Photo", "Training Video", "Video"].includes(sub.type)) : kind === "review" ? sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)) : sourceRows;
-  const tabs = ["Active", "Pending", "Approved", "Unpublished", "Archived", "Deleted"];
+  const tabs = ["Active", "Pending", "Approved", "Rejected", "Unpublished", "Archived", "Deleted"];
   const reviewFilter = state.reviewSubmissionFilter || "Active";
   if (admin && kind === "review") {
     rows = rows.filter(sub => {
       const status = sub.status || "Pending";
       if (reviewFilter === "Active") return !["Archived", "Deleted"].includes(status);
-      return status === reviewFilter || (reviewFilter === "Pending" && status === "Declined");
+      if (reviewFilter === "Rejected") return status === "Declined";
+      return status === reviewFilter;
     });
   }
   const toolbar = admin && kind === "review"
-    ? `<div class="review-inbox-tabs">${tabs.map(tab => `<button type="button" class="${reviewFilter === tab ? "active" : ""}" data-review-submission-filter="${escapeHtml(tab)}">${escapeHtml(tab)} <span>${sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)).filter(sub => tab === "Active" ? !["Archived", "Deleted"].includes(sub.status) : (sub.status === tab || (tab === "Pending" && sub.status === "Declined"))).length}</span></button>`).join("")}</div>
+    ? `<div class="review-inbox-tabs">${tabs.map(tab => `<button type="button" class="${reviewFilter === tab ? "active" : ""}" data-review-submission-filter="${escapeHtml(tab)}">${escapeHtml(tab)} <span>${sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)).filter(sub => tab === "Active" ? !["Archived", "Deleted"].includes(sub.status) : (tab === "Rejected" ? sub.status === "Declined" : sub.status === tab)).length}</span></button>`).join("")}</div>
       <div class="review-list-toolbar"><div><strong>Review submissions</strong><span>Open a row for full details, or use quick actions without leaving the list.</span></div><label>Sort<select data-review-sort><option ${state.reviewSort === "Newest" ? "selected" : ""}>Newest</option><option ${state.reviewSort === "Oldest" ? "selected" : ""}>Oldest</option><option ${state.reviewSort === "Status" ? "selected" : ""}>Status</option><option ${state.reviewSort === "Source" ? "selected" : ""}>Source</option><option ${state.reviewSort === "Rating" ? "selected" : ""}>Rating</option></select></label></div>`
     : "";
   if (!rows.length) return `${toolbar}<div class="empty-state"><strong>No submissions found.</strong><p>Trainer photos, videos, and reviews will appear here as soon as they are submitted.</p></div>${admin ? submissionDetailPanel() : ""}`;
@@ -2661,6 +2726,31 @@ function sortReviewRows(rows) {
   });
 }
 
+function reviewActionButtons(submission, compact = false) {
+  const id = escapeHtml(submission.id);
+  const size = compact ? " btn-small" : "";
+  const button = (label, action, classes = "btn-outline") => `<button class="btn ${classes}${size}" data-${action}="${id}">${label}</button>`;
+  if (submission.status === "Approved") {
+    return button("Publish", "publish-review", "btn-green")
+      + button("Unpublish", "unpublish-review")
+      + button("Archive", "archive-review")
+      + button("Delete", "delete-review", "btn-outline btn-danger");
+  }
+  if (submission.status === "Unpublished") {
+    return button("Publish", "publish-review", "btn-green")
+      + button("Archive", "archive-review")
+      + button("Delete", "delete-review", "btn-outline btn-danger");
+  }
+  if (["Archived", "Deleted"].includes(submission.status)) {
+    return button("Restore", "restore-review")
+      + (submission.status === "Archived" ? button("Delete", "delete-review", "btn-outline btn-danger") : "");
+  }
+  return button("Approve", "approve-submission", "btn-green")
+    + button("Reject", "decline-submission")
+    + button("Archive", "archive-review")
+    + button("Delete", "delete-review", "btn-outline btn-danger");
+}
+
 function submissionReviewList(rows) {
   return `<div class="submission-review-list-shell"><table class="submission-review-list"><thead><tr><th>Review</th><th>Source</th><th>Status</th><th>Office Note</th><th>Quick Actions</th></tr></thead><tbody>${rows.map(sub => {
     const isVideo = ["Training Video", "Video"].includes(sub.type) || String(sub.fileType || "").startsWith("video/");
@@ -2673,11 +2763,7 @@ function submissionReviewList(rows) {
       : `<button class="review-list-thumb empty" type="button" data-open-submission-detail="${escapeHtml(sub.id)}">${icon("star")}</button>`;
     const reviewer = sub.reviewerName || "Reviewer not named";
     const excerpt = sub.reviewText || sub.submissionComment || "No written review text was included.";
-    const actionButtons = sub.status === "Approved"
-      ? `<button class="btn btn-green btn-small" data-publish-review="${escapeHtml(sub.id)}">Publish</button><button class="btn btn-outline btn-small" data-unpublish-review="${escapeHtml(sub.id)}">Unpublish</button><button class="btn btn-outline btn-small" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-small btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`
-      : sub.status === "Deleted"
-        ? `<button class="btn btn-outline btn-small" data-restore-review="${escapeHtml(sub.id)}">Restore</button>`
-        : `<button class="btn btn-green btn-small" data-approve-submission="${escapeHtml(sub.id)}">Approve</button><button class="btn btn-outline btn-small" data-decline-submission="${escapeHtml(sub.id)}">Reject</button><button class="btn btn-outline btn-small" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-small btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`;
+    const actionButtons = reviewActionButtons(sub, true);
     return `<tr>
       <td class="review-list-main"><div>${thumbnail}<div><strong>${escapeHtml(sub.title || "Review submission")}</strong><span class="submission-rating">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><p>${escapeHtml(excerpt)}</p><small>${escapeHtml(reviewer)}${sub.reviewerLocation ? ` · ${escapeHtml(sub.reviewerLocation)}` : ""}</small></div></div></td>
       <td><strong>${escapeHtml(sourceLabel)}</strong><small>${escapeHtml(sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString() : "Date pending")}</small></td>
@@ -2707,11 +2793,7 @@ function submissionReviewCard(sub, admin) {
   const displayControls = admin && ["Review", "Testimonial"].includes(sub.type)
     ? reviewAssignmentControlsMarkup(sub) + reviewDisplayControlsMarkup(sub)
     : "";
-  const actionButtons = sub.status === "Approved"
-    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(sub.id)}">Publish / refresh</button><button class="btn btn-outline" data-unpublish-review="${escapeHtml(sub.id)}">Unpublish</button><button class="btn btn-outline" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`
-    : sub.status === "Deleted"
-      ? `<button class="btn btn-outline" data-restore-review="${escapeHtml(sub.id)}">Restore to pending</button>`
-      : `<button class="btn btn-green" data-approve-submission="${escapeHtml(sub.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(sub.id)}">Reject</button><button class="btn btn-outline" data-archive-review="${escapeHtml(sub.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(sub.id)}">Delete</button>`;
+  const actionButtons = reviewActionButtons(sub);
   return `<article class="submission-review-card">
     <div class="submission-preview">${preview}</div>
     <div class="submission-review-body">
@@ -2776,11 +2858,7 @@ function submissionDetailPanel() {
       ? `<video class="submission-detail-media" controls preload="metadata" src="${escapeHtml(submission.contentUrl)}"></video>`
       : `<button class="submission-image-button submission-detail-image" type="button" data-open-submission-media="${escapeHtml(submission.id)}"><img src="${escapeHtml(submission.contentUrl)}" alt="${escapeHtml(submission.title)}"></button>`
     : `<div class="submission-placeholder submission-detail-placeholder"><strong>No photo or video attached</strong></div>`;
-  const actions = submission.status === "Approved"
-    ? `<button class="btn btn-green" data-publish-review="${escapeHtml(submission.id)}">Publish / refresh</button><button class="btn btn-outline" data-unpublish-review="${escapeHtml(submission.id)}">Unpublish</button><button class="btn btn-outline" data-archive-review="${escapeHtml(submission.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete</button>`
-    : submission.status === "Deleted"
-      ? `<button class="btn btn-outline" data-restore-review="${escapeHtml(submission.id)}">Restore to pending</button>`
-      : `<button class="btn btn-green" data-approve-submission="${escapeHtml(submission.id)}">Approve & Publish</button><button class="btn btn-outline" data-decline-submission="${escapeHtml(submission.id)}">Reject</button><button class="btn btn-outline" data-archive-review="${escapeHtml(submission.id)}">Archive</button><button class="btn btn-outline btn-danger" data-delete-review="${escapeHtml(submission.id)}">Delete</button>`;
+  const actions = reviewActionButtons(submission);
   return `<aside class="lead-detail-panel submission-detail-panel"><button class="detail-close" data-close-submission aria-label="Close">×</button><span class="portal-tag">Review Submission</span><h2>${escapeHtml(submission.title)}</h2><p>${escapeHtml(submission.type)} source: ${escapeHtml(sourceLabel)}</p><div class="submission-rating detail-rating" aria-label="${rating} star review">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>${media}<div class="lead-contact-grid"><div><span>Reviewer</span><strong>${escapeHtml(submission.reviewerName || "—")}</strong></div><div><span>Reviewer email</span><strong>${escapeHtml(submission.reviewerEmail || "—")}</strong></div><div><span>Client location</span><strong>${escapeHtml(submission.reviewerLocation || "Not provided")}</strong></div><div><span>Status</span><strong>${escapeHtml(submission.status)}</strong></div><div><span>Source</span><strong>${escapeHtml(sourceLabel)}</strong></div><div><span>Permission to share</span><strong>${escapeHtml(submission.permissionToShare || "Not reported")}</strong></div><div class="wide"><span>Submitted</span><strong>${escapeHtml(submission.submittedAt ? new Date(submission.submittedAt).toLocaleString() : "—")}</strong></div></div><section class="submission-detail-copy"><span>Actual written review</span><blockquote>${escapeHtml(submission.reviewText || "No written review was included.")}</blockquote></section>${submission.submissionComment ? `<section class="submission-detail-copy"><span>Submission details</span><p>${escapeHtml(submission.submissionComment)}</p></section>` : ""}${reviewAssignmentControlsMarkup(submission)}${reviewDisplayControlsMarkup(submission)}<label>Office comments<textarea data-submission-note="${escapeHtml(submission.id)}" placeholder="Add the office decision, follow-up, or publishing note...">${escapeHtml(submission.officeNote || submission.note || "")}</textarea></label><div class="row-actions">${actions}</div></aside><div class="lead-detail-scrim" data-close-submission></div>`;
 }
 
@@ -2852,7 +2930,7 @@ function clientDetailPanel() {
 }
 
 function importInput() {
-  return `<p class="panel-copy">Paste CSV with headers. Expected fields can include Client Name, Phone, Email, Dog Name, Dog Breed, Trainer Assigned, Status, SMS Consent, Email Consent, Source, Notes.</p><br><textarea class="csv-input" id="csvInput">${escapeHtml(state.importDraft)}</textarea><br><br><label class="field">Imported Source<select id="importSource"><option>Spreadsheet</option><option>Alpha</option><option>QuickBooks</option><option>Manual</option></select></label>`;
+  return `<p class="panel-copy">Upload CSV, XLS, XLSX, or a text-based PDF. Review every row before import. Expected fields can include Client Name, Phone, Email, Dog Name, Dog Breed, Trainer Assigned, Status, SMS Consent, Email Consent, Source, and Notes.</p><br><label class="client-import-file">Choose client file<input type="file" id="clientImportFile" accept=".csv,.xls,.xlsx,.pdf,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf"></label><div class="import-file-status" id="importFileStatus" role="status" aria-live="polite">Or paste CSV below.</div><textarea class="csv-input" id="csvInput">${escapeHtml(state.importDraft)}</textarea><br><br><label class="field">Imported Source<select id="importSource"><option>Spreadsheet</option><option>Alpha</option><option>QuickBooks</option><option>Manual</option></select></label>`;
 }
 
 function importPreview() {
@@ -2862,16 +2940,77 @@ function importPreview() {
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Action</th><th>Client</th><th>Dog</th><th>Status</th><th>Consent</th><th>Warnings</th></tr></thead><tbody>${state.importedPreview.map((row, index) => `<tr><td><select class="select-pill" data-import-action="${index}"><option ${row.action === "Create" ? "selected" : ""}>Create</option><option ${row.action === "Update" ? "selected" : ""}>Update</option><option ${row.action === "Skip" ? "selected" : ""}>Skip</option><option ${row.action === "Merge" ? "selected" : ""}>Merge</option></select></td><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.phone)} · ${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.dog)}<small>${escapeHtml(row.breed)}</small></td><td><span class="status ${clientStatusClass(row.status)}">${escapeHtml(row.status)}</span></td><td>SMS: ${consentBadge(row.smsConsent)}<br>Email: ${consentBadge(row.emailConsent)}</td><td>${row.warnings.map(w => `<span class="warning-pill">${escapeHtml(w)}</span>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table></div><br><button class="btn btn-red" id="confirmImport">Confirm Import</button>`;
 }
 
+async function importFileToCsv(file) {
+  const extension = String(file.name || "").split(".").pop().toLowerCase();
+  if (extension === "csv") return file.text();
+  if (["xls", "xlsx"].includes(extension)) {
+    if (!window.XLSX) throw new Error("The Excel reader is still loading. Try the file again in a moment.");
+    const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    return window.XLSX.utils.sheet_to_csv(sheet);
+  }
+  if (extension === "pdf") {
+    if (!window.pdfjsLib) throw new Error("The PDF reader is still loading. Try the file again in a moment.");
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+    const documentTask = window.pdfjsLib.getDocument({ data: await file.arrayBuffer() });
+    const pdf = await documentTask.promise;
+    const lines = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const grouped = new Map();
+      content.items.forEach(item => {
+        const y = Math.round(item.transform?.[5] || 0);
+        const cells = grouped.get(y) || [];
+        cells.push({ x: item.transform?.[4] || 0, text: item.str });
+        grouped.set(y, cells);
+      });
+      [...grouped.entries()].sort((a, b) => b[0] - a[0]).forEach(([, cells]) => {
+        lines.push(cells.sort((a, b) => a.x - b.x).map(cell => cell.text.trim()).filter(Boolean).join(","));
+      });
+    }
+    return lines.join("\n");
+  }
+  throw new Error("Choose a CSV, XLS, XLSX, or PDF file.");
+}
+
 function parseCsv(text) {
-  const lines = text.trim().split(/\r?\n/).filter(Boolean);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
-  return lines.slice(1).map(line => {
-    const values = line.split(",").map(v => v.trim());
-    const get = (...keys) => {
-      const found = keys.map(k => headers.indexOf(k)).find(i => i >= 0);
-      return found >= 0 ? values[found] || "" : "";
-    };
+  const source = String(text || "").trim();
+  if (!source) return [];
+  let records = [];
+  if (window.XLSX) {
+    const workbook = window.XLSX.read(source, { type: "string" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    records = window.XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+  } else {
+    const rows = [];
+    let row = [];
+    let value = "";
+    let quoted = false;
+    for (let index = 0; index <= source.length; index += 1) {
+      const character = source[index] || "\n";
+      if (character === '"' && quoted && source[index + 1] === '"') {
+        value += '"';
+        index += 1;
+      } else if (character === '"') quoted = !quoted;
+      else if (character === "," && !quoted) {
+        row.push(value);
+        value = "";
+      } else if ((character === "\n" || character === "\r") && !quoted) {
+        if (character === "\r" && source[index + 1] === "\n") index += 1;
+        row.push(value);
+        if (row.some(cell => String(cell).trim())) rows.push(row);
+        row = [];
+        value = "";
+      } else value += character;
+    }
+    if (rows.length < 2) return [];
+    const headers = rows[0].map(header => String(header).trim());
+    records = rows.slice(1).map(values => Object.fromEntries(headers.map((header, index) => [header, values[index] || ""])));
+  }
+  return records.map(record => {
+    const normalizedRecord = Object.fromEntries(Object.entries(record).map(([key, value]) => [String(key).trim().toLowerCase(), String(value ?? "").trim()]));
+    const get = (...keys) => keys.map(key => normalizedRecord[String(key).toLowerCase()]).find(value => value !== undefined && value !== "") || "";
     const name = get("client name", "name");
     const phone = get("phone", "phone number");
     const email = get("email", "email address");
@@ -2891,15 +3030,19 @@ function parseCsv(text) {
       dog: get("dog name", "dog"),
       breed: get("dog breed", "breed"),
       trainerId: trainerIdFromName(get("trainer assigned", "trainer")),
+      serviceArea: get("service area", "location"),
+      zip: get("zip code", "zip", "postal code"),
       status,
       smsConsent,
       emailConsent,
       importedSource: get("source", "imported source") || document.getElementById("importSource")?.value || "Spreadsheet",
       notes: get("notes", "note"),
+      dateStarted: get("date started", "start date"),
+      lastContacted: get("last contacted", "last contact"),
       warnings,
       action: duplicate ? "Merge" : "Create"
     };
-  });
+  }).filter(row => row.name || row.phone || row.email);
 }
 
 function trainerIdFromName(name) {
@@ -2953,11 +3096,13 @@ function approvedClientRecord(row) {
     trainerId: row.trainerId,
     status: row.status,
     source: row.importedSource,
+    serviceArea: row.serviceArea || "",
+    zip: row.zip || "",
     importedSource: row.importedSource,
     smsConsent: row.smsConsent,
     emailConsent: row.emailConsent,
-    dateStarted: "",
-    lastContacted: "",
+    dateStarted: row.dateStarted || "",
+    lastContacted: row.lastContacted || "",
     notes: row.notes
   };
 }
@@ -3458,6 +3603,10 @@ async function submitLandingGoogleSheet(entries, trainer) {
 }
 
 document.addEventListener("click", async event => {
+  if (session.role === "admin" && isOfficeAdmin() && event.target.closest("#addTrainer,[data-open-client-import],[data-approve-submission],[data-decline-submission],[data-publish-review],[data-unpublish-review],[data-archive-review],[data-restore-review],[data-delete-review],[data-publish-trainer],[data-delete-trainer]")) {
+    showToast("This action requires Super Admin access.");
+    return;
+  }
   const publicReviewMedia = event.target.closest("[data-open-public-review-media]");
   if (publicReviewMedia) {
     openPublicReviewMedia(publicReviewMedia);
@@ -3525,6 +3674,10 @@ document.addEventListener("click", async event => {
       saveState("Create your permanent password before using the portal");
       return;
     }
+    if (session.role === "admin" && !canAccessAdminView(view.dataset.view)) {
+      showToast("This section requires Super Admin access.");
+      return;
+    }
     state.activeView = view.dataset.view;
     if (remoteReady) {
       try {
@@ -3535,6 +3688,22 @@ document.addEventListener("click", async event => {
       }
     }
     saveState();
+    return;
+  }
+  if (event.target.closest("[data-open-client-import]")) {
+    if (isOfficeAdmin()) {
+      showToast("Client import requires Super Admin access.");
+      return;
+    }
+    state.activeView = "clients";
+    saveState();
+    window.setTimeout(() => {
+      const panel = document.getElementById("clientImportPanel");
+      if (panel) {
+        panel.open = true;
+        panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 60);
     return;
   }
   const previewTrainer = event.target.closest("[data-preview-trainer]");
@@ -3683,18 +3852,28 @@ document.addEventListener("click", async event => {
   const approve = event.target.closest("[data-approve-submission]");
   if (approve) {
     const sub = state.submissions.find(s => s.id === approve.dataset.approveSubmission);
+    approve.disabled = true;
     if (remoteReady) {
       const saved = await runRemoteMutation("Submission approved", () => publishApprovedReview(sub));
       if (saved && ["Review", "Testimonial"].includes(sub?.type)) showActionConfirmation("Review published", sub.trainerId === "lorenzos-team" ? "The approved review is now available for the homepage review carousel." : `The approved review is now live on ${trainerName(sub.trainerId)}'s landing page.`);
-    } else saveState("Submission approved");
+      if (!saved) approve.disabled = false;
+    } else if (sub) {
+      sub.status = "Approved";
+      saveState("Submission approved");
+    }
     return;
   }
   const publishReview = event.target.closest("[data-publish-review]");
   if (publishReview) {
     const sub = state.submissions.find(s => s.id === publishReview.dataset.publishReview);
+    publishReview.disabled = true;
     if (remoteReady) {
       const saved = await runRemoteMutation("Review landing page refreshed", () => publishApprovedReview(sub));
       if (saved) showActionConfirmation("Review published", `The review is now live on ${trainerName(sub.trainerId)}'s landing page.`);
+      else publishReview.disabled = false;
+    } else if (sub) {
+      sub.status = "Approved";
+      saveState("Review published");
     }
     return;
   }
@@ -3702,9 +3881,11 @@ document.addEventListener("click", async event => {
   if (deleteReview) {
     const sub = state.submissions.find(s => s.id === deleteReview.dataset.deleteReview);
     if (!sub || !window.confirm(`Move this review from ${sub.reviewerName || "the reviewer"} to Deleted?`)) return;
+    deleteReview.disabled = true;
     if (remoteReady) {
       const saved = await runRemoteMutation("Published review deleted", () => deletePublishedReview(sub));
       if (saved) showActionConfirmation("Review deleted", "The review was removed from public display and moved to the Deleted tab.");
+      else deleteReview.disabled = false;
     } else {
       sub.status = "Deleted";
       saveState("Review moved to Deleted");
@@ -3714,9 +3895,11 @@ document.addEventListener("click", async event => {
   const unpublishReview = event.target.closest("[data-unpublish-review]");
   if (unpublishReview) {
     const sub = state.submissions.find(s => s.id === unpublishReview.dataset.unpublishReview);
+    unpublishReview.disabled = true;
     if (remoteReady) {
       const saved = await runRemoteMutation("Review unpublished", () => unpublishApprovedReview(sub, "Unpublished"));
       if (saved) showActionConfirmation("Review unpublished", "The review was removed from public display and kept in the review inbox.");
+      else unpublishReview.disabled = false;
     } else if (sub) {
       sub.status = "Unpublished";
       saveState("Review unpublished");
@@ -3726,9 +3909,11 @@ document.addEventListener("click", async event => {
   const archiveReview = event.target.closest("[data-archive-review]");
   if (archiveReview) {
     const sub = state.submissions.find(s => s.id === archiveReview.dataset.archiveReview);
+    archiveReview.disabled = true;
     if (remoteReady) {
       const saved = await runRemoteMutation("Review archived", () => unpublishApprovedReview(sub, "Archived"));
       if (saved) showActionConfirmation("Review archived", "The review was removed from active review lists and moved to Archive.");
+      else archiveReview.disabled = false;
     } else if (sub) {
       sub.status = "Archived";
       saveState("Review archived");
@@ -3739,7 +3924,11 @@ document.addEventListener("click", async event => {
   if (restoreReview) {
     const sub = state.submissions.find(s => s.id === restoreReview.dataset.restoreReview);
     if (sub) sub.status = "Pending";
-    if (remoteReady) runRemoteMutation("Review restored to pending", () => persistSubmissionRecord(sub));
+    restoreReview.disabled = true;
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Review restored to pending", () => persistSubmissionRecord(sub));
+      if (!saved) restoreReview.disabled = false;
+    }
     else saveState("Review restored to pending");
     return;
   }
@@ -3768,7 +3957,11 @@ document.addEventListener("click", async event => {
   if (decline) {
     const sub = state.submissions.find(s => s.id === decline.dataset.declineSubmission);
     if (sub) sub.status = "Declined";
-    if (remoteReady) runRemoteMutation("Submission declined", () => persistSubmissionRecord(sub));
+    decline.disabled = true;
+    if (remoteReady) {
+      const saved = await runRemoteMutation("Submission declined", () => persistSubmissionRecord(sub));
+      if (!saved) decline.disabled = false;
+    }
     else saveState("Submission declined");
     return;
   }
@@ -3884,8 +4077,26 @@ document.addEventListener("click", async event => {
     state.importedPreview = [];
     state.clientFilter = "Active";
     if (remoteReady) {
-      runRemoteMutation(`${importedClients.length} client records imported`, async () => {
+      await runRemoteMutation(`${importedClients.length} client records imported`, async () => {
+        const source = document.getElementById("importSource")?.value || importedClients[0]?.importedSource || "Spreadsheet";
+        const batch = (await window.LDTT_PORTAL.insert("client_import_batches", {
+          imported_source: source.toLowerCase(),
+          file_name: document.getElementById("clientImportFile")?.files?.[0]?.name || "pasted-client-data.csv",
+          row_count: rowsToImport.length,
+          status: "preview"
+        }))?.[0];
         for (const client of importedClients) await persistClientRecord(client);
+        if (batch?.id) {
+          const auditRows = rowsToImport.map(row => ({
+            batch_id: batch.id,
+            raw_payload: row,
+            action: String(row.action || "Create").toLowerCase(),
+            warnings: row.warnings || [],
+            imported_client_id: importedClients.find(client => sameContact(client, row))?.remoteId || null
+          }));
+          if (auditRows.length) await window.LDTT_PORTAL.insert("client_import_rows", auditRows);
+          await window.LDTT_PORTAL.update("client_import_batches", batch.id, { status: "imported" });
+        }
       });
     } else {
       saveState("Clients imported into the office client database");
@@ -4109,6 +4320,21 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
+  if (event.target.id === "clientImportFile" && event.target.files?.[0]) {
+    const file = event.target.files[0];
+    const status = document.getElementById("importFileStatus");
+    if (status) status.textContent = `Reading ${file.name}...`;
+    try {
+      state.importDraft = await importFileToCsv(file);
+      state.importedPreview = parseCsv(state.importDraft);
+      if (status) status.textContent = `${file.name} loaded. Review ${state.importedPreview.length} detected rows before confirming.`;
+      saveState(`${state.importedPreview.length} client rows ready for review`);
+    } catch (error) {
+      if (status) status.textContent = `Could not read ${file.name}: ${error.message}`;
+      showToast(`Client file could not be read: ${error.message}`);
+    }
+    return;
+  }
   const reviewSort = event.target.closest("[data-review-sort]");
   if (reviewSort) {
     state.reviewSort = reviewSort.value;

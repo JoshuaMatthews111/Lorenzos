@@ -117,6 +117,23 @@ body.bio-open{overflow:hidden}
   .homepage-approved-review-media{height:210px}
 }
 
+/* Keep both conversion actions visible on medium desktop widths. */
+@media(max-width:1540px) and (min-width:1181px){
+  .nav{gap:12px}
+  .logo{width:138px}
+  .nav-links{gap:11px;font-size:.76rem}
+  .nav-links .btn{padding:11px 12px;font-size:.72rem}
+}
+@media(max-width:1180px) and (min-width:1101px){
+  .nav-links{display:none;position:absolute;top:86px;left:0;right:0;background:#fff;padding:20px;box-shadow:var(--shadow);flex-direction:column;align-items:stretch}
+  .nav-links.open{display:flex}
+  .nav-links a:not(.btn){padding:9px 0;border:0}
+  .nav-dropdown{display:grid;align-items:stretch}
+  .dropdown-menu{position:static;display:grid;box-shadow:none;border:0;padding:0 0 0 14px}
+  .dropdown-menu a{padding:7px 0!important}
+  .mobile-toggle{display:block}
+}
+
 @media(max-width:760px){.trainer-profile-hero{padding:42px 0 28px}.trainer-profile-grid{grid-template-columns:1fr;gap:18px}.trainer-profile-photo{border-radius:20px}.trainer-profile-photo img{height:auto;min-height:0;max-height:none;object-fit:contain}.trainer-profile-copy,.trainer-profile-article{border-radius:20px;padding:25px 22px}.trainer-profile-copy h1{font-size:2.8rem}.trainer-profile-location{font-size:1.05rem}.trainer-profile-actions .btn{width:100%}.trainer-bio-modal{padding:12px}.trainer-bio-panel{border-radius:20px;max-height:90vh}.trainer-bio-layout{grid-template-columns:1fr;min-height:0}.trainer-bio-image{padding:16px}.trainer-bio-image img{max-height:420px}.trainer-bio-content{padding:28px 22px 30px}.trainer-bio-actions .btn{width:100%}.trainer-bio-close{top:10px;margin:10px 10px -54px 0}}
 
 .form-success-modal{position:fixed;inset:0;z-index:150;display:none;align-items:center;justify-content:center;background:rgba(3,13,28,.74);padding:20px}
