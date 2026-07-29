@@ -405,8 +405,9 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
   return {
     ...existing,
     remoteId: remoteTrainer.id,
+    isOfficeDraft: false,
     pageId: remotePage?.id || existing.pageId || "",
-    id: existing.id || remoteTrainer.slug,
+    id: remoteTrainer.id,
     slug: remoteTrainer.slug,
     pageSlug: existing.pageSlug || remotePage?.slug?.replaceAll("-", "") || remoteTrainer.slug.replaceAll("-", ""),
     name: content.trainer_name || remoteTrainer.full_name,
@@ -432,10 +433,14 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     bio: remotePage?.approved_bio || content.bio || remoteTrainer.bio || "",
     profileBio: remoteTrainer.bio || "",
     publicBio: remoteTrainer.bio || "",
-    photo: content.headshot_url || remotePage?.approved_photo_urls?.[0] || remoteTrainer.headshot_url || existing.photo || "",
+    photo: content.landing_bio_photo_url || content.headshot_url || remotePage?.approved_photo_urls?.[0] || remoteTrainer.headshot_url || existing.photo || "",
+    heroTrainerPhoto: content.hero_trainer_photo_url || content.headshot_url || remoteTrainer.headshot_url || existing.heroTrainerPhoto || existing.photo || "",
+    landingBioPhoto: content.landing_bio_photo_url || content.headshot_url || remoteTrainer.headshot_url || existing.landingBioPhoto || existing.photo || "",
     profilePhoto: remoteTrainer.headshot_url || "",
     publicPhoto: remoteTrainer.headshot_url || "",
     image: remotePage?.hero_image_url || content.hero_image_url || existing.image || trainerLandingDogs[templateFromDb(remotePage?.template_key)],
+    heroPhotoPosition: content.hero_photo_position || existing.heroPhotoPosition || "center top",
+    bioPhotoPosition: content.bio_photo_position || existing.bioPhotoPosition || "center top",
     companyLogo: remotePage?.logo_url || "",
     layout: templateFromDb(remotePage?.template_key),
     pageStatus: pageStatusFromDb(remotePage?.page_status),
@@ -746,6 +751,10 @@ function createOfficeTrainerDraft() {
     conversions: 0,
     image: trainerLandingDogs["mock-5"],
     photo: "../assets/lorenzo-logo-transparent.png",
+    heroTrainerPhoto: "../assets/lorenzo-logo-transparent.png",
+    landingBioPhoto: "../assets/lorenzo-logo-transparent.png",
+    heroPhotoPosition: "center top",
+    bioPhotoPosition: "center top",
     profilePhoto: "",
     cardPhoto: "../assets/lorenzo-logo-transparent.png",
     companyLogo: "../assets/lorenzo-logo-transparent.png",
@@ -782,8 +791,12 @@ function trainerDraftContent(trainer) {
     market: trainer.market,
     service_area: trainer.serviceArea,
     bio: trainer.bio,
-    headshot_url: trainer.photo,
+    headshot_url: trainer.profilePhoto || trainer.photo,
+    hero_trainer_photo_url: trainer.heroTrainerPhoto || trainer.photo,
+    landing_bio_photo_url: trainer.landingBioPhoto || trainer.photo,
     hero_image_url: trainer.image,
+    hero_photo_position: trainer.heroPhotoPosition || "center top",
+    bio_photo_position: trainer.bioPhotoPosition || "center top",
     seo_title: trainer.seoTitle,
     seo_description: trainer.seoDescription,
     review1_author: trainer.review1Author,
@@ -801,16 +814,17 @@ function trainerDraftContent(trainer) {
 
 function trainerPagePayload(trainer) {
   const slug = trainerDisplaySlug(trainer);
+  const published = trainer.pageStatus === "Published" && trainer.locked;
   return {
     trainer_id: trainer.remoteId,
     slug,
     template_key: templateToDb(trainer.layout),
-    page_status: "draft",
-    locked: false,
+    page_status: published ? "published" : "draft",
+    locked: published,
     headline: trainer.heroHeadline || approvedLayouts.find(item => item.id === trainer.layout)?.headline || "",
     subheadline: trainer.tagline || "",
     approved_bio: trainer.bio || "",
-    approved_photo_urls: [trainer.photo].filter(Boolean),
+    approved_photo_urls: [trainer.heroTrainerPhoto, trainer.landingBioPhoto, trainer.photo].filter(Boolean),
     social_facebook: trainer.socials?.facebook || null,
     social_instagram: trainer.socials?.instagram || null,
     social_tiktok: trainer.socials?.tiktok || null,
@@ -850,14 +864,17 @@ async function persistTrainerRecord(trainer, options = {}) {
     specialties: String(trainer.profileSpecialtiesText || "").split(/\n|,/).map(value => value.trim()).filter(Boolean),
     social_links: trainer.socials || {}
   };
-  const persistProfile = options.profileOnly || options.persistProfile || !trainer.remoteId;
+  const persistProfile = options.skipProfile !== true;
   if (trainer.remoteId && persistProfile) {
     await window.LDTT_PORTAL.update("trainers", trainer.remoteId, trainerPayload);
   } else if (!trainer.remoteId) {
     const inserted = await window.LDTT_PORTAL.insert("trainers", trainerPayload, { onConflict: "slug" });
     const savedTrainer = inserted?.[0];
     if (!savedTrainer?.id) throw new Error("Trainer record could not be created");
+    const previousId = trainer.id;
     trainer.remoteId = savedTrainer.id;
+    trainer.id = savedTrainer.id;
+    if (state.selectedTrainerId === previousId) state.selectedTrainerId = savedTrainer.id;
     trainer.slug = savedTrainer.slug;
     trainer.pageSlug = trainerPublicSlug(trainer);
   }
@@ -1199,7 +1216,12 @@ function icon(name) {
 }
 
 function trainerById(id = state.selectedTrainerId) {
-  return findTrainer(id) || state.trainers[0];
+  const trainer = findTrainer(id);
+  if (trainer) return trainer;
+  if (arguments.length > 0 && id) return null;
+  const fallback = state.trainers[0] || null;
+  if (fallback) state.selectedTrainerId = fallback.id;
+  return fallback;
 }
 
 function templatePageFile(layoutId) {
@@ -1207,7 +1229,7 @@ function templatePageFile(layoutId) {
 }
 
 function templatePreviewHref(layoutId) {
-  return `${templatePageFile(layoutId)}?trainer=${state.selectedTrainerId || currentTrainerId()}&layout=${layoutId}`;
+  return `${templatePageFile(layoutId)}?trainer=${state.selectedTrainerId || currentTrainerId()}&layout=${layoutId}&preview=1`;
 }
 
 function requestedPublicTrainerKey() {
@@ -1221,8 +1243,9 @@ function requestedPublicTrainerKey() {
 
 function trainerPageHref(trainerOrId) {
   const trainer = typeof trainerOrId === "string" ? trainerById(trainerOrId) : trainerOrId;
+  if (!trainer) return "/staff?role=admin&view=trainerPages";
   if (trainer?.pageSlug && trainer.pageStatus === "Published") return `/${trainerPublicSlug(trainer)}`;
-  return `${templatePageFile(trainer.layout)}?trainer=${trainer.id}&layout=${trainer.layout}`;
+  return `${templatePageFile(trainer.layout)}?trainer=${trainer.id}&layout=${trainer.layout}&preview=1`;
 }
 
 function builderPages() {
@@ -1413,7 +1436,7 @@ function upsertLiveEdit(trainer, edit) {
     trainer.locked = false;
   }
   localStorage.setItem(STORE_KEY, JSON.stringify(state));
-  if (state.builderSurface === "trainer") scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer), 900);
+  if (state.builderSurface === "trainer") scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer, { persistProfile: true }), 900);
 }
 
 function removeLiveEdit(index) {
@@ -1621,9 +1644,15 @@ async function bootstrapApplication() {
     const slug = localTrainer?.slug || requested;
     if (window.LDTT_PORTAL?.enabled && slug) {
       try {
-        const pair = await window.LDTT_PORTAL.loadPublishedTrainer(slug);
-        const merged = mergePublishedTrainer(pair);
+        const includeDraft = new URLSearchParams(window.location.search).get("preview") === "1";
+        const pair = await window.LDTT_PORTAL.loadPublishedTrainer(slug, { includeDraft });
+        const merged = includeDraft && pair?.trainer && pair?.page
+          ? remoteTrainerToUi(pair.trainer, pair.page)
+          : mergePublishedTrainer(pair);
         if (merged) {
+          const existingIndex = state.trainers.findIndex(item => item.slug === merged.slug || item.id === merged.id);
+          if (existingIndex >= 0) state.trainers[existingIndex] = merged;
+          else state.trainers.push(merged);
           state.selectedTrainerId = merged.id;
           renderPublicSite();
         }
@@ -2176,7 +2205,7 @@ function trainerPageCards() {
   return `<div class="trainer-card-grid">${state.trainers.map(trainer => {
     const stats = realTrainerStats(trainer);
     const canDelete = isDraftTrainer(trainer) && !trainer.locked;
-    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainer.image || trainer.photo || trainer.companyLogo || layoutImages[0])}" alt="${escapeHtml(trainer.name || "Trainer Draft")} landing page hero"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Open Setup</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Live Page</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? "Return To Draft" : "Publish & Lock"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
+    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainer.image || trainer.photo || trainer.companyLogo || layoutImages[0])}" alt="${escapeHtml(trainer.name || "Trainer Draft")} landing page hero"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Edit Trainer & Landing Page</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">${trainer.pageStatus === "Published" ? "View Published Page" : "Preview Draft"}</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? "Return To Draft" : "Publish Landing Page"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
   }).join("")}</div>`;
 }
 
@@ -2185,8 +2214,29 @@ function trainerSiteActivityTable() {
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Time</th><th>Trainer</th><th>Location</th><th>Activity</th><th>Source</th><th>Campaign</th><th>Page</th></tr></thead><tbody>${events.map(event => `<tr><td>${escapeHtml(new Date(event.timestamp).toLocaleString())}</td><td><strong>${escapeHtml(event.assigned_trainer || trainerName(event.trainer_id))}</strong></td><td>${escapeHtml([event.trainer_city || event.trainer_market, event.trainer_state].filter(Boolean).join(" · ") || "—")}</td><td><span class="status ${event.event_type === "trainer_form_submitted" ? "won" : "new"}">${event.event_type === "trainer_form_submitted" ? "Lead Form" : "Page Visit"}</span></td><td>${escapeHtml(event.utm_source || event.referrer || "Direct")}</td><td>${escapeHtml(event.utm_campaign || "—")}</td><td>${escapeHtml(event.page_path || "—")}</td></tr>`).join("") || `<tr><td colspan="7">Open a trainer landing page to record the first attributed visit.</td></tr>`}</tbody></table></div>`;
 }
 
+function trainerImageUploadCard(trainer, options) {
+  const value = trainer[options.key] || options.fallback || "/assets/lorenzo-logo-transparent.png";
+  const positions = [
+    ["center top", "Top"],
+    ["center center", "Center"],
+    ["center bottom", "Bottom"]
+  ];
+  return `<section class="trainer-image-upload-card">
+    <div class="trainer-image-upload-heading"><span>${escapeHtml(options.eyebrow)}</span><h3>${escapeHtml(options.title)}</h3><p>${escapeHtml(options.description)}</p></div>
+    <div class="wizard-media-preview ${options.contain ? "contain" : ""}"><img src="${escapeHtml(value)}" style="object-position:${escapeHtml(trainer[options.positionKey] || "center top")}" alt="${escapeHtml(options.title)} preview"></div>
+    ${options.positionKey ? `<label class="image-position-control"><span>Photo framing</span><select name="admin-trainer-${options.positionKey}">${positions.map(([valueOption, label]) => `<option value="${valueOption}" ${valueOption === (trainer[options.positionKey] || "center top") ? "selected" : ""}>${label}</option>`).join("")}</select></label>` : ""}
+    <label class="upload-drop"><strong>${escapeHtml(options.button)}</strong><small>JPG, PNG, WebP, or GIF · up to 10 MB</small><input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" data-trainer-upload="${escapeHtml(options.key)}"></label>
+  </section>`;
+}
+
 function trainerAdminForm() {
   const t = trainerById();
+  if (!t) return panel("Trainer Setup", "", "<p>Select a trainer from the Trainer Network to begin.</p>", "pad");
+  t.profilePhoto ||= t.cardPhoto || t.publicPhoto || "";
+  t.heroTrainerPhoto ||= t.photo || t.profilePhoto || "";
+  t.landingBioPhoto ||= t.photo || t.profilePhoto || "";
+  t.heroPhotoPosition ||= "center top";
+  t.bioPhotoPosition ||= "center top";
   if (t.specialtiesText == null) t.specialtiesText = (t.specialties || []).join("\n");
   if (t.credentialsText == null) t.credentialsText = (t.credentials || []).join("\n");
   profileFieldPairs().forEach(pair => {
@@ -2208,11 +2258,14 @@ function trainerAdminForm() {
   if (step === 1) content = `<div class="form-grid">${textField("name", "Trainer Name")}${textField("title", "Professional Title", { placeholder: "Lorenzo's Certified Dog Trainer" })}${textField("email", "Email / Username", { type: "email", help: "This email identifies the trainer's portal account." })}${textField("temporaryPassword", "Temporary Password", { help: "Use the office-issued temporary password for first login. The trainer must replace it immediately." })}${textField("phone", "Public Phone")}${textField("market", "City / Market")}${textField("state", "State / Region")}</div>`;
   if (step === 2) content = `<div class="wizard-template-choice">${approvedLayouts.map(layout => `<label class="wizard-template-option ${t.layout === layout.id ? "selected" : ""}"><input type="radio" name="admin-trainer-layout" value="${layout.id}" ${t.layout === layout.id ? "checked" : ""}><img src="${layout.preview}" alt="${escapeHtml(layout.name)}"><span><strong>${escapeHtml(layout.name)}</strong><small>${escapeHtml(layout.tag)}</small></span></label>`).join("")}</div><div class="brand-lock-note">The office chooses one approved design. Lorenzo's colors, affiliation, office phone number, and required conversion sections stay locked.</div>`;
   if (step === 3) content = `<div class="form-grid">${textField("serviceArea", "Service Area", { wide: true, placeholder: "Cleveland, Garfield Heights, Akron, and surrounding areas" })}${textField("bio", "Office-Approved Trainer Bio", { wide: true, area: true, placeholder: "Tell the trainer's story, approach, and experience." })}${textField("tagline", "Page Tagline", { wide: true })}${textField("heroHeadline", "Hero Headline", { wide: true })}${textField("seoTitle", "SEO Page Title", { wide: true, help: "Use trainer name, dog training service, and city/state." })}${textField("seoDescription", "SEO Description", { wide: true, area: true, help: "Describe obedience training, behavior modification, service area, and Lorenzo affiliation in 150-160 characters." })}</div>`;
-  if (step === 4) content = `<div class="wizard-upload-grid"><section><h3>Trainer Photo</h3>${mediaPreview(t.photo, "/assets/trainer-bio-photos/eric-beck.jpg", `${t.name} trainer photo`)}${textField("photo", "Photo URL", { wide: true })}<label class="upload-drop">Upload trainer photo<input type="file" accept="image/*" data-trainer-upload="photo"></label></section><section><h3>Hero / Training Photo</h3>${mediaPreview(t.image, "/assets/trainer-bio-photos/eric-beck.jpg", `${t.name} hero photo`)}${textField("image", "Hero Image URL", { wide: true })}<label class="upload-drop">Upload hero image<input type="file" accept="image/*" data-trainer-upload="image"></label></section><section><h3>Optional Company Logo</h3>${mediaPreview(t.companyLogo, "/assets/lorenzo-logo-transparent.png", "Company logo preview")}${textField("companyLogo", "Logo URL", { wide: true })}<label class="upload-drop">Upload company logo<input type="file" accept="image/*" data-trainer-upload="companyLogo"></label></section></div><section class="hero-library"><div><span class="step-label">Office Media Library</span><h3>Choose a professional hero image</h3><p>Use an approved training, trainer, owner, or team image. The office can replace it later without rebuilding the page.</p></div><div class="hero-option-grid">${heroImageOptions.map(option => `<button type="button" class="hero-option ${t.image === option.src ? "selected" : ""}" data-hero-image="${escapeHtml(option.src)}"><img src="${escapeHtml(option.src)}" alt="${escapeHtml(option.label)}"><span>${escapeHtml(option.label)}</span></button>`).join("")}</div></section><div class="brand-lock-note">Lorenzo's badge, colors, typography, office phone number, and “Powered by Lorenzo's Dog Training Team” affiliation remain locked on every design.</div>`;
+  if (step === 4) content = `<div class="wizard-media-purpose"><div><span class="step-label">Four separate image roles</span><h3>Upload files directly from this computer</h3><p>Each image has one clear job. Nothing is inherited from another trainer, and no URL entry is required.</p></div></div><div class="wizard-upload-grid image-role-grid">${trainerImageUploadCard(t, { key: "profilePhoto", eyebrow: "Main Website", title: "Trainer Headshot", description: "Used on Find a Trainer and the public trainer profile.", button: "Upload Headshot", contain: true })}${trainerImageUploadCard(t, { key: "heroTrainerPhoto", positionKey: "heroPhotoPosition", eyebrow: "Landing Page · First Photo", title: "Hero Trainer Photo", description: "The first trainer image visitors see in the landing-page hero.", button: "Upload Hero Trainer Photo" })}${trainerImageUploadCard(t, { key: "landingBioPhoto", positionKey: "bioPhotoPosition", eyebrow: "Landing Page · Second Photo", title: "Trainer Bio Photo", description: "Shown beside the trainer biography farther down the landing page.", button: "Upload Bio Photo" })}${trainerImageUploadCard(t, { key: "image", eyebrow: "Landing Page Background", title: "Hero Background", description: "The wide training scene behind the headline and consultation form.", button: "Upload Background Photo" })}${trainerImageUploadCard(t, { key: "companyLogo", eyebrow: "Optional", title: "Company Logo", description: "Leave the Lorenzo logo in place or upload an approved local company logo.", button: "Upload Company Logo", contain: true })}</div><section class="hero-library"><div><span class="step-label">Approved Background Library</span><h3>Or choose a professional hero background</h3><p>This only changes the wide landing-page background. It never replaces the trainer headshot or trainer photos.</p></div><div class="hero-option-grid">${heroImageOptions.map(option => `<button type="button" class="hero-option ${t.image === option.src ? "selected" : ""}" data-hero-image="${escapeHtml(option.src)}"><img src="${escapeHtml(option.src)}" alt="${escapeHtml(option.label)}"><span>${escapeHtml(option.label)}</span></button>`).join("")}</div></section><div class="brand-lock-note">Lorenzo branding and office routing stay protected on every design.</div>`;
   if (step === 5) content = `<div class="form-grid">${textField("specialtiesText", "Services / Specialties", { wide: true, area: true, placeholder: "Obedience Training\nBehavior Modification\nPuppy Training", help: "Enter one approved service per line." })}${textField("credentialsText", "Credentials / Trust Points", { wide: true, area: true, placeholder: "Lorenzo's Certified Dog Trainer\nLDTT training system\nOngoing education", help: "Enter one approved credential per line." })}</div><div class="credential-preview"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><div><strong>Powered by Lorenzo's Dog Training Team</strong><span>Serious Training. Serious Results.</span></div></div>`;
   if (step === 6) content = `<div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Testimonial ${n}</h3>${textField(`review${n}Author`, "Client Name")}${textField(`review${n}Copy`, "Approved Review", { area: true })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
-  if (step === 7) content = `<div class="publish-review"><div><span>Public page</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.seoTitle || `${t.name} Dog Training in ${t.market}`)}</small></div><div>${pageStatusBadge(t)}</div></div><div class="row-actions"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Full Page</a><button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? "Return To Draft" : "Publish & Lock Page"}</button></div>`;
-  return `<div class="trainer-onboarding"><aside class="onboarding-rail"><p class="portal-tag">Office Setup</p><h2>${escapeHtml(t.name)}</h2><p>Imported trainer details are already loaded. Complete, review, and publish the office-controlled page.</p>${steps.map(([number, title, sub]) => `<button class="onboarding-step ${step === number ? "active" : ""} ${step > number ? "complete" : ""}" data-onboarding-step="${number}"><span>${step > number ? "✓" : number}</span><div><strong>${title}</strong><small>${sub}</small></div></button>`).join("")}</aside><section class="onboarding-workspace"><div class="onboarding-heading"><div><span>Step ${step} of 7</span><h2>${steps[step - 1][1]}</h2><p>${steps[step - 1][2]}. Changes save to this office-controlled trainer profile.</p></div><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Open Live Preview</a></div>${content}<footer class="onboarding-footer"><button class="btn btn-outline" data-onboarding-step="${Math.max(1, step - 1)}" ${step === 1 ? "disabled" : ""}>Back</button><span>Saved to the shared office database</span>${step < 7 ? `<button class="btn btn-red" data-onboarding-step="${step + 1}">Save & Continue</button>` : `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft</button>`}</footer></section></div>${trainerProfileEditor(t)}`;
+  if (step === 7) {
+    const publicUrl = `https://www.lorenzosdogtrainingteam.com/${trainerPublicSlug(t)}`;
+    content = `<section class="publish-review publish-review-clear"><div><span>Landing-page status</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.pageStatus)} ${t.locked ? "· Office locked" : "· Editable draft"}</small></div><div>${pageStatusBadge(t)}</div></section><section class="publish-url-card"><span>Final public address</span><strong>${escapeHtml(publicUrl)}</strong><p>Publishing uses this trainer-specific URL. It will not inherit another trainer’s name, photo, city, state, or page record.</p></section><div class="publish-action-grid"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Draft Landing Page</a>${t.pageStatus === "Published" ? `<a class="btn btn-outline" href="/${trainerPublicSlug(t)}" target="_blank" rel="noopener">View Published Landing Page</a>` : ""}<button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? "Return Page To Draft" : "Publish Landing Page"}</button></div>`;
+  }
+  return `<div class="trainer-onboarding"><aside class="onboarding-rail"><p class="portal-tag">Office Setup</p><h2>${escapeHtml(t.name)}</h2><p>Imported trainer details are already loaded. Complete, review, and publish the office-controlled page.</p>${steps.map(([number, title, sub]) => `<button class="onboarding-step ${step === number ? "active" : ""} ${step > number ? "complete" : ""}" data-onboarding-step="${number}"><span>${step > number ? "✓" : number}</span><div><strong>${title}</strong><small>${sub}</small></div></button>`).join("")}</aside><section class="onboarding-workspace"><div class="onboarding-heading"><div><span>Step ${step} of 7</span><h2>${steps[step - 1][1]}</h2><p>${steps[step - 1][2]}. Changes save to this office-controlled trainer profile.</p></div><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Landing Page</a></div>${content}<footer class="onboarding-footer"><button class="btn btn-outline" data-onboarding-step="${Math.max(1, step - 1)}" ${step === 1 ? "disabled" : ""}>Back</button><span>Saved to the shared office database</span>${step < 7 ? `<button class="btn btn-red" data-onboarding-step="${step + 1}">Save & Continue</button>` : `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft</button>`}</footer></section></div>${trainerProfileEditor(t)}`;
 }
 
 function pageEditorPreviewDocument(trainer) {
@@ -2250,6 +2303,12 @@ function trainerPageEditor() {
   const field = (label, name, value, options = {}) => `<label class="${options.wide ? "wide" : ""}"><span>${escapeHtml(label)}</span>${options.area
     ? `<textarea data-editor-field="${name}">${escapeHtml(value || "")}</textarea>`
     : `<input ${options.type ? `type="${options.type}"` : ""} data-editor-field="${name}" value="${escapeHtml(value || "")}">`}</label>`;
+  const editorImageCard = (key, title, description, positionKey = "") => `<article class="editor-image-card">
+    <div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(description)}</span></div>
+    <img src="${escapeHtml(trainer[key] || "/assets/lorenzo-logo-transparent.png")}" style="object-position:${escapeHtml(positionKey ? (trainer[positionKey] || "center top") : "center")}" alt="${escapeHtml(title)} preview">
+    ${positionKey ? `<label><span>Photo framing</span><select data-editor-field="${positionKey}"><option value="center top" ${trainer[positionKey] === "center top" ? "selected" : ""}>Top</option><option value="center center" ${trainer[positionKey] === "center center" ? "selected" : ""}>Center</option><option value="center bottom" ${trainer[positionKey] === "center bottom" ? "selected" : ""}>Bottom</option></select></label>` : ""}
+    <label class="editor-upload"><span>Upload ${escapeHtml(title)}</span><input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" data-editor-upload="${escapeHtml(key)}"></label>
+  </article>`;
   const preview = builderPreviewConfig(trainer);
   const activeTab = state.builderTab || "page";
   const tabs = [["page", "Page"], ["sections", "Sections"], ["media", "Media"], ["style", "Style"], ["history", "History"]];
@@ -2265,7 +2324,7 @@ function trainerPageEditor() {
   const controls = {
     page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${selectedElementControls}`,
     sections: sectionControls,
-    media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images</h3>${field("Trainer Photo URL", "photo", trainer.photo)}<label class="editor-upload"><span>Upload Trainer Photo</span><input type="file" accept="image/*" data-editor-upload="photo"></label>${field("Hero Image URL", "image", trainer.image)}<label class="editor-upload"><span>Upload Hero Image</span><input type="file" accept="image/*,video/*" data-editor-upload="image"></label>${field("Logo URL", "companyLogo", trainer.companyLogo)}<label class="editor-upload"><span>Upload Logo</span><input type="file" accept="image/*" data-editor-upload="companyLogo"></label></div>`,
+    media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images</h3><p class="builder-help">Each upload has one purpose. Files replace only the selected image role and preview immediately.</p><div class="editor-image-grid">${editorImageCard("profilePhoto", "Main Website Headshot", "Find a Trainer and public profile") }${editorImageCard("heroTrainerPhoto", "Landing Hero Trainer Photo", "First trainer photo in the hero", "heroPhotoPosition") }${editorImageCard("landingBioPhoto", "Landing Bio Photo", "Second trainer photo beside the biography", "bioPhotoPosition") }${editorImageCard("image", "Hero Background", "Wide training scene behind the hero") }${editorImageCard("companyLogo", "Company Logo", "Optional approved local logo") }</div></div>`,
     style: `<div class="editor-control-section"><h3>Typography & Color</h3><label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS","Impact"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label><label><span>Type Scale</span><input type="range" min="0.85" max="1.25" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label><label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label><label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label></div><div class="editor-control-section"><h3>Approved Reviews</h3>${field("Review 1 Client", "review1Author", trainer.review1Author)}${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}${field("Review 2 Client", "review2Author", trainer.review2Author)}${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}${field("Review 3 Client", "review3Author", trainer.review3Author)}${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}</div>`,
     history: `<div class="editor-control-section"><h3>Live Edits</h3>${renderLiveEditList(trainer)}<button class="btn btn-outline" type="button" data-reset-live-edits>Reset All Live Edits</button></div>`
   };
@@ -2378,7 +2437,7 @@ function profileFieldPairs() {
     { profile: "profilePhone", public: "publicPhone", landing: "phone", label: "Public Phone" },
     { profile: "profileEmail", public: "publicEmail", landing: "email", label: "Public Email" },
     { profile: "profileBio", public: "publicBio", landing: "bio", label: "Trainer Bio", area: true },
-    { profile: "profilePhoto", public: "publicPhoto", landing: "photo", label: "Trainer Photo URL" },
+    { profile: "profilePhoto", public: "publicPhoto", landing: null, label: "Main Website Trainer Headshot", upload: true },
     { profile: "profileSpecialtiesText", public: "publicSpecialtiesText", landing: "specialties", label: "Specialties", area: true, list: true },
     { profile: "profileCredentialsText", public: "publicCredentialsText", landing: "credentials", label: "Credentials", area: true, list: true }
   ];
@@ -2396,16 +2455,18 @@ function normalizedSyncValue(value) {
 function syncRow(trainer, pair) {
   const profileValue = fieldValue(trainer, pair.profile);
   const publicValue = pair.public ? fieldValue(trainer, pair.public) : profileValue;
-  const landingValue = fieldValue(trainer, pair.landing);
+  const landingValue = pair.landing ? fieldValue(trainer, pair.landing) : profileValue;
   const publicMatches = normalizedSyncValue(profileValue) === normalizedSyncValue(publicValue);
   const landingMatches = normalizedSyncValue(profileValue) === normalizedSyncValue(landingValue);
-  const control = pair.area
+  const control = pair.upload
+    ? `<div class="profile-photo-upload"><img src="${escapeHtml(profileValue || "/assets/lorenzo-logo-transparent.png")}" alt="${escapeHtml(pair.label)} preview"><label class="upload-drop"><strong>Upload headshot file</strong><small>JPG, PNG, WebP, or GIF</small><input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" data-trainer-upload="${pair.profile}"></label></div>`
+    : pair.area
     ? `<textarea data-profile-field="${pair.profile}" placeholder="${escapeHtml(pair.label)}">${escapeHtml(profileValue)}</textarea>`
     : `<input data-profile-field="${pair.profile}" value="${escapeHtml(profileValue)}" placeholder="${escapeHtml(pair.label)}">`;
   return `<article class="profile-sync-row ${publicMatches && landingMatches ? "matches" : "mismatch"}">
     <label><span>${escapeHtml(pair.label)}</span>${control}</label>
     ${pair.public ? `<div class="sync-meta"><span class="sync-state ${publicMatches ? "match" : "mismatch"}">${publicMatches ? "✓ Matches public profile" : "Needs public profile update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-public-field="${pair.profile}">Update frontend</button></div>` : ""}
-    <div class="sync-meta"><span class="sync-state ${landingMatches ? "match" : "mismatch"}">${landingMatches ? "✓ Matches landing page" : "Needs landing page update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-profile-field="${pair.profile}" data-landing-field="${pair.landing}" data-sync-list="${pair.list ? "true" : "false"}">Update landing page</button></div>
+    ${pair.landing ? `<div class="sync-meta"><span class="sync-state ${landingMatches ? "match" : "mismatch"}">${landingMatches ? "✓ Matches landing page" : "Needs landing page update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-profile-field="${pair.profile}" data-landing-field="${pair.landing}" data-sync-list="${pair.list ? "true" : "false"}">Update landing page</button></div>` : ""}
   </article>`;
 }
 
@@ -3336,7 +3397,7 @@ function serviceCardsMarkup(layoutId) {
 function trainerSectionMarkup(trainer, variant = "split") {
   const facts = (trainer.credentials || []).map(item => `<li>${escapeHtml(item)}</li>`).join("");
   const specialties = (trainer.specialties || []).map(item => `<li>${escapeHtml(item)}</li>`).join("");
-  return `<section class="landing-trainer-section ${variant}" id="trainer"><div class="landing-trainer-photo"><img src="${escapeHtml(trainer.photo || trainer.image)}" alt="${escapeHtml(trainer.name)}, dog trainer in ${escapeHtml(trainer.market)}"></div><div class="landing-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title || "Lorenzo's Certified Dog Trainer")}</h3><p>${escapeHtml(trainer.bio)}</p><ul class="landing-facts">${facts}</ul></div><aside class="landing-trainer-side"><h3>${escapeHtml(trainer.name)} specializes in:</h3><ul>${specialties}</ul><div class="powered-badge"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><span>Certified and powered by Lorenzo's Dog Training Team</span></div></aside></section>`;
+  return `<section class="landing-trainer-section ${variant}" id="trainer"><div class="landing-trainer-photo"><img src="${escapeHtml(trainer.landingBioPhoto || trainer.photo || "/assets/lorenzo-logo-transparent.png")}" alt="${escapeHtml(trainer.name)}, dog trainer in ${escapeHtml(trainer.market)}"></div><div class="landing-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title || "Lorenzo's Certified Dog Trainer")}</h3><p>${escapeHtml(trainer.bio)}</p><ul class="landing-facts">${facts}</ul></div><aside class="landing-trainer-side"><h3>${escapeHtml(trainer.name)} specializes in:</h3><ul>${specialties}</ul><div class="powered-badge"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><span>Certified and powered by Lorenzo's Dog Training Team</span></div></aside></section>`;
 }
 
 function proofSectionMarkup(trainer, heading = "What our clients say") {
@@ -3376,8 +3437,11 @@ function publicSiteMarkup(trainer) {
   const params = new URLSearchParams(window.location.search);
   const forcedLayout = document.body.dataset.layout || params.get("layout");
   const layout = approvedLayouts.find(l => l.id === (forcedLayout || trainer.layout)) || approvedLayouts[0];
-  const heroImage = escapeHtml(trainerLandingDogs[layout.id] || "/assets/client-photo.jpg");
-  const trainerPhoto = escapeHtml(trainer.photo || trainer.image || "../assets/trainer-bio-photos/eric-beck.jpg");
+  const heroImage = escapeHtml(trainer.image || trainerLandingDogs[layout.id] || "/assets/client-photo.jpg");
+  const heroTrainerPhoto = escapeHtml(trainer.heroTrainerPhoto || trainer.profilePhoto || trainer.photo || "/assets/lorenzo-logo-transparent.png");
+  const bioTrainerPhoto = escapeHtml(trainer.landingBioPhoto || trainer.photo || trainer.profilePhoto || "/assets/lorenzo-logo-transparent.png");
+  const heroPhotoPosition = escapeHtml(trainer.heroPhotoPosition || "center top");
+  const bioPhotoPosition = escapeHtml(trainer.bioPhotoPosition || "center top");
   const styleSettings = trainer.styleSettings || {};
   const styleAttr = `--lp-font:${escapeHtml(styleSettings.fontFamily || "Inter")};--lp-scale:${Number(styleSettings.fontScale || 1)};--lp-primary:${escapeHtml(styleSettings.brandPrimary || "#071f44")};--lp-accent:${escapeHtml(styleSettings.brandAccent || "#d80f35")}`;
   const editedHeadline = String(trainer.heroHeadline || "").trim();
@@ -3387,7 +3451,7 @@ function publicSiteMarkup(trainer) {
   const formCard = officeLeadFormMarkup(trainer, true);
   const market = escapeHtml(trainer.market);
   const serviceArea = escapeHtml(trainer.serviceArea);
-  const trainerHeroCard = `<div class="lp-hero-trainer-card"><img src="${trainerPhoto}" alt="${escapeHtml(trainer.name)}"><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainerLocationLabel(trainer))}</span></div></div>`;
+  const trainerHeroCard = `<div class="lp-hero-trainer-card"><img src="${heroTrainerPhoto}" style="object-position:${heroPhotoPosition}" alt="${escapeHtml(trainer.name)}"><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainerLocationLabel(trainer))}</span></div></div>`;
   const credentials = (trainer.credentials || []).slice(0, 4).map(item => `<li>${escapeHtml(item)}</li>`).join("");
   const specialties = (trainer.specialties || []).slice(0, 6).map(item => `<li>${escapeHtml(item)}</li>`).join("");
   const brandBadge = `<div class="ldtt-affiliation"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><div><strong>Lorenzo's Certified Dog Trainer</strong><span>Powered by Lorenzo's Dog Training Team</span></div></div>`;
@@ -3398,19 +3462,23 @@ function publicSiteMarkup(trainer) {
   const footer = `<section class="lp-final"><div><span>Start with Lorenzo's office</span><h2>Ready for a better life with your dog?</h2><p>Request your consultation today. The office will contact you within 1-3 business days.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}`;
 
   if (layout.id === "mock-6") {
-    return `<div class="landing-template landing-template-6 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp6-hero" style="--hero-art:url('${heroImage}')"><div class="lp6-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br><em>Serious results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Professional dog training for families in ${trainerLocationLabel(trainer)}. Lorenzo's proven system builds obedience, modifies behavior, and creates dependable control in real life.`)}</p><ul class="lp6-proof-points"><li>Proven methods</li><li>Trusted results</li><li>Lifetime impact</li></ul></div>${trainerHeroCard}<div class="lp6-form">${formCard}</div></section>${stats}${services}<section class="lp6-trainer" id="trainer"><div class="lp6-trainer-image"><img src="${trainerPhoto}" alt="${escapeHtml(trainer.name)} with a trained dog"></div><div class="lp6-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p>${brandBadge}</div><aside><h3>${escapeHtml(trainer.name)}'s specialties</h3><ul>${specialties}</ul><h3>Credentials</h3><ul>${credentials}</ul></aside></section>${reviews}<section class="lp6-cta"><div><span>Professional training in ${market}</span><h2>Ready to transform your dog?</h2><ul><li>Professional evaluation</li><li>Tailored training recommendations</li><li>Office-guided next steps</li></ul></div>${officeLeadFormMarkup(trainer, true)}</section>${footer}</div>`;
+    return `<div class="landing-template landing-template-6 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp6-hero" style="--hero-art:url('${heroImage}')"><div class="lp6-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br><em>Serious results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Professional dog training for families in ${trainerLocationLabel(trainer)}. Lorenzo's proven system builds obedience, modifies behavior, and creates dependable control in real life.`)}</p><ul class="lp6-proof-points"><li>Proven methods</li><li>Trusted results</li><li>Lifetime impact</li></ul></div>${trainerHeroCard}<div class="lp6-form">${formCard}</div></section>${stats}${services}<section class="lp6-trainer" id="trainer"><div class="lp6-trainer-image"><img src="${bioTrainerPhoto}" style="object-position:${bioPhotoPosition}" alt="${escapeHtml(trainer.name)} with a trained dog"></div><div class="lp6-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p>${brandBadge}</div><aside><h3>${escapeHtml(trainer.name)}'s specialties</h3><ul>${specialties}</ul><h3>Credentials</h3><ul>${credentials}</ul></aside></section>${reviews}<section class="lp6-cta"><div><span>Professional training in ${market}</span><h2>Ready to transform your dog?</h2><ul><li>Professional evaluation</li><li>Tailored training recommendations</li><li>Office-guided next steps</li></ul></div>${officeLeadFormMarkup(trainer, true)}</section>${footer}</div>`;
   }
 
   if (layout.id === "mock-3") {
-    return `<div class="landing-template landing-template-3 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp3-hero" style="--hero-art:url('${heroImage}')"><div class="lp3-copy"><span>★★★★★ &nbsp; ${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br>Serious <em>results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Trusted dog obedience training and behavior modification for families in ${trainerLocationLabel(trainer)} and throughout ${trainer.serviceArea}.`)}</p><ul><li>Proven methods that work</li><li>Balanced training for real-life results</li><li>Backed by Lorenzo's nationwide team</li></ul></div>${trainerHeroCard}<div class="lp3-form">${formCard}</div></section>${stats}${services}<section class="lp3-trainer" id="trainer"><div class="lp3-photo"><img src="${trainerPhoto}" alt="${escapeHtml(trainer.name)}, certified Lorenzo trainer"></div><div class="lp3-bio"><span>Meet your trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p><div class="lp3-trust"><ul>${credentials}</ul><ul>${specialties}</ul></div>${brandBadge}</div></section>${reviews}${process}<section class="lp3-contact"><div><span>Let's build a better future</span><h2>For you and your dog.</h2><p>Serving ${serviceArea} with professional, office-supported dog training.</p></div>${officeLeadFormMarkup(trainer, true)}<aside><strong>Office follow-up</strong><span>Submit the form and Lorenzo's team will respond within 1-3 business days.</span></aside></section>${landingFooter(trainer)}</div>`;
+    return `<div class="landing-template landing-template-3 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp3-hero" style="--hero-art:url('${heroImage}')"><div class="lp3-copy"><span>★★★★★ &nbsp; ${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br>Serious <em>results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Trusted dog obedience training and behavior modification for families in ${trainerLocationLabel(trainer)} and throughout ${trainer.serviceArea}.`)}</p><ul><li>Proven methods that work</li><li>Balanced training for real-life results</li><li>Backed by Lorenzo's nationwide team</li></ul></div>${trainerHeroCard}<div class="lp3-form">${formCard}</div></section>${stats}${services}<section class="lp3-trainer" id="trainer"><div class="lp3-photo"><img src="${bioTrainerPhoto}" style="object-position:${bioPhotoPosition}" alt="${escapeHtml(trainer.name)}, certified Lorenzo trainer"></div><div class="lp3-bio"><span>Meet your trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p><div class="lp3-trust"><ul>${credentials}</ul><ul>${specialties}</ul></div>${brandBadge}</div></section>${reviews}${process}<section class="lp3-contact"><div><span>Let's build a better future</span><h2>For you and your dog.</h2><p>Serving ${serviceArea} with professional, office-supported dog training.</p></div>${officeLeadFormMarkup(trainer, true)}<aside><strong>Office follow-up</strong><span>Submit the form and Lorenzo's team will respond within 1-3 business days.</span></aside></section>${landingFooter(trainer)}</div>`;
   }
 
-  return `<div class="landing-template landing-template-5 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp5-hero" style="--hero-art:url('${heroImage}')"><div class="lp5-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("The right trainer.<br><em>The right results.</em>")}</h1><h2>Obedience. Behavior solutions. Real results.</h2><p>${escapeHtml(trainer.tagline || `Personalized dog training in ${trainerLocationLabel(trainer)}, backed by Lorenzo's proven system and an office team that manages every lead and next step.`)}</p><div class="lp5-proof"><span>Proven methods that work</span><span>Personalized training plans</span><span>Results you can see and feel</span></div></div>${trainerHeroCard}<div class="lp5-form">${formCard}</div></section><section class="lp5-trust"><div class="lp-heading"><span>Why choose Lorenzo's?</span><h2>Experience, accountability, and a proven system.</h2></div>${stats}</section><section class="lp5-trainer" id="trainer"><div class="lp5-bio"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p><ul>${credentials}</ul>${brandBadge}</div><div class="lp5-photo"><img src="${trainerPhoto}" alt="${escapeHtml(trainer.name)} with a trained dog"></div><aside><h3>${escapeHtml(trainer.name)} specializes in</h3><ul>${specialties}</ul></aside></section>${services}${reviews}${process}<section class="lp5-final"><div><span>Ready to transform your dog?</span><h2>Start with a professional consultation.</h2><p>Office-guided scheduling. Local trainer expertise. Lorenzo-backed results.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}</div>`;
+  return `<div class="landing-template landing-template-5 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp5-hero" style="--hero-art:url('${heroImage}')"><div class="lp5-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("The right trainer.<br><em>The right results.</em>")}</h1><h2>Obedience. Behavior solutions. Real results.</h2><p>${escapeHtml(trainer.tagline || `Personalized dog training in ${trainerLocationLabel(trainer)}, backed by Lorenzo's proven system and an office team that manages every lead and next step.`)}</p><div class="lp5-proof"><span>Proven methods that work</span><span>Personalized training plans</span><span>Results you can see and feel</span></div></div>${trainerHeroCard}<div class="lp5-form">${formCard}</div></section><section class="lp5-trust"><div class="lp-heading"><span>Why choose Lorenzo's?</span><h2>Experience, accountability, and a proven system.</h2></div>${stats}</section><section class="lp5-trainer" id="trainer"><div class="lp5-bio"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p><ul>${credentials}</ul>${brandBadge}</div><div class="lp5-photo"><img src="${bioTrainerPhoto}" style="object-position:${bioPhotoPosition}" alt="${escapeHtml(trainer.name)} with a trained dog"></div><aside><h3>${escapeHtml(trainer.name)} specializes in</h3><ul>${specialties}</ul></aside></section>${services}${reviews}${process}<section class="lp5-final"><div><span>Ready to transform your dog?</span><h2>Start with a professional consultation.</h2><p>Office-guided scheduling. Local trainer expertise. Lorenzo-backed results.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}</div>`;
 }
 
 function renderPublicSite() {
   const params = new URLSearchParams(window.location.search);
   const trainer = trainerById(requestedPublicTrainerKey() || params.get("trainer") || state.selectedTrainerId);
+  if (!trainer) {
+    document.getElementById("publicSite").innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer page…</h1><p>Retrieving the office-approved trainer profile.</p></main>`;
+    return;
+  }
   document.title = trainer.seoTitle || `${trainer.name} Dog Training in ${trainer.market} | Lorenzo's Dog Training Team`;
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = trainer.seoDescription || `Professional dog obedience training and behavior modification with ${trainer.name} in ${trainer.market}, backed by Lorenzo's Dog Training Team.`;
@@ -4260,7 +4328,12 @@ document.addEventListener("input", event => {
     const key = field.name.replace("admin-trainer-", "");
     trainer[key] = key === "locked" ? field.value === "true" : field.value;
     if (key === "email") trainer.username = field.value;
-    if (key === "name" && !trainer.profileName) trainer.profileName = field.value;
+    if (key === "name") trainer.profileName = field.value;
+    if (key === "email") trainer.profileEmail = field.value;
+    if (key === "phone") trainer.profilePhone = field.value;
+    if (key === "market") trainer.profileMarket = field.value;
+    if (key === "state") trainer.profileState = field.value;
+    if (key === "serviceArea") trainer.profileServiceArea = field.value;
     if (key === "specialtiesText") trainer.specialties = field.value.split(/\n|,/).map(value => value.trim()).filter(Boolean);
     if (key === "credentialsText") trainer.credentials = field.value.split(/\n|,/).map(value => value.trim()).filter(Boolean);
     refreshDraftTrainerIdentity(trainer, key);
@@ -4418,6 +4491,10 @@ document.addEventListener("change", async event => {
         }
       } else if (slot !== "mediaLibrary") {
         trainer[slot] = uploaded.url;
+        if (slot === "profilePhoto") {
+          trainer.publicPhoto = uploaded.url;
+          trainer.cardPhoto = uploaded.url;
+        }
       }
       trainer.pageStatus = "Draft";
       trainer.locked = false;
@@ -4445,11 +4522,11 @@ document.addEventListener("change", async event => {
         const path = `${trainer.remoteId || slugify(trainer.name)}/${upload.dataset.trainerUpload}-${Date.now()}.${extension}`;
         await window.LDTT_PORTAL.upload("trainer-page-assets", path, file);
         trainer[upload.dataset.trainerUpload] = window.LDTT_PORTAL.publicStorageUrl("trainer-page-assets", path);
-        if (upload.dataset.trainerUpload === "photo") {
-          trainer.profilePhoto = trainer.profilePhoto || trainer.photo;
-          trainer.cardPhoto = trainer.cardPhoto || trainer.photo;
+        if (upload.dataset.trainerUpload === "profilePhoto") {
+          trainer.publicPhoto = trainer.profilePhoto;
+          trainer.cardPhoto = trainer.profilePhoto;
         }
-        await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer));
+        await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer, { persistProfile: upload.dataset.trainerUpload === "profilePhoto" }));
       } catch (error) {
         showToast(`Image upload failed: ${error.message}`);
       }
@@ -4457,9 +4534,9 @@ document.addEventListener("change", async event => {
       const reader = new FileReader();
       reader.onload = () => {
         trainer[upload.dataset.trainerUpload] = reader.result;
-        if (upload.dataset.trainerUpload === "photo") {
-          trainer.profilePhoto = trainer.profilePhoto || trainer.photo;
-          trainer.cardPhoto = trainer.cardPhoto || trainer.photo;
+        if (upload.dataset.trainerUpload === "profilePhoto") {
+          trainer.publicPhoto = trainer.profilePhoto;
+          trainer.cardPhoto = trainer.profilePhoto;
         }
         saveState("Image uploaded to trainer setup preview");
       };
@@ -4593,7 +4670,12 @@ document.addEventListener("change", async event => {
     const key = event.target.name.replace("admin-trainer-", "");
     trainer[key] = key === "locked" ? event.target.value === "true" : event.target.value;
     if (key === "layout") trainer.pageStatus = trainer.pageStatus === "No Site Started" ? "Draft" : trainer.pageStatus;
-    if (key === "name" && !trainer.profileName) trainer.profileName = event.target.value;
+    if (key === "name") trainer.profileName = event.target.value;
+    if (key === "email") trainer.profileEmail = event.target.value;
+    if (key === "phone") trainer.profilePhone = event.target.value;
+    if (key === "market") trainer.profileMarket = event.target.value;
+    if (key === "state") trainer.profileState = event.target.value;
+    if (key === "serviceArea") trainer.profileServiceArea = event.target.value;
     refreshDraftTrainerIdentity(trainer, key);
     saveState("Trainer profile field updated");
   }

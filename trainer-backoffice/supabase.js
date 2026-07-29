@@ -269,9 +269,12 @@
     return { trainers, pages, leads, clients, dogs, applications, submissions, events, portalUsers, officeNotes };
   }
 
-  async function loadPublishedTrainer(slug) {
+  async function loadPublishedTrainer(slug, options = {}) {
     const requested = String(slug || "").trim();
-    let trainers = await select("trainers", `select=*&slug=eq.${encodeURIComponent(requested)}&limit=1`);
+    const looksLikeId = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(requested);
+    let trainers = looksLikeId
+      ? await select("trainers", `select=*&id=eq.${encodeURIComponent(requested)}&limit=1`)
+      : await select("trainers", `select=*&slug=eq.${encodeURIComponent(requested)}&limit=1`);
     let trainer = trainers?.[0];
     if (!trainer && requested) {
       const compact = requested.replaceAll("-", "").toLowerCase();
@@ -279,7 +282,8 @@
       trainer = trainers.find(item => String(item.slug || "").replaceAll("-", "").toLowerCase() === compact) || null;
     }
     if (!trainer) return null;
-    const pages = await select("trainer_pages", `select=*&trainer_id=eq.${encodeURIComponent(trainer.id)}&page_status=eq.published&locked=eq.true&limit=1`);
+    const visibility = options.includeDraft ? "" : "&page_status=eq.published&locked=eq.true";
+    const pages = await select("trainer_pages", `select=*&trainer_id=eq.${encodeURIComponent(trainer.id)}${visibility}&order=updated_at.desc&limit=1`);
     return { trainer, page: pages?.[0] || null };
   }
 

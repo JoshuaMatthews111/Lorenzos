@@ -4,7 +4,7 @@ toggle?.addEventListener('click',()=>{const open=nav.classList.toggle('open');to
 
 const search=document.querySelector('#trainerSearch');
 const buttons=[...document.querySelectorAll('.filter-btn')];
-const cards=[...document.querySelectorAll('.trainer-card')];
+let cards=[...document.querySelectorAll('.trainer-card')];
 const count=document.querySelector('#trainerCount');
 let filter='';
 
@@ -25,10 +25,17 @@ const publicTrainerProfilesPromise=(async()=>{
   const config=window.LDTT_SUPABASE||{};
   if(!config.enabled||!config.projectUrl||!config.publishableKey) return new Map();
   try{
-    const response=await fetch(`${String(config.projectUrl).replace(/\/$/,'')}/rest/v1/trainers?select=slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active&access_status=eq.active`,{headers:{apikey:config.publishableKey}});
-    if(!response.ok) throw new Error(`Trainer profile request failed (${response.status})`);
-    const rows=await response.json();
-    return new Map((rows||[]).map(row=>[row.slug,row]));
+    const base=String(config.projectUrl).replace(/\/$/,'');
+    const headers={apikey:config.publishableKey};
+    const [trainerResponse,pageResponse]=await Promise.all([
+      fetch(`${base}/rest/v1/trainers?select=id,slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active&access_status=eq.active`,{headers}),
+      fetch(`${base}/rest/v1/trainer_pages?select=trainer_id,slug,page_status,locked&page_status=eq.published&locked=eq.true`,{headers})
+    ]);
+    if(!trainerResponse.ok) throw new Error(`Trainer profile request failed (${trainerResponse.status})`);
+    const rows=await trainerResponse.json();
+    const publishedPages=pageResponse.ok?await pageResponse.json():[];
+    const publishedByTrainer=new Map((publishedPages||[]).map(page=>[page.trainer_id,page]));
+    return new Map((rows||[]).map(row=>[row.slug,{...row,publishedPage:publishedByTrainer.get(row.id)||null}]));
   }catch(error){
     console.warn('Live trainer profiles could not be loaded',error);
     return new Map();
@@ -49,6 +56,19 @@ buttons.forEach(button=>button.addEventListener('click',()=>{
 }));
 
 publicTrainerProfilesPromise.then(profiles=>{
+  const trainerGrid=document.querySelector('#trainerGrid');
+  profiles.forEach(record=>{
+    if(!trainerGrid||!record.publishedPage||trainerGrid.querySelector(`[data-trainer-slug="${CSS.escape(record.slug)}"]`)) return;
+    const location=publicTrainerLocation(record);
+    const publicSlug=String(record.slug||'').replaceAll('-','');
+    const article=document.createElement('article');
+    article.className='trainer-card';
+    article.dataset.trainerSlug=record.slug;
+    article.dataset.search=`${record.full_name||''} ${location} ${record.service_area||''}`.toLowerCase();
+    article.innerHTML=`<div class="trainer-photo-frame"><img src="${escapePublicText(record.headshot_url||'assets/lorenzo-logo-transparent.png')}" alt="${escapePublicText(record.full_name||'Lorenzo trainer')}" loading="lazy"></div><div class="trainer-info"><span class="tag">${escapePublicText(record.state||'Trainer Network')}</span><h3>${escapePublicText(record.full_name||'Lorenzo Trainer')}</h3><p class="trainer-card-location">${escapePublicText(location)}</p><p class="trainer-bio">${escapePublicText(String(record.bio||'Office-approved trainer profile.').slice(0,220))}</p><div class="trainer-links"><a class="link" href="/${escapePublicText(publicSlug)}#trainer">View bio →</a><a class="link" href="/${escapePublicText(publicSlug)}#contact">Schedule this trainer →</a></div></div>`;
+    trainerGrid.appendChild(article);
+    cards.push(article);
+  });
   document.querySelectorAll('[data-trainer-slug]').forEach(card=>{
     const record=profiles.get(card.dataset.trainerSlug);
     if(!record) return;
