@@ -23,6 +23,10 @@
     return readSession()?.user || null;
   }
 
+  function accessToken() {
+    return readSession()?.access_token || "";
+  }
+
   function authHeaders(session = readSession()) {
     const headers = {
       apikey: config.publishableKey,
@@ -243,6 +247,36 @@
   }
 
   async function loadOperationalData() {
+    const session = readSession();
+    if (session?.access_token) {
+      try {
+        const response = await fetch("/api/operational-data", {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`
+          }
+        });
+        const data = await response.json().catch(() => null);
+        if (response.ok && data?.ok) {
+          return {
+            trainers: data.trainers || [],
+            pages: data.pages || [],
+            leads: data.leads || [],
+            clients: data.clients || [],
+            dogs: data.dogs || [],
+            applications: data.applications || [],
+            submissions: data.submissions || [],
+            events: data.events || [],
+            portalUsers: data.portalUsers || [],
+            officeNotes: data.officeNotes || []
+          };
+        }
+        if (response.status !== 403) {
+          console.warn("LDTT operational API unavailable; falling back to direct Supabase reads.", data?.message || response.status);
+        }
+      } catch (error) {
+        console.warn("LDTT operational API failed; falling back to direct Supabase reads.", error);
+      }
+    }
     const [
       trainers,
       pages,
@@ -279,7 +313,17 @@
     if (!trainer && requested) {
       const compact = requested.replaceAll("-", "").toLowerCase();
       trainers = await select("trainers", "select=*");
-      trainer = trainers.find(item => String(item.slug || "").replaceAll("-", "").toLowerCase() === compact) || null;
+      const slugify = value => String(value || "")
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      trainer = trainers.find(item => {
+        const itemSlug = String(item.slug || "").replaceAll("-", "").toLowerCase();
+        const itemNameSlug = slugify(item.full_name).replaceAll("-", "");
+        return itemSlug === compact || itemNameSlug === compact;
+      }) || null;
     }
     if (!trainer) return null;
     const visibility = options.includeDraft ? "" : "&page_status=eq.published&locked=eq.true";
@@ -295,6 +339,7 @@
     changePassword,
     currentPortalUser,
     currentAuthUser,
+    accessToken,
     loadOperationalData,
     loadPublishedTrainer,
     select,
