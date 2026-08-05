@@ -61,6 +61,56 @@ body.is-logged-in .login-screen { display: none; }
   line-height: .95;
 }
 .login-card p { color: var(--muted); }
+.portal-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  position: relative;
+  isolation: isolate;
+  gap: 0;
+  padding: 5px;
+  margin: 18px 0 8px;
+  border: 1px solid #c8d5e6;
+  border-radius: 999px;
+  background: #edf3fa;
+  box-shadow: inset 0 1px 4px rgba(7,31,70,.08);
+}
+.portal-mode-toggle::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  width: calc(50% - 5px);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--navy), #0b3673);
+  box-shadow: 0 12px 24px rgba(7,31,70,.2);
+  transition: transform .22s ease;
+}
+.portal-mode-toggle[data-active-mode="trainer"]::before {
+  transform: translateX(100%);
+}
+.portal-mode-toggle button {
+  position: relative;
+  z-index: 1;
+  border: 0;
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 11px 12px;
+  background: transparent;
+  color: #486487;
+  font-weight: 950;
+  transition: color .18s ease;
+}
+.portal-mode-toggle button.active {
+  color: #fff;
+}
+.login-mode-help {
+  margin: 10px 0 0;
+  color: #365273 !important;
+  font-size: .9rem;
+  font-weight: 750;
+}
 .login-form {
   display: grid;
   gap: 14px;

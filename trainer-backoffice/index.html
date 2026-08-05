@@ -5,16 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo back-office prototype for office-controlled trainer pages, leads, clients, imports, approvals, and reporting.">
-  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260803photoRoles">
+  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260805loginStorage">
 </head>
 <body class="is-logged-out">
   <section class="login-screen" id="loginScreen" aria-label="Trainer Network login">
     <div class="login-card">
       <img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team">
       <p class="eyebrow">Trainer Network</p>
-      <h1>Trainers Login</h1>
+      <h1>Trainer Login</h1>
       <p>Authorized Lorenzo office staff and trainers can sign in with their assigned credentials.</p>
-      <div class="portal-mode-toggle" aria-label="Choose portal login type">
+      <div class="portal-mode-toggle" data-active-mode="trainer" aria-label="Choose portal login type">
         <button type="button" data-login-mode="admin">Admin / Office</button>
         <button class="active" type="button" data-login-mode="trainer">Trainer</button>
       </div>
@@ -42,7 +42,7 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script src="/trainer-backoffice/application-data.js?v=20260730ads3"></script>
-  <script src="/trainer-backoffice/supabase.js?v=20260804identityShared"></script>
-  <script src="/trainer-backoffice/app.js?v=20260804identityShared"></script>
+  <script src="/trainer-backoffice/supabase.js?v=20260805loginStorage"></script>
+  <script src="/trainer-backoffice/app.js?v=20260805loginStorage"></script>
 </body>
 </html>

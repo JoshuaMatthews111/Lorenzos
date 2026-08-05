@@ -1,22 +1,75 @@
 (() => {
   const config = window.LDTT_SUPABASE || {};
   const STORAGE_KEY = "ldttPortalAuth.v1";
+  const RECOVERABLE_CACHE_KEYS = [
+    "ldttOperationalSnapshot.v1",
+    "ldttTrainerSiteEvents.v1"
+  ];
 
   const enabled = Boolean(config.enabled && config.projectUrl && config.publishableKey);
   const baseUrl = String(config.projectUrl || "").replace(/\/$/, "");
   let refreshPromise = null;
 
   function readSession() {
+    return readStoredSession(localStorage) || readStoredSession(sessionStorage);
+  }
+
+  function readStoredSession(storage) {
     try {
-      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      return JSON.parse(storage.getItem(STORAGE_KEY) || "null");
     } catch {
       return null;
     }
   }
 
+  function isQuotaError(error) {
+    return error?.name === "QuotaExceededError" ||
+      error?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      /quota|exceeded/i.test(error?.message || "");
+  }
+
+  function clearRecoverableCache(exceptKey = "") {
+    RECOVERABLE_CACHE_KEYS.forEach(key => {
+      if (key === exceptKey) return;
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // Storage cleanup is best effort only.
+      }
+    });
+  }
+
   function writeSession(session) {
-    if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    else localStorage.removeItem(STORAGE_KEY);
+    if (!session) {
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+      return;
+    }
+    const value = JSON.stringify(session);
+    try {
+      localStorage.setItem(STORAGE_KEY, value);
+      try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+      return;
+    } catch (error) {
+      if (isQuotaError(error)) {
+        clearRecoverableCache(STORAGE_KEY);
+        try {
+          localStorage.setItem(STORAGE_KEY, value);
+          try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
+          return;
+        } catch {
+          // Fall through to tab-scoped auth storage.
+        }
+      }
+      try {
+        sessionStorage.setItem(STORAGE_KEY, value);
+        try { localStorage.removeItem(STORAGE_KEY); } catch {}
+        console.warn("LDTT portal auth is using tab storage because browser storage is full.", error);
+        return;
+      } catch {
+        throw error;
+      }
+    }
   }
 
   function currentAuthUser() {

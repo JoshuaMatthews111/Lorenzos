@@ -6,6 +6,10 @@ const TEMP_PASSWORD = ""; // temp passwords are issued by the office privately â
 const DEMO_TEST_PASSWORD = "doglover26";
 const SITE_EVENT_KEY = "ldttTrainerSiteEvents.v1";
 const OPERATIONAL_SNAPSHOT_KEY = "ldttOperationalSnapshot.v1";
+const RECOVERABLE_LOCAL_CACHE_KEYS = [
+  OPERATIONAL_SNAPSHOT_KEY,
+  SITE_EVENT_KEY
+];
 const REAL_TRAINERS = Array.isArray(window.LDTT_TRAINER_ROSTER) ? window.LDTT_TRAINER_ROSTER : [];
 const IMPORTED_APPLICATION_FIELDS = Array.isArray(window.LDTT_TRAINER_APPLICATION_FIELDS) ? window.LDTT_TRAINER_APPLICATION_FIELDS : [];
 const IMPORTED_APPLICATION_RESPONSES = Array.isArray(window.LDTT_TRAINER_APPLICATION_RESPONSES) ? window.LDTT_TRAINER_APPLICATION_RESPONSES : [];
@@ -421,8 +425,59 @@ function loadSession() {
   }
 }
 
+function isStorageQuotaError(error) {
+  return error?.name === "QuotaExceededError" ||
+    error?.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    /quota|exceeded/i.test(error?.message || "");
+}
+
+function clearRecoverableLocalCache(exceptKey = "") {
+  RECOVERABLE_LOCAL_CACHE_KEYS.forEach(key => {
+    if (key === exceptKey) return;
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Cache cleanup should never block login or saving live Supabase data.
+    }
+  });
+}
+
+function safeLocalSetItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    if (isStorageQuotaError(error)) {
+      clearRecoverableLocalCache(key);
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (retryError) {
+        console.warn(`LDTT local cache could not be saved for ${key}`, retryError);
+        return false;
+      }
+    }
+    console.warn(`LDTT local cache could not be saved for ${key}`, error);
+    return false;
+  }
+}
+
+function safeSessionSetItem(key, value) {
+  try {
+    sessionStorage.setItem(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`LDTT session cache could not be saved for ${key}`, error);
+    return false;
+  }
+}
+
+function persistStateSnapshot() {
+  return safeLocalSetItem(STORE_KEY, JSON.stringify(state));
+}
+
 function saveState(message, skipRender = false) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
   if (message) showToast(message);
   if (!skipRender) render();
 }
@@ -430,7 +485,7 @@ function saveState(message, skipRender = false) {
 function saveSession(role, extras = {}) {
   session = { loggedIn: true, role, ...extras };
   state.role = role;
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  safeSessionSetItem(SESSION_KEY, JSON.stringify(session));
 }
 
 function hasOperationalRows(data = {}) {
@@ -440,7 +495,7 @@ function hasOperationalRows(data = {}) {
 function writeOperationalSnapshot(data = {}) {
   if (!hasOperationalRows(data)) return;
   try {
-    localStorage.setItem(OPERATIONAL_SNAPSHOT_KEY, JSON.stringify({
+    safeLocalSetItem(OPERATIONAL_SNAPSHOT_KEY, JSON.stringify({
       ...data,
       savedAt: new Date().toISOString()
     }));
@@ -886,7 +941,7 @@ function mergeRemoteOperationalData(data) {
   remotePortalUsers = data.portalUsers || [];
   remoteOfficeNotes = data.officeNotes || [];
   remoteReady = true;
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
 }
 
 async function prepareRemoteData(data) {
@@ -1665,7 +1720,7 @@ function persistDemoPortalUser(user, changes = {}) {
   if (portalUser && demoPortalKeyFor(portalUser) === key) {
     portalUser = demoPortalUser(key);
   }
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
 }
 
 function fileToDataUrl(file) {
@@ -1797,7 +1852,7 @@ function relabelCurrentActorActivity() {
     }
     return next;
   });
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
 }
 
 function recordActivity(action, detail = "", type = "Portal") {
@@ -1815,7 +1870,7 @@ function recordActivity(action, detail = "", type = "Portal") {
     type
   });
   state.activityLog = state.activityLog.slice(0, 250);
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
 }
 
 function officeNoteActivityRows() {
@@ -1925,7 +1980,7 @@ async function resetPortalUserPassword(user, password) {
   if (isDemoPortalUser(user)) {
     const key = demoPortalKeyFor(user);
     state.demoPasswords = { ...(state.demoPasswords || {}), [key]: password };
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    persistStateSnapshot();
     return { ok: true, demo: true };
   }
   if (!remoteReady || !window.LDTT_PORTAL?.accessToken) {
@@ -2034,7 +2089,7 @@ async function deleteTrainerDraft(trainer) {
   state.trainers = state.trainers.filter(item => item.id !== trainer.id && item.remoteId !== trainer.remoteId);
   state.selectedTrainerId = state.trainers[0]?.id || "";
   state.activeView = "trainerPages";
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
   return true;
 }
 
@@ -2332,7 +2387,7 @@ function upsertLiveEdit(trainer, edit) {
     trainer.pageStatus = "Draft";
     trainer.locked = false;
   }
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
   if (state.builderSurface === "trainer") scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer, { persistProfile: true }), 900);
 }
 
@@ -2366,7 +2421,7 @@ function markBuilderDraftDirty(message = "Builder change saved to draft", detail
     trainer.pageStatus = "Draft";
     trainer.locked = false;
   }
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
   if (state.builderSurface === "trainer") scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer), 900);
   if (detail) recordActivity(message, detail, state.builderSurface === "trainer" ? "Trainer Page" : "Page Editor");
   if (message) showToast(message);
@@ -3800,7 +3855,7 @@ function injectLiveBuilder(frame) {
       element.setAttribute("data-ldtt-selected", "true");
       const selector = selectorForElement(element);
       state.builderSelectedSelector = selector;
-      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      persistStateSnapshot();
       const label = element.textContent?.trim()?.slice(0, 64) || element.alt || element.tagName.toLowerCase();
       const isText = !["IMG", "VIDEO"].includes(element.tagName) && element.children.length < 2;
       if (isText) {
@@ -5264,7 +5319,7 @@ function recordTrainerPageView(trainer) {
   events.push(event);
   localStorage.setItem(SITE_EVENT_KEY, JSON.stringify(events));
   trainer.clicks = Number(trainer.clicks || 0) + 1;
-  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  persistStateSnapshot();
   submitToSupabase("track-site-event", event).catch(error => console.warn("LDTT trainer page tracking failed", error));
 }
 
@@ -5423,6 +5478,8 @@ document.addEventListener("click", async event => {
   if (loginModeButton) {
     const mode = loginModeButton.dataset.loginMode || "admin";
     const card = loginModeButton.closest(".login-card") || document;
+    const toggle = loginModeButton.closest(".portal-mode-toggle");
+    if (toggle) toggle.dataset.activeMode = mode;
     card.querySelectorAll("[data-login-mode]").forEach(button => button.classList.toggle("active", button === loginModeButton));
     const title = card.querySelector("h1");
     const helper = card.querySelector("#loginModeHelp");
@@ -6127,7 +6184,7 @@ document.addEventListener("click", async event => {
   const editorSave = event.target.closest("[data-editor-save]");
   if (editorSave) {
     if (state.builderSurface !== "trainer") {
-      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+      persistStateSnapshot();
       showToast("Builder workspace changes saved");
       return;
     }
@@ -6244,7 +6301,7 @@ document.addEventListener("input", event => {
     trainer.pageStatus = "Draft";
     trainer.locked = false;
     refreshPageEditorPreview();
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    persistStateSnapshot();
     return;
   }
   if (field.dataset.editorStyle) {
@@ -6256,7 +6313,7 @@ document.addEventListener("input", event => {
     trainer.pageStatus = "Draft";
     trainer.locked = false;
     refreshPageEditorPreview();
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    persistStateSnapshot();
     return;
   }
   if (field.dataset.builderEmbedUrl !== undefined) {
@@ -6545,7 +6602,7 @@ document.addEventListener("change", async event => {
     trainer[event.target.dataset.editorField] = event.target.value;
     trainer.pageStatus = "Draft";
     trainer.locked = false;
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    persistStateSnapshot();
     refreshPageEditorPreview();
     scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer), 900);
     recordActivity("Page editor field changed", `${trainer.name} field "${event.target.dataset.editorField}" was updated in the page editor.`, "Page Editor");
@@ -6557,7 +6614,7 @@ document.addEventListener("change", async event => {
     trainer.styleSettings = { ...(trainer.styleSettings || {}), [event.target.dataset.editorStyle]: event.target.value };
     trainer.pageStatus = "Draft";
     trainer.locked = false;
-    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    persistStateSnapshot();
     refreshPageEditorPreview();
     scheduleRemoteSave(`builder-${trainer.id}`, () => persistTrainerRecord(trainer), 900);
     recordActivity("Page style changed", `${trainer.name} style "${event.target.dataset.editorStyle}" was updated in the page editor.`, "Page Editor");
