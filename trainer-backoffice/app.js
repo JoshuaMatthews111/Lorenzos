@@ -1481,6 +1481,7 @@ async function persistLeadRecord(lead) {
       status: leadStatusToDb[lead.status] || "new_inquiry",
       lost_reason: lead.lostReason || null,
       assigned_user_id: lead.assignedUserId || null,
+      office_notes: lead.note || null,
       raw_payload: {
         ...(lead.rawPayload || {}),
         follow_up_date: lead.followUpDate || null
@@ -1508,15 +1509,20 @@ function officeNotesFor(entityType, entityId) {
   if (!entityId) return [];
   return remoteOfficeNotes
     .filter(note => note.entity_type === entityType && note.entity_id === entityId)
-    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+    .sort((a, b) => timestampValue(a.created_at) - timestampValue(b.created_at));
 }
 
 function latestOfficeNote(entityType, entityId) {
   return officeNotesFor(entityType, entityId).at(-1) || null;
 }
 
+function hasSharedRecordId(value) {
+  const id = String(value || "").trim();
+  return Boolean(id && id !== "undefined" && id !== "null");
+}
+
 async function saveEditableOfficeNote(entityType, entityId, noteId, note) {
-  if (!remoteReady || session.role !== "admin" || !entityId || !noteId || !String(note || "").trim()) return null;
+  if (!remoteReady || session.role !== "admin" || !hasSharedRecordId(entityId) || !noteId || !String(note || "").trim()) return null;
   const existing = officeNotesFor(entityType, entityId).find(item => item.id === noteId);
   if (!existing) throw new Error("That note changed or is no longer available. Reload the record and try again.");
   const result = await window.LDTT_PORTAL.operationalMutation({
@@ -1538,13 +1544,13 @@ function officeNoteTimeline(entityType, entityId) {
   return `<div class="office-note-timeline">${notes.map(note => {
     const revisions = remoteNoteRevisions
       .filter(revision => revision.office_note_id === note.id)
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      .sort((a, b) => timestampValue(b.created_at) - timestampValue(a.created_at));
     return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorLabel(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
   }).join("")}</div>`;
 }
 
 async function addOfficeNote(entityType, entityId, note) {
-  if (!remoteReady || session.role !== "admin" || !entityId || !note.trim()) return null;
+  if (!remoteReady || session.role !== "admin" || !hasSharedRecordId(entityId) || !note.trim()) return null;
   const result = await window.LDTT_PORTAL.operationalMutation({
     operation: "save_note",
     entity_type: entityType,
@@ -1584,7 +1590,8 @@ async function persistApplicationRecord(application) {
     summary: `${applicationDisplayName(application)} saved as ${application.status || "New Application"}`,
     changes: {
       status: applicationStatusToDb[application.status] || "new_application",
-      assigned_user_id: application.assignedUserId || null
+      assigned_user_id: application.assignedUserId || null,
+      office_notes: application.note || null
     }
   });
   application.version = Number(result.version || application.version || 1);
@@ -4747,7 +4754,7 @@ function saveApplicationOverride(id, changes) {
 }
 
 function applicationRows() {
-  if (remoteReady) return [...state.applications].sort((a, b) => String(b.receivedAt || b.createdAt || "").localeCompare(String(a.receivedAt || a.createdAt || "")));
+  if (remoteReady) return [...state.applications].sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
   const overrides = applicationOverrides();
   const imported = IMPORTED_APPLICATION_RESPONSES.map(row => ({
     ...row,
@@ -4764,12 +4771,13 @@ function applicationRows() {
       if (!map.has(key)) map.set(key, row);
       else map.set(key, { ...map.get(key), ...row, rawPayload: row.rawPayload || map.get(key).rawPayload });
     });
-    return Array.from(map.values()).sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    return Array.from(map.values()).sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
   };
   const stored = storedRows("ldttTrainerApplications.v1").map((row, index) => ({
     ...row,
     id: `stored-app-${index}`,
-    createdAt: row.timestamp || row.page_url || "",
+    createdAt: row.timestamp || row.createdAt || "",
+    receivedAt: row.timestamp || row.createdAt || "",
     first_name: row.first_name || "",
     last_name: row.last_name || "",
     email: row.email || "",
@@ -4957,7 +4965,7 @@ function contactSubmissionRows() {
       market: derivedMarket.market,
       sourcePageSlug: derivedMarket.pageSlug,
       status: row.status || "New Inquiry",
-      createdAt: (row.timestamp || new Date().toISOString()).slice(0, 10),
+      createdAt: row.timestamp || row.createdAt || new Date().toISOString(),
       next: "Office follow-up needed",
       clientNote: row.comments || "",
       note: row.office_note || "",
@@ -5003,7 +5011,7 @@ function applicationTable() {
   const activeFilter = currentApplicationFilter();
   const rows = applicationRows()
     .filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter)
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
   return `<div class="application-sheet-actions"><span class="status live">${escapeHtml(activeFilter)} view</span><p>Review the applicant, change recruiting status, and leave office notes. Use the filter at the top of this Applications page to change which records show here.</p></div>
   <div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Received</th><th>Location</th><th>Contact</th><th>Source</th><th>Status</th><th>Latest Office Note</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => {
     const latest = latestOfficeNote("application", app.remoteId);
@@ -5026,7 +5034,7 @@ function applicationDisplayName(app) {
 function applicationPipelineBoard() {
   const columns = ["New Application", "Under Review", "Discovery Follow-up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
   const rows = applicationRows()
-    .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
   return `<div class="application-sheet-actions"><span class="status ${rows.some(applicationNeedsAction) ? "pending" : "live"}">${rows.filter(applicationNeedsAction).length} need action</span><p>Drag applications through the recruiting flow. Once a card is moved out of New Application, the notification count clears because the office has taken action.</p></div>
     <div class="lead-kanban application-kanban">${columns.map(column => {
       const columnRows = rows.filter(app => (app.status || "New Application") === column);
@@ -5037,7 +5045,7 @@ function applicationPipelineBoard() {
 function applicationPipelineCard(app) {
   const name = applicationDisplayName(app);
   return `<article class="lead-card application-card" draggable="true" data-application-card="${escapeHtml(app.id)}" data-open-application="${escapeHtml(app.id)}">
-    <div class="lead-card-top"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(formatApplicationDate(app.createdAt))}</span></div>
+    <div class="lead-card-top"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</span></div>
     <p>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "Location pending")}</p>
     <small>${escapeHtml(app.email || "No email")} · ${escapeHtml(app.phone || "No phone")}</small>
     <div class="delivery-badges"><span>${escapeHtml(app.inquiry_type === "full_application" ? "Full Application" : app.inquiry_type === "discovery_call" ? "Discovery Call" : "Contact-form interest")}</span><span>${escapeHtml(app.referral_source || "Referral pending")}</span></div>
@@ -6083,10 +6091,23 @@ function formatDate(value) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function parseTimestamp(value) {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const text = String(value || "").trim();
+  if (!text || /^(undefined|null)$/i.test(text) || /^https?:\/\//i.test(text)) return null;
+  const normalized = /^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T12:00:00` : text;
+  const date = new Date(normalized);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function timestampValue(value) {
+  return parseTimestamp(value)?.getTime() || 0;
+}
+
 function formatDateTime(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = parseTimestamp(value);
+  if (!date) return value ? String(value) : "—";
   return date.toLocaleString("en-US", {
     month: "2-digit",
     day: "2-digit",
@@ -6364,7 +6385,7 @@ document.addEventListener("click", async event => {
   if (addNote) {
     const entityType = addNote.dataset.addOfficeNote;
     const entityId = addNote.dataset.entityId;
-    if (!remoteReady || !entityId) {
+    if (!remoteReady || !hasSharedRecordId(entityId)) {
       showToast("Office notes require the shared Supabase record to be loaded first.");
       return;
     }
@@ -7283,6 +7304,7 @@ document.addEventListener("input", event => {
     const client = state.clients.find(item => item.id === field.dataset.clientNote);
     if (client) {
       client.notes = field.value;
+      scheduleRemoteSave(`client-${client.id}`, () => persistClientRecord(client));
       saveState(null, true);
     }
   }
@@ -7690,12 +7712,12 @@ document.addEventListener("change", async event => {
   if (submissionNote) {
     const submission = state.submissions.find(item => item.id === submissionNote.dataset.submissionNote);
     if (submission) submission.note = submissionNote.value;
-    if (remoteReady) runRemoteMutation("Submission note saved", () => persistSubmissionRecord(submission), {
+    if (remoteReady && submission?.remoteId) runRemoteMutation("Submission note saved", () => persistSubmissionRecord(submission), {
       render: false,
       type: "Review",
       detail: `${submission?.title || "Submission"} office note updated.`
     });
-    else saveState("Submission note saved", true);
+    else saveState(remoteReady ? "Submission note needs a shared record before it can save live" : "Submission note saved locally", true);
     return;
   }
   const reviewDisplay = event.target.closest("[data-review-display]");
@@ -7748,8 +7770,12 @@ document.addEventListener("change", async event => {
   if (clientNote) {
     const client = state.clients.find(item => item.id === clientNote.dataset.clientNote);
     if (client) client.notes = clientNote.value;
-    recordActivity("Client note updated", `${client?.name || "Client"} office note updated by ${currentActorLabel()}.`, "Client");
-    saveState("Client note updated", true);
+    if (remoteReady && client?.remoteId) runRemoteMutation("Client note saved", () => persistClientRecord(client), {
+      render: false,
+      type: "Client",
+      detail: `${client?.name || "Client"} note updated by ${currentActorLabel()}.`
+    });
+    else saveState(remoteReady ? "Client note needs a shared record before it can save live" : "Client note saved locally", true);
     return;
   }
   const actionField = event.target.closest("[data-import-action]");
