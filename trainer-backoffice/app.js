@@ -617,6 +617,17 @@ function samePhotoUrl(first, second) {
   return String(first || "").trim() === String(second || "").trim();
 }
 
+function safeTrainerAssetUrl(value = "") {
+  const url = String(value || "").trim();
+  const match = url.match(/^(\/?assets\/trainer-headshots\/)([^?#]+)(.*)$/i);
+  if (!match) return url;
+  const decoded = decodeURIComponent(match[2]);
+  const extension = decoded.includes(".") ? decoded.split(".").pop() : "jpg";
+  const stem = decoded.replace(/\.[^.]+$/, "");
+  const safeStem = stem.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `/assets/trainer-headshots/${safeStem}.${extension}${match[3] || ""}`;
+}
+
 function firstNonHeadshotPhoto(values, headshotCandidates) {
   return values.find(value => value && !headshotCandidates.some(candidate => samePhotoUrl(value, candidate))) || "";
 }
@@ -638,46 +649,46 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
   };
   const styleSettings = remotePage?.style_settings || {};
   const socialLinks = remoteTrainer.social_links || {};
-  const rosterHeadshot = rosterTrainer.cardPhoto || "";
-  const rawHeadshotUrl = remoteTrainer.headshot_url || content.headshot_url || existing.cardPhoto || existing.profilePhoto || existing.publicPhoto || "";
+  const rosterHeadshot = safeTrainerAssetUrl(rosterTrainer.cardPhoto || "");
+  const rawHeadshotUrl = safeTrainerAssetUrl(remoteTrainer.headshot_url || content.headshot_url || existing.cardPhoto || existing.profilePhoto || existing.publicPhoto || "");
   const headshotCandidates = [
     rawHeadshotUrl,
-    remoteTrainer.headshot_url,
-    content.headshot_url,
-    existing.cardPhoto,
-    existing.profilePhoto,
-    existing.publicPhoto,
+    safeTrainerAssetUrl(remoteTrainer.headshot_url),
+    safeTrainerAssetUrl(content.headshot_url),
+    safeTrainerAssetUrl(existing.cardPhoto),
+    safeTrainerAssetUrl(existing.profilePhoto),
+    safeTrainerAssetUrl(existing.publicPhoto),
     rosterHeadshot
   ].filter(Boolean);
   const landingCandidates = [
-    content.hero_trainer_photo_url,
-    content.landing_bio_photo_url,
-    content.bio_photo_url,
-    existing.photo,
-    existing.image,
-    rosterTrainer.photo,
-    rosterTrainer.image,
-    remotePage?.hero_image_url,
-    remotePage?.approved_photo_urls?.[0]
+    safeTrainerAssetUrl(content.hero_trainer_photo_url),
+    safeTrainerAssetUrl(content.landing_bio_photo_url),
+    safeTrainerAssetUrl(content.bio_photo_url),
+    safeTrainerAssetUrl(existing.photo),
+    safeTrainerAssetUrl(existing.image),
+    safeTrainerAssetUrl(rosterTrainer.photo),
+    safeTrainerAssetUrl(rosterTrainer.image),
+    safeTrainerAssetUrl(remotePage?.hero_image_url),
+    safeTrainerAssetUrl(remotePage?.approved_photo_urls?.[0])
   ].filter(Boolean);
   const headshotIsLandingPhoto = rawHeadshotUrl && landingCandidates.includes(rawHeadshotUrl);
-  const headshotUrl = headshotIsLandingPhoto && rosterHeadshot ? rosterHeadshot : (rawHeadshotUrl || rosterHeadshot || remotePage?.approved_photo_urls?.[0] || "");
+  const headshotUrl = headshotIsLandingPhoto && rosterHeadshot ? rosterHeadshot : (rawHeadshotUrl || rosterHeadshot || safeTrainerAssetUrl(remotePage?.approved_photo_urls?.[0]) || "");
   const rosterLandingPhoto = firstNonHeadshotPhoto([
-    existing.photo,
-    rosterTrainer.photo,
-    rosterTrainer.image,
-    existing.image,
-    remotePage?.hero_image_url,
-    remotePage?.approved_photo_urls?.[0]
+    safeTrainerAssetUrl(existing.photo),
+    safeTrainerAssetUrl(rosterTrainer.photo),
+    safeTrainerAssetUrl(rosterTrainer.image),
+    safeTrainerAssetUrl(existing.image),
+    safeTrainerAssetUrl(remotePage?.hero_image_url),
+    safeTrainerAssetUrl(remotePage?.approved_photo_urls?.[0])
   ], headshotCandidates) || headshotUrl;
   const heroTrainerPhotoUrl = firstNonHeadshotPhoto([
-    content.hero_trainer_photo_url,
-    existing.heroTrainerPhoto
+    safeTrainerAssetUrl(content.hero_trainer_photo_url),
+    safeTrainerAssetUrl(existing.heroTrainerPhoto)
   ], headshotCandidates) || rosterLandingPhoto;
   const landingBioPhotoUrl = firstNonHeadshotPhoto([
-    content.landing_bio_photo_url,
-    content.bio_photo_url,
-    existing.landingBioPhoto
+    safeTrainerAssetUrl(content.landing_bio_photo_url),
+    safeTrainerAssetUrl(content.bio_photo_url),
+    safeTrainerAssetUrl(existing.landingBioPhoto)
   ], headshotCandidates) || rosterLandingPhoto;
   return {
     ...existing,
@@ -716,7 +727,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     landingBioPhoto: landingBioPhotoUrl,
     profilePhoto: headshotUrl,
     publicPhoto: headshotUrl,
-    image: remotePage?.hero_image_url || content.hero_image_url || existing.image || rosterLandingPhoto || trainerLandingDogs[templateFromDb(remotePage?.template_key)],
+    image: safeTrainerAssetUrl(remotePage?.hero_image_url || content.hero_image_url || existing.image || rosterLandingPhoto || trainerLandingDogs[templateFromDb(remotePage?.template_key)]),
     heroPhotoPosition: content.hero_photo_position || existing.heroPhotoPosition || "center top",
     heroPhotoFit: content.hero_photo_fit || existing.heroPhotoFit || "cover",
     heroPhotoScale: content.hero_photo_scale || existing.heroPhotoScale || 100,
@@ -881,6 +892,7 @@ function remoteSubmissionToUi(row) {
   const locationMatch = notes.match(/Client location:\s*([^\n.]+)\.?/i);
   const permissionMatch = notes.match(/Permission to share:\s*([^\n.]+)\.?/i);
   const attachedMatch = notes.match(/Attached file noted:\s*([^\n(]+?)\s*\(([^)]+)\)\.?/i);
+  const videoLinkMatch = notes.match(/Attached video link:\s*(https?:\/\/\S+)/i);
   const sourceLines = submissionMetadata.split("\n").filter(line => {
     const cleanLine = line.trim();
     return cleanLine
@@ -889,13 +901,14 @@ function remoteSubmissionToUi(row) {
       && !/^Star rating:\s*/i.test(cleanLine)
       && !/^Client location:\s*/i.test(cleanLine)
       && !/^Permission to share:\s*/i.test(cleanLine)
-      && !/^Attached file noted:\s*/i.test(cleanLine);
+      && !/^Attached file noted:\s*/i.test(cleanLine)
+      && !/^Attached video link:\s*/i.test(cleanLine);
   });
   const storedPath = String(row.storage_path || row.file_url || "");
   const pathFileName = storedPath && !storedPath.startsWith("data:")
     ? decodeURIComponent(storedPath.split("?")[0].split("/").pop() || "")
     : "";
-  const fileName = attachedMatch?.[1]?.trim() || pathFileName;
+  const fileName = attachedMatch?.[1]?.trim() || (videoLinkMatch ? `${videoProviderLabel(storedPath)} video link` : pathFileName);
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
   const inferredFileType = ["mp4", "mov", "m4v", "webm"].includes(extension)
     ? `video/${extension === "mov" ? "quicktime" : extension}`
@@ -941,7 +954,7 @@ function remoteSubmissionToUi(row) {
     officeNote: cleanOfficeNote,
     note: cleanOfficeNote,
     fileName,
-    fileType: attachedMatch?.[2]?.trim() || inferredFileType
+    fileType: attachedMatch?.[2]?.trim() || (videoLinkMatch ? "video/embed" : inferredFileType)
   };
 }
 
@@ -1299,6 +1312,12 @@ function trainerPagePayload(trainer) {
 
 async function persistTrainerRecord(trainer, options = {}) {
   if (!remoteReady || session.role !== "admin") return trainer;
+  trainer.title ||= "Team Trainer";
+  const normalizedLocation = normalizeTrainerLocation(trainer.profileMarket || trainer.market, trainer.profileState || trainer.state);
+  trainer.market = normalizedLocation.market;
+  trainer.state = normalizedLocation.state;
+  trainer.profileMarket = normalizedLocation.market;
+  trainer.profileState = normalizedLocation.state;
   const slug = trainerDisplaySlug(trainer);
   trainer.slug = slug;
   trainer.pageSlug = trainerPublicSlug(trainer);
@@ -1308,9 +1327,9 @@ async function persistTrainerRecord(trainer, options = {}) {
     full_name: trainer.profileName || trainer.name,
     email: trainer.profileEmail || trainer.email || null,
     phone: trainer.profilePhone || trainer.phone || null,
-    market: trainer.profileMarket || trainer.market || null,
+    market: normalizedLocation.market || null,
     service_area: trainer.profileServiceArea || trainer.serviceArea || null,
-    state: trainer.profileState || trainer.state || stateFromMarket(trainer.profileMarket || trainer.market) || null,
+    state: normalizedLocation.state || null,
     bio: trainer.profileBio || null,
     headshot_url: trainerHeadshot(trainer) || null,
     status: "active",
@@ -1419,8 +1438,12 @@ async function publishTrainerPageWorkflow(trainer, publish) {
       throw new Error("The public trainer revision could not be confirmed after publishing.");
     }
     const publicUrl = new URL(trainerPageHref(savedTrainer || trainer), window.location.origin);
-    const response = await fetch(publicUrl, { method: "HEAD", cache: "no-store" });
+    const response = await fetch(publicUrl, { cache: "no-store" });
     if (!response.ok) throw new Error(`The published trainer URL returned ${response.status}.`);
+    const shell = await response.text();
+    if (!shell.includes("/trainer-backoffice/app.js")) throw new Error("The published trainer URL did not load the current trainer-page application shell.");
+    const bioResponse = await fetch(new URL(trainerBioHref(savedTrainer || trainer), window.location.origin), { method: "HEAD", cache: "no-store" });
+    if (!bioResponse.ok) throw new Error(`The published trainer bio returned ${bioResponse.status}.`);
   }
   return savedTrainer || trainer;
 }
@@ -2726,6 +2749,13 @@ function videoProviderLabel(url) {
   return "Video";
 }
 
+function reviewMediaIsVideo(url = "", fileType = "") {
+  return String(fileType || "").startsWith("video/")
+    || isEmbeddableVideoUrl(url)
+    || /(?:youtube\.com|youtu\.be|vimeo\.com|drive\.google\.com|loom\.com|dropbox\.com)/i.test(String(url || ""))
+    || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(String(url || ""));
+}
+
 function videoPreviewMarkup(url, label = "Trainer video", poster = "") {
   const clean = String(url || "").trim();
   if (!clean) return `<span>No trainer video uploaded yet</span>`;
@@ -3035,7 +3065,11 @@ function currentTrainerId() {
 }
 
 function trainerLeads(id = currentTrainerId()) {
-  return state.leads.filter(lead => lead.trainerId === id);
+  const trainer = findTrainer(id);
+  return state.leads.filter(lead => {
+    const assigned = findTrainer(lead.trainerId);
+    return trainer && assigned ? assigned.id === trainer.id : lead.trainerId === id;
+  });
 }
 
 function conversionStatuses() {
@@ -3075,6 +3109,7 @@ function render() {
   renderSidebar();
   renderTopbar();
   renderView();
+  requestAnimationFrame(enhanceHorizontalScrollers);
   window.setTimeout(() => {
     const frame = document.getElementById("pageEditorPreview");
     if (frame) {
@@ -3082,6 +3117,45 @@ function render() {
       injectLiveBuilder(frame);
     }
   }, 120);
+}
+
+const horizontalScrollSelectors = [
+  ".table-wrap",
+  ".lead-kanban",
+  ".submission-review-list-shell",
+  ".application-chart-grid",
+  ".trainer-review-carousel"
+];
+
+function enhanceHorizontalScrollers() {
+  const workspace = document.getElementById("workspaceView");
+  if (!workspace) return;
+  workspace.querySelectorAll(horizontalScrollSelectors.join(",")).forEach((scroller, index) => {
+    if (scroller.dataset.horizontalScrollReady === "true") return;
+    scroller.dataset.horizontalScrollReady = "true";
+    const id = `horizontal-scroll-${state.activeView}-${index}`;
+    scroller.id ||= id;
+    const toolbar = document.createElement("div");
+    toolbar.className = "horizontal-scroll-toolbar";
+    toolbar.setAttribute("aria-label", "Horizontal navigation");
+    toolbar.innerHTML = `<span>Scroll left or right</span><button class="horizontal-scroll-button" type="button" data-scroll-horizontal="left" data-scroll-target="${escapeHtml(scroller.id)}" aria-label="Scroll left" title="Scroll left">&larr;</button><button class="horizontal-scroll-button" type="button" data-scroll-horizontal="right" data-scroll-target="${escapeHtml(scroller.id)}" aria-label="Scroll right" title="Scroll right">&rarr;</button>`;
+    scroller.before(toolbar);
+    const update = () => {
+      const max = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      const left = toolbar.querySelector('[data-scroll-horizontal="left"]');
+      const right = toolbar.querySelector('[data-scroll-horizontal="right"]');
+      if (left) left.disabled = max < 2 || scroller.scrollLeft <= 2;
+      if (right) right.disabled = max < 2 || scroller.scrollLeft >= max - 2;
+      toolbar.classList.toggle("is-static", max < 2);
+    };
+    scroller.addEventListener("scroll", update, { passive: true });
+    if ("ResizeObserver" in window) {
+      new ResizeObserver(update).observe(scroller);
+    } else {
+      window.addEventListener("resize", update, { passive: true });
+    }
+    update();
+  });
 }
 
 async function bootstrapApplication() {
@@ -3322,7 +3396,7 @@ function renderTopbar() {
     <div class="top-actions">
       ${remoteSyncError ? `<span class="status lost" title="${escapeHtml(remoteSyncError)}">Live data unavailable</span>` : remoteReady ? `<span class="status live" title="Revision ${escapeHtml(remoteServerRevision)}">Synced ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "now")}</span>` : ""}
       ${isAdmin
-        ? profileSetupRequired ? "" : `${isOfficeAdmin() ? "" : `<button class="btn btn-red add-trainer-primary" id="addTrainer">+ Add New Trainer</button>`}<button class="btn btn-outline">Filters</button>${isOfficeAdmin() ? "" : `<button class="btn btn-outline" data-open-client-import>Import Clients</button>`}`
+        ? profileSetupRequired ? "" : `${isOfficeAdmin() ? "" : `<button class="btn btn-red add-trainer-primary" id="addTrainer">+ Add New Trainer</button>`}${isOfficeAdmin() ? "" : `<button class="btn btn-outline" data-open-client-import>Import Clients</button>`}`
         : passwordSetupRequired
           ? ""
           : profileSetupRequired
@@ -3432,7 +3506,7 @@ const adminScreens = {
     return portalAccessScreen();
   },
     settings() {
-    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p><br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
   }
 };
 
@@ -3472,7 +3546,7 @@ const trainerScreens = {
       ["lead", "Leads In Range", leads.length, leadRangeLabel(), ""],
       ["calendar", "Evaluation Complete", leads.filter(l => l.status === "Evaluation Complete").length, "Office status", "up"],
       ["trophy", "Won / Paid", trueConversions, "True conversion", "up"],
-      ["monitor", "Page Forms", trainer.forms, "Read-only total", ""]
+      ["monitor", "Page Forms", realTrainerStats(trainer, { allTime: true }).forms, "Canonical total", ""]
     ])}${panel("Lead Performance By Date Range", "", leadPipelineTable(false), "pad")}${panel("Performance Notes", "", `<p class="panel-copy">These numbers are read-only for trainers. Lorenzo's office owns lead statuses and conversion rules, while this tab lets the trainer review lead activity by last 7 days, last 30 days, last 60 days, or a custom date range.</p>`, "pad")}`;
   },
   submitMedia() {
@@ -3483,9 +3557,13 @@ const trainerScreens = {
   },
   settings() {
     const trainer = trainerById(currentTrainerId());
-    return panel("Trainer Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy">Your profile and public page are managed by Lorenzo's office. Trainers can update only social media links shown in the locked landing-page footer.</p>${trainerSocialSettingsForm(trainer)}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
+    return panel("Trainer Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy">Your profile and public page are managed by Lorenzo's office. Trainers can update only social media links shown in the locked landing-page footer.</p>${trainerSocialSettingsForm(trainer)}${savedPortalShortcutHelp()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
   }
 };
+
+function savedPortalShortcutHelp() {
+  return `<section class="saved-portal-help"><h3>Using a saved Staff Portal shortcut?</h3><ol><li>Open <a href="https://www.lorenzosdogtrainingteam.com/staff" target="_blank" rel="noopener">www.lorenzosdogtrainingteam.com/staff</a>.</li><li>Sign out and sign in once so the shortcut uses the current live session.</li><li>If an old shortcut opens any other address, remove it before saving the live Staff Portal again.</li><li>On iPhone: remove the old Home Screen icon, open the live address in Safari, then use Share and Add to Home Screen.</li><li>On Mac: remove the old dock or browser shortcut, open the live address, then add it again.</li><li>Confirm the top of the portal says <strong>Synced</strong>. If it says <strong>Live data unavailable</strong>, reload before making edits.</li></ol></section>`;
+}
 
 function portalAccessScreen() {
   if (!isSuperAdmin()) return panel("Portal Access", "", `<p class="panel-copy">This section is available only to Super Admin accounts.</p>`, "pad");
@@ -3706,6 +3784,37 @@ function trainerIdFromSlug(slug) {
 
 function cityFromMarket(market = "") {
   return String(market).split(",")[0].trim();
+}
+
+const US_STATE_NAMES = {
+  AL: "Alabama", AK: "Alaska", AZ: "Arizona", AR: "Arkansas", CA: "California", CO: "Colorado", CT: "Connecticut", DE: "Delaware", FL: "Florida", GA: "Georgia",
+  HI: "Hawaii", ID: "Idaho", IL: "Illinois", IN: "Indiana", IA: "Iowa", KS: "Kansas", KY: "Kentucky", LA: "Louisiana", ME: "Maine", MD: "Maryland",
+  MA: "Massachusetts", MI: "Michigan", MN: "Minnesota", MS: "Mississippi", MO: "Missouri", MT: "Montana", NE: "Nebraska", NV: "Nevada", NH: "New Hampshire", NJ: "New Jersey",
+  NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
+  SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia"
+};
+
+function fullStateName(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+  const abbreviation = clean.toUpperCase();
+  if (US_STATE_NAMES[abbreviation]) return US_STATE_NAMES[abbreviation];
+  return Object.values(US_STATE_NAMES).find(name => name.toLowerCase() === clean.toLowerCase()) || clean;
+}
+
+function normalizeTrainerLocation(market = "", state = "") {
+  const cleanMarket = String(market || "").trim();
+  const parts = cleanMarket.split(",").map(part => part.trim()).filter(Boolean);
+  const marketState = parts.length > 1 ? parts.at(-1) : "";
+  const normalizedState = fullStateName(state || marketState);
+  let city = parts.length > 1 ? parts.slice(0, -1).join(", ") : cleanMarket;
+  if (normalizedState && city) {
+    const suffixes = [normalizedState, ...Object.entries(US_STATE_NAMES).filter(([, name]) => name === normalizedState).map(([code]) => code)];
+    suffixes.forEach(suffix => {
+      city = city.replace(new RegExp(`(?:,|\\s)\\s*${suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"), "").trim();
+    });
+  }
+  return { market: city || cleanMarket, state: normalizedState };
 }
 
 function stateFromMarket(market = "") {
@@ -3983,7 +4092,7 @@ function filteredLeadRows(rows) {
     return created >= start && created <= end
       && (!state.leadSearch || haystack.includes(state.leadSearch.toLowerCase()))
       && (state.leadStatusFilter === "All" || lead.status === state.leadStatusFilter)
-      && (state.leadTrainerFilter === "All" || lead.trainerId === state.leadTrainerFilter)
+      && (state.leadTrainerFilter === "All" || Boolean(findTrainer(state.leadTrainerFilter)) && Boolean(findTrainer(lead.trainerId)) && findTrainer(state.leadTrainerFilter).id === findTrainer(lead.trainerId).id)
       && (state.leadSmsFilter === "All" || lead.smsConsent === state.leadSmsFilter);
   });
 }
@@ -4016,7 +4125,7 @@ function leadWorkspaceControls(admin) {
 const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client", "Lost"];
 function boardStatus(status) { return /^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status; }
 function leadKanban(rows) {
-  return `<div class="kanban-scroll-toolbar"><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="start">Beginning</button><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="left" aria-label="Scroll pipeline left">←</button><span>Move across the complete pipeline</span><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="right" aria-label="Scroll pipeline right">→</button><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="end">End</button></div><div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -4269,7 +4378,10 @@ function trainerAdminForm() {
     const publicUrl = trainerPublicUrl(t);
     content = `<section class="publish-review publish-review-clear"><div><span>Landing-page status</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.pageStatus)} ${t.locked ? "· Office locked" : "· Editable draft"}</small></div><div>${pageStatusBadge(t)}</div></section><section class="publish-url-card"><span>Final public address</span><strong>${escapeHtml(publicUrl)}</strong><p>Publishing uses this trainer-specific URL. It will not inherit another trainer’s name, photo, city, state, or page record.</p></section><div class="publish-action-grid"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Draft Landing Page</a>${t.pageStatus === "Published" ? `<a class="btn btn-outline" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">View Published Landing Page</a>` : ""}<button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? "Return Page To Draft" : "Publish Landing Page"}</button></div>${t.pageStatus === "Published" ? trainerInviteCard(t) : ""}`;
   }
-  return `<div class="trainer-onboarding"><aside class="onboarding-rail"><p class="portal-tag">Office Setup</p><h2>${escapeHtml(t.name)}</h2><p>Imported trainer details are already loaded. Complete, review, and publish the office-controlled page.</p>${steps.map(([number, title, sub]) => `<button class="onboarding-step ${step === number ? "active" : ""} ${step > number ? "complete" : ""}" data-onboarding-step="${number}"><span>${step > number ? "✓" : number}</span><div><strong>${title}</strong><small>${sub}</small></div></button>`).join("")}</aside><section class="onboarding-workspace"><div class="onboarding-heading"><div><span>Step ${step} of 7</span><h2>${steps[step - 1][1]}</h2><p>${steps[step - 1][2]}. Changes save to this office-controlled trainer profile.</p></div><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Landing Page</a></div>${content}<footer class="onboarding-footer"><button class="btn btn-outline" data-onboarding-step="${Math.max(1, step - 1)}" ${step === 1 ? "disabled" : ""}>Back</button><span>Saved to the shared office database</span>${step < 7 ? `<button class="btn btn-red" data-onboarding-step="${step + 1}">Save & Continue</button>` : `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft</button>`}</footer></section></div>${trainerProfileEditor(t)}`;
+  const finalActions = t.locked
+    ? `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft Copy</button><a class="btn btn-red" href="${escapeHtml(trainerPublicUrl(t))}" target="_blank" rel="noopener">Open Live Landing Page</a>`
+    : `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft</button><button class="btn btn-red" data-toggle-lock="${escapeHtml(t.id)}">Publish Landing Page</button>`;
+  return `<div class="trainer-onboarding"><aside class="onboarding-rail"><p class="portal-tag">Office Setup</p><h2>${escapeHtml(t.name)}</h2><p>Imported trainer details are already loaded. Complete, review, and publish the office-controlled page.</p>${steps.map(([number, title, sub]) => `<button class="onboarding-step ${step === number ? "active" : ""} ${step > number ? "complete" : ""}" data-onboarding-step="${number}"><span>${step > number ? "✓" : number}</span><div><strong>${title}</strong><small>${sub}</small></div></button>`).join("")}</aside><section class="onboarding-workspace"><div class="onboarding-heading"><div><span>Step ${step} of 7</span><h2>${steps[step - 1][1]}</h2><p>${steps[step - 1][2]}. Changes save to this office-controlled trainer profile.</p></div><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Landing Page</a></div>${content}<footer class="onboarding-footer"><button class="btn btn-outline" data-onboarding-step="${Math.max(1, step - 1)}" ${step === 1 ? "disabled" : ""}>Back</button><span>Saved to the shared office database</span>${step < 7 ? `<button class="btn btn-red" data-onboarding-step="${step + 1}">Save & Continue</button>` : `<div class="onboarding-final-actions">${finalActions}</div>`}</footer></section></div>${trainerProfileEditor(t)}`;
 }
 
 function pageEditorPreviewDocument(trainer) {
@@ -4699,7 +4811,9 @@ function updateApplicationRecord(id, changes) {
 
 function trainerApplicationGoogleFormPanel() {
   const mode = state.applicationViewMode || "sheet";
-  const rows = applicationRows();
+  const activeFilter = currentApplicationFilter();
+  const allRows = applicationRows();
+  const rows = allRows.filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter);
   const body = mode === "sheet" ? applicationSheetView(rows) : mode === "individual" ? applicationIndividualView(rows) : applicationSummaryCharts(rows);
   const modes = [
     ["sheet", "View Sheet"],
@@ -4715,7 +4829,7 @@ function trainerApplicationGoogleFormPanel() {
         <button class="btn btn-outline" type="button" data-export-applications>Download Sheet CSV</button>
         <a class="btn btn-outline" href="../trainer-application.html" target="_blank" rel="noopener">Preview Website Application</a>
       </div>
-      <p class="panel-copy"><strong>${rows.length} applications loaded.</strong> The exact form fields, including signature, are preserved in the internal sheet and each full application record.</p>
+      <p class="panel-copy"><strong>${rows.length} of ${allRows.length} applications shown (${escapeHtml(activeFilter)}).</strong> The exact form fields, including signature, are preserved in the internal sheet and each full application record.</p>
     </div>
     ${body}
   </div>`;
@@ -4960,7 +5074,11 @@ function exportOperationalSheet(kind) {
     showToast(`No ${kind} are available to export.`);
     return;
   }
-  const fields = Array.from(rows.reduce((keys, row) => {
+  const flattenedRows = rows.map(row => {
+    const raw = row?.raw_payload && typeof row.raw_payload === "object" && !Array.isArray(row.raw_payload) ? row.raw_payload : {};
+    return { ...raw, ...row };
+  });
+  const fields = Array.from(flattenedRows.reduce((keys, row) => {
     Object.keys(row || {}).forEach(key => keys.add(key));
     return keys;
   }, new Set()));
@@ -4968,7 +5086,7 @@ function exportOperationalSheet(kind) {
   const displayValue = (key, value) => /(?:received_at|created_at|updated_at)$/i.test(key) && value ? formatDateTime(value) : typeof value === "object" && value !== null ? JSON.stringify(value) : value;
   const csv = [
     fields.map(field => escapeCsv(field.replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase()))).join(","),
-    ...rows.map(row => fields.map(field => escapeCsv(displayValue(field, row[field]))).join(","))
+    ...flattenedRows.map(row => fields.map(field => escapeCsv(displayValue(field, row[field]))).join(","))
   ].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -5009,7 +5127,7 @@ function submissionForm(kind = "media") {
   const options = kind === "review" ? ["Review", "Testimonial"] : ["Photo", "Training Video"];
   const placeholder = kind === "review" ? "Example: Google review screenshot" : "Example: Loose leash training video";
   const contentField = kind === "review"
-    ? `<div class="field wide"><label>Review or Testimonial Text<textarea name="submission-review-text" placeholder="Paste the complete client review or testimonial here."></textarea></label></div><div class="field wide"><label>Optional Review Screenshot<input type="file" name="submission-file" accept="image/*"></label><p class="panel-copy">Add the written review, a screenshot, or both so the office can verify and approve it.</p></div>`
+    ? `<div class="field wide"><label>Review or Testimonial Text<textarea name="submission-review-text" placeholder="Paste the complete client review or testimonial here."></textarea></label></div><div class="field wide"><label>Optional Review Photo or Video<input type="file" name="submission-file" accept="image/*,video/*"></label></div><div class="field wide"><label>Or paste a review video link<input name="submission-video-url" type="url" placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM"></label><p class="panel-copy">Add written feedback, an image/video upload, a supported video link, or a combination for office approval.</p></div>`
     : `<div class="field wide"><label>Upload Photo or Video<input type="file" name="submission-file" accept="image/*,video/*" required></label><p class="panel-copy">Images and short videos are stored privately for office review before approval.</p></div>`;
   return `<div class="form-grid"><div class="field"><label>Submission Type<select name="submission-type">${options.map(option => `<option>${option}</option>`).join("")}</select></label></div><div class="field"><label>Title<input name="submission-title" placeholder="${placeholder}" required></label></div>${contentField}<div class="field wide"><label>Notes For The Office<textarea name="submission-note" placeholder="Tell the office where this should be used and confirm client permission when applicable."></textarea></label></div></div>`;
 }
@@ -5078,7 +5196,7 @@ function reviewActionButtons(submission, compact = false) {
 
 function submissionReviewList(rows) {
   return `<div class="submission-review-list-shell"><table class="submission-review-list"><thead><tr><th>Review</th><th>Source</th><th>Status</th><th>Office Note</th><th>Quick Actions</th></tr></thead><tbody>${rows.map(sub => {
-    const isVideo = ["Training Video", "Video"].includes(sub.type) || String(sub.fileType || "").startsWith("video/");
+    const isVideo = ["Training Video", "Video"].includes(sub.type) || reviewMediaIsVideo(sub.contentUrl, sub.fileType);
     const sourceLabel = ["Review", "Testimonial"].includes(sub.type) ? reviewTargetLabels(sub) : (sub.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(sub.trainerId));
     const rating = Math.max(1, Math.min(5, Number(sub.starRating || 5)));
     const thumbnail = sub.contentUrl
@@ -5100,11 +5218,11 @@ function submissionReviewList(rows) {
 }
 
 function submissionReviewCard(sub, admin) {
-  const isVideo = ["Training Video", "Video"].includes(sub.type) || String(sub.fileType || "").startsWith("video/");
+  const isVideo = ["Training Video", "Video"].includes(sub.type) || reviewMediaIsVideo(sub.contentUrl, sub.fileType);
   const sourceLabel = ["Review", "Testimonial"].includes(sub.type) ? reviewTargetLabels(sub) : (sub.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(sub.trainerId));
   const rating = Math.max(1, Math.min(5, Number(sub.starRating || 5)));
   let preview = `<div class="submission-placeholder"><span>${icon(sub.type === "Photo" ? "media" : "star")}</span><strong>No file attached</strong></div>`;
-  if (sub.contentUrl && isVideo) preview = `<video class="submission-media" controls preload="metadata"><source src="${escapeHtml(sub.contentUrl)}" type="${escapeHtml(sub.fileType || "video/mp4")}">Your browser cannot preview this video.</video>`;
+  if (sub.contentUrl && isVideo) preview = `<div class="submission-media review-video-preview">${videoPreviewMarkup(sub.contentUrl, sub.title || "Review video")}</div>`;
   else if (sub.contentUrl) preview = `<button class="submission-image-button" type="button" data-open-submission-media="${escapeHtml(sub.id)}" aria-label="Open ${escapeHtml(sub.title)}"><img class="submission-media" src="${escapeHtml(sub.contentUrl)}" alt="${escapeHtml(sub.title)}"></button>`;
   const writtenContent = sub.reviewText
     ? `<div class="submission-content-block"><span>Written review</span><blockquote class="submission-review-copy">“${escapeHtml(sub.reviewText)}”</blockquote></div>`
@@ -5185,12 +5303,12 @@ function reviewAssignmentControlsMarkup(submission) {
 function submissionDetailPanel() {
   const submission = state.submissions.find(item => item.id === state.selectedSubmissionId);
   if (!submission) return "";
-  const isVideo = String(submission.fileType || "").startsWith("video/");
+  const isVideo = reviewMediaIsVideo(submission.contentUrl, submission.fileType);
   const sourceLabel = ["Review", "Testimonial"].includes(submission.type) ? reviewTargetLabels(submission) : (submission.trainerId === "lorenzos-team" ? "Homepage / Main Website" : trainerName(submission.trainerId));
   const rating = Math.max(1, Math.min(5, Number(submission.starRating || 5)));
   const media = submission.contentUrl
     ? isVideo
-      ? `<video class="submission-detail-media" controls preload="metadata" src="${escapeHtml(submission.contentUrl)}"></video>`
+      ? `<div class="submission-detail-media review-video-preview">${videoPreviewMarkup(submission.contentUrl, submission.title || "Review video")}</div>`
       : `<button class="submission-image-button submission-detail-image" type="button" data-open-submission-media="${escapeHtml(submission.id)}"><img src="${escapeHtml(submission.contentUrl)}" alt="${escapeHtml(submission.title)}"></button>`
     : `<div class="submission-placeholder submission-detail-placeholder"><strong>No photo or video attached</strong></div>`;
   const actions = reviewActionButtons(submission);
@@ -5208,10 +5326,10 @@ function readSubmissionFile(file) {
 
 function openSubmissionMedia(submission) {
   if (!submission?.contentUrl) return;
-  const isVideo = ["Training Video", "Video"].includes(submission.type) || String(submission.fileType || "").startsWith("video/");
+  const isVideo = ["Training Video", "Video"].includes(submission.type) || reviewMediaIsVideo(submission.contentUrl, submission.fileType);
   const dialog = document.createElement("dialog");
   dialog.className = "submission-media-dialog";
-  dialog.innerHTML = `<button type="button" class="submission-dialog-close" aria-label="Close preview">×</button><div class="submission-dialog-content">${isVideo ? `<video controls autoplay src="${escapeHtml(submission.contentUrl)}"></video>` : `<img src="${escapeHtml(submission.contentUrl)}" alt="${escapeHtml(submission.title)}">`}<h3>${escapeHtml(submission.title)}</h3><p>${escapeHtml(trainerName(submission.trainerId))}</p></div>`;
+  dialog.innerHTML = `<button type="button" class="submission-dialog-close" aria-label="Close preview">×</button><div class="submission-dialog-content">${isVideo ? videoPreviewMarkup(submission.contentUrl, submission.title || "Review video") : `<img src="${escapeHtml(submission.contentUrl)}" alt="${escapeHtml(submission.title)}">`}<h3>${escapeHtml(submission.title)}</h3><p>${escapeHtml(trainerName(submission.trainerId))}</p></div>`;
   document.body.appendChild(dialog);
   const close = () => { dialog.close(); dialog.remove(); };
   dialog.querySelector(".submission-dialog-close").addEventListener("click", close);
@@ -5556,10 +5674,10 @@ function trainerReviewCardMarkup(review) {
   const showAuthor = review.display.showAuthor && review.author;
   const showRating = review.display.showRating !== false;
   const showLocation = review.display.showLocation && review.location;
-  const isVideo = String(review.mediaType || "").startsWith("video/") || /\.(mp4|mov|m4v|webm)(\?|$)/i.test(String(review.mediaUrl || ""));
+  const isVideo = reviewMediaIsVideo(review.mediaUrl, review.mediaType);
   const rating = Math.max(1, Math.min(5, Number(review.rating || 5)));
   const media = showMedia
-    ? `<div class="trainer-review-media">${isVideo ? `<video controls preload="metadata" src="${escapeHtml(mediaUrl)}"></video>` : `<button type="button" data-open-public-review-media="${escapeHtml(review.id)}" data-media-url="${escapeHtml(mediaUrl)}" data-media-title="${escapeHtml(review.author || "Approved review")}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(review.mediaName || `${review.author || "Client"} review photo`)}"></button>`}</div>`
+    ? `<div class="trainer-review-media">${isVideo ? videoPreviewMarkup(mediaUrl, `${review.author || "Client"} review video`) : `<button type="button" data-open-public-review-media="${escapeHtml(review.id)}" data-media-url="${escapeHtml(mediaUrl)}" data-media-title="${escapeHtml(review.author || "Approved review")}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(review.mediaName || `${review.author || "Client"} review photo`)}"></button>`}</div>`
     : "";
   return `<article class="trainer-review-card ${showMedia ? "has-media" : ""}">
     ${media}
@@ -5693,13 +5811,14 @@ function trainerCity(trainer) {
 }
 
 function trainerLocationLabel(trainer) {
-  return [trainer.market, trainer.state].filter(Boolean).join(" · ");
+  const location = normalizeTrainerLocation(trainer.market, trainer.state);
+  return [location.market, location.state].filter(Boolean).join(", ");
 }
 
 function landingFooter(trainer) {
   const trainerSlug = trainer.slug || trainer.id || "";
   const homeHref = `index.html?trainer_source=${encodeURIComponent(trainerSlug)}&trainer_name=${encodeURIComponent(trainer.name)}&source_page=trainer_landing_footer`;
-  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p><a class="trainer-footer-home-link" href="${homeHref}">Visit Lorenzo's Dog Training Team home</a></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainer.market)}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a><a class="trainer-footer-review-link" href="#submit-review">Leave Review</a></div></footer>`;
+  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p><a class="trainer-footer-home-link" href="${homeHref}">Visit Lorenzo's Dog Training Team home</a></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainerLocationLabel(trainer))}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a><a class="trainer-footer-review-link" href="#submit-review">Leave Review</a></div></footer>`;
 }
 
 function serviceCardsMarkup(layoutId) {
@@ -5745,6 +5864,7 @@ function publicReviewFormMarkup(trainer) {
         <label class="wide">Location <small>(optional)</small><input name="client_location" autocomplete="address-level2" placeholder="City, State"></label>
         <label class="wide">Review or testimonial *<textarea required name="review_text" placeholder="Tell us about your experience and the results you saw."></textarea></label>
         <label class="wide">Upload photo or video <input type="file" name="review_file" accept="image/*,video/*"></label>
+        <label class="wide">Or paste a review video link <input type="url" name="review_video_url" placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM"></label>
         <label class="public-review-consent wide"><input required type="checkbox" name="permission_to_share" value="yes"><span>I confirm Lorenzo's Dog Training Team may review and use this content after office approval.</span></label>
         <div class="public-review-status wide" role="status" aria-live="polite"></div>
         <button class="btn btn-red wide" type="submit">Submit For Office Approval</button>
@@ -5881,6 +6001,7 @@ function renderPublicTrainerProfile() {
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = `${trainer.name} trainer bio, service area, and scheduling page through Lorenzo's Dog Training Team.`;
   document.getElementById("publicTrainerProfile").innerHTML = publicTrainerProfileMarkup(trainer);
+  recordTrainerPageView(trainer);
 }
 
 function getVisitorId() {
@@ -6110,6 +6231,15 @@ async function recordClientFormDelivery(entries, canonical, status, error = "") 
 }
 
 document.addEventListener("click", async event => {
+  const horizontalScroll = event.target.closest("[data-scroll-horizontal]");
+  if (horizontalScroll) {
+    const scroller = document.getElementById(horizontalScroll.dataset.scrollTarget || "");
+    if (scroller) {
+      const amount = Math.max(320, scroller.clientWidth * .75);
+      scroller.scrollBy({ left: horizontalScroll.dataset.scrollHorizontal === "left" ? -amount : amount, behavior: "smooth" });
+    }
+    return;
+  }
   const loginModeButton = event.target.closest("[data-login-mode]");
   if (loginModeButton) {
     const mode = loginModeButton.dataset.loginMode || "admin";
@@ -6776,6 +6906,7 @@ document.addEventListener("click", async event => {
     const note = document.querySelector('[name="submission-note"]')?.value || "Submitted by trainer for office approval.";
     const reviewText = document.querySelector('[name="submission-review-text"]')?.value.trim() || "";
     const file = document.querySelector('[name="submission-file"]')?.files?.[0];
+    const reviewVideoUrl = normalizeVideoUrl(document.querySelector('[name="submission-video-url"]')?.value || "");
     if (!title) {
       showToast("Add a title before submitting");
       return;
@@ -6784,16 +6915,16 @@ document.addEventListener("click", async event => {
       showToast("Choose a photo or video to submit");
       return;
     }
-    if (["Review", "Testimonial"].includes(type) && !reviewText && !file) {
-      showToast("Add the review text or a review screenshot");
+    if (["Review", "Testimonial"].includes(type) && !reviewText && !file && !reviewVideoUrl) {
+      showToast("Add review text, a photo/video, or a supported video link");
       return;
     }
-    if (file && file.size > 2 * 1024 * 1024) {
-      showToast("Please choose a file smaller than 2 MB");
+    if (file && file.size > 25 * 1024 * 1024) {
+      showToast("Please choose a review file smaller than 25 MB or paste a video link");
       return;
     }
     const finalizeSubmission = async contentUrl => {
-      const submission = { id: `sub-${Date.now()}`, trainerId: currentTrainerId(), type, title, note, reviewText, contentUrl: contentUrl || "", fileName: file?.name || "", fileType: file?.type || "", submittedAt: new Date().toISOString(), status: "Pending" };
+      const submission = { id: `sub-${Date.now()}`, trainerId: currentTrainerId(), type, title, note, reviewText, contentUrl: contentUrl || reviewVideoUrl || "", fileName: file?.name || (reviewVideoUrl ? `${videoProviderLabel(reviewVideoUrl)} video link` : ""), fileType: file?.type || (reviewVideoUrl ? "video/embed" : ""), submittedAt: new Date().toISOString(), status: "Pending" };
       state.submissions.unshift(submission);
       if (remoteReady) {
         const trainer = trainerById(currentTrainerId());
@@ -6807,9 +6938,9 @@ document.addEventListener("click", async event => {
             trainer_id: trainer.remoteId,
             submission_type: type === "Training Video" ? "video" : type.toLowerCase(),
             title,
-            file_url: storedPath || null,
+            file_url: storedPath || reviewVideoUrl || null,
             notes: ["Review", "Testimonial"].includes(type)
-              ? [`Trainer portal review submission for ${trainer.name}.`, note ? `Submitted note: ${note}.` : "", `Review: ${reviewText}`].filter(Boolean).join("\n")
+              ? [`Trainer portal review submission for ${trainer.name}.`, note ? `Submitted note: ${note}.` : "", reviewVideoUrl && !file ? `Attached video link: ${reviewVideoUrl} (video/embed).` : "", `Review: ${reviewText}`].filter(Boolean).join("\n")
               : note || null,
             status: "pending"
           });
@@ -6824,7 +6955,7 @@ document.addEventListener("click", async event => {
     if (file) {
       readSubmissionFile(file).then(finalizeSubmission).catch(() => showToast("The selected file could not be read"));
     } else {
-      finalizeSubmission("");
+      finalizeSubmission(reviewVideoUrl);
     }
     return;
   }
@@ -7838,6 +7969,8 @@ document.addEventListener("submit", async event => {
     const trainerMarket = trainer?.market || "Nationwide";
     const entries = formEntries(event.target);
     const file = event.target.querySelector('input[name="review_file"]')?.files?.[0] || null;
+    const reviewVideoUrl = normalizeVideoUrl(entries.review_video_url || "");
+    if (reviewVideoUrl) entries.review_video_url = reviewVideoUrl;
     if (file && file.size > 25 * 1024 * 1024) {
       setReviewStatus("Please upload a file under 25 MB for this review form. Larger training videos can be uploaded inside the portal media tools.", "error");
       return;
@@ -7861,9 +7994,9 @@ document.addEventListener("submit", async event => {
         reviewerName: entries.reviewer_name || "",
         reviewerEmail: entries.reviewer_email || "",
         reviewerLocation: entries.client_location || "",
-        contentUrl: localPreviewUrl,
-        fileName: file?.name || "",
-        fileType: file?.type || "",
+        contentUrl: localPreviewUrl || reviewVideoUrl,
+        fileName: file?.name || (reviewVideoUrl ? `${videoProviderLabel(reviewVideoUrl)} video link` : ""),
+        fileType: file?.type || (reviewVideoUrl ? "video/embed" : ""),
         submittedAt: new Date().toISOString(),
         status: "Pending",
         delivery_supabase: window.LDTT_SUPABASE?.enabled ? "pending" : "not_connected"

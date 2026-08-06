@@ -432,6 +432,45 @@ body.is-logged-in .login-screen { display: none; }
 }
 
 .table-wrap { overflow-x: auto; }
+.horizontal-scroll-toolbar {
+  position: sticky;
+  left: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 42px;
+  margin: 0 0 8px;
+}
+.horizontal-scroll-toolbar span {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 850;
+}
+.horizontal-scroll-button {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #bdcde0;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy);
+  font: 950 1.15rem/1 system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 5px 14px rgba(4, 31, 70, .07);
+}
+.horizontal-scroll-button:hover:not(:disabled) { border-color: var(--red); color: var(--red); }
+.horizontal-scroll-button:disabled { cursor: default; opacity: .32; }
+.horizontal-scroll-toolbar.is-static { opacity: .7; }
+.onboarding-final-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.saved-portal-help { margin: 22px 0; padding: 20px; border: 1px solid #cbd8e8; border-radius: 8px; background: #f7faff; }
+.saved-portal-help h3 { margin: 0 0 12px; color: var(--navy); }
+.saved-portal-help ol { margin: 0; padding-left: 22px; color: #355078; }
+.saved-portal-help li { margin: 8px 0; line-height: 1.5; }
+.saved-portal-help a { color: #a20f2c; font-weight: 850; }
 .data-table {
   width: 100%;
   border-collapse: collapse;
@@ -4252,12 +4291,18 @@ body.form-modal-open {
   width: 100%;
 }
 .trainer-review-media img,
-.trainer-review-media video {
+.trainer-review-media video,
+.trainer-review-media iframe {
   display: block;
   height: 100%;
   object-fit: cover;
   width: 100%;
 }
+.trainer-review-media iframe { border: 0; }
+.review-video-preview { width: 100%; overflow: hidden; background: #071f44; }
+.review-video-preview video,
+.review-video-preview iframe { display: block; width: 100%; min-height: 280px; border: 0; }
+.submission-media.review-video-preview { height: auto; }
 .trainer-review-content {
   display: flex;
   flex-direction: column;

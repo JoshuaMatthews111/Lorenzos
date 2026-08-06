@@ -23,10 +23,19 @@ const publicReviewMediaType=(row,notes)=>{
   if(explicit) return explicit;
   const attachedType=String(notes||'').match(/Attached file noted:\s*[^\n(]+?\(([^)]+)\)/i)?.[1]?.trim().toLowerCase()||'';
   if(attachedType&&attachedType!=='unknown type') return attachedType;
-  const fileName=String(row?.file_url||'').split('?')[0].split('/').pop().toLowerCase();
+  const sourceUrl=String(row?.file_url||'');
+  if(/(?:youtube\.com|youtu\.be|vimeo\.com|drive\.google\.com|loom\.com|dropbox\.com)/i.test(sourceUrl)) return 'video/embed';
+  const fileName=sourceUrl.split('?')[0].split('/').pop().toLowerCase();
   if(/\.(mp4|mov|m4v|webm)$/.test(fileName)) return 'video/'+fileName.split('.').pop().replace('mov','quicktime');
   if(/\.(jpg|jpeg|png|gif|webp|heic)$/.test(fileName)) return 'image/'+fileName.split('.').pop().replace('jpg','jpeg');
   return '';
+};
+const publicReviewVideoMarkup=(url,label)=>{
+  const clean=String(url||'').trim();
+  if(/youtube\.com\/embed|player\.vimeo\.com\/video|drive\.google\.com\/file\/d\/[^/]+\/preview|loom\.com\/embed/i.test(clean)){
+    return `<iframe src="${escapePublicText(clean)}" title="${escapePublicText(label||'Client review video')}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+  }
+  return `<video controls preload="metadata" playsinline src="${escapePublicText(clean)}"></video>`;
 };
 const paragraphizeTrainerBio=text=>{
   const clean=String(text||'').trim();
@@ -45,6 +54,15 @@ const publicTrainerBioPhoto=(record,fallback='')=>{
   return publishedContent.landing_bio_photo_url||publishedContent.bio_photo_url||fallback||record?.headshot_url||'assets/lorenzo-logo-transparent.png';
 };
 const publicSlugify=value=>String(value||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+const safeTrainerHeadshotUrl=value=>{
+  const url=String(value||'').trim();
+  const match=url.match(/^(\/?assets\/trainer-headshots\/)([^?#]+)(.*)$/i);
+  if(!match) return url;
+  const decoded=decodeURIComponent(match[2]);
+  const extension=decoded.includes('.')?decoded.split('.').pop():'jpg';
+  const stem=decoded.replace(/\.[^.]+$/,'');
+  return `/assets/trainer-headshots/${publicSlugify(stem)}.${extension}${match[3]||''}`;
+};
 const publicTrainerDisplaySlug=record=>{
   const slug=publicSlugify(record?.slug);
   const nameSlug=publicSlugify(record?.full_name);
@@ -99,7 +117,7 @@ publicTrainerProfilesPromise.then(profiles=>{
     article.className='trainer-card';
     article.dataset.trainerSlug=displaySlug;
     article.dataset.search=`${record.full_name||''} ${location} ${record.service_area||''}`.toLowerCase();
-    article.innerHTML=`<div class="trainer-photo-frame"><img src="${escapePublicText(record.headshot_url||'assets/lorenzo-logo-transparent.png')}" alt="${escapePublicText(record.full_name||'Lorenzo trainer')}" loading="lazy"></div><div class="trainer-info"><span class="tag">${escapePublicText(record.state||'Trainer Network')}</span><h3>${escapePublicText(record.full_name||'Lorenzo Trainer')}</h3><p class="trainer-card-location">${escapePublicText(location)}</p><p class="trainer-bio">${escapePublicText(String(record.bio||'Office-approved trainer profile.').slice(0,220))}</p><div class="trainer-links"><a class="link" href="trainer-bio-${escapePublicText(displaySlug)}.html">View bio →</a><a class="link" href="/${escapePublicText(publicSlug)}#contact">Schedule this trainer →</a></div></div>`;
+    article.innerHTML=`<div class="trainer-photo-frame"><img src="${escapePublicText(safeTrainerHeadshotUrl(record.headshot_url)||'assets/lorenzo-logo-transparent.png')}" alt="${escapePublicText(record.full_name||'Lorenzo trainer')}" loading="lazy"></div><div class="trainer-info"><span class="tag">${escapePublicText(record.state||'Trainer Network')}</span><h3>${escapePublicText(record.full_name||'Lorenzo Trainer')}</h3><p class="trainer-card-location">${escapePublicText(location)}</p><p class="trainer-bio">${escapePublicText(String(record.bio||'Office-approved trainer profile.').slice(0,220))}</p><div class="trainer-links"><a class="link" href="trainer-bio-${escapePublicText(displaySlug)}.html">View bio →</a><a class="link" href="/${escapePublicText(publicSlug)}#contact">Schedule this trainer →</a></div></div>`;
     trainerGrid.appendChild(article);
     cards.push(article);
   });
@@ -717,6 +735,11 @@ homeReviewModal?.addEventListener('click',event=>{if(event.target===homeReviewMo
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&homeReviewModal?.classList.contains('open')) closeHomeReview()});
 if(window.location.hash==='#home-review-form') window.setTimeout(openHomeReview,250);
 
+if(homepageReviewForm&&!homepageReviewForm.querySelector('[name="review_video_url"]')){
+  const uploadLabel=homepageReviewForm.querySelector('[name="review_file"]')?.closest('label');
+  uploadLabel?.insertAdjacentHTML('afterend','<label class="wide">Or paste a review video link <input type="url" name="review_video_url" placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM"></label>');
+}
+
 if(homepageReviewForm){
   homepageReviewForm.addEventListener('submit',async event=>{
     event.preventDefault();
@@ -781,7 +804,7 @@ const approvedHomepageReviewCards=rows=>(Array.isArray(rows)?rows:[]).map(row=>{
   const rating=Math.max(1,Math.min(5,Number(ratingMatch?.[1]||ratingMatch?.[0]||5)));
   const media=fileUrl
     ? fileType.startsWith('video/')
-      ? `<video controls preload="metadata" src="${escapePublicText(fileUrl)}"></video>`
+      ? publicReviewVideoMarkup(fileUrl,`${reviewer} review video`)
       : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy">`
     : '';
   return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Office-approved review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote>${escapePublicText(reviewText||'Office-approved client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;

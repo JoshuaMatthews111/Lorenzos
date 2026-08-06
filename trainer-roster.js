@@ -24,7 +24,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/fred-harris.jpg",
     "photo": "/assets/trainer-bio-photos/fred-harris.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Frederick Harris TT 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/frederick-harris-tt-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -76,7 +76,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/genevieve-twilla.jpg",
     "photo": "/assets/trainer-bio-photos/genevieve-twilla.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Genevieve Twilla 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/genevieve-twilla-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -128,7 +128,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/daniel-bainbridge.jpg",
     "photo": "/assets/trainer-bio-photos/daniel-bainbridge.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Daniel Bainbridge_RD 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/daniel-bainbridge-rd-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -180,7 +180,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/victoria-bayleigh-morris.jpg",
     "photo": "/assets/trainer-bio-photos/victoria-bayleigh-morris.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Victoria Morris ETT 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/victoria-morris-ett-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -232,7 +232,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/michael-king.jpg",
     "photo": "/assets/trainer-bio-photos/michael-king.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Michael King_TC 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/michael-king-tc-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -284,7 +284,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/clark-patton.jpg",
     "photo": "/assets/trainer-bio-photos/clark-patton.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Clark Patton ETT 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/clark-patton-ett-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -336,7 +336,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/shavon-striggles.jpg",
     "photo": "/assets/trainer-bio-photos/shavon-striggles.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Shavon Striggles RD 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/shavon-striggles-rd-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -388,7 +388,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/christopher-almonte.jpg",
     "photo": "/assets/trainer-bio-photos/christopher-almonte.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Christopher Almonte 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/christopher-almonte-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -440,7 +440,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/aryson-whorley.jpg",
     "photo": "/assets/trainer-bio-photos/aryson-whorley.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Aryson Whorley 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/aryson-whorley-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -492,7 +492,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/robert-wesling.jpg",
     "photo": "/assets/trainer-bio-photos/robert-wesling.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Robert Wesling  TC 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/robert-wesling-tc-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -544,7 +544,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/chloe-chislom.jpg",
     "photo": "/assets/trainer-bio-photos/chloe-chislom.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Chloe Chisolm TT 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/chloe-chisolm-tt-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -596,7 +596,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/jasmine-bland.jpg",
     "photo": "/assets/trainer-bio-photos/jasmine-bland.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Jasmine Bland 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/jasmine-bland-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -648,7 +648,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/bailey-brown.jpg",
     "photo": "/assets/trainer-bio-photos/bailey-brown.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Bailey Brown ETT 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/bailey-brown-ett-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -700,7 +700,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/emilio-marotta.jpg",
     "photo": "/assets/trainer-bio-photos/emilio-marotta.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Emilio Marotta 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/emilio-marotta-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -752,7 +752,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/dylan-atkinson.jpg",
     "photo": "/assets/trainer-bio-photos/dylan-atkinson.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Dylan Atkinson 360_x_360 ETT.jpg",
+    "cardPhoto": "/assets/trainer-headshots/dylan-atkinson-360-x-360-ett.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -804,7 +804,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/tristan-gray.jpg",
     "photo": "/assets/trainer-bio-photos/tristan-gray.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Tristan Gray TC 360_x_360_.jpg",
+    "cardPhoto": "/assets/trainer-headshots/tristan-gray-tc-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -856,7 +856,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/lorenzo-miller.jpg",
     "photo": "/assets/trainer-bio-photos/lorenzo-miller.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Lorenzo-Miller 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/lorenzo-miller-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -908,7 +908,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 9,
     "image": "/assets/trainer-bio-photos/eric-beck.jpg",
     "photo": "/assets/trainer-bio-photos/eric-beck.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Eric Beck TC 2 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/eric-beck-tc-2-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -960,7 +960,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/harley-mcgrew.jpg",
     "photo": "/assets/trainer-bio-photos/harley-mcgrew.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Harley McGrew 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/harley-mcgrew-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -1012,7 +1012,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/john-delbane.jpg",
     "photo": "/assets/trainer-bio-photos/john-delbane.jpg",
-    "cardPhoto": "/assets/trainer-headshots/John Delbane.jpg",
+    "cardPhoto": "/assets/trainer-headshots/john-delbane.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -1064,7 +1064,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/shannon-paskins.jpg",
     "photo": "/assets/trainer-bio-photos/shannon-paskins.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Shannon Paskins TT 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/shannon-paskins-tt-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -1169,7 +1169,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/karemela-sefferin-candid.jpg",
     "photo": "/assets/trainer-bio-photos/karemela-sefferin-candid.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Karemela Sefferin 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/karemela-sefferin-360-x-360.jpg",
     "heroTrainerPhoto": "/assets/trainer-bio-photos/karemela-sefferin-candid.jpg",
     "landingBioPhoto": "/assets/trainer-bio-photos/karemela-sefferin-candid.jpg",
     "companyLogo": "",
@@ -1223,7 +1223,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/jacob-perez.jpg",
     "photo": "/assets/trainer-bio-photos/jacob-perez.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Jacob Perez_TC 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/jacob-perez-tc-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",
@@ -1327,7 +1327,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/carolina-perez.jpg",
     "photo": "/assets/trainer-bio-photos/carolina-perez.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Carolina Perez tc 360_x_360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/carolina-perez-tc-360-x-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",

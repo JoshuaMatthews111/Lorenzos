@@ -55,7 +55,9 @@ function mediaTypeFromRow(row) {
   const notes = clean(row.notes);
   const attachedType = notes.match(/Attached file noted:\s*[^\n(]+?\(([^)]+)\)/i)?.[1]?.trim().toLowerCase() || "";
   if (attachedType && attachedType !== "unknown type") return attachedType;
-  const fileName = clean(row.file_url).split("?")[0].split("/").pop().toLowerCase();
+  const sourceUrl = clean(row.file_url);
+  if (/Attached video link:/i.test(notes) || /(?:youtube\.com|youtu\.be|vimeo\.com|drive\.google\.com|loom\.com|dropbox\.com)/i.test(sourceUrl)) return "video/embed";
+  const fileName = sourceUrl.split("?")[0].split("/").pop().toLowerCase();
   if (/\.(mp4|mov|m4v|webm)$/.test(fileName)) return `video/${fileName.split(".").pop().replace("mov", "quicktime")}`;
   if (/\.(jpg|jpeg|png|gif|webp|heic)$/.test(fileName)) return `image/${fileName.split(".").pop().replace("jpg", "jpeg")}`;
   return "";

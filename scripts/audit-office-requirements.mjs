@@ -8,7 +8,10 @@ const app = read("trainer-backoffice/app.js");
 const portal = read("trainer-backoffice/supabase.js");
 const contact = read("contact.html");
 const delivery = read("api/form-delivery.js");
+const reviewSubmission = read("api/submit-content-review.js");
 const applicationData = read("trainer-backoffice/application-data.js");
+const publicScript = read("script.js");
+const publicTrainerShell = read("trainer-backoffice/right-trainer-results.html");
 const vercel = JSON.parse(read("vercel.json"));
 const bios = JSON.parse(read("trainer_bios.json"));
 
@@ -33,7 +36,14 @@ const checks = [
   ["city review destinations bypass trainer lookup", /!String\(target\)\.startsWith\("city:"\)/.test(app)],
   ["Karemela rebuild source keeps candid photo", bios["karemela-sefferin"]?.photo === "assets/trainer-bio-photos/karemela-sefferin-candid.jpg"],
   ["Carolina legacy URLs redirect", vercel.redirects?.some(row => row.source === "/carolinadon" && row.destination === "/carolinaperez")],
-  ["all trainer landing bios preserve paragraphs", /landing-bio-paragraphs/.test(app) && /profileBioParagraphs\(trainer\.bio\)/.test(app)]
+  ["all trainer landing bios preserve paragraphs", /landing-bio-paragraphs/.test(app) && /profileBioParagraphs\(trainer\.bio\)/.test(app)],
+  ["wide admin sections have left and right controls", /horizontalScrollSelectors/.test(app) && /data-scroll-horizontal="left"/.test(app) && /data-scroll-horizontal="right"/.test(app)],
+  ["application filter updates sheets and records without hiding the pipeline", /applicationStatusFilterBar/.test(app) && /currentApplicationFilter/.test(app) && /rows = allRows\.filter/.test(app) && /applicationPipelineBoard\(\)/.test(app)],
+  ["trainer and client reviews accept uploads or supported video links", /review_video_url/.test(app) && /review_video_url/.test(publicScript) && /normalizeReviewVideoUrl/.test(reviewSubmission)],
+  ["trainer publishing exposes a clear live-page action", app.includes("Publish Landing Page") && app.includes("Open Live Landing Page")],
+  ["trainer locations normalize full state names", /normalizeTrainerLocation/.test(app) && app.includes("Texas") && app.includes("California")],
+  ["clean trainer URLs load root-absolute public assets", ["/trainer-backoffice/styles.css", "/supabase-config.js", "/trainer-roster.js", "/trainer-backoffice/app.js"].every(value => publicTrainerShell.includes(value))],
+  ["legacy spaced headshot URLs are normalized", /safeTrainerAssetUrl/.test(app)]
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

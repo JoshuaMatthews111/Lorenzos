@@ -16,6 +16,46 @@ function validEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+function normalizeReviewVideoUrl(value) {
+  let input = clean(value, 1000);
+  if (!input) return "";
+  if (!/^https?:\/\//i.test(input)) input = `https://${input}`;
+  try {
+    const parsed = new URL(input);
+    if (!["http:", "https:"].includes(parsed.protocol)) return "";
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (["youtube.com", "m.youtube.com"].includes(host)) {
+      const id = parsed.searchParams.get("v") || (["shorts", "embed"].includes(parts[0]) ? parts[1] : "");
+      return id ? `https://www.youtube.com/embed/${encodeURIComponent(id)}` : "";
+    }
+    if (host === "youtu.be" && parts[0]) return `https://www.youtube.com/embed/${encodeURIComponent(parts[0])}`;
+    if (host === "vimeo.com") {
+      const id = parts.find(part => /^\d+$/.test(part));
+      return id ? `https://player.vimeo.com/video/${encodeURIComponent(id)}` : "";
+    }
+    if (host === "player.vimeo.com") return parsed.href;
+    if (host === "drive.google.com") {
+      const dIndex = parts.indexOf("d");
+      const id = dIndex >= 0 ? parts[dIndex + 1] : parsed.searchParams.get("id");
+      return id ? `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview` : "";
+    }
+    if (host === "loom.com" || host.endsWith(".loom.com")) {
+      const marker = parts.includes("share") ? "share" : "embed";
+      const id = parts[parts.indexOf(marker) + 1] || "";
+      return id ? `https://www.loom.com/embed/${encodeURIComponent(id)}` : "";
+    }
+    if (host === "dropbox.com" || host.endsWith(".dropbox.com")) {
+      parsed.searchParams.delete("dl");
+      parsed.searchParams.set("raw", "1");
+      return parsed.href;
+    }
+    return /\.(mp4|webm|mov|m4v)(?:$|\?)/i.test(parsed.href) ? parsed.href : "";
+  } catch {
+    return "";
+  }
+}
+
 function decodeDataUrl(dataUrl) {
   const marker = ";base64,";
   if (!dataUrl || !String(dataUrl).startsWith("data:") || !String(dataUrl).includes(marker)) return null;
@@ -81,6 +121,8 @@ module.exports = async function handler(req, res) {
     const starRating = clean(payload.star_rating || payload.rating || "5", 10);
     const sourcePage = clean(payload.source_page || payload.page_url || "trainer landing page", 500);
     const file = payload.file || null;
+    const requestedVideoUrl = clean(payload.review_video_url, 1000);
+    const reviewVideoUrl = normalizeReviewVideoUrl(requestedVideoUrl);
 
     if (!reviewerName || !reviewerEmail || !reviewText || !trainerSlug) {
       return res.status(400).json({ ok: false, message: "Missing required review fields." });
@@ -88,9 +130,13 @@ module.exports = async function handler(req, res) {
     if (!validEmail(reviewerEmail)) {
       return res.status(400).json({ ok: false, message: "Invalid reviewer email." });
     }
+    if (requestedVideoUrl && !reviewVideoUrl) {
+      return res.status(400).json({ ok: false, message: "Use a YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM video link." });
+    }
 
     const trainerId = await findTrainerId({ trainer_slug: trainerSlug });
     const fileUrl = await uploadSubmissionFile(trainerId, file);
+    const mediaUrl = fileUrl || reviewVideoUrl;
     const attachedLine = file?.name
       ? `Attached file noted: ${clean(file.name, 180)} (${clean(file.type || "unknown type", 80)}).`
       : "";
@@ -99,7 +145,7 @@ module.exports = async function handler(req, res) {
       trainer_id: trainerId,
       submission_type: "review",
       title: `Website review from ${reviewerName}`,
-      file_url: fileUrl || null,
+      file_url: mediaUrl || null,
       notes: [
         `Public landing page review submission for ${trainerName || trainerSlug}.`,
         `Submitted from: ${sourcePage}.`,
@@ -108,6 +154,7 @@ module.exports = async function handler(req, res) {
         reviewerLocation ? `Client location: ${reviewerLocation}.` : "",
         `Permission to share: ${permission || "not confirmed"}.`,
         attachedLine,
+        reviewVideoUrl && !fileUrl ? `Attached video link: ${reviewVideoUrl} (video/embed).` : "",
         `Review: ${reviewText}`
       ].filter(Boolean).join("\n"),
       status: "pending",
@@ -130,7 +177,7 @@ module.exports = async function handler(req, res) {
       return res.status(response.status).json({ ok: false, message: text || "Supabase insert failed" });
     }
     const rows = text ? JSON.parse(text) : [];
-    return res.status(200).json({ ok: true, submission_id: rows?.[0]?.id || null, file_url: fileUrl || "" });
+    return res.status(200).json({ ok: true, submission_id: rows?.[0]?.id || null, file_url: mediaUrl || "" });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message || "Review submission failed" });
   }
