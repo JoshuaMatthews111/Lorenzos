@@ -113,6 +113,25 @@ function appendGoogleValue(params, field, value, otherValue = "") {
   }
 }
 
+function appendSheetLine(value, line) {
+  return [clean(value), clean(line)].filter(Boolean).join("\n\n");
+}
+
+function entriesForGoogleSheet(formType, entries) {
+  const copy = { ...entries };
+  const smsOptIn = clean(copy.sms_consent).toLowerCase() === "yes" ? "Yes" : "No";
+  const consentLines = [`SMS opt-in: ${smsOptIn}`];
+  if (copy.application_certification) consentLines.push(`Application certification: ${clean(copy.application_certification)}`);
+  if (copy.additional_interest) consentLines.push(`Additional interest: ${clean(copy.additional_interest)}`);
+  const consentNote = consentLines.join("\n");
+  if (formType === "trainer_application") {
+    copy.additional_training = appendSheetLine(copy.additional_training, consentNote);
+  } else {
+    copy.comments = appendSheetLine(copy.comments, consentNote);
+  }
+  return copy;
+}
+
 async function logAttempt({ submissionId, entityType, entityId, destination, status, requestId, error, payloadHash }) {
   const existing = await supabaseFetch(
     `/rest/v1/form_delivery_attempts?select=attempt_count&submission_id=eq.${encodeURIComponent(submissionId)}&destination=eq.${encodeURIComponent(destination)}&order=attempt_count.desc&limit=1`
@@ -275,7 +294,7 @@ module.exports = async function handler(req, res) {
         run: () => deliverGoogle(
           isApplication && !isDiscoveryApplication ? APPLICATION_GOOGLE : CONTACT_GOOGLE,
           isApplication && !isDiscoveryApplication ? APPLICATION_FIELDS : CONTACT_FIELDS,
-          entries
+          entriesForGoogleSheet(isApplication && !isDiscoveryApplication ? "trainer_application" : "contact", entries)
         )
       },
       {

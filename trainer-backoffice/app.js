@@ -4860,9 +4860,51 @@ function applicationStatusFilterBar() {
   </section>`;
 }
 
+const APPLICATION_FIELD_ALIASES = {
+  date_of_conviction: ["conviction_date"],
+  date_of_release: ["release_date"],
+  trade_technical_school: ["trade_school"],
+  college_university: ["college"],
+  company: ["employment_1_company"],
+  company_address: ["employment_1_address"],
+  address_line_1_2: ["employment_1_address"],
+  city_2: ["employment_1_city"],
+  state_2: ["employment_1_state"],
+  zip_code_2: ["employment_1_zip"],
+  are_you_still_employed: ["employment_1_status"],
+  start_date: ["employment_1_start_date"],
+  end_date: ["employment_1_end_date"],
+  ending_job_title: ["employment_1_job_title"],
+  salary_earnings: ["employment_1_salary"],
+  reason_for_leaving: ["employment_1_reason"],
+  company_2: ["employment_2_company"],
+  company_address_2: ["employment_2_address"],
+  address_line_1_3: ["employment_2_address"],
+  city_3: ["employment_2_city"],
+  state_3: ["employment_2_state"],
+  zip_code_3: ["employment_2_zip"],
+  are_you_still_employed_2: ["employment_2_status"],
+  start_date_2: ["employment_2_start_date"],
+  end_date_2: ["employment_2_end_date"],
+  ending_job_title_2: ["employment_2_job_title"],
+  salary_earnings_2: ["employment_2_salary"],
+  reason_for_leaving_2: ["employment_2_reason"],
+  company_3: ["employment_3_company"],
+  company_address_3: ["employment_3_address"],
+  address_line_1_4: ["employment_3_address"],
+  city_4: ["employment_3_city"],
+  state_4: ["employment_3_state"],
+  zip_code_4: ["employment_3_zip"],
+  are_you_still_employed_3: ["employment_3_status"],
+  start_date_3: ["employment_3_start_date"],
+  end_date_3: ["employment_3_end_date"],
+  ending_job_title_3: ["employment_3_job_title"],
+  salary_earnings_3: ["employment_3_salary"],
+  reason_for_leaving_3: ["employment_3_reason"]
+};
+
 function applicationBaseFields() {
-  if (IMPORTED_APPLICATION_FIELDS.length) return IMPORTED_APPLICATION_FIELDS;
-  return [
+  const fields = IMPORTED_APPLICATION_FIELDS.length ? IMPORTED_APPLICATION_FIELDS : [
     { key: "createdAt", label: "Timestamp" },
     { key: "first_name", label: "First Name" },
     { key: "last_name", label: "Last Name" },
@@ -4876,6 +4918,14 @@ function applicationBaseFields() {
     { key: "referral_source", label: "How were you referred to this opportunity?" },
     { key: "signature", label: "Signature" }
   ];
+  const existing = new Set(fields.map(field => field.key));
+  [
+    { key: "sms_consent", label: "SMS Opt-In" },
+    { key: "application_certification", label: "Application Certification" }
+  ].forEach(field => {
+    if (!existing.has(field.key)) fields.push(field);
+  });
+  return fields;
 }
 
 function applicationExportFields(rows = applicationRows()) {
@@ -4884,6 +4934,7 @@ function applicationExportFields(rows = applicationRows()) {
   fields.forEach(field => {
     seen.add(field.key);
     seen.add(field.label);
+    (APPLICATION_FIELD_ALIASES[field.key] || []).forEach(alias => seen.add(alias));
   });
   rows.forEach(app => {
     Object.keys(applicationRawPayload(app)).forEach(label => {
@@ -4900,9 +4951,15 @@ function applicationRawPayload(app) {
 }
 
 function applicationFieldValue(app, key, label) {
+  const keys = [key, ...(APPLICATION_FIELD_ALIASES[key] || [])];
+  for (const item of keys) {
+    if (app[item] != null && app[item] !== "") return String(app[item]);
+  }
   if (app[key] != null && app[key] !== "") return String(app[key]);
   const raw = applicationRawPayload(app);
-  if (raw[key] != null && raw[key] !== "") return String(raw[key]);
+  for (const item of keys) {
+    if (raw[item] != null && raw[item] !== "") return String(raw[item]);
+  }
   if (raw[label] != null && raw[label] !== "") return String(raw[label]);
   return "";
 }

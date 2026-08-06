@@ -456,6 +456,7 @@ const wireAsyncForm=(form,{storageKey,successMessage,onSubmit})=>{
     data.set('visitor_id',ldttVisitorId());
     data.set('session_id',ldttSessionId());
     data.set('page_url',window.location.href);
+    data.set('sms_consent',data.get('sms_consent')==='yes'?'yes':'no');
     if(isReleaseQaHost) data.set('qa','true');
     if(!data.get('source_page')) data.set('source_page',document.title);
     ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','gbraid','wbraid'].forEach(key=>{
