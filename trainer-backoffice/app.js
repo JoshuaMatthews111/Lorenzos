@@ -2647,6 +2647,7 @@ function applySectionBuilderSettings(doc, trainer) {
     services: ".lp-services",
     trainerVideo: ".lp-trainer-video",
     trainer: ".lp5-trainer,.lp6-trainer,.lp3-trainer",
+    reviewSubmission: ".lp-review-submission",
     reviews: ".lp-reviews",
     process: ".lp-process",
     consultation: ".lp-final,.lp5-final,.lp6-cta,.lp3-contact",
@@ -2659,15 +2660,14 @@ function applySectionBuilderSettings(doc, trainer) {
   });
   const page = doc.querySelector(".lp-page");
   if (!page || !Array.isArray(trainer.sectionOrder)) return;
-  const movable = ["trainer", "reviews"];
-  const savedMiddleOrder = trainer.sectionOrder.filter(key => movable.includes(key));
   const safeOrder = [
     "hero",
     "stats",
     "services",
     "trainerVideo",
-    ...savedMiddleOrder,
-    ...movable.filter(key => !savedMiddleOrder.includes(key)),
+    "trainer",
+    "reviewSubmission",
+    "reviews",
     "process",
     "consultation",
     "footer"
@@ -3445,10 +3445,7 @@ const adminScreens = {
         ${panel("Conversion Overview", `<button class="btn btn-outline" data-view="reports">View Reports</button>`, leadSummary())}
         ${panel("Conversions By Ad Market", "", marketConversionTable())}
       </div>
-      <div class="bottom-grid">
-        ${panel("Lead Status Updates", "", leadOutcomeTable())}
-        ${panel("Client Import Protection", `${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Open Import</button>`}`, protectionSummary(), "pad")}
-      </div>`;
+      ${panel("Lead Status Updates", "", leadOutcomeTable())}`;
   },
   trainerPages() {
     return `${panel("Three Approved Trainer Landing Page Designs", "", approvedLayoutCards(), "pad")}<br>${panel("Trainer Page Control & Performance", `<button class="btn btn-red" id="addTrainer">Onboard New Trainer</button>`, trainerPageCards())}<br>${panel("Recent Trainer Page Activity", "", trainerSiteActivityTable(), "pad")}`;
@@ -3587,7 +3584,7 @@ function portalAccessScreen() {
 }
 
 function portalAccessTable(rows) {
-  return `<div class="table-wrap portal-access-wrap"><table class="data-table portal-access-table"><thead><tr><th>Person</th><th>Permission</th><th>Status</th><th>Profile Photo</th><th>Password</th><th>Actions</th></tr></thead><tbody>${rows.map(user => {
+  return `<div class="table-wrap portal-access-wrap"><table class="data-table portal-access-table"><thead><tr><th>Person</th><th>Permission</th><th>Status</th><th>Login</th><th>Profile Photo</th><th>Password</th><th>Actions</th></tr></thead><tbody>${rows.map(user => {
     const userId = escapeHtml(user.user_id || "");
     const email = portalUserEmail(user);
     const isDerived = Boolean(user.derived);
@@ -3602,6 +3599,7 @@ function portalAccessTable(rows) {
             <input class="inline-name-input" data-portal-display-name="${userId}" value="${escapeHtml(portalDisplayName(user))}" ${isDerived ? "disabled" : ""}>
             <small>${escapeHtml(email || user.user_id || "Email not stored yet")}</small>
             ${isDerived ? `<small class="muted-note">Directory / trainer record only. Create or publish the account to enable live edits.</small>` : ""}
+            ${portalUserDetailDisclosure(user)}
           </div>
         </div>
       </td>
@@ -3613,15 +3611,52 @@ function portalAccessTable(rows) {
         </select>
       </td>
       <td><span class="status ${active ? "won" : "lost"}">${active ? "Active" : statusText(user)}</span></td>
+      <td>${portalLoginStatusMarkup(user)}</td>
       <td><label class="mini-upload">Upload Photo<input type="file" accept="image/*" data-portal-photo-upload="${userId}" ${isDerived ? "disabled" : ""}></label></td>
-      <td><button class="btn btn-outline btn-small" type="button" data-portal-access-action="reset-password" data-portal-user="${userId}" ${isDerived ? "disabled" : ""}>Reset Password</button></td>
+      <td><div class="portal-password-cell"><strong>${escapeHtml(portalPasswordStatus(user))}</strong><small>Current passwords are protected by Supabase and cannot be viewed.</small><button class="btn btn-outline btn-small" type="button" data-portal-access-action="reset-password" data-portal-user="${userId}" ${isDerived ? "disabled" : ""}>Reset Password</button></div></td>
       <td><div class="row-actions">
         ${active
           ? `<button class="btn btn-outline btn-small" type="button" data-portal-access-action="disable" data-portal-user="${userId}">Disable</button><button class="btn btn-outline btn-small danger" type="button" data-portal-access-action="revoke" data-portal-user="${userId}">Revoke</button>`
           : `<button class="btn btn-red btn-small" type="button" data-portal-access-action="restore" data-portal-user="${userId}">Restore</button>`}
       </div></td>
     </tr>`;
-  }).join("") || `<tr><td colspan="6">No portal users loaded yet.</td></tr>`}</tbody></table></div>`;
+  }).join("") || `<tr><td colspan="7">No portal users loaded yet.</td></tr>`}</tbody></table></div>`;
+}
+
+function portalPasswordStatus(user) {
+  if (isDerivedPortalUser(user)) return "No live login";
+  if (user?.must_change_password) return "Temporary password pending";
+  return "Protected";
+}
+
+function portalAuthDate(user, key) {
+  const value = user?.[key] || "";
+  return value ? formatDateTime(value) : "Not recorded";
+}
+
+function portalLoginStatusMarkup(user) {
+  if (isDerivedPortalUser(user)) {
+    return `<div class="portal-login-status"><span class="status lost">No login account</span><small>Create/publish access first</small></div>`;
+  }
+  const lastSignIn = user?.auth_last_sign_in_at || user?.last_sign_in_at || "";
+  const loggedIn = Boolean(user?.auth_has_logged_in || lastSignIn);
+  return `<div class="portal-login-status"><span class="status ${loggedIn ? "won" : "lost"}">${loggedIn ? "Logged in" : "No login yet"}</span><small>${escapeHtml(lastSignIn ? formatDateTime(lastSignIn) : "Last sign-in not recorded")}</small></div>`;
+}
+
+function portalUserDetailDisclosure(user) {
+  const rows = [
+    ["Email", portalUserEmail(user) || "Not stored"],
+    ["Permission", portalPermissionLabel(user)],
+    ["Linked trainer", trainerForPortalUser(user)?.name || "Not linked"],
+    ["Login account", isDerivedPortalUser(user) ? "Not created yet" : "Live Supabase account"],
+    ["Has logged in", user?.auth_has_logged_in || user?.auth_last_sign_in_at ? "Yes" : "No / not recorded"],
+    ["Last sign-in", portalAuthDate(user, "auth_last_sign_in_at")],
+    ["Account created", portalAuthDate(user, "auth_created_at")],
+    ["Email confirmed", portalAuthDate(user, "auth_confirmed_at")],
+    ["Portal updated", user?.updated_at ? formatDateTime(user.updated_at) : "Not recorded"],
+    ["Password", portalPasswordStatus(user)]
+  ];
+  return `<details class="portal-user-details"><summary>More details</summary><div class="portal-detail-grid">${rows.map(([label, value]) => `<span><b>${escapeHtml(label)}</b>${escapeHtml(value)}</span>`).join("")}</div></details>`;
 }
 
 function statusText(user) {
@@ -4203,14 +4238,6 @@ function marketConversionTable() {
   });
   const rows = [...markets.entries()].sort((a, b) => b[1].forms.size - a[1].forms.size);
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Ad Market</th><th>Inquiries</th><th>Became Client</th><th>Conversion</th></tr></thead><tbody>${rows.map(([market, value]) => `<tr><td><strong>${escapeHtml(market)}</strong></td><td>${value.forms.size}</td><td>${value.clients.size}</td><td>${value.forms.size ? Math.round((value.clients.size / value.forms.size) * 1000) / 10 : 0}%</td></tr>`).join("") || `<tr><td colspan="4">No ad-attributed inquiries in this date range.</td></tr>`}</tbody></table></div>`;
-}
-
-function protectionSummary() {
-  return `<div class="protection-list">
-    <div><strong>${state.clients.filter(c => c.status === "Do Not Contact").length}</strong><span>Do-not-contact records blocked</span></div>
-    <div><strong>${state.clients.filter(c => c.status === "Bad Lead").length}</strong><span>Bad leads excluded by default</span></div>
-    <div><strong>${state.clients.filter(c => c.smsConsent === "Unknown" || c.emailConsent === "Unknown").length}</strong><span>Unknown consent requires review</span></div>
-  </div>`;
 }
 
 function approvedLayoutCards() {
@@ -5898,7 +5925,7 @@ function serviceCardsMarkup(layoutId) {
 function trainerSectionMarkup(trainer, variant = "split") {
   const facts = (trainer.credentials || []).map(item => `<li>${escapeHtml(item)}</li>`).join("");
   const specialties = (trainer.specialties || []).map(item => `<li>${escapeHtml(item)}</li>`).join("");
-  const bioPhotoStyle = trainerPhotoStyle(trainer, { positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", frameKey: "bioPhotoFrame", fallbackPosition: "center center", fallbackFit: "cover", fallbackFrame: "tight" });
+  const bioPhotoStyle = publicContainedTrainerPhotoStyle(trainer, "bioPhotoPosition", "center center");
   return `<section class="landing-trainer-section ${variant}" id="trainer"><div class="landing-trainer-photo"><img src="${escapeHtml(trainerBioPhoto(trainer))}" style="${bioPhotoStyle}" alt="${escapeHtml(trainer.name)}, dog trainer in ${escapeHtml(trainer.market)}"></div><div class="landing-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title || "Team Trainer")}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><ul class="landing-facts">${facts}</ul></div><aside class="landing-trainer-side"><h3>${escapeHtml(trainer.name)} specializes in:</h3><ul>${specialties}</ul><div class="powered-badge"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><span>Certified and powered by Lorenzo's Dog Training Team</span></div></aside></section>`;
 }
 
@@ -5938,6 +5965,11 @@ function publicReviewFormMarkup(trainer) {
   </details>`;
 }
 
+function publicContainedTrainerPhotoStyle(trainer, positionKey = "bioPhotoPosition", fallbackPosition = "center center") {
+  const position = photoFrameValue(trainer?.[positionKey], fallbackPosition);
+  return `object-position:${escapeHtml(position)};object-fit:contain;transform:none;background:#061f46;`;
+}
+
 function publicSiteMarkup(trainer) {
   const params = new URLSearchParams(window.location.search);
   const forcedLayout = document.body.dataset.layout || params.get("layout");
@@ -5947,7 +5979,7 @@ function publicSiteMarkup(trainer) {
   const bioTrainerPhoto = escapeHtml(trainerBioPhoto(trainer));
   const heroPhotoPosition = photoFrameValue(trainer.heroPhotoPosition, "center top");
   const heroPhotoStyle = `object-position:${escapeHtml(heroPhotoPosition)};object-fit:contain;transform:none;background:#071f46;`;
-  const bioPhotoStyle = trainerPhotoStyle(trainer, { positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", frameKey: "bioPhotoFrame", fallbackPosition: "center center", fallbackFit: "cover", fallbackFrame: "tight" });
+  const bioPhotoStyle = publicContainedTrainerPhotoStyle(trainer, "bioPhotoPosition", "center center");
   const styleSettings = trainer.styleSettings || {};
   const styleAttr = `--lp-font:${escapeHtml(styleSettings.fontFamily || "Inter")};--lp-scale:${Number(styleSettings.fontScale || 1)};--lp-primary:${escapeHtml(styleSettings.brandPrimary || "#071f44")};--lp-accent:${escapeHtml(styleSettings.brandAccent || "#d80f35")}`;
   const editedHeadline = String(trainer.heroHeadline || "").trim();
@@ -5973,14 +6005,14 @@ function publicSiteMarkup(trainer) {
   const footer = `<section class="lp-final"><div><span>Start with Lorenzo's office</span><h2>Ready for a better life with your dog?</h2><p>Request your consultation today. Lorenzo's office will review your request and follow up with the next step.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}`;
 
   if (layout.id === "mock-6") {
-    return `<div class="landing-template landing-template-6 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp6-hero" style="--hero-art:url('${heroImage}')"><div class="lp6-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br><em>Serious results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Professional dog training for families in ${trainerLocationLabel(trainer)}. Lorenzo's proven system builds obedience, modifies behavior, and creates dependable control in real life.`)}</p><ul class="lp6-proof-points"><li>Proven methods</li><li>Trusted results</li><li>Lifetime impact</li></ul></div>${trainerHeroCard}<div class="lp6-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp6-trainer" id="trainer"><div class="lp6-trainer-image"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><div class="lp6-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div>${brandBadge}</div><aside><h3>${escapeHtml(trainer.name)}'s specialties</h3><ul>${specialties}</ul><h3>Credentials</h3><ul>${credentials}</ul></aside></section>${reviews}<section class="lp6-cta"><div><span>Professional training in ${market}</span><h2>Ready to transform your dog?</h2><ul><li>Professional evaluation</li><li>Tailored training recommendations</li><li>Office-guided next steps</li></ul></div>${officeLeadFormMarkup(trainer, true)}</section>${reviewSubmission}${footer}</div>`;
+    return `<div class="landing-template landing-template-6 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp6-hero" style="--hero-art:url('${heroImage}')"><div class="lp6-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br><em>Serious results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Professional dog training for families in ${trainerLocationLabel(trainer)}. Lorenzo's proven system builds obedience, modifies behavior, and creates dependable control in real life.`)}</p><ul class="lp6-proof-points"><li>Proven methods</li><li>Trusted results</li><li>Lifetime impact</li></ul></div>${trainerHeroCard}<div class="lp6-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp6-trainer" id="trainer"><div class="lp6-trainer-image"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><div class="lp6-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div>${brandBadge}</div><aside><h3>${escapeHtml(trainer.name)}'s specialties</h3><ul>${specialties}</ul><h3>Credentials</h3><ul>${credentials}</ul></aside></section>${reviewSubmission}${reviews}<section class="lp6-cta"><div><span>Professional training in ${market}</span><h2>Ready to transform your dog?</h2><ul><li>Professional evaluation</li><li>Tailored training recommendations</li><li>Office-guided next steps</li></ul></div>${officeLeadFormMarkup(trainer, true)}</section>${footer}</div>`;
   }
 
   if (layout.id === "mock-3") {
-    return `<div class="landing-template landing-template-3 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp3-hero" style="--hero-art:url('${heroImage}')"><div class="lp3-copy"><span>★★★★★ &nbsp; ${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br>Serious <em>results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Trusted dog obedience training and behavior modification for families in ${trainerLocationLabel(trainer)} and throughout ${trainer.serviceArea}.`)}</p><ul><li>Proven methods that work</li><li>Balanced training for real-life results</li><li>Backed by Lorenzo's nationwide team</li></ul></div>${trainerHeroCard}<div class="lp3-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp3-trainer" id="trainer"><div class="lp3-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)}, certified Lorenzo trainer"></div><div class="lp3-bio"><span>Meet your trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><div class="lp3-trust"><ul>${credentials}</ul><ul>${specialties}</ul></div>${brandBadge}</div></section>${reviews}${process}<section class="lp3-contact"><div><span>Let's build a better future</span><h2>For you and your dog.</h2><p>Serving ${serviceArea} with professional, office-supported dog training.</p></div>${officeLeadFormMarkup(trainer, true)}<aside><strong>Office follow-up</strong><span>Submit the form and Lorenzo's team will review your request and follow up with the next step.</span></aside></section>${reviewSubmission}${landingFooter(trainer)}</div>`;
+    return `<div class="landing-template landing-template-3 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp3-hero" style="--hero-art:url('${heroImage}')"><div class="lp3-copy"><span>★★★★★ &nbsp; ${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br>Serious <em>results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Trusted dog obedience training and behavior modification for families in ${trainerLocationLabel(trainer)} and throughout ${trainer.serviceArea}.`)}</p><ul><li>Proven methods that work</li><li>Balanced training for real-life results</li><li>Backed by Lorenzo's nationwide team</li></ul></div>${trainerHeroCard}<div class="lp3-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp3-trainer" id="trainer"><div class="lp3-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)}, certified Lorenzo trainer"></div><div class="lp3-bio"><span>Meet your trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><div class="lp3-trust"><ul>${credentials}</ul><ul>${specialties}</ul></div>${brandBadge}</div></section>${reviewSubmission}${reviews}${process}<section class="lp3-contact"><div><span>Let's build a better future</span><h2>For you and your dog.</h2><p>Serving ${serviceArea} with professional, office-supported dog training.</p></div>${officeLeadFormMarkup(trainer, true)}<aside><strong>Office follow-up</strong><span>Submit the form and Lorenzo's team will review your request and follow up with the next step.</span></aside></section>${landingFooter(trainer)}</div>`;
   }
 
-  return `<div class="landing-template landing-template-5 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp5-hero" style="--hero-art:url('${heroImage}')"><div class="lp5-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("The right trainer.<br><em>The right results.</em>")}</h1><h2>Obedience. Behavior solutions. Real results.</h2><p>${escapeHtml(trainer.tagline || `Personalized dog training in ${trainerLocationLabel(trainer)}, backed by Lorenzo's proven system and an office team that manages every lead and next step.`)}</p><div class="lp5-proof"><span>Proven methods that work</span><span>Personalized training plans</span><span>Results you can see and feel</span></div></div>${trainerHeroCard}<div class="lp5-form">${formCard}</div></section><section class="lp5-trust"><div class="lp-heading"><span>Why choose Lorenzo's?</span><h2>Experience, accountability, and a proven system.</h2></div>${stats}</section>${services}${trainerVideo}<section class="lp5-trainer" id="trainer"><div class="lp5-bio"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><ul>${credentials}</ul>${brandBadge}</div><div class="lp5-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><aside><h3>${escapeHtml(trainer.name)} specializes in</h3><ul>${specialties}</ul></aside></section>${reviews}${process}<section class="lp5-final"><div><span>Ready to transform your dog?</span><h2>Start with a professional consultation.</h2><p>Office-guided scheduling. Local trainer expertise. Lorenzo-backed results.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${reviewSubmission}${landingFooter(trainer)}</div>`;
+  return `<div class="landing-template landing-template-5 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp5-hero" style="--hero-art:url('${heroImage}')"><div class="lp5-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("The right trainer.<br><em>The right results.</em>")}</h1><h2>Obedience. Behavior solutions. Real results.</h2><p>${escapeHtml(trainer.tagline || `Personalized dog training in ${trainerLocationLabel(trainer)}, backed by Lorenzo's proven system and an office team that manages every lead and next step.`)}</p><div class="lp5-proof"><span>Proven methods that work</span><span>Personalized training plans</span><span>Results you can see and feel</span></div></div>${trainerHeroCard}<div class="lp5-form">${formCard}</div></section><section class="lp5-trust"><div class="lp-heading"><span>Why choose Lorenzo's?</span><h2>Experience, accountability, and a proven system.</h2></div>${stats}</section>${services}${trainerVideo}<section class="lp5-trainer" id="trainer"><div class="lp5-bio"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><ul>${credentials}</ul>${brandBadge}</div><div class="lp5-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><aside><h3>${escapeHtml(trainer.name)} specializes in</h3><ul>${specialties}</ul></aside></section>${reviewSubmission}${reviews}${process}<section class="lp5-final"><div><span>Ready to transform your dog?</span><h2>Start with a professional consultation.</h2><p>Office-guided scheduling. Local trainer expertise. Lorenzo-backed results.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}</div>`;
 }
 
 function profileBioParagraphs(text) {

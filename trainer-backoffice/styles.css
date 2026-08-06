@@ -1665,9 +1665,11 @@ body.is-logged-in .login-screen { display: none; }
 .lp5-form .landing-form-card { box-shadow:0 25px 65px rgba(0,0,0,.38); }
 .lp-hero-trainer-card {
   align-self: center;
+  justify-self: center;
+  width: min(100%, 288px);
   aspect-ratio: 3 / 4;
-  min-height: 430px;
-  max-height: 620px;
+  min-height: 0;
+  max-height: 520px;
   display: grid;
   grid-template-rows: minmax(0,1fr) auto;
   overflow: hidden;
@@ -1686,9 +1688,9 @@ body.is-logged-in .login-screen { display: none; }
   width: 100%;
   height: 100%;
   min-height: 0;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center top;
-  background: #eef4fb;
+  background: #071f46;
 }
 
 /* Office trainer setup: every image has a clearly labeled, independent role. */
@@ -1796,8 +1798,8 @@ body.is-logged-in .login-screen { display: none; }
 
 @media (min-width: 1700px) {
   .lp-page { max-width: 2200px; margin: 0 auto; }
-  .lp-hero-trainer-card { max-width: 420px; justify-self: center; }
-  .lp-hero-trainer-card img { max-height: 520px; }
+  .lp-hero-trainer-card { width: 320px; max-width: 320px; justify-self: center; }
+  .lp-hero-trainer-card img { max-height: 480px; }
 }
 
 @media (max-width: 760px) {
@@ -1881,6 +1883,8 @@ body.is-logged-in .login-screen { display: none; }
 .lp6-cta h2 { color:#fff; font-size:3.3rem; line-height:.95; text-transform:uppercase; }
 .lp6-cta > div > span { color:#ff4762; font-weight:950; text-transform:uppercase; }
 .lp6-cta li { margin:10px 0; }
+.lp-review-submission { padding:42px clamp(24px,5vw,76px); background:#f7f9fc; border-top:1px solid #dfe7f0; }
+.lp-review-submission + .lp-reviews { padding-top:34px; }
 
 /* Mock 3: dark editorial hero using approved mock-derived header art. */
 .lp3-hero { min-height:720px; display:grid; grid-template-columns:minmax(0,1.12fr) minmax(260px,.72fr) 380px; gap:clamp(20px,2.8vw,38px); align-items:center; padding:70px clamp(24px,5vw,76px); background:#041c41; background-image:linear-gradient(90deg, rgba(3,24,51,.97), rgba(3,24,51,.68)), var(--hero-art); background-position:center center; background-size:cover; background-repeat:no-repeat; color:#fff; border-bottom:9px solid var(--lp-red); }
@@ -4002,9 +4006,8 @@ body.form-modal-open {
   .lp-page .lp3-copy,
   .lp-page .lp3-form,
   .lp-page .lp6-copy,
-  .lp-page .lp6-form,
-  .lp-page .lp-hero-trainer-card { position: relative; z-index: 1; width: 100%; }
-  .lp-page .lp-hero-trainer-card { min-height: 340px; order: 2; }
+  .lp-page .lp6-form { position: relative; z-index: 1; width: 100%; }
+  .lp-page .lp-hero-trainer-card { position: relative; z-index: 1; width: min(100%, 320px); min-height: 0; order: 2; }
   .lp-page .lp5-form,
   .lp-page .lp3-form,
   .lp-page .lp6-form { order: 3; }
@@ -4607,7 +4610,7 @@ button:disabled{cursor:not-allowed}
   background:#fff;
 }
 .portal-access-table{
-  min-width:1040px;
+  min-width:1280px;
 }
 .portal-access-table th{
   position:sticky;
@@ -4676,6 +4679,65 @@ button:disabled{cursor:not-allowed}
 .mini-upload:has(input:disabled){
   opacity:.55;
   cursor:not-allowed;
+}
+.portal-login-status,
+.portal-password-cell{
+  display:grid;
+  gap:6px;
+  min-width:150px;
+}
+.portal-login-status small,
+.portal-password-cell small{
+  display:block;
+  color:var(--muted);
+  font-size:.72rem;
+  line-height:1.35;
+}
+.portal-password-cell .btn{
+  width:max-content;
+}
+.portal-user-details{
+  margin-top:8px;
+}
+.portal-user-details summary{
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:0 10px;
+  border:1px solid #c9d7e8;
+  border-radius:999px;
+  background:#f7fbff;
+  color:var(--navy);
+  font-size:.72rem;
+  font-weight:950;
+  cursor:pointer;
+}
+.portal-detail-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  min-width:min(560px,70vw);
+  margin-top:10px;
+  padding:12px;
+  border:1px solid #dfe7f0;
+  border-radius:14px;
+  background:#f9fbfe;
+  box-shadow:0 12px 30px rgba(8,39,84,.08);
+}
+.portal-detail-grid span{
+  display:block;
+  color:#183653;
+  font-size:.78rem;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+.portal-detail-grid b{
+  display:block;
+  margin-bottom:2px;
+  color:var(--muted);
+  font-size:.66rem;
+  text-transform:uppercase;
+  letter-spacing:.06em;
 }
 .activity-log-wrap{
   max-height:520px;

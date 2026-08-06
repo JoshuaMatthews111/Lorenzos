@@ -55,6 +55,54 @@ async function supabaseFetchAll(path, pageSize = 1000, maxRows = 100000) {
   return rows;
 }
 
+async function fetchAuthUsersById(userIds = []) {
+  const needed = new Set(userIds.map(value => String(value || "")).filter(Boolean));
+  if (!needed.size) return new Map();
+  const byId = new Map();
+  try {
+    for (let page = 1; page <= 20; page += 1) {
+      const result = await supabaseFetch(`/auth/v1/admin/users?page=${page}&per_page=100`);
+      const users = Array.isArray(result?.users) ? result.users : [];
+      users.forEach(user => {
+        if (!needed.has(String(user.id || ""))) return;
+        byId.set(String(user.id), {
+          id: user.id,
+          email: user.email || "",
+          created_at: user.created_at || "",
+          updated_at: user.updated_at || "",
+          confirmed_at: user.confirmed_at || "",
+          email_confirmed_at: user.email_confirmed_at || "",
+          phone_confirmed_at: user.phone_confirmed_at || "",
+          last_sign_in_at: user.last_sign_in_at || ""
+        });
+      });
+      if (byId.size >= needed.size || users.length < 100) break;
+    }
+  } catch (error) {
+    console.warn("Portal auth status could not be enriched", error);
+  }
+  return byId;
+}
+
+async function enrichPortalUsersWithAuth(portalUsers = []) {
+  const authById = await fetchAuthUsersById(portalUsers.map(user => user.user_id));
+  return portalUsers.map(user => {
+    const authUser = authById.get(String(user.user_id || ""));
+    if (!authUser) return user;
+    const confirmedAt = authUser.confirmed_at || authUser.email_confirmed_at || authUser.phone_confirmed_at || "";
+    return {
+      ...user,
+      email: user.email || authUser.email || "",
+      auth_email: authUser.email || "",
+      auth_created_at: authUser.created_at || "",
+      auth_updated_at: authUser.updated_at || "",
+      auth_confirmed_at: confirmedAt,
+      auth_last_sign_in_at: authUser.last_sign_in_at || "",
+      auth_has_logged_in: Boolean(authUser.last_sign_in_at)
+    };
+  });
+}
+
 async function optionalSupabaseFetchAll(path, capability, unavailable) {
   try {
     return await supabaseFetchAll(path);
@@ -247,7 +295,7 @@ module.exports = async function handler(req, res) {
     const data = access.portalUser.role === "trainer"
       ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities)
       : await loadAdminOperationalData(unavailableCapabilities);
-    const {
+    let {
       trainers,
       pages,
       leads,
@@ -268,11 +316,12 @@ module.exports = async function handler(req, res) {
       applicationsSheet,
       clientsSheet
     } = data;
+    portalUsers = await enrichPortalUsersWithAuth(portalUsers);
 
     const syncedAt = new Date().toISOString();
     const revisionInput = [trainers, pages, leads, clients, applications, submissions, officeNotes, auditEvents]
       .flat()
-      .map(row => `${row.id || row.user_id || ""}:${row.version || row.revision || row.updated_at || row.created_at || ""}`)
+      .map(row => `${row.id || row.user_id || ""}:${row.version || row.revision || row.updated_at || row.auth_last_sign_in_at || row.created_at || ""}`)
       .sort()
       .join("|");
     const serverRevision = crypto.createHash("sha256").update(revisionInput).digest("hex").slice(0, 20);
