@@ -284,6 +284,30 @@ module.exports = async function handler(req, res) {
         raw_payload: record.raw_payload || {}
       }));
     };
+    const trainersById = new Map((trainers || []).map(trainer => [String(trainer.id), trainer]));
+    const dogsByClientId = (dogs || []).reduce((grouped, dog) => {
+      const key = String(dog.client_id || "");
+      if (!key) return grouped;
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(dog);
+      return grouped;
+    }, new Map());
+    const completeClientSheetRows = (records, projection) => {
+      const projectedById = new Map((projection || []).map(row => [String(row.id), row]));
+      return (records || []).map(record => {
+        const clientDogs = dogsByClientId.get(String(record.id)) || [];
+        const trainer = trainersById.get(String(record.trainer_id || ""));
+        return {
+          ...record,
+          ...(projectedById.get(String(record.id)) || {}),
+          client_name: record.client_name || projectedById.get(String(record.id))?.client_name || "",
+          dog_names: clientDogs.map(dog => dog.name).filter(Boolean).join(", "),
+          dog_breeds: clientDogs.map(dog => dog.breed).filter(Boolean).join(", "),
+          assigned_trainer_name: trainer?.full_name || "",
+          raw_payload: record.raw_payload || {}
+        };
+      });
+    };
 
     return res.status(200).json({
       ok: true,
@@ -310,7 +334,7 @@ module.exports = async function handler(req, res) {
       sheets: {
         leads: completeSheetRows(leads, leadsSheet),
         applications: completeSheetRows(applications, applicationsSheet),
-        clients: clientsSheet
+        clients: completeClientSheetRows(clients, clientsSheet)
       }
     });
   } catch (error) {
