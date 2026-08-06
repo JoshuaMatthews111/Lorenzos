@@ -1,3 +1,4 @@
+(()=>{
 const toggle=document.querySelector('.mobile-toggle');
 const nav=document.querySelector('.nav-links');
 toggle?.addEventListener('click',()=>{const open=nav.classList.toggle('open');toggle.setAttribute('aria-expanded',open)});
@@ -9,6 +10,24 @@ const count=document.querySelector('#trainerCount');
 let filter='';
 
 const escapePublicText=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const publicReviewMediaUrl=value=>{
+  const url=String(value||'').trim();
+  if(!url) return '';
+  if(/^(data:|blob:|https?:|\/)/i.test(url)) return url;
+  const config=window.LDTT_SUPABASE||{};
+  const base=String(config.projectUrl||'https://ptnzaeprvkgjgtupmcty.supabase.co').replace(/\/$/,'');
+  return `${base}/storage/v1/object/public/trainer-submissions/${url.split('/').map(encodeURIComponent).join('/')}`;
+};
+const publicReviewMediaType=(row,notes)=>{
+  const explicit=String(row?.file_type||'').toLowerCase();
+  if(explicit) return explicit;
+  const attachedType=String(notes||'').match(/Attached file noted:\s*[^\n(]+?\(([^)]+)\)/i)?.[1]?.trim().toLowerCase()||'';
+  if(attachedType&&attachedType!=='unknown type') return attachedType;
+  const fileName=String(row?.file_url||'').split('?')[0].split('/').pop().toLowerCase();
+  if(/\.(mp4|mov|m4v|webm)$/.test(fileName)) return 'video/'+fileName.split('.').pop().replace('mov','quicktime');
+  if(/\.(jpg|jpeg|png|gif|webp|heic)$/.test(fileName)) return 'image/'+fileName.split('.').pop().replace('jpg','jpeg');
+  return '';
+};
 const paragraphizeTrainerBio=text=>{
   const clean=String(text||'').trim();
   if(!clean) return '<p>Full trainer bio is pending office approval for the new site.</p>';
@@ -21,6 +40,19 @@ const publicTrainerLocation=record=>{
   if(!state||market.includes(',')) return market;
   return `${market}, ${state}`;
 };
+const publicTrainerBioPhoto=(record,fallback='')=>{
+  const publishedContent=record?.publishedPage?.published_content||{};
+  return publishedContent.landing_bio_photo_url||publishedContent.bio_photo_url||fallback||record?.headshot_url||'assets/lorenzo-logo-transparent.png';
+};
+const publicSlugify=value=>String(value||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+const publicTrainerDisplaySlug=record=>{
+  const slug=publicSlugify(record?.slug);
+  const nameSlug=publicSlugify(record?.full_name);
+  const blocked=new Set(['','new-trainer','new-trainer-draft','newtrainerdraft','trainer','draft-trainer','office-draft']);
+  if(nameSlug&&!['new-trainer','new-trainer-draft'].includes(nameSlug)&&(blocked.has(slug)||/^office-draft-\d+$/.test(slug))) return nameSlug;
+  return slug||nameSlug;
+};
+const publicTrainerSlugIsReady=record=>Boolean(publicTrainerDisplaySlug(record));
 const publicTrainerProfilesPromise=(async()=>{
   const config=window.LDTT_SUPABASE||{};
   if(!config.enabled||!config.projectUrl||!config.publishableKey) return new Map();
@@ -29,7 +61,7 @@ const publicTrainerProfilesPromise=(async()=>{
     const headers={apikey:config.publishableKey};
     const [trainerResponse,pageResponse]=await Promise.all([
       fetch(`${base}/rest/v1/trainers?select=id,slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active&access_status=eq.active`,{headers}),
-      fetch(`${base}/rest/v1/trainer_pages?select=trainer_id,slug,page_status,locked&page_status=eq.published&locked=eq.true`,{headers})
+      fetch(`${base}/rest/v1/trainer_pages?select=trainer_id,slug,page_status,locked,published_content&page_status=eq.published&locked=eq.true`,{headers})
     ]);
     if(!trainerResponse.ok) throw new Error(`Trainer profile request failed (${trainerResponse.status})`);
     const rows=await trainerResponse.json();
@@ -58,14 +90,16 @@ buttons.forEach(button=>button.addEventListener('click',()=>{
 publicTrainerProfilesPromise.then(profiles=>{
   const trainerGrid=document.querySelector('#trainerGrid');
   profiles.forEach(record=>{
-    if(!trainerGrid||!record.publishedPage||trainerGrid.querySelector(`[data-trainer-slug="${CSS.escape(record.slug)}"]`)) return;
+    if(!publicTrainerSlugIsReady(record)) return;
+    const displaySlug=publicTrainerDisplaySlug(record);
+    if(!trainerGrid||!record.publishedPage||trainerGrid.querySelector(`[data-trainer-slug="${CSS.escape(displaySlug)}"]`)) return;
     const location=publicTrainerLocation(record);
-    const publicSlug=String(record.slug||'').replaceAll('-','');
+    const publicSlug=displaySlug.replaceAll('-','');
     const article=document.createElement('article');
     article.className='trainer-card';
-    article.dataset.trainerSlug=record.slug;
+    article.dataset.trainerSlug=displaySlug;
     article.dataset.search=`${record.full_name||''} ${location} ${record.service_area||''}`.toLowerCase();
-    article.innerHTML=`<div class="trainer-photo-frame"><img src="${escapePublicText(record.headshot_url||'assets/lorenzo-logo-transparent.png')}" alt="${escapePublicText(record.full_name||'Lorenzo trainer')}" loading="lazy"></div><div class="trainer-info"><span class="tag">${escapePublicText(record.state||'Trainer Network')}</span><h3>${escapePublicText(record.full_name||'Lorenzo Trainer')}</h3><p class="trainer-card-location">${escapePublicText(location)}</p><p class="trainer-bio">${escapePublicText(String(record.bio||'Office-approved trainer profile.').slice(0,220))}</p><div class="trainer-links"><a class="link" href="/${escapePublicText(publicSlug)}#trainer">View bio →</a><a class="link" href="/${escapePublicText(publicSlug)}#contact">Schedule this trainer →</a></div></div>`;
+    article.innerHTML=`<div class="trainer-photo-frame"><img src="${escapePublicText(record.headshot_url||'assets/lorenzo-logo-transparent.png')}" alt="${escapePublicText(record.full_name||'Lorenzo trainer')}" loading="lazy"></div><div class="trainer-info"><span class="tag">${escapePublicText(record.state||'Trainer Network')}</span><h3>${escapePublicText(record.full_name||'Lorenzo Trainer')}</h3><p class="trainer-card-location">${escapePublicText(location)}</p><p class="trainer-bio">${escapePublicText(String(record.bio||'Office-approved trainer profile.').slice(0,220))}</p><div class="trainer-links"><a class="link" href="trainer-bio-${escapePublicText(displaySlug)}.html">View bio →</a><a class="link" href="/${escapePublicText(publicSlug)}#contact">Schedule this trainer →</a></div></div>`;
     trainerGrid.appendChild(article);
     cards.push(article);
   });
@@ -88,7 +122,8 @@ publicTrainerProfilesPromise.then(profiles=>{
   if(!record) return;
   const location=publicTrainerLocation(record);
   const image=profile.querySelector('.trainer-profile-photo img');
-  if(image&&record.headshot_url){image.src=record.headshot_url;image.alt=`${record.full_name} trainer bio photo`;}
+  const bioPhoto=publicTrainerBioPhoto(record,image?.getAttribute('src')||'');
+  if(image&&bioPhoto){image.src=bioPhoto;image.alt=`${record.full_name} trainer bio photo`;}
   const tag=profile.querySelector('.tag');
   if(tag&&record.state) tag.textContent=record.state;
   const title=profile.querySelector('h1');
@@ -147,7 +182,7 @@ if(trainerBioButtons.length&&trainerBioDataElement){
     const live=liveProfiles.get(button.dataset.trainerSlug);
     if(live&&trainerBioData[button.dataset.trainerSlug]){
       const current=trainerBioData[button.dataset.trainerSlug];
-      trainerBioData[button.dataset.trainerSlug]={...current,name:live.full_name||current.name,location:publicTrainerLocation(live)||current.location,state:live.state||current.state,bio:live.bio||current.bio,bioPhoto:live.headshot_url||current.bioPhoto,cardPhoto:live.headshot_url||current.cardPhoto};
+      trainerBioData[button.dataset.trainerSlug]={...current,name:live.full_name||current.name,location:publicTrainerLocation(live)||current.location,state:live.state||current.state,bio:live.bio||current.bio,bioPhoto:publicTrainerBioPhoto(live,current.bioPhoto)||current.bioPhoto,cardPhoto:live.headshot_url||current.cardPhoto};
     }
     const record=trainerBioData[button.dataset.trainerSlug];
     if(!record) return;
@@ -256,7 +291,7 @@ const submitEmailRelay=async (endpoint,entries,subject)=>{
   return result;
 };
 
-const submitToSupabase=async (functionName,entries)=>{
+const submitPublicFormToSupabase=async (functionName,entries)=>{
   const config=window.LDTT_SUPABASE;
   if(!config?.enabled||!config.functionsBaseUrl) return {skipped:true};
   const response=await fetch(`${config.functionsBaseUrl.replace(/\/$/,'')}/${functionName}`,{
@@ -334,6 +369,61 @@ const showFormSuccessModal=(message)=>{
   modal.querySelector('.form-success-ok').focus();
 };
 
+const trackLdttConversion=(eventName,details={})=>{
+  const payload={event:eventName,...details};
+  window.dataLayer=window.dataLayer||[];
+  window.dataLayer.push(payload);
+  if(typeof window.gtag==='function'){
+    window.gtag('event',eventName,details);
+  }
+};
+
+const ldttVisitorId=()=>{
+  let value=localStorage.getItem('ldttAnonymousVisitorId');
+  if(!value){value=globalThis.crypto?.randomUUID?.()||`visitor-${Date.now()}-${Math.random().toString(36).slice(2)}`;localStorage.setItem('ldttAnonymousVisitorId',value)}
+  return value;
+};
+const ldttSessionId=()=>{
+  let value=sessionStorage.getItem('ldttPublicSession');
+  if(!value){value=globalThis.crypto?.randomUUID?.()||`session-${Date.now()}-${Math.random().toString(36).slice(2)}`;sessionStorage.setItem('ldttPublicSession',value)}
+  return value;
+};
+const isReleaseQaHost=/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)||/\.vercel\.app$/i.test(window.location.hostname);
+const firstPartySiteEvent=(eventType,details={})=>{
+  const params=new URLSearchParams(window.location.search);
+  const payload={
+    event_id:`${isReleaseQaHost?'qa-release-':''}${globalThis.crypto?.randomUUID?.()||`event-${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+    event_type:eventType,
+    qa:isReleaseQaHost,
+    visitor_id:ldttVisitorId(),
+    session_id:ldttSessionId(),
+    page_path:window.location.pathname,
+    page_url:window.location.href,
+    referrer:document.referrer,
+    user_agent:navigator.userAgent,
+    market:document.querySelector('[name="market"],[name="trainer_market"],[name="opportunity_market"]')?.value||'',
+    utm_source:params.get('utm_source')||'',
+    utm_medium:params.get('utm_medium')||'',
+    utm_campaign:params.get('utm_campaign')||'',
+    timestamp:new Date().toISOString(),
+    ...details
+  };
+  return submitPublicFormToSupabase('track-site-event',payload).catch(error=>console.warn('LDTT first-party tracking failed',error));
+};
+
+const pageViewKey=`ldtt-page-viewed:${window.location.pathname}${window.location.search}`;
+if(!sessionStorage.getItem(pageViewKey)){
+  sessionStorage.setItem(pageViewKey,'1');
+  firstPartySiteEvent(/trainer-opportunity-|dog-training-/.test(window.location.pathname)?'market_page_view':'page_view');
+}
+document.addEventListener('click',event=>{
+  const target=event.target.closest('a,button');
+  if(!target||target.closest('.mobile-toggle,.form-success-modal')) return;
+  const href=target.getAttribute('href')||'';
+  if(!target.matches('.btn,[type="submit"]')&&!/contact|trainer-application|tel:|#form|#application/.test(href)) return;
+  firstPartySiteEvent('cta_click',{cta_text:String(target.textContent||'').trim().slice(0,160),cta_href:href.slice(0,500)});
+});
+
 const wireAsyncForm=(form,{storageKey,successMessage,onSubmit})=>{
   const status=form.querySelector('.form-status');
   const setStatus=(message,type='success')=>{
@@ -343,49 +433,93 @@ const wireAsyncForm=(form,{storageKey,successMessage,onSubmit})=>{
   };
   const serialize=()=>{
     const data=new FormData(form);
+    const params=new URLSearchParams(window.location.search);
     data.set('timestamp',new Date().toISOString());
+    data.set('visitor_id',ldttVisitorId());
+    data.set('session_id',ldttSessionId());
     data.set('page_url',window.location.href);
-    data.set('source_page',document.title);
+    if(isReleaseQaHost) data.set('qa','true');
+    if(!data.get('source_page')) data.set('source_page',document.title);
+    ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','gbraid','wbraid'].forEach(key=>{
+      const value=params.get(key);
+      if(value) data.set(key,value);
+    });
     applyStoredTrainerAttribution(data);
     return data;
   };
-  form.addEventListener('submit',event=>{
+  form.addEventListener('submit',async event=>{
     event.preventDefault();
     if(form.dataset.submitting==='true') return;
     if(!form.reportValidity()) return;
     const submitButton=form.querySelector('button[type="submit"]');
     const data=serialize();
     const entries=formToObject(data);
-    entries.submission_id=`web-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-    entries.delivery_local='saved';
-    entries.delivery_google='pending';
-    entries.delivery_email='pending';
-    entries.delivery_supabase=window.LDTT_SUPABASE?.enabled?'pending':'not_connected';
-    const submissions=JSON.parse(localStorage.getItem(storageKey)||'[]');
-    submissions.push(entries);
-    localStorage.setItem(storageKey,JSON.stringify(submissions));
+    entries.submission_id=`${isReleaseQaHost?'qa-release-':'web-'}${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
     form.dataset.submitting='true';
     submitButton?.setAttribute('disabled','disabled');
-    setStatus(successMessage,'success');
-    showFormSuccessModal(successMessage);
-    form.reset();
-
-    Promise.resolve(onSubmit(data,entries,form)).catch(error=>{
-      console.warn('LDTT async form submit failed',error);
-    }).finally(()=>{
-      window.setTimeout(()=>{
-        delete form.dataset.submitting;
-        submitButton?.removeAttribute('disabled');
-      },4000);
-    });
-
-    window.setTimeout(()=>{
-      if(form.dataset.submitting==='true'){
-        delete form.dataset.submitting;
-        submitButton?.removeAttribute('disabled');
-      }
-    },10000);
+    setStatus('Submitting securely...','pending');
+    try{
+      await onSubmit(data,entries,form);
+      setStatus(successMessage,'success');
+      showFormSuccessModal(successMessage);
+      trackLdttConversion(form.dataset.conversionEvent||'ldtt_form_submit',{
+        form_type:form.dataset.formType||'contact',
+        source_page:entries.source_page,
+        page_url:entries.page_url,
+        trainer_name:entries.trainer_name||entries.assigned_trainer||'',
+        submission_id:entries.submission_id
+      });
+      form.reset();
+    }catch(error){
+      console.warn('LDTT form submission failed',error);
+      setStatus(error.message||'We could not submit the form. Your information is still on this screen; please try again.','error');
+    }finally{
+      delete form.dataset.submitting;
+      submitButton?.removeAttribute('disabled');
+    }
   });
+};
+
+const relayFormDeliveries=async(formType,entries,canonical,form)=>{
+  const response=await fetch('/api/form-delivery',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({form_type:formType,entries,canonical})
+  });
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok||result.ok===false) throw new Error(result.message||'The office backup delivery could not be logged.');
+  const emailFailed=result.deliveries?.some(delivery=>delivery.destination==='formsubmit_email'&&delivery.status==='failed');
+  if(emailFailed){
+    const isApplication=formType==='trainer_application'||Boolean(canonical?.application_id);
+    const endpoint=isApplication
+      ? 'https://formsubmit.co/ajax/recruiting@lorenzosdogtrainingteam.com'
+      : form?.dataset.emailEndpoint||'https://formsubmit.co/ajax/production@lorenzosdogtrainingteam.com';
+    const subject=isApplication
+      ? "New Lorenzo's Dog Training Team Trainer Application"
+      : "New Lorenzo's Dog Training Team Contact Form Submission";
+    try{
+      await submitEmailRelay(endpoint,entries,subject);
+      await fetch('/api/form-delivery',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({form_type:formType,entries,canonical,client_delivery:{destination:'formsubmit_email',status:'accepted'}})
+      });
+      result.deliveries=result.deliveries.map(delivery=>delivery.destination==='formsubmit_email'?{...delivery,status:'accepted',via:'browser_fallback'}:delivery);
+      result.delivery_complete=result.deliveries.every(delivery=>delivery.status==='accepted');
+    }catch(error){
+      await fetch('/api/form-delivery',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({form_type:formType,entries,canonical,client_delivery:{destination:'formsubmit_email',status:'failed',error:error.message||String(error)}})
+      }).catch(()=>{});
+    }
+  }
+  return result;
+};
+
+window.LDTT_FORM_DELIVERY={
+  submitCanonical:submitPublicFormToSupabase,
+  relay:relayFormDeliveries
 };
 
 const updateStoredDelivery=(storageKey,submissionId,updates)=>{
@@ -409,81 +543,39 @@ const appendGoogleField=(payload,entryName,value)=>{
 
 const contactForm=document.querySelector('.contact-intake');
 if(contactForm){
+  const interest=new URLSearchParams(window.location.search).get('interest');
+  if(interest==='trainer'){
+    const intent=contactForm.querySelector('[name="i_want_to"]');
+    if(intent) intent.value='Learn more about becoming a dog trainer';
+  }
   wireAsyncForm(contactForm,{
     storageKey:'ldttContactSubmissions.v2',
-    successMessage:"Thank you, your form has been submitted. Our team will contact you within 1-3 business days.",
+    successMessage:contactForm.dataset.successMessage||"Thank you, your request was submitted. Lorenzo's office has your details and will follow up with the next step.",
     onSubmit:async (data,entries,form)=>{
-      try{
-        const result=await submitToSupabase('submit-contact',entries);
-        updateStoredDelivery('ldttContactSubmissions.v2',entries.submission_id,{delivery_supabase:result?.skipped?'not_connected':'saved'});
-      }catch(error){
-        updateStoredDelivery('ldttContactSubmissions.v2',entries.submission_id,{delivery_supabase:'failed'});
-        console.warn('LDTT Supabase contact save failed',error);
+      if(entries.additional_interest){
+        entries.comments=[entries.comments,`Additional interest: ${entries.additional_interest}.`].filter(Boolean).join('\n\n');
       }
-      const googleEndpoint=form.dataset.googleFormEndpoint;
-      let googleSubmitted=false;
-      if(googleEndpoint){
-        const googlePayload=new FormData();
-        const mapping={
-          trainer_name:'entry.732274329',
-          first_name:'entry.2076204969',
-          last_name:'entry.1657690671',
-          address_line_1:'entry.1231537394',
-          address_line_2:'entry.1987365575',
-          city:'entry.375426998',
-          state:'entry.114802361',
-          zip:'entry.416673611',
-          email:'entry.1949246301',
-          phone:'entry.503719735',
-          i_want_to:'entry.270700046',
-          heard_about_us:'entry.1942005538',
-          vet_or_previous_client:'entry.1616503040',
-          comments:'entry.1517896175',
-        };
-        entries.trainer_name=entries.trainer_name||entries.assigned_trainer||'Office / Not sure';
-        Object.entries(mapping).forEach(([fieldName,entryName])=>{
-          const value=entries[fieldName];
-          if(value) googlePayload.append(entryName,value);
-        });
-        googlePayload.append('fvv','1');
-        googlePayload.append('pageHistory','0');
-        await fetch(googleEndpoint,{method:'POST',mode:'no-cors',body:googlePayload});
-        googleSubmitted=true;
-        updateStoredDelivery('ldttContactSubmissions.v2',entries.submission_id,{delivery_google:'attempted'});
-      }
-
-      const emailEndpoint=form.dataset.emailEndpoint;
-      if(emailEndpoint){
-        try{
-          await submitEmailRelay(emailEndpoint,entries,"New Lorenzo's Dog Training Team Contact Form Submission");
-          updateStoredDelivery('ldttContactSubmissions.v2',entries.submission_id,{delivery_email:'confirmed'});
-        }catch(error){
-          updateStoredDelivery('ldttContactSubmissions.v2',entries.submission_id,{delivery_email:'failed'});
-          console.warn('LDTT contact email relay delayed or failed',error);
-          if(!googleSubmitted) throw error;
-        }
-      }
+      const canonical=await submitPublicFormToSupabase('submit-contact',entries);
+      if(canonical?.skipped||(!canonical?.lead_id&&!canonical?.application_id)) throw new Error('The live office record could not be confirmed. Please try again.');
+      await relayFormDeliveries('contact',entries,canonical,form);
     }
   });
 }
+
+document.querySelectorAll('a[href="contact.html#form"]').forEach(link=>{
+  if(/discovery call/i.test(link.textContent||'')) link.href='contact?interest=trainer#form';
+});
 
 const trainerApplicationForm=document.querySelector('.trainer-application-form');
 if(trainerApplicationForm){
   wireAsyncForm(trainerApplicationForm,{
     storageKey:'ldttTrainerApplications.v1',
-    successMessage:trainerApplicationForm.dataset.successMessage||"Thank you, your form has been submitted. Our team will contact you within 1-3 business days.",
+    successMessage:trainerApplicationForm.dataset.successMessage||"Thank you, your application was submitted. Lorenzo's team has your details and will review the next step.",
     onSubmit:async (_data,entries,form)=>{
-      try{
-        const result=await submitToSupabase('submit-trainer-application',entries);
-        updateStoredDelivery('ldttTrainerApplications.v1',entries.submission_id,{delivery_supabase:result?.skipped?'not_connected':'saved'});
-      }catch(error){
-        updateStoredDelivery('ldttTrainerApplications.v1',entries.submission_id,{delivery_supabase:'failed'});
-        console.warn('LDTT Supabase trainer application save failed',error);
-      }
-      const googleEndpoint=form.dataset.googleFormEndpoint;
-      let googleSubmitted=false;
-      if(googleEndpoint){
-        const googlePayload=new FormData();
+      const canonical=await submitPublicFormToSupabase('submit-trainer-application',entries);
+      if(canonical?.skipped||!canonical?.application_id) throw new Error('The live recruiting record could not be confirmed. Please try again.');
+      await relayFormDeliveries('trainer_application',entries,canonical,form);
+      /* Google field IDs are retained here as documentation for the existing response Sheet.
         const mapping={
           referral_source:'entry.1014703398',
           first_name:'entry.2122990920',
@@ -559,26 +651,7 @@ if(trainerApplicationForm){
           employment_3_salary:'entry.1444857719',
           employment_3_reason:'entry.1881584314',
           signature:'entry.1320607832',
-        };
-        entries.employment_1_country=entries.employment_1_country||'United States';
-        if(entries.employment_2_company) entries.employment_2_country=entries.employment_2_country||'United States';
-        if(entries.employment_3_company) entries.employment_3_country=entries.employment_3_country||'United States';
-        Object.entries(mapping).forEach(([fieldName,entryName])=>appendGoogleField(googlePayload,entryName,entries[fieldName]));
-        googlePayload.append('fvv','1');
-        googlePayload.append('pageHistory','0');
-        await fetch(googleEndpoint,{method:'POST',mode:'no-cors',body:googlePayload});
-        googleSubmitted=true;
-        updateStoredDelivery('ldttTrainerApplications.v1',entries.submission_id,{delivery_google:'attempted'});
-      }
-      const emailEndpoint=form.dataset.emailEndpoint||'https://formsubmit.co/ajax/recruiting@lorenzosdogtrainingteam.com';
-      try{
-        await submitEmailRelay(emailEndpoint,entries,"New Lorenzo's Dog Training Team Trainer Application");
-        updateStoredDelivery('ldttTrainerApplications.v1',entries.submission_id,{delivery_email:'confirmed'});
-      }catch(error){
-        updateStoredDelivery('ldttTrainerApplications.v1',entries.submission_id,{delivery_email:'failed'});
-        if(!googleSubmitted) throw error;
-        console.warn('LDTT trainer application email relay delayed or failed',error);
-      }
+        }; */
     }
   });
 }
@@ -590,6 +663,34 @@ const readReviewFile=file=>new Promise((resolve,reject)=>{
   reader.onerror=()=>reject(reader.error||new Error('The file could not be read.'));
   reader.readAsDataURL(file);
 });
+
+const submitReviewToOfficeQueue=async payload=>{
+  try{
+    const response=await fetch('/api/submit-content-review',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const text=await response.text();
+    let result={};
+    try{result=text?JSON.parse(text):{}}catch{result={message:text}}
+    if(!response.ok||result.ok===false) throw new Error(result.message||`Review submission failed (${response.status})`);
+    return result;
+  }catch(apiError){
+    const config=window.LDTT_SUPABASE||{};
+    if(!config.enabled||!config.functionsBaseUrl) throw apiError;
+    const response=await fetch(`${config.functionsBaseUrl.replace(/\/$/,'')}/submit-content-review`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const text=await response.text();
+    let result={};
+    try{result=text?JSON.parse(text):{}}catch{result={message:text}}
+    if(!response.ok||result.ok===false) throw new Error(result.message||result.error||`Review submission failed (${response.status})`);
+    return result;
+  }
+};
 
 const homepageReviewForm=document.querySelector('.home-public-review-form');
 const homeReviewModal=document.querySelector('.home-review-modal');
@@ -637,33 +738,25 @@ if(homepageReviewForm){
     }
     form.dataset.submitting='true';
     button?.setAttribute('disabled','disabled');
-    setStatus('Review received. It is now pending office approval.');
-    showFormSuccessModal('Thank you. Your review was submitted for Lorenzo’s office to review before it is posted.');
+    setStatus('Submitting your review to Lorenzo’s office...');
     try{
       const fileDataUrl=await readReviewFile(file);
       const payload={
         ...entries,
-        submission_id:`homepage-review-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        submission_id:`${isReleaseQaHost?'qa-release-':'homepage-review-'}${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
+        qa:isReleaseQaHost,
         page_url:window.location.href,
         timestamp:new Date().toISOString(),
         file:file?{name:file.name,type:file.type,size:file.size,data_url:fileDataUrl}:null
       };
-      await fetch('/api/submit-content-review',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(payload)
-      }).then(async response=>{
-        if(!response.ok){
-          const text=await response.text();
-          throw new Error(text||'Review submission failed');
-        }
-        return response.json();
-      });
+      await submitReviewToOfficeQueue(payload);
       form.reset();
+      setStatus('Thank you. Your review is now pending office approval.');
+      showFormSuccessModal('Thank you. Your review was submitted for Lorenzo’s office to review before it is posted.');
       window.setTimeout(closeHomeReview,900);
     }catch(error){
       console.warn('LDTT homepage review submission failed',error);
-      setStatus('Your review was captured locally, but we could not send it to the office queue. Please try again.', 'error');
+      setStatus('We could not send your review to the office queue. Your entries remain on this screen; please try again.', 'error');
     }finally{
       window.setTimeout(()=>{
         delete form.dataset.submitting;
@@ -676,40 +769,56 @@ if(homepageReviewForm){
 const reviewCarousel=document.querySelector('[data-review-carousel]');
 const reviewRail=reviewCarousel?.querySelector('.review-shot-grid');
 const approvedHomeReviewRail=reviewRail;
+const approvedHomepageReviewCards=rows=>(Array.isArray(rows)?rows:[]).map(row=>{
+  const notes=String(row.notes||'');
+  const reviewer=(row.reviewer||String(row.title||'').replace(/^Website review from\s+/i,'').trim())||'Verified Client';
+  const reviewMarker='\nReview: ';
+  const reviewText=row.review_text||(notes.includes(reviewMarker)?notes.slice(notes.indexOf(reviewMarker)+reviewMarker.length).trim():notes);
+  const location=row.location||notes.match(/Client location:\s*([^\n.]+)\.?/i)?.[1]?.trim()||'';
+  const fileUrl=row.media_url||publicReviewMediaUrl(row.file_url);
+  const fileType=String(row.media_type||publicReviewMediaType(row,notes)).toLowerCase();
+  const ratingMatch=String(row.rating||'').match(/[1-5]/)||notes.match(/Star rating:\s*([1-5])/i);
+  const rating=Math.max(1,Math.min(5,Number(ratingMatch?.[1]||ratingMatch?.[0]||5)));
+  const media=fileUrl
+    ? fileType.startsWith('video/')
+      ? `<video controls preload="metadata" src="${escapePublicText(fileUrl)}"></video>`
+      : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy">`
+    : '';
+  return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Office-approved review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote>${escapePublicText(reviewText||'Office-approved client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
+}).join('');
 async function loadApprovedHomepageReviews(){
-  const config=window.LDTT_SUPABASE||{};
-  if(!approvedHomeReviewRail||!config.enabled||!config.projectUrl||!config.publishableKey) return;
+  if(!approvedHomeReviewRail) return;
   try{
-    const base=String(config.projectUrl).replace(/\/$/,'');
-    const url=`${base}/rest/v1/content_submissions?select=id,title,notes,file_url,file_type,created_at&submission_type=eq.review&status=eq.approved&notes=ilike.*homepage%20review%20form*&order=created_at.desc&limit=12`;
-    const response=await fetch(url,{headers:{apikey:config.publishableKey,Authorization:`Bearer ${config.publishableKey}`}});
-    if(!response.ok) throw new Error(`Approved homepage reviews request failed (${response.status})`);
-    const rows=await response.json();
-    if(!Array.isArray(rows)||!rows.length) return;
-    const cards=rows.map(row=>{
-      const notes=String(row.notes||'');
-      const reviewer=(String(row.title||'').replace(/^Website review from\s+/i,'').trim())||'Verified Client';
-      const reviewMarker='\nReview: ';
-      const reviewText=notes.includes(reviewMarker)?notes.slice(notes.indexOf(reviewMarker)+reviewMarker.length).trim():notes;
-      const locationMatch=notes.match(/Client location:\s*([^\n.]+)\.?/i);
-      const location=locationMatch?.[1]?.trim()||'';
-      const fileUrl=String(row.file_url||'').trim();
-      const fileType=String(row.file_type||'').toLowerCase();
-      const ratingMatch=notes.match(/Star rating:\s*([1-5])/i);
-      const rating=Math.max(1,Math.min(5,Number(ratingMatch?.[1]||5)));
-      const media=fileUrl
-        ? fileType.startsWith('video/')
-          ? `<video controls preload="metadata" src="${escapePublicText(fileUrl)}"></video>`
-          : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy">`
-        : '';
-      return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Office-approved review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote>${escapePublicText(reviewText||'Office-approved client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
-    }).join('');
-    approvedHomeReviewRail.insertAdjacentHTML('beforeend',cards);
+    const apiResponse=await fetch('/api/approved-homepage-reviews');
+    const apiData=await apiResponse.json().catch(()=>({}));
+    if(!apiResponse.ok) throw new Error(apiData.message||`Approved homepage reviews request failed (${apiResponse.status})`);
+    const cards=approvedHomepageReviewCards(apiData?.reviews||[]);
+    if(cards) approvedHomeReviewRail.insertAdjacentHTML('afterbegin',cards);
   }catch(error){
     console.warn('Approved homepage reviews could not be loaded',error);
   }
 }
 loadApprovedHomepageReviews();
+
+const approvedMarketReviewSection=document.querySelector('[data-approved-market-reviews]');
+async function loadApprovedMarketReviews(){
+  if(!approvedMarketReviewSection) return;
+  const destination=approvedMarketReviewSection.dataset.reviewDestination||'';
+  const grid=approvedMarketReviewSection.querySelector('[data-approved-market-review-grid]');
+  if(!destination||!grid) return;
+  try{
+    const response=await fetch(`/api/approved-homepage-reviews?destination_type=city_page&destination_id=${encodeURIComponent(destination)}`);
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok) throw new Error(data.message||`Approved market reviews request failed (${response.status})`);
+    const cards=approvedHomepageReviewCards(data.reviews||[]);
+    if(!cards) return;
+    grid.innerHTML=cards;
+    approvedMarketReviewSection.hidden=false;
+  }catch(error){
+    console.warn('Approved market reviews could not be loaded',error);
+  }
+}
+loadApprovedMarketReviews();
 
 if(reviewCarousel&&reviewRail){
   const scrollReview=direction=>{
@@ -751,3 +860,76 @@ if(reviewButtons.length){
   lightbox.addEventListener('click',event=>{if(event.target===lightbox) closeLightbox()});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'&&lightbox.classList.contains('open')) closeLightbox()});
 }
+
+const initAdFunnelCaptureModal=()=>{
+  const funnelPage=document.querySelector('.ad-funnel-redesign,.market-funnel-redesign');
+  const consultation=document.querySelector('#consultation');
+  if(!funnelPage||!consultation||sessionStorage.getItem('ldttAdFunnelCtaDismissed')) return;
+
+  const modal=document.createElement('div');
+  modal.className='ad-capture-modal';
+  modal.setAttribute('role','dialog');
+  modal.setAttribute('aria-modal','true');
+  modal.setAttribute('aria-hidden','true');
+  modal.setAttribute('aria-label','Get the free dog training guide');
+  modal.innerHTML=`
+    <div class="ad-capture-modal-card">
+      <button class="ad-capture-close" type="button" data-ad-capture-close aria-label="Close offer">×</button>
+      <span>Free 5-step guide</span>
+      <h2>Want a calmer dog starting today?</h2>
+      <p>Get the calm dog blueprint and ask Lorenzo's office to route your training request.</p>
+      <button class="btn btn-red" type="button" data-ad-capture-action>Download the Free Guide + Book My Consultation</button>
+      <button class="ad-capture-secondary" type="button" data-ad-capture-close>Keep watching</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  const openModal=()=>{
+    if(sessionStorage.getItem('ldttAdFunnelCtaDismissed')) return;
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden','false');
+    modal.querySelector('[data-ad-capture-action]')?.focus();
+  };
+  const closeModal=()=>{
+    sessionStorage.setItem('ldttAdFunnelCtaDismissed','1');
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden','true');
+  };
+  const goToForm=()=>{
+    closeModal();
+    consultation.scrollIntoView({behavior:'smooth',block:'start'});
+    window.setTimeout(()=>consultation.querySelector('input,select,textarea')?.focus(),550);
+  };
+
+  modal.querySelector('[data-ad-capture-action]')?.addEventListener('click',goToForm);
+  modal.querySelectorAll('[data-ad-capture-close]').forEach(button=>button.addEventListener('click',closeModal));
+  modal.addEventListener('click',event=>{if(event.target===modal) closeModal()});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&modal.classList.contains('open')) closeModal()});
+
+  window.setTimeout(openModal,12000);
+  document.querySelector('.ad-hero-video-card video')?.addEventListener('ended',openModal,{once:true});
+};
+initAdFunnelCaptureModal();
+
+document.querySelectorAll('input[name="phone"]').forEach(input=>{
+  const formatPhone=()=>{
+    const digits=input.value.replace(/\D/g,'').slice(0,10);
+    if(digits.length<4) input.value=digits;
+    else if(digits.length<7) input.value=`(${digits.slice(0,3)}) ${digits.slice(3)}`;
+    else input.value=`(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
+  };
+  input.addEventListener('input',formatPhone);
+  if(input.value) formatPhone();
+});
+document.querySelectorAll('form').forEach(form=>{
+  if(form.querySelector('[name="company_website"]')) return;
+  const field=document.createElement('input');
+  field.type='text';
+  field.name='company_website';
+  field.tabIndex=-1;
+  field.autocomplete='off';
+  field.setAttribute('aria-hidden','true');
+  field.style.cssText='position:absolute;left:-10000px;width:1px;height:1px;opacity:0;pointer-events:none';
+  form.appendChild(field);
+});
+})();

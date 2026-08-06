@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo back-office prototype for office-controlled trainer pages, leads, clients, imports, approvals, and reporting.">
-  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260805loginStorage">
+  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260805interestOptions">
 </head>
 <body class="is-logged-out">
   <section class="login-screen" id="loginScreen" aria-label="Trainer Network login">
@@ -22,6 +22,7 @@
       <form id="loginForm" class="login-form">
         <label>Username or Email<input required name="username" placeholder="Username or email" autocomplete="username"></label>
         <label>Password<input required name="password" type="password" placeholder="Password" autocomplete="current-password"></label>
+        <label class="login-persistence"><input type="checkbox" name="remember"><span>Keep me signed in on this device</span></label>
         <button class="btn btn-red" type="submit">Enter Portal</button>
       </form>
       <div class="login-status" id="loginStatus" role="status" aria-live="polite"></div>
@@ -42,7 +43,8 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
   <script src="/trainer-backoffice/application-data.js?v=20260730ads3"></script>
-  <script src="/trainer-backoffice/supabase.js?v=20260805loginStorage"></script>
-  <script src="/trainer-backoffice/app.js?v=20260805loginStorage"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js"></script>
+  <script src="/trainer-backoffice/supabase.js?v=20260806unifiedRelease"></script>
+  <script src="/trainer-backoffice/app.js?v=20260806unifiedRelease"></script>
 </body>
 </html>

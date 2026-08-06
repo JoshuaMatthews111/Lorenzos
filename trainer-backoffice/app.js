@@ -1,14 +1,18 @@
 const STORE_KEY = "lorenzoBackOfficePrototype.v9";
+const UI_STORE_KEY = "lorenzoBackOfficeUi.v10";
 const SESSION_KEY = "lorenzoBackOfficeSession.v4";
 const PUBLIC_SITE_ORIGIN = "https://www.lorenzosdogtrainingteam.com";
 const TRAINER_TEMP_PASSWORD_NOTICE = "Provided privately by Lorenzo's office";
 const TEMP_PASSWORD = ""; // temp passwords are issued by the office privately — never shipped in public code
 const DEMO_TEST_PASSWORD = "doglover26";
 const SITE_EVENT_KEY = "ldttTrainerSiteEvents.v1";
-const OPERATIONAL_SNAPSHOT_KEY = "ldttOperationalSnapshot.v1";
 const RECOVERABLE_LOCAL_CACHE_KEYS = [
-  OPERATIONAL_SNAPSHOT_KEY,
-  SITE_EVENT_KEY
+  SITE_EVENT_KEY,
+  STORE_KEY,
+  "ldttOperationalSnapshot.v1",
+  "ldttContactSubmissions.v2",
+  "ldttTrainerApplications.v1",
+  "ldttTrainerApplicationOverrides.v1"
 ];
 const REAL_TRAINERS = Array.isArray(window.LDTT_TRAINER_ROSTER) ? window.LDTT_TRAINER_ROSTER : [];
 const IMPORTED_APPLICATION_FIELDS = Array.isArray(window.LDTT_TRAINER_APPLICATION_FIELDS) ? window.LDTT_TRAINER_APPLICATION_FIELDS : [];
@@ -87,6 +91,8 @@ const trainerVideoLibrary = {
   "eric-beck": { src: "/assets/trainer-videos/eric-beck.mp4", poster: "/assets/trainer-videos/eric-beck.jpg" },
   "eric-hardaway": { src: "/assets/trainer-videos/eric-hardaway.mp4", poster: "/assets/trainer-videos/eric-hardaway.jpg" },
   "harley-mcgrew": { src: "/assets/trainer-videos/harley-mcgrew.mp4", poster: "/assets/trainer-videos/harley-mcgrew.jpg" },
+  "karemela-sefferin": { src: "/assets/trainer-videos/karemela-sefferin.mp4", poster: "/assets/trainer-videos/karemela-sefferin.jpg" },
+  "karemelasefferin": { src: "/assets/trainer-videos/karemela-sefferin.mp4", poster: "/assets/trainer-videos/karemela-sefferin.jpg" },
   "shavon-striggles": { src: "/assets/trainer-videos/shavon-striggles.mp4", poster: "/assets/trainer-videos/shavon-striggles.jpg" },
   "victoria-bayleigh-morris": { src: "/assets/trainer-videos/victoria-bayleigh-morris.mp4", poster: "/assets/trainer-videos/victoria-bayleigh-morris.jpg" }
 };
@@ -199,21 +205,21 @@ const leadStatuses = [
   "New Inquiry",
   "Office Contacted",
   "Engaged Lead: No Outcome",
-  "Follow Up Call Needed",
   "Evaluation Scheduled",
   "Evaluation Complete",
-  "First Session / Payment",
   "Became a Client",
   "Lost / No Response",
   "Lost / Price Concern",
   "Lost / Not Ready",
   "Lost / Chose Another Provider",
+  "Lost: Client Complaint",
+  "Lost: No Trainer in the Area",
   "Bad Lead",
   "Do Not Contact",
   "Archived"
 ];
 
-const clientStatuses = ["All", "Active", "Past", "Won", "Lost", "Bad Lead", "Do Not Contact"];
+const clientStatuses = ["All", "Active", "Past", "Won", "Lost", "Bad Lead", "Do Not Contact", "Archived"];
 const defaultLeadEndDate = new Date();
 const defaultLeadStartDate = new Date(defaultLeadEndDate.getTime() - 59 * 86400000);
 const toDateInputValue = date => {
@@ -239,6 +245,7 @@ const defaultState = {
   leadSearch: "",
   leadStatusFilter: "All",
   leadTrainerFilter: "All",
+  leadSmsFilter: "All",
   leadViewMode: "board",
   selectedLeadId: "",
   selectedApplicationId: "",
@@ -271,7 +278,7 @@ const defaultState = {
       email: "eric@lorenzosdogtrainingteam.com",
       username: "eric@lorenzosdogtrainingteam.com",
       temporaryPassword: TEMP_PASSWORD,
-      title: "Lorenzo's Certified Dog Trainer",
+      title: "Team Trainer",
       tagline: "Obedience. Behavior solutions. Real results.",
       heroHeadline: "The right trainer. The right results.",
       bio: "Eric helps families build reliable obedience, calmer behavior, and better owner leadership using Lorenzo's proven training system.",
@@ -306,11 +313,11 @@ const defaultState = {
     { id: "lead-1", owner: "Sarah Johnson", dog: "Max", breed: "Goldendoodle", source: "Website", service: "Obedience Training", trainerId: "eric-beck", status: "Evaluation Scheduled", createdAt: "2026-06-23", next: "Jun 25, 2026 10:00 AM", note: "Office scheduled phone consultation for Friday at 2:00 PM.", visits: 4, submitted: true },
     { id: "lead-2", owner: "Mike Davis", dog: "Rocky", breed: "German Shepherd", source: "Google", service: "Behavior Modification", trainerId: "eric-beck", status: "Office Contacted", createdAt: "2026-06-18", next: "Jun 26, 2026 3:30 PM", note: "Follow-up call needed. Owner asked about reactivity around other dogs.", visits: 2, submitted: true },
     { id: "lead-3", owner: "Jessica Miller", dog: "Luna", breed: "Labrador Retriever", source: "Referral", service: "Puppy Training", trainerId: "daniel-bainbridge", status: "Evaluation Complete", createdAt: "2026-06-10", next: "Jun 27, 2026 11:00 AM", note: "Evaluation complete. Program options sent by office.", visits: 1, submitted: true },
-    { id: "lead-4", owner: "Emily Wilson", dog: "Teddy", breed: "French Bulldog", source: "Facebook", service: "Obedience Training", trainerId: "shavon-striggles", status: "Follow Up Call Needed", createdAt: "2026-06-03", next: "Jun 28, 2026 2:00 PM", note: "Office left voicemail. Needs second call.", visits: 5, submitted: true },
+    { id: "lead-4", owner: "Emily Wilson", dog: "Teddy", breed: "French Bulldog", source: "Facebook", service: "Obedience Training", trainerId: "shavon-striggles", status: "Office Contacted", createdAt: "2026-06-03", next: "Jun 28, 2026 2:00 PM", note: "Office left voicemail. Needs second call.", visits: 5, submitted: true },
     { id: "lead-5", owner: "Chris Brown", dog: "Bailey", breed: "Golden Retriever", source: "Website", service: "Board & Train", trainerId: "emilio-marotta", status: "Engaged Lead: No Outcome", createdAt: "2026-05-25", next: "Jun 29, 2026 6:00 PM", note: "Owner engaged with office, but no outcome selected yet.", visits: 3, submitted: true },
     { id: "lead-6", owner: "Amanda Lee", dog: "Bella", breed: "Husky", source: "Referral", service: "Board & Train", trainerId: "eric-beck", status: "Became a Client", createdAt: "2026-05-12", next: "-", note: "First session/payment confirmed. Training begins 6/26/26.", visits: 3, submitted: true },
     { id: "lead-7", owner: "Robert Johnson", dog: "Duke", breed: "Pit Bull Mix", source: "Google", service: "Behavior Modification", trainerId: "harley-mcgrew", status: "Lost / Chose Another Provider", createdAt: "2026-04-29", next: "-", note: "Chose another trainer closer to home.", visits: 1, submitted: true },
-    { id: "lead-8", owner: "Mark Allen", dog: "Rex", breed: "Doberman", source: "Website", service: "Protection Training", trainerId: "john-delbane", status: "First Session / Payment", createdAt: "2026-04-18", next: "Jun 30, 2026", note: "Payment confirmed by office; trainer handoff pending.", visits: 6, submitted: true }
+    { id: "lead-8", owner: "Mark Allen", dog: "Rex", breed: "Doberman", source: "Website", service: "Protection Training", trainerId: "john-delbane", status: "Became a Client", createdAt: "2026-04-18", next: "Jun 30, 2026", note: "Client conversion confirmed by office.", visits: 6, submitted: true }
   ],
   clients: [
     { id: "client-1", name: "Amanda Lee", phone: "(216) 555-0198", email: "amanda@example.com", dog: "Bella", breed: "Husky", trainerId: "eric-beck", status: "Won", source: "Referral", importedSource: "Manual", smsConsent: "Yes", emailConsent: "Yes", dateStarted: "2025-05-26", lastContacted: "2025-05-20", notes: "Active board and train client." },
@@ -336,11 +343,23 @@ let remoteReady = false;
 let remoteEvents = [];
 let remotePortalUsers = [];
 let remoteOfficeNotes = [];
+let remoteNoteRevisions = [];
+let remoteAuditEvents = [];
+let remoteLifecycleEvents = [];
+let remoteReviewPublications = [];
+let remoteDeliveryAttempts = [];
+let remoteSheets = { leads: [], applications: [], clients: [] };
+let remoteServerRevision = "";
+let remoteSyncedAt = "";
+let remoteSyncError = "";
+let operationalSyncTimer = null;
+let operationalRealtimeUnsubscribe = null;
+let operationalRealtimeDebounce = null;
 applyUrlState();
 
 function loadState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+    const saved = JSON.parse(localStorage.getItem(UI_STORE_KEY)) || {};
     const merged = { ...structuredClone(defaultState), ...saved };
     ["trainers", "leads", "clients", "submissions", "applications", "stagedInvites"].forEach(key => {
       merged[key] = Array.isArray(saved[key]) ? saved[key] : structuredClone(defaultState[key]);
@@ -473,7 +492,30 @@ function safeSessionSetItem(key, value) {
 }
 
 function persistStateSnapshot() {
-  return safeLocalSetItem(STORE_KEY, JSON.stringify(state));
+  const uiState = {
+    activeView: state.activeView,
+    selectedTrainerId: state.selectedTrainerId,
+    clientFilter: state.clientFilter,
+    applicationFilter: state.applicationFilter,
+    applicationViewMode: state.applicationViewMode,
+    reviewSubmissionFilter: state.reviewSubmissionFilter,
+    reviewSort: state.reviewSort,
+    leadDateRange: state.leadDateRange,
+    customLeadStart: state.customLeadStart,
+    customLeadEnd: state.customLeadEnd,
+    reportDateRange: state.reportDateRange,
+    customReportStart: state.customReportStart,
+    customReportEnd: state.customReportEnd,
+    leadSearch: state.leadSearch,
+    leadStatusFilter: state.leadStatusFilter,
+    leadTrainerFilter: state.leadTrainerFilter,
+    leadSmsFilter: state.leadSmsFilter,
+    leadViewMode: state.leadViewMode,
+    builderDevice: state.builderDevice,
+    demoPasswords: state.demoPasswords,
+    demoPortalProfiles: state.demoPortalProfiles
+  };
+  return safeLocalSetItem(UI_STORE_KEY, JSON.stringify(uiState));
 }
 
 function saveState(message, skipRender = false) {
@@ -492,27 +534,6 @@ function hasOperationalRows(data = {}) {
   return ["trainers", "pages", "leads", "clients", "applications", "submissions", "events"].some(key => Array.isArray(data[key]) && data[key].length);
 }
 
-function writeOperationalSnapshot(data = {}) {
-  if (!hasOperationalRows(data)) return;
-  try {
-    safeLocalSetItem(OPERATIONAL_SNAPSHOT_KEY, JSON.stringify({
-      ...data,
-      savedAt: new Date().toISOString()
-    }));
-  } catch (error) {
-    console.warn("LDTT operational snapshot could not be saved", error);
-  }
-}
-
-function readOperationalSnapshot() {
-  try {
-    const data = JSON.parse(localStorage.getItem(OPERATIONAL_SNAPSHOT_KEY) || "null");
-    return hasOperationalRows(data) ? data : null;
-  } catch {
-    return null;
-  }
-}
-
 function applyUrlState() {
   const params = new URLSearchParams(window.location.search);
   const view = params.get("view");
@@ -526,24 +547,26 @@ const leadStatusToDb = {
   "New Inquiry": "new_inquiry",
   "Office Contacted": "office_contacted",
   "Engaged Lead: No Outcome": "engaged_no_outcome",
-  "Follow Up Call Needed": "follow_up_call_needed",
   "Evaluation Scheduled": "evaluation_scheduled",
   "Evaluation Complete": "evaluation_complete",
-  "First Session / Payment": "first_session_payment",
   "Became a Client": "became_client",
   "Lost / No Response": "lost_no_response",
   "Lost / Price Concern": "lost_price_concern",
   "Lost / Not Ready": "lost_not_ready",
   "Lost / Chose Another Provider": "lost_chose_another_provider",
+  "Lost: Client Complaint": "lost_client_complaint",
+  "Lost: No Trainer in the Area": "lost_no_trainer_area",
   "Bad Lead": "bad_lead",
   "Do Not Contact": "do_not_contact",
   "Archived": "archived"
 };
 const leadStatusFromDb = Object.fromEntries(Object.entries(leadStatusToDb).map(([label, value]) => [value, label]));
+leadStatusFromDb.first_session_payment = "Became a Client";
+leadStatusFromDb.follow_up_call_needed = "Office Contacted";
 const applicationStatusToDb = {
   "New Application": "new_application",
   "Under Review": "reviewing",
-  "Discovery Follow-Up": "discovery_follow_up",
+  "Discovery Follow-up": "discovery_follow_up",
   "Interview Scheduled": "reviewing",
   "Moved Forward": "moved_forward",
   "Declined": "not_a_fit",
@@ -552,7 +575,7 @@ const applicationStatusToDb = {
 const applicationStatusFromDb = {
   new_application: "New Application",
   reviewing: "Under Review",
-  discovery_follow_up: "Discovery Follow-Up",
+  discovery_follow_up: "Discovery Follow-up",
   moved_forward: "Moved Forward",
   not_a_fit: "Declined",
   archived: "Archived"
@@ -682,8 +705,8 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     email: remoteTrainer.email || "",
     profileEmail: remoteTrainer.email || "",
     publicEmail: remoteTrainer.email || "",
-    title: content.title || "Lorenzo's Certified Dog Trainer",
-    profileTitle: content.title || "Lorenzo's Certified Dog Trainer",
+    title: content.title || "Team Trainer",
+    profileTitle: content.title || "Team Trainer",
     bio: remotePage?.approved_bio || content.bio || remoteTrainer.bio || "",
     profileBio: remoteTrainer.bio || "",
     publicBio: remoteTrainer.bio || "",
@@ -740,7 +763,11 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     },
     sectionOrder: remotePage?.section_order || ["hero", "stats", "services", "trainer", "reviews", "consultation"],
     revision: Number(remotePage?.revision || 1),
-    publishedRevision: Number(remotePage?.published_revision || 0)
+    publishedRevision: Number(remotePage?.published_revision || 0),
+    version: Number(remoteTrainer.version || 1),
+    updatedAt: remoteTrainer.updated_at || remoteTrainer.created_at || "",
+    pageVersion: Number(remotePage?.revision || 1),
+    pageUpdatedAt: remotePage?.updated_at || remotePage?.created_at || ""
   };
 }
 
@@ -774,13 +801,17 @@ function remoteLeadToUi(row) {
     market: derivedMarket.market,
     sourcePageSlug: derivedMarket.pageSlug,
     status: leadStatusFromDb[row.status] || normalizeLeadStatus(row.status),
-    createdAt: String(row.created_at || "").slice(0, 10),
+    createdAt: row.created_at || "",
+    updatedAt: row.updated_at || row.created_at || "",
+    version: Number(row.version || 1),
+    assignedUserId: row.assigned_user_id || "",
     next: raw.follow_up_date || "Office follow-up needed",
     followUpDate: raw.follow_up_date || "",
     clientNote,
     note: row.office_notes || "",
     lostReason: row.lost_reason || "",
     doNotContact: row.status === "do_not_contact",
+    smsConsent: row.sms_consent === true ? "Yes" : row.sms_consent === false ? "No" : "Unknown",
     utm_source: raw.utm_source || "",
     utm_campaign: raw.utm_campaign || "",
     delivery_local: "saved",
@@ -800,6 +831,15 @@ function remoteApplicationToUi(row) {
     id: row.id,
     remoteId: row.id,
     createdAt: row.created_at,
+    receivedAt: row.received_at || row.created_at,
+    updatedAt: row.updated_at || row.created_at,
+    version: Number(row.version || 1),
+    assignedUserId: row.assigned_user_id || "",
+    inquiry_type: row.inquiry_type || raw.inquiry_type || "full_application",
+    source_form: row.source_form || raw.source_form || "",
+    source_page: row.source_page || raw.source_page || "",
+    market: row.market || raw.market || raw.trainer_market || "",
+    linked_discovery_id: row.linked_discovery_id || "",
     first_name: row.first_name,
     last_name: row.last_name,
     email: row.email,
@@ -814,7 +854,8 @@ function remoteApplicationToUi(row) {
     note: row.office_notes || "",
     delivery_google: raw.delivery_google || "attempted",
     delivery_email: raw.delivery_email || "attempted",
-    delivery_supabase: "confirmed"
+    delivery_supabase: "confirmed",
+    rawPayload: raw
   };
 }
 
@@ -885,6 +926,8 @@ function remoteSubmissionToUi(row) {
     title: row.title || `${type} submission`,
     status: workflowStatus,
     submittedAt: row.created_at,
+    updatedAt: row.updated_at || row.created_at,
+    version: Number(row.version || 1),
     contentUrl: row.file_url || "",
     storagePath: row.storage_path || (/^(data:|blob:|https?:|\/)/i.test(storedPath) ? "" : storedPath),
     reviewerName: reviewerMatch?.[1]?.trim() || reviewerName,
@@ -922,12 +965,13 @@ function remoteClientToUi(row, dogs) {
     emailConsent: row.email_consent === true ? "Yes" : row.email_consent === false ? "No" : "Unknown",
     dateStarted: row.date_started || "",
     lastContacted: row.last_contacted || "",
-    notes: row.notes || ""
+    notes: row.notes || "",
+    updatedAt: row.updated_at || row.created_at || "",
+    version: Number(row.version || 1)
   };
 }
 
 function mergeRemoteOperationalData(data) {
-  writeOperationalSnapshot(data);
   const pagesByTrainer = new Map((data.pages || []).map(page => [page.trainer_id, page]));
   state.trainers = (data.trainers || []).map(trainer => remoteTrainerToUi(trainer, pagesByTrainer.get(trainer.id)));
   if (!state.trainers.some(trainer => trainer.id === state.selectedTrainerId)) {
@@ -935,11 +979,29 @@ function mergeRemoteOperationalData(data) {
   }
   state.leads = (data.leads || []).map(remoteLeadToUi);
   state.applications = (data.applications || []).map(remoteApplicationToUi);
-  state.submissions = (data.submissions || []).map(remoteSubmissionToUi);
+  remoteReviewPublications = data.reviewPublications || [];
+  state.submissions = (data.submissions || []).map(remoteSubmissionToUi).map(submission => {
+    const publications = remoteReviewPublications.filter(item => item.submission_id === submission.remoteId && item.status === "published");
+    if (!publications.length) return submission;
+    return {
+      ...submission,
+      reviewTargets: publications.map(item => item.destination_type === "homepage"
+        ? "lorenzos-team"
+        : item.destination_type === "city_page" ? `city:${item.destination_id}` : item.destination_id),
+      status: "Approved"
+    };
+  });
   state.clients = (data.clients || []).map(client => remoteClientToUi(client, data.dogs || []));
   remoteEvents = data.events || [];
   remotePortalUsers = data.portalUsers || [];
   remoteOfficeNotes = data.officeNotes || [];
+  remoteNoteRevisions = data.noteRevisions || [];
+  remoteAuditEvents = data.auditEvents || [];
+  remoteLifecycleEvents = data.lifecycleEvents || [];
+  remoteDeliveryAttempts = data.deliveryAttempts || [];
+  remoteSheets = data.sheets || { leads: [], applications: [], clients: [] };
+  remoteServerRevision = data.serverRevision || "";
+  remoteSyncedAt = data.syncedAt || "";
   remoteReady = true;
   persistStateSnapshot();
 }
@@ -966,15 +1028,36 @@ async function reloadRemoteData() {
   if (!window.LDTT_PORTAL?.enabled || !session.loggedIn) return;
   const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
   mergeRemoteOperationalData(data);
+  remoteSyncError = "";
+}
+
+async function refreshOperationalData(reason = "background") {
+  if (!session.loggedIn || session.demoUsername || document.hidden) return;
+  try {
+    await reloadRemoteData();
+    render();
+  } catch (error) {
+    remoteSyncError = error.message || "Live data unavailable";
+    console.warn(`LDTT ${reason} refresh failed`, error);
+    renderTopbar();
+  }
+}
+
+function startOperationalSync() {
+  if (operationalSyncTimer) return;
+  window.addEventListener("focus", () => refreshOperationalData("focus"));
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refreshOperationalData("visibility");
+  });
+  operationalRealtimeUnsubscribe = window.LDTT_PORTAL?.subscribeOperationalChanges?.(() => {
+    window.clearTimeout(operationalRealtimeDebounce);
+    operationalRealtimeDebounce = window.setTimeout(() => refreshOperationalData("realtime"), 450);
+  }) || null;
+  operationalSyncTimer = window.setInterval(() => refreshOperationalData("poll"), 30000);
 }
 
 async function hydrateSharedOperationalDataForDemo() {
   if (!window.LDTT_PORTAL?.enabled) {
-    const snapshot = readOperationalSnapshot();
-    if (snapshot) {
-      mergeRemoteOperationalData(snapshot);
-      return true;
-    }
     remoteReady = false;
     return false;
   }
@@ -984,12 +1067,7 @@ async function hydrateSharedOperationalDataForDemo() {
     mergeRemoteOperationalData(data);
     return true;
   } catch (error) {
-    console.warn("LDTT demo portal could not load the shared operational source; using the last shared snapshot if available.", error);
-    const snapshot = readOperationalSnapshot();
-    if (snapshot) {
-      mergeRemoteOperationalData(snapshot);
-      return true;
-    }
+    console.warn("LDTT demo portal could not load the shared operational source.", error);
     remoteReady = false;
     return false;
   }
@@ -1023,7 +1101,14 @@ function trainerHeadshot(trainer) {
 }
 
 function trainerLandingPhoto(trainer) {
-  return trainer?.photo || trainer?.image || trainerHeadshot(trainer);
+  const headshots = [trainerHeadshot(trainer), trainer?.cardPhoto, trainer?.profilePhoto, trainer?.publicPhoto].filter(Boolean);
+  return firstNonHeadshotPhoto([
+    trainer?.landingBioPhoto,
+    trainer?.bioPhoto,
+    trainer?.heroTrainerPhoto,
+    trainer?.photo,
+    trainer?.image
+  ], headshots) || "/assets/client-photo.jpg";
 }
 
 function trainerHeroPhoto(trainer) {
@@ -1085,8 +1170,8 @@ function createOfficeTrainerDraft() {
     name: "New Trainer Draft",
     profileName: "",
     publicName: "",
-    title: "Lorenzo's Certified Dog Trainer",
-    profileTitle: "Lorenzo's Certified Dog Trainer",
+    title: "Team Trainer",
+    profileTitle: "Team Trainer",
     username: "",
     temporaryPassword: TEMP_PASSWORD,
     accessStatus: "Active",
@@ -1207,7 +1292,8 @@ function trainerPagePayload(trainer) {
       brand_accent: trainer.styleSettings?.brandAccent || "#d80f35"
     },
     section_order: trainer.sectionOrder || ["hero", "stats", "services", "trainer", "reviews", "consultation"],
-    revision: Number(trainer.revision || 1) + 1
+    revision: Number(trainer.revision || 1) + 1,
+    public_url: new URL(trainerPageHref(trainer), window.location.origin).href
   };
 }
 
@@ -1235,10 +1321,27 @@ async function persistTrainerRecord(trainer, options = {}) {
   };
   const persistProfile = options.skipProfile !== true && (options.persistProfile !== false || !trainer.remoteId);
   if (trainer.remoteId && persistProfile) {
-    await window.LDTT_PORTAL.update("trainers", trainer.remoteId, trainerPayload);
+    const result = await window.LDTT_PORTAL.operationalMutation({
+      operation: "update",
+      entity_type: "trainer",
+      id: trainer.remoteId,
+      expected_version: trainer.version,
+      expected_updated_at: trainer.updatedAt,
+      action: "trainer_profile_updated",
+      summary: `${trainer.name} profile saved`,
+      changes: trainerPayload
+    });
+    trainer.version = Number(result.version || trainer.version || 1);
+    trainer.updatedAt = result.updated_at || trainer.updatedAt;
   } else if (!trainer.remoteId) {
-    const inserted = await window.LDTT_PORTAL.insert("trainers", trainerPayload, { onConflict: "slug" });
-    const savedTrainer = inserted?.[0];
+    const result = await window.LDTT_PORTAL.operationalMutation({
+      operation: "create",
+      entity_type: "trainer",
+      action: "trainer_created",
+      summary: `${trainerPayload.full_name || "Trainer"} profile created`,
+      changes: trainerPayload
+    });
+    const savedTrainer = result.record;
     if (!savedTrainer?.id) throw new Error("Trainer record could not be created");
     const previousId = trainer.id;
     trainer.remoteId = savedTrainer.id;
@@ -1250,10 +1353,25 @@ async function persistTrainerRecord(trainer, options = {}) {
   if (!options.profileOnly) {
     const pagePayload = trainerPagePayload(trainer);
     if (trainer.pageId) {
-      await window.LDTT_PORTAL.update("trainer_pages", trainer.pageId, pagePayload);
+      const result = await window.LDTT_PORTAL.operationalMutation({
+        operation: "update",
+        entity_type: "trainer_page",
+        id: trainer.pageId,
+        expected_updated_at: trainer.pageUpdatedAt,
+        action: options.publish ? "trainer_page_published" : "trainer_page_draft_saved",
+        summary: `${trainer.name} ${options.publish ? "page published" : "page draft saved"}`,
+        changes: pagePayload
+      });
+      trainer.pageUpdatedAt = result.updated_at || trainer.pageUpdatedAt;
     } else {
-      const insertedPages = await window.LDTT_PORTAL.insert("trainer_pages", pagePayload, { onConflict: "trainer_id" });
-      trainer.pageId = insertedPages?.[0]?.id || trainer.pageId;
+      const result = await window.LDTT_PORTAL.operationalMutation({
+        operation: "create",
+        entity_type: "trainer_page",
+        action: "trainer_page_created",
+        summary: `${trainer.name} page draft created`,
+        changes: pagePayload
+      });
+      trainer.pageId = result.record?.id || trainer.pageId;
     }
     if (options.publish) {
       await window.LDTT_PORTAL.rpc("publish_trainer_page", { target_page_id: trainer.pageId });
@@ -1296,6 +1414,13 @@ async function publishTrainerPageWorkflow(trainer, publish) {
   const savedTrainer = await persistTrainerRecord(trainer, { publish });
   if (publish) {
     await ensureTrainerPortalAccount(savedTrainer || trainer);
+    const published = await window.LDTT_PORTAL.loadPublishedTrainer((savedTrainer || trainer).slug, { includeDraft: false });
+    if (!published?.page?.published_content || Number(published.page.published_revision || 0) < 1) {
+      throw new Error("The public trainer revision could not be confirmed after publishing.");
+    }
+    const publicUrl = new URL(trainerPageHref(savedTrainer || trainer), window.location.origin);
+    const response = await fetch(publicUrl, { method: "HEAD", cache: "no-store" });
+    if (!response.ok) throw new Error(`The published trainer URL returned ${response.status}.`);
   }
   return savedTrainer || trainer;
 }
@@ -1321,15 +1446,27 @@ async function persistPublicTrainerField(trainer, profileKey) {
 
 async function persistLeadRecord(lead) {
   if (!remoteReady || session.role !== "admin" || !lead?.remoteId) return;
-  await window.LDTT_PORTAL.update("leads", lead.remoteId, {
-    status: leadStatusToDb[lead.status] || "new_inquiry",
-    lost_reason: lead.lostReason || null,
-    office_notes: lead.note || null,
-    raw_payload: {
-      ...(lead.rawPayload || {}),
-      follow_up_date: lead.followUpDate || null
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "update",
+    entity_type: "lead",
+    id: lead.remoteId,
+    expected_version: lead.version,
+    expected_updated_at: lead.updatedAt,
+    action: "lead_updated",
+    summary: `${lead.owner || "Lead"} saved as ${lead.status || "New Inquiry"}`,
+    changes: {
+      status: leadStatusToDb[lead.status] || "new_inquiry",
+      lost_reason: lead.lostReason || null,
+      assigned_user_id: lead.assignedUserId || null,
+      raw_payload: {
+        ...(lead.rawPayload || {}),
+        follow_up_date: lead.followUpDate || null
+      }
     }
   });
+  lead.version = Number(result.version || lead.version || 1);
+  lead.updatedAt = result.updated_at || lead.updatedAt;
+  return result.record;
 }
 
 async function persistLeadWorkflow(lead) {
@@ -1351,22 +1488,48 @@ function officeNotesFor(entityType, entityId) {
     .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
 }
 
+function latestOfficeNote(entityType, entityId) {
+  return officeNotesFor(entityType, entityId).at(-1) || null;
+}
+
+async function saveEditableOfficeNote(entityType, entityId, noteId, note) {
+  if (!remoteReady || session.role !== "admin" || !entityId || !noteId || !String(note || "").trim()) return null;
+  const existing = officeNotesFor(entityType, entityId).find(item => item.id === noteId);
+  if (!existing) throw new Error("That note changed or is no longer available. Reload the record and try again.");
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "save_note",
+    entity_type: entityType,
+    entity_id: entityId,
+    note_id: existing.id,
+    expected_version: existing?.version,
+    expected_updated_at: existing?.updated_at,
+    note: String(note).trim()
+  });
+  await reloadRemoteData();
+  return result.record || null;
+}
+
 function officeNoteTimeline(entityType, entityId) {
   const notes = officeNotesFor(entityType, entityId);
   if (!notes.length) return `<p class="panel-copy">No office notes have been added yet.</p>`;
-  return `<div class="office-note-timeline">${notes.map(note => `<article><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(note.created_at ? new Date(note.created_at).toLocaleString() : "")}</time><p>${escapeHtml(note.note)}</p></article>`).join("")}</div>`;
+  return `<div class="office-note-timeline">${notes.map(note => {
+    const revisions = remoteNoteRevisions
+      .filter(revision => revision.office_note_id === note.id)
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorLabel(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
+  }).join("")}</div>`;
 }
 
 async function addOfficeNote(entityType, entityId, note) {
   if (!remoteReady || session.role !== "admin" || !entityId || !note.trim()) return null;
-  const inserted = await window.LDTT_PORTAL.insert("office_notes", {
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "save_note",
     entity_type: entityType,
     entity_id: entityId,
-    note: note.trim(),
-    created_by: portalUser?.user_id || null
+    note: note.trim()
   });
   await reloadRemoteData();
-  return inserted?.[0] || null;
+  return result.record || null;
 }
 
 function officeNoteEntityLabel(entityType, entityId) {
@@ -1388,17 +1551,26 @@ function officeNoteEntityLabel(entityType, entityId) {
 
 async function persistApplicationRecord(application) {
   if (!remoteReady || session.role !== "admin" || !application?.remoteId) return;
-  await window.LDTT_PORTAL.update("trainer_applications", application.remoteId, {
-    status: applicationStatusToDb[application.status] || "new_application",
-    office_notes: application.note || null
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "update",
+    entity_type: "application",
+    id: application.remoteId,
+    expected_version: application.version,
+    expected_updated_at: application.updatedAt,
+    action: "application_updated",
+    summary: `${applicationDisplayName(application)} saved as ${application.status || "New Application"}`,
+    changes: {
+      status: applicationStatusToDb[application.status] || "new_application",
+      assigned_user_id: application.assignedUserId || null
+    }
   });
+  application.version = Number(result.version || application.version || 1);
+  application.updatedAt = result.updated_at || application.updatedAt;
+  return result.record;
 }
 
 async function persistSubmissionRecord(submission) {
   if (!remoteReady || session.role !== "admin" || !submission?.remoteId) return;
-  const targets = reviewTargetsFor(submission);
-  const primaryTrainerId = targets.find(target => target !== "lorenzos-team") || submission.trainerId;
-  const assignedTrainer = state.trainers.find(trainer => trainer.id === primaryTrainerId);
   const requestedStatus = String(submission.status || "Pending");
   const statusMap = {
     Pending: "pending",
@@ -1408,23 +1580,40 @@ async function persistSubmissionRecord(submission) {
     Unpublished: "archived",
     Deleted: "archived"
   };
-  const workflowMarker = ["Archived", "Unpublished", "Deleted"].includes(requestedStatus)
-    ? `[[review_workflow:${requestedStatus.toLowerCase()}]]`
-    : "";
-  const targetsMarker = `[[review_targets:${targets.join(",")}]]`;
   const cleanNote = String(submission.note || submission.officeNote || "")
     .replace(/\s*\[\[review_workflow:(?:unpublished|deleted|archived)\]\]\s*/ig, "")
     .replace(/\s*\[\[review_targets:[^\]]*\]\]\s*/ig, "")
     .trim();
-  const officeNote = [cleanNote, workflowMarker, targetsMarker].filter(Boolean).join("\n");
-  const payload = {
-    status: statusMap[requestedStatus] || "pending",
-    office_notes: officeNote || null
-  };
-  if (!assignedTrainer || primaryTrainerId === "lorenzos-team") payload.trainer_id = null;
-  else if (assignedTrainer?.remoteId) payload.trainer_id = assignedTrainer.remoteId;
-  await window.LDTT_PORTAL.update("content_submissions", submission.remoteId, payload);
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "update",
+    entity_type: "submission",
+    id: submission.remoteId,
+    expected_version: submission.version,
+    expected_updated_at: submission.updatedAt,
+    action: "submission_updated",
+    summary: `${submission.title || "Content submission"} saved as ${requestedStatus}`,
+    changes: {
+      status: statusMap[requestedStatus] || "pending",
+      office_notes: cleanNote || null
+    }
+  });
+  submission.version = Number(result.version || submission.version || 1);
+  submission.updatedAt = result.updated_at || submission.updatedAt;
+  return result.record;
 }
+
+const cityReviewDestinations = [
+  ["ann-arbor-mi", "Ann Arbor, MI"],
+  ["atlanta-ga", "Atlanta, GA"],
+  ["chicago-il", "Chicago, IL"],
+  ["cleveland-oh", "Cleveland, OH"],
+  ["columbus-oh", "Columbus, OH"],
+  ["lexington-ky", "Lexington, KY"],
+  ["miramar-beach-fl", "Miramar Beach, FL"],
+  ["san-antonio-tx", "San Antonio, TX"],
+  ["san-diego-ca", "San Diego, CA"],
+  ["tallahassee-fl", "Tallahassee, FL"]
+];
 
 function defaultReviewDisplayOptions(submission = {}) {
   return {
@@ -1453,7 +1642,20 @@ function setReviewTargets(submission, targets = []) {
 }
 
 function reviewTargetLabel(target) {
-  return target === "lorenzos-team" ? "Homepage / Main Website" : trainerName(target);
+  if (target === "lorenzos-team") return "Homepage / Main Website";
+  if (String(target).startsWith("city:")) {
+    const slug = String(target).slice(5);
+    return `${cityReviewDestinations.find(item => item[0] === slug)?.[1] || slug} opportunity page`;
+  }
+  return trainerName(target);
+}
+
+function reviewPublicationDestinations(submission) {
+  return reviewTargetsFor(submission).map(target => {
+    if (target === "lorenzos-team") return { destination_type: "homepage", destination_id: "lorenzos-team" };
+    if (String(target).startsWith("city:")) return { destination_type: "city_page", destination_id: String(target).slice(5) };
+    return { destination_type: "trainer_page", destination_id: target };
+  });
 }
 
 function reviewTargetLabels(submission) {
@@ -1498,7 +1700,7 @@ async function publishApprovedReview(submission) {
     display: reviewDisplayOptionsFor(submission),
     published_at: new Date().toISOString()
   };
-  const trainerTargets = targets.filter(target => target !== "lorenzos-team");
+  const trainerTargets = targets.filter(target => target !== "lorenzos-team" && !String(target).startsWith("city:"));
   for (const trainer of state.trainers || []) {
     if (!trainerTargets.includes(trainer.id) && (trainer.approvedReviews || []).some(review => review.submission_id === submission.remoteId)) {
       trainer.approvedReviews = (trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId);
@@ -1514,7 +1716,17 @@ async function publishApprovedReview(submission) {
     ];
   }
   submission.status = "Approved";
-  await persistSubmissionRecord(submission);
+  const publicationResult = await window.LDTT_PORTAL.operationalMutation({
+    operation: "set_review_publications",
+    submission_id: submission.remoteId,
+    destinations: reviewPublicationDestinations(submission),
+    published: true,
+    workflow_status: "approved",
+    office_note: submission.officeNote || submission.note || "",
+    summary: `${submission.title || "Approved review"} published to ${reviewTargetLabels(submission)}`
+  });
+  submission.version = Number(publicationResult.version || submission.version || 1);
+  submission.updatedAt = publicationResult.updated_at || submission.updatedAt;
   for (const target of trainerTargets) {
     const trainer = state.trainers.find(item => item.id === target);
     if (trainer) await persistTrainerRecord(trainer, { publish: true });
@@ -1544,15 +1756,29 @@ async function unpublishApprovedReview(submission, status = "Unpublished") {
     await persistTrainerRecord(trainer, { publish: true });
   }
   submission.status = status;
-  await persistSubmissionRecord(submission);
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "set_review_publications",
+    submission_id: submission.remoteId,
+    destinations: [],
+    published: false,
+    workflow_status: status === "Archived" || status === "Deleted" ? "archived" : "pending",
+    office_note: submission.officeNote || submission.note || "",
+    summary: `${submission.title || "Review"} ${status.toLowerCase()}`
+  });
+  submission.version = Number(result.version || submission.version || 1);
+  submission.updatedAt = result.updated_at || submission.updatedAt;
 }
 
 async function persistTrainerAccess(trainer) {
   if (!remoteReady || session.role !== "admin") return;
   await persistTrainerRecord(trainer, { profileOnly: true });
   if (trainer.remoteId) {
+    const enabled = trainer.accessStatus !== "Disabled";
     await window.LDTT_PORTAL.updateBy("portal_users", "trainer_id", trainer.remoteId, {
-      active: trainer.accessStatus !== "Disabled"
+      active: enabled,
+      access_status: enabled ? "active" : "disabled",
+      disabled_at: enabled ? null : new Date().toISOString(),
+      disabled_by: enabled ? null : currentPortalUserId() || null
     });
   }
   await reloadRemoteData();
@@ -1609,6 +1835,11 @@ function isSuperAdmin() {
   return session.role === "admin" && !isOfficeAdmin();
 }
 
+function permanentDeleteButton(entityType, record) {
+  if (!isSuperAdmin() || !record?.remoteId || record.status !== "Archived") return "";
+  return `<button class="btn btn-outline btn-danger" type="button" data-permanent-delete="${escapeHtml(entityType)}" data-record-id="${escapeHtml(record.remoteId)}" data-record-label="${escapeHtml(entityType === "application" ? applicationDisplayName(record) : record.owner || record.name || "record")}">Permanently Delete QA / Duplicate</button>`;
+}
+
 function trainerForPortalUser(user) {
   if (!user?.trainer_id) return null;
   return state.trainers.find(trainer => trainer.remoteId === user.trainer_id || trainer.id === user.trainer_id) || null;
@@ -1644,6 +1875,9 @@ function portalNamePartsFromValue(value) {
 }
 
 function portalSuggestedNameParts(user) {
+  if (user?.first_name || user?.last_name) {
+    return { firstName: String(user.first_name || "").trim(), lastName: String(user.last_name || "").trim() };
+  }
   const raw = portalRawDisplayName(user);
   const source = !portalDisplayNameIsGeneric(raw)
     ? raw
@@ -1652,6 +1886,7 @@ function portalSuggestedNameParts(user) {
 }
 
 function portalProfileNameIsComplete(user) {
+  if (String(user?.first_name || "").trim() && String(user?.last_name || "").trim()) return true;
   const raw = portalRawDisplayName(user);
   const source = portalDisplayNameIsGeneric(raw)
     ? staffForPortalUser(user)?.name || trainerForPortalUser(user)?.profileName || trainerForPortalUser(user)?.name || ""
@@ -1667,12 +1902,14 @@ function portalProfileNeedsCompletion() {
 function portalDisplayName(user) {
   const trainer = trainerForPortalUser(user);
   const raw = portalRawDisplayName(user);
-  return staffForPortalUser(user)?.name
+  const savedName = [user?.first_name, user?.last_name].map(value => String(value || "").trim()).filter(Boolean).join(" ");
+  return (savedName && !portalDisplayNameIsGeneric(savedName) ? savedName : "")
     || (!portalDisplayNameIsGeneric(raw) ? raw : "")
+    || staffForPortalUser(user)?.name
     || trainer?.profileName
     || trainer?.name
     || portalUserEmail(user)
-    || "Portal User";
+    || "Staff name required";
 }
 
 function portalActorLabel(userOrId) {
@@ -1892,9 +2129,22 @@ function officeNoteActivityRows() {
 }
 
 function recentActivityRows() {
-  const localRows = (state.activityLog || []).filter(row => row.type !== "Office Note");
+  const auditRows = (remoteAuditEvents || []).map(row => ({
+    id: `audit-${row.id}`,
+    createdAt: row.created_at,
+    actor: row.actor_name || row.actor_email || "Unknown staff member",
+    actorId: row.actor_user_id || "",
+    actorEmail: row.actor_email || "",
+    actorRole: "Office",
+    action: String(row.action || "Updated").replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase()),
+    detail: row.summary || `${row.entity_type || "Record"} ${row.entity_id || ""}`.trim(),
+    type: row.entity_type || "Portal"
+  }));
+  const localRows = isDemoPortalUser(portalUser)
+    ? (state.activityLog || []).filter(row => row.type !== "Office Note")
+    : [];
   const byId = new Map();
-  [...officeNoteActivityRows(), ...localRows].forEach(row => {
+  [...auditRows, ...(auditRows.length ? [] : officeNoteActivityRows()), ...localRows].forEach(row => {
     const key = row.id || `${row.createdAt}-${row.action}-${row.detail}`;
     if (!byId.has(key)) byId.set(key, row);
   });
@@ -2004,10 +2254,18 @@ async function resetPortalUserPassword(user, password) {
 
 async function persistTrainerSocialRecord(trainer) {
   if (!remoteReady || !trainer?.pageId) return;
-  await window.LDTT_PORTAL.update("trainer_pages", trainer.pageId, {
-    social_facebook: trainer.socials?.facebook || null,
-    social_instagram: trainer.socials?.instagram || null,
-    social_tiktok: trainer.socials?.tiktok || null
+  await window.LDTT_PORTAL.operationalMutation({
+    operation: "update",
+    entity_type: "trainer_page",
+    id: trainer.pageId,
+    expected_updated_at: trainer.pageUpdatedAt,
+    action: "trainer_social_links_updated",
+    summary: `${trainer.name} social links saved`,
+    changes: {
+      social_facebook: trainer.socials?.facebook || null,
+      social_instagram: trainer.socials?.instagram || null,
+      social_tiktok: trainer.socials?.tiktok || null
+    }
   });
 }
 
@@ -2039,7 +2297,19 @@ async function persistClientRecord(client) {
   };
   let saved;
   if (client.remoteId) {
-    saved = (await window.LDTT_PORTAL.update("clients", client.remoteId, payload))?.[0];
+    const result = await window.LDTT_PORTAL.operationalMutation({
+      operation: "update",
+      entity_type: "client",
+      id: client.remoteId,
+      expected_version: client.version,
+      expected_updated_at: client.updatedAt,
+      action: "client_updated",
+      summary: `${client.name || "Client"} record saved`,
+      changes: payload
+    });
+    saved = result.record;
+    client.version = Number(result.version || client.version || 1);
+    client.updatedAt = result.updated_at || client.updatedAt;
   } else {
     saved = (await window.LDTT_PORTAL.insert("clients", payload))?.[0];
     client.remoteId = saved?.id || client.remoteId;
@@ -2069,13 +2339,22 @@ async function runRemoteMutation(message, action, options = {}) {
     await action();
     if (options.reload !== false && remoteReady) await reloadRemoteData();
     if (message) {
-      recordActivity(message, options.detail || "", options.type || "Save");
-      showToast(message);
+      if (isDemoPortalUser(portalUser)) recordActivity(message, options.detail || "", options.type || "Save");
+      showToast(`${message} - Saved live`);
     }
     if (options.render !== false) render();
     return true;
   } catch (error) {
     console.error(`LDTT ${message || "save"} failed`, error);
+    if (error.conflict) {
+      const reload = window.confirm("Another staff member saved a newer version of this record. Reload the live version now? Choose Cancel to keep this screen open while you review your unsaved entry.");
+      if (reload) {
+        await reloadRemoteData().catch(() => {});
+        render();
+      }
+      showToast("Save paused because a newer live version exists.");
+      return false;
+    }
     showToast(`Could not save: ${error.message}`);
     return false;
   }
@@ -2084,7 +2363,14 @@ async function runRemoteMutation(message, action, options = {}) {
 async function deleteTrainerDraft(trainer) {
   if (!trainer) return false;
   if (remoteReady && trainer.remoteId) {
-    await window.LDTT_PORTAL.remove("trainers", trainer.remoteId);
+    await window.LDTT_PORTAL.operationalMutation({
+      operation: "archive",
+      entity_type: "trainer",
+      id: trainer.remoteId,
+      expected_version: trainer.version,
+      expected_updated_at: trainer.updatedAt,
+      summary: `${trainer.name || "Trainer draft"} archived`
+    });
   }
   state.trainers = state.trainers.filter(item => item.id !== trainer.id && item.remoteId !== trainer.remoteId);
   state.selectedTrainerId = state.trainers[0]?.id || "";
@@ -2290,16 +2576,32 @@ function applyLiveEditsToDocument(doc, edits = []) {
       target.setAttribute("srcset", "");
     }
     if (edit.t === "video") {
-      if (target.tagName === "VIDEO") {
-        target.setAttribute("src", edit.v || "");
-        target.controls = true;
-      } else {
-        target.innerHTML = "";
+      const videoUrl = String(edit.v || "");
+      const isEmbed = /youtube\.com\/embed|player\.vimeo\.com\/video|drive\.google\.com\/file\/d\/[^/]+\/preview|loom\.com\/embed/i.test(videoUrl);
+      const createVideoNode = () => {
+        if (isEmbed) {
+          const frame = doc.createElement("iframe");
+          frame.setAttribute("src", videoUrl);
+          frame.setAttribute("title", edit.label || "Trainer video");
+          frame.setAttribute("loading", "lazy");
+          frame.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+          frame.setAttribute("allowfullscreen", "");
+          return frame;
+        }
         const video = doc.createElement("video");
-        video.setAttribute("src", edit.v || "");
+        video.setAttribute("src", videoUrl);
         video.setAttribute("controls", "");
         video.setAttribute("playsinline", "");
-        target.appendChild(video);
+        return video;
+      };
+      if (target.tagName === "VIDEO" && !isEmbed) {
+        target.setAttribute("src", videoUrl);
+        target.controls = true;
+      } else if (target.tagName === "VIDEO" && isEmbed) {
+        target.replaceWith(createVideoNode());
+      } else {
+        target.innerHTML = "";
+        target.appendChild(createVideoNode());
       }
     }
     if (edit.t === "style" && edit.prop) target.style[edit.prop] = edit.v || "";
@@ -2410,9 +2712,40 @@ function renderLiveEditList(trainer) {
   return `<div class="builder-change-list">${edits.map((edit, index) => `<article><div><strong>${escapeHtml(edit.label || edit.k)}</strong><span>${escapeHtml(edit.t)} · ${escapeHtml(edit.surface || state.builderSurface)} · ${escapeHtml(edit.page || "home")}</span></div><button class="btn btn-outline btn-small" type="button" data-remove-live-edit="${index}">Remove</button></article>`).join("")}</div>`;
 }
 
+function isEmbeddableVideoUrl(url) {
+  return /youtube\.com\/embed|player\.vimeo\.com\/video|drive\.google\.com\/file\/d\/[^/]+\/preview|loom\.com\/embed/i.test(String(url || ""));
+}
+
+function videoProviderLabel(url) {
+  const value = String(url || "").toLowerCase();
+  if (value.includes("youtube.com")) return "YouTube";
+  if (value.includes("vimeo.com")) return "Vimeo";
+  if (value.includes("drive.google.com")) return "Google Drive";
+  if (value.includes("loom.com")) return "Loom";
+  if (value.includes("dropbox.com")) return "Dropbox";
+  return "Video";
+}
+
+function videoPreviewMarkup(url, label = "Trainer video", poster = "") {
+  const clean = String(url || "").trim();
+  if (!clean) return `<span>No trainer video uploaded yet</span>`;
+  if (isEmbeddableVideoUrl(clean)) {
+    return `<iframe src="${escapeHtml(clean)}" title="${escapeHtml(label)}" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`;
+  }
+  const posterAttr = poster ? ` poster="${escapeHtml(poster)}"` : "";
+  return `<video src="${escapeHtml(clean)}" controls preload="metadata" playsinline${posterAttr}></video>`;
+}
+
 function renderMediaLibrary(trainer) {
   const media = trainer.mediaLibrary || [];
-  return `<div class="builder-media-grid">${media.map(item => `<article><div class="builder-media-thumb">${item.type === "video" ? `<video src="${escapeHtml(item.url)}" muted playsinline></video>` : `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name || "Builder media")}">`}</div><strong>${escapeHtml(item.name || "Uploaded media")}</strong><span>${escapeHtml(item.type || "image")} · ${Math.round((item.size || 0) / 1024 / 1024 * 10) / 10} MB</span><button class="btn btn-outline btn-small" type="button" data-use-media="${escapeHtml(item.url)}" data-media-kind="${escapeHtml(item.type || "image")}">Use On Selected Element</button></article>`).join("") || `<p class="builder-empty">Upload photos, logos, or videos. Large videos will be compressed when the browser supports it, or the editor will ask for an external video URL.</p>`}</div>`;
+  return `<div class="builder-media-grid">${media.map(item => {
+    const type = item.type || "image";
+    const thumb = type === "video"
+      ? videoPreviewMarkup(item.url, item.name || "Builder video")
+      : `<img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.name || "Builder media")}">`;
+    const sizeLabel = item.size ? `${Math.round((item.size || 0) / 1024 / 1024 * 10) / 10} MB` : videoProviderLabel(item.url);
+    return `<article><div class="builder-media-thumb">${thumb}</div><strong>${escapeHtml(item.name || "Uploaded media")}</strong><span>${escapeHtml(type)} · ${escapeHtml(sizeLabel)}</span><button class="btn btn-outline btn-small" type="button" data-use-media="${escapeHtml(item.url)}" data-media-kind="${escapeHtml(type)}">Use On Selected Element</button></article>`;
+  }).join("") || `<p class="builder-empty">Upload photos, logos, or videos. Large videos will be compressed when the browser supports it, or the editor will ask for an external video URL.</p>`}</div>`;
 }
 
 function markBuilderDraftDirty(message = "Builder change saved to draft", detail = "") {
@@ -2429,6 +2762,77 @@ function markBuilderDraftDirty(message = "Builder change saved to draft", detail
 
 function mediaKind(file) {
   return file.type.startsWith("video/") ? "video" : "image";
+}
+
+const mediaUploadTasks = new Map();
+
+function isMediaUploadActive() {
+  return mediaUploadTasks.size > 0;
+}
+
+function prettyBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (!value) return "";
+  if (value >= 1024 * 1024) return `${Math.round(value / 1024 / 1024 * 10) / 10} MB`;
+  if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+  return `${value} B`;
+}
+
+function uploadProgressPanel() {
+  let panel = document.querySelector("[data-upload-progress-panel]");
+  if (panel) return panel;
+  panel = document.createElement("div");
+  panel.className = "upload-progress-panel";
+  panel.setAttribute("data-upload-progress-panel", "");
+  panel.setAttribute("role", "status");
+  panel.setAttribute("aria-live", "polite");
+  panel.innerHTML = `<div class="upload-progress-head"><strong data-upload-title>Preparing upload</strong><span data-upload-percent>0%</span></div><div class="upload-progress-track"><span data-upload-bar></span></div><p data-upload-stage>Getting media ready...</p><small data-upload-detail></small>`;
+  document.body.appendChild(panel);
+  return panel;
+}
+
+function syncMediaUploadButtons() {
+  document.querySelectorAll("[data-editor-save], #saveTrainerProfile, [data-toggle-lock]").forEach(button => {
+    button.disabled = isMediaUploadActive();
+    button.classList.toggle("is-disabled", isMediaUploadActive());
+  });
+}
+
+function startMediaUploadTask(file, stage = "Preparing media") {
+  const id = `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  mediaUploadTasks.set(id, { file, stage, percent: 1, status: "active" });
+  updateMediaUploadTask(id, { stage, percent: 1 });
+  syncMediaUploadButtons();
+  return id;
+}
+
+function updateMediaUploadTask(id, patch = {}) {
+  const task = { ...(mediaUploadTasks.get(id) || {}), ...patch };
+  mediaUploadTasks.set(id, task);
+  const panel = uploadProgressPanel();
+  const percent = Math.max(0, Math.min(100, Math.round(Number(task.percent || 0))));
+  panel.classList.remove("done", "error");
+  panel.querySelector("[data-upload-title]").textContent = task.file?.name || "Media upload";
+  panel.querySelector("[data-upload-percent]").textContent = `${percent}%`;
+  panel.querySelector("[data-upload-bar]").style.width = `${percent}%`;
+  panel.querySelector("[data-upload-stage]").textContent = task.stage || "Working...";
+  panel.querySelector("[data-upload-detail]").textContent = task.detail || "";
+}
+
+function finishMediaUploadTask(id, status = "done", message = "Media uploaded and saved") {
+  const task = mediaUploadTasks.get(id) || {};
+  const panel = uploadProgressPanel();
+  panel.classList.toggle("done", status === "done");
+  panel.classList.toggle("error", status === "error");
+  panel.querySelector("[data-upload-percent]").textContent = status === "done" ? "100%" : "";
+  panel.querySelector("[data-upload-bar]").style.width = status === "done" ? "100%" : "100%";
+  panel.querySelector("[data-upload-stage]").textContent = message;
+  panel.querySelector("[data-upload-detail]").textContent = task.file ? `${task.file.name} · ${prettyBytes(task.file.size)}` : "";
+  mediaUploadTasks.delete(id);
+  syncMediaUploadButtons();
+  window.setTimeout(() => {
+    if (!isMediaUploadActive() && panel.isConnected) panel.remove();
+  }, status === "done" ? 1800 : 5200);
 }
 
 async function compressImageFile(file) {
@@ -2450,81 +2854,168 @@ function supportedVideoMime() {
   return ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"].find(type => window.MediaRecorder?.isTypeSupported?.(type)) || "";
 }
 
-async function compressVideoFile(file) {
+async function compressVideoFile(file, onProgress) {
   if (!file.type.startsWith("video/") || file.size < 48 * 1024 * 1024) return file;
   const mimeType = supportedVideoMime();
   if (!mimeType) throw new Error("This browser cannot compress large videos. Upload the video to YouTube, Vimeo, Loom, Dropbox, or Drive and paste the link instead.");
   const video = document.createElement("video");
+  let progressTimer = 0;
+  let compressionStream = null;
+  let sourceStream = null;
   video.muted = true;
   video.playsInline = true;
   video.src = URL.createObjectURL(file);
-  await new Promise((resolve, reject) => {
-    video.onloadedmetadata = resolve;
-    video.onerror = () => reject(new Error("Video could not be read for compression"));
-  });
-  const maxWidth = 1280;
-  const scale = Math.min(1, maxWidth / video.videoWidth);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(320, Math.round(video.videoWidth * scale));
-  canvas.height = Math.max(180, Math.round(video.videoHeight * scale));
-  const context = canvas.getContext("2d");
-  const stream = canvas.captureStream(24);
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
-  const chunks = [];
-  recorder.ondataavailable = event => {
-    if (event.data?.size) chunks.push(event.data);
-  };
-  const draw = () => {
-    if (video.paused || video.ended) return;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    requestAnimationFrame(draw);
-  };
-  await new Promise((resolve, reject) => {
-    recorder.onstop = resolve;
-    recorder.onerror = () => reject(new Error("Video compression failed"));
-    recorder.start(1000);
-    video.play().then(draw).catch(reject);
-    video.onended = () => recorder.stop();
-    window.setTimeout(() => {
-      if (recorder.state !== "inactive") recorder.stop();
-    }, Math.min(Math.max(video.duration || 60, 8), 180) * 1000);
-  });
-  URL.revokeObjectURL(video.src);
-  const blob = new Blob(chunks, { type: mimeType });
-  if (!blob.size || blob.size >= file.size) return file;
-  return new File([blob], file.name.replace(/\.[^.]+$/, ".webm"), { type: "video/webm" });
+  try {
+    onProgress?.({ percent: 4, stage: "Reading video details..." });
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = resolve;
+      video.onerror = () => reject(new Error("Video could not be read for compression"));
+    });
+    const maxWidth = 1280;
+    const scale = Math.min(1, maxWidth / video.videoWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(320, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(180, Math.round(video.videoHeight * scale));
+    const context = canvas.getContext("2d");
+    const captureSource = video.captureStream || video.mozCaptureStream;
+    if (!captureSource) return file;
+    await video.play();
+    video.pause();
+    video.currentTime = 0;
+    sourceStream = captureSource.call(video);
+    const audioTracks = sourceStream.getAudioTracks();
+    if (!audioTracks.length) return file;
+    compressionStream = canvas.captureStream(24);
+    audioTracks.forEach(track => compressionStream.addTrack(track));
+    const recorder = new MediaRecorder(compressionStream, { mimeType, videoBitsPerSecond: 2_500_000, audioBitsPerSecond: 128_000 });
+    const chunks = [];
+    recorder.ondataavailable = event => {
+      if (event.data?.size) chunks.push(event.data);
+    };
+    const draw = () => {
+      if (video.paused || video.ended) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      requestAnimationFrame(draw);
+    };
+    await new Promise((resolve, reject) => {
+      recorder.onstop = resolve;
+      recorder.onerror = () => reject(new Error("Video compression failed"));
+      recorder.start(1000);
+      progressTimer = window.setInterval(() => {
+        const duration = Number(video.duration || 0);
+        const ratio = duration ? Math.min(1, video.currentTime / duration) : 0;
+        onProgress?.({
+          percent: 5 + Math.round(ratio * 70),
+          stage: "Compressing video...",
+          detail: duration ? `${Math.round(video.currentTime)}s of ${Math.round(duration)}s` : "Working in the browser"
+        });
+      }, 500);
+      video.play().then(draw).catch(reject);
+      video.onended = () => {
+        if (recorder.state !== "inactive") recorder.stop();
+      };
+    });
+    const blob = new Blob(chunks, { type: mimeType });
+    if (!blob.size || blob.size >= file.size) return file;
+    onProgress?.({ percent: 78, stage: "Compression finished", detail: `${prettyBytes(file.size)} to ${prettyBytes(blob.size)}` });
+    return new File([blob], file.name.replace(/\.[^.]+$/, ".webm"), { type: "video/webm" });
+  } finally {
+    if (progressTimer) window.clearInterval(progressTimer);
+    compressionStream?.getTracks().forEach(track => track.stop());
+    sourceStream?.getTracks().forEach(track => track.stop());
+    URL.revokeObjectURL(video.src);
+  }
 }
 
 function normalizeVideoUrl(value) {
-  const url = String(value || "").trim();
+  let url = String(value || "").trim();
   if (!url) return "";
-  if (/youtube\.com\/watch\?v=/.test(url)) return url.replace("watch?v=", "embed/");
-  if (/youtu\.be\//.test(url)) return url.replace("https://youtu.be/", "https://www.youtube.com/embed/");
-  if (/vimeo\.com\/\d+/.test(url)) return url.replace("https://vimeo.com/", "https://player.vimeo.com/video/");
-  return url;
+  if (!/^(https?:|\/|data:|blob:)/i.test(url)) url = `https://${url}`;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    const pathParts = parsed.pathname.split("/").filter(Boolean);
+    if (["youtube.com", "m.youtube.com", "music.youtube.com"].includes(host)) {
+      const id = parsed.searchParams.get("v") || (pathParts[0] === "shorts" ? pathParts[1] : "") || (pathParts[0] === "embed" ? pathParts[1] : "");
+      if (id) return `https://www.youtube.com/embed/${encodeURIComponent(id)}`;
+    }
+    if (host === "youtu.be") {
+      const id = pathParts[0] || "";
+      if (id) return `https://www.youtube.com/embed/${encodeURIComponent(id)}`;
+    }
+    if (host === "vimeo.com") {
+      const id = pathParts.find(part => /^\d+$/.test(part));
+      if (id) return `https://player.vimeo.com/video/${encodeURIComponent(id)}`;
+    }
+    if (host === "player.vimeo.com") return parsed.href;
+    if (host === "drive.google.com") {
+      const dIndex = pathParts.indexOf("d");
+      const id = dIndex >= 0 ? pathParts[dIndex + 1] : parsed.searchParams.get("id");
+      if (id) return `https://drive.google.com/file/d/${encodeURIComponent(id)}/preview`;
+    }
+    if (host === "loom.com" || host.endsWith(".loom.com")) {
+      const marker = pathParts.includes("share") ? "share" : "embed";
+      const id = pathParts[pathParts.indexOf(marker) + 1] || "";
+      if (id) return `https://www.loom.com/embed/${encodeURIComponent(id)}`;
+    }
+    if (host === "dropbox.com" || host.endsWith(".dropbox.com")) {
+      parsed.searchParams.delete("dl");
+      parsed.searchParams.set("raw", "1");
+      return parsed.href;
+    }
+    return parsed.href;
+  } catch {
+    return url;
+  }
 }
 
 async function uploadBuilderMedia(file, slot = "mediaLibrary") {
   const trainer = trainerById();
   if (!file) return null;
   if (!window.LDTT_PORTAL?.upload) throw new Error("Supabase storage is not connected yet");
-  showToast(file.type.startsWith("video/") && file.size > 48 * 1024 * 1024 ? "Compressing large video. This may take a moment." : "Preparing media upload...");
-  const prepared = file.type.startsWith("video/") ? await compressVideoFile(file) : await compressImageFile(file);
-  const extension = prepared.name.includes(".") ? prepared.name.split(".").pop().toLowerCase() : (prepared.type.startsWith("video/") ? "webm" : "jpg");
-  const safeSlot = slot === "selectedMedia" ? "selected" : slot;
-  const path = `${trainer.remoteId || slugify(trainer.name)}/${safeSlot}-${Date.now()}.${extension}`;
-  const bucket = prepared.type.startsWith("video/") ? "trainer-page-videos" : "trainer-page-assets";
-  await window.LDTT_PORTAL.upload(bucket, path, prepared);
-  const url = window.LDTT_PORTAL.publicStorageUrl(bucket, path);
-  trainer.mediaLibrary = Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [];
-  trainer.mediaLibrary.unshift({
-    type: mediaKind(prepared),
-    url,
-    name: prepared.name,
-    size: prepared.size,
-    uploadedAt: new Date().toISOString()
-  });
-  return { url, type: mediaKind(prepared) };
+  const taskId = startMediaUploadTask(file, file.type.startsWith("video/") && file.size > 48 * 1024 * 1024 ? "Compressing video..." : "Preparing media upload...");
+  try {
+    showToast(file.type.startsWith("video/") && file.size > 48 * 1024 * 1024 ? "Compressing large video with progress shown below." : "Preparing media upload...");
+    const prepared = file.type.startsWith("video/")
+      ? await compressVideoFile(file, progress => updateMediaUploadTask(taskId, progress))
+      : await compressImageFile(file);
+    if (prepared.type.startsWith("video/") && prepared.size > 50 * 1024 * 1024) {
+      throw new Error("Video is still over the 50 MB storage limit. Paste a YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video link instead.");
+    }
+    if (!window.LDTT_PORTAL.accessToken?.()) {
+      throw new Error("Live Supabase sign-in is required to upload media. Demo accounts can test compression but cannot write to storage.");
+    }
+    const extension = prepared.name.includes(".") ? prepared.name.split(".").pop().toLowerCase() : (prepared.type.startsWith("video/") ? "webm" : "jpg");
+    const safeSlot = slot === "selectedMedia" ? "selected" : slot;
+    const path = `${trainer.remoteId || slugify(trainer.name)}/${safeSlot}-${Date.now()}.${extension}`;
+    const bucket = prepared.type.startsWith("video/") ? "trainer-page-videos" : "trainer-page-assets";
+    updateMediaUploadTask(taskId, { stage: "Uploading to trainer media storage...", percent: prepared.type.startsWith("video/") ? 80 : 8, detail: prettyBytes(prepared.size) });
+    const uploadResult = await window.LDTT_PORTAL.upload(bucket, path, prepared, {
+      onProgress: progress => {
+        const base = prepared.type.startsWith("video/") ? 80 : 8;
+        const range = prepared.type.startsWith("video/") ? 18 : 90;
+        updateMediaUploadTask(taskId, {
+          stage: "Uploading to trainer media storage...",
+          percent: base + Math.round((progress.percent || 0) / 100 * range),
+          detail: `${prettyBytes(progress.loaded)} of ${prettyBytes(progress.total || prepared.size)}`
+        });
+      }
+    });
+    const url = uploadResult?.publicUrl || window.LDTT_PORTAL.publicStorageUrl(uploadResult?.bucket || bucket, uploadResult?.path || path);
+    trainer.mediaLibrary = Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [];
+    trainer.mediaLibrary.unshift({
+      type: mediaKind(prepared),
+      url,
+      name: prepared.name,
+      size: prepared.size,
+      uploadedAt: new Date().toISOString()
+    });
+    finishMediaUploadTask(taskId, "done", "Media uploaded. Saving page draft...");
+    return { url, type: mediaKind(prepared) };
+  } catch (error) {
+    finishMediaUploadTask(taskId, "error", error.message || "Media upload failed");
+    throw error;
+  }
 }
 
 function trainerName(id) {
@@ -2548,14 +3039,15 @@ function trainerLeads(id = currentTrainerId()) {
 }
 
 function conversionStatuses() {
-  return ["Became a Client", "First Session / Payment"];
+  return ["Became a Client"];
 }
 
 function normalizeLeadStatus(status) {
   const map = {
     "Engaged Lead / No Outcome": "Engaged Lead: No Outcome",
-    "Follow-Up Needed": "Follow Up Call Needed",
-    "Follow-Up Scheduled": "Follow Up Call Needed",
+    "Follow-Up Needed": "Office Contacted",
+    "Follow-Up Scheduled": "Office Contacted",
+    "Follow Up Call Needed": "Office Contacted",
     "Evaluation Completed": "Evaluation Complete",
     "Evaluation Booked": "Evaluation Scheduled",
     "Client Won": "Became a Client"
@@ -2595,7 +3087,7 @@ function render() {
 async function bootstrapApplication() {
   const publicProfileTarget = document.getElementById("publicTrainerProfile");
   if (publicProfileTarget) {
-    renderPublicTrainerProfile();
+    publicProfileTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer bio...</h1><p>Retrieving the office-approved trainer profile.</p></main>`;
     const requested = requestedPublicTrainerBioKey();
     const localTrainer = findTrainer(requested);
     const slug = localTrainer?.slug || requested;
@@ -2603,20 +3095,22 @@ async function bootstrapApplication() {
       try {
         const pair = await window.LDTT_PORTAL.loadPublishedTrainer(slug, { includeDraft: false });
         const merged = mergePublishedTrainer(pair);
-        if (merged) {
-          state.selectedTrainerId = merged.id;
-          renderPublicTrainerProfile();
-        }
+        if (!merged) throw new Error("No published trainer revision was returned.");
+        state.selectedTrainerId = merged.id;
+        renderPublicTrainerProfile();
       } catch (error) {
-        console.warn("LDTT published trainer bio sync failed; using the local profile fallback.", error);
+        console.warn("LDTT published trainer bio sync failed", error);
+        publicProfileTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Trainer bio temporarily unavailable</h1><p>The live office-approved profile could not be loaded. Please refresh shortly.</p></main>`;
       }
+    } else {
+      renderPublicTrainerProfile();
     }
     return;
   }
 
   const publicTarget = document.getElementById("publicSite");
   if (publicTarget) {
-    renderPublicSite();
+    publicTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer page...</h1><p>Retrieving the current office-approved page.</p></main>`;
     const requested = requestedPublicTrainerKey();
     const localTrainer = findTrainer(requested);
     const slug = localTrainer?.slug || requested;
@@ -2627,16 +3121,23 @@ async function bootstrapApplication() {
         const merged = includeDraft && pair?.trainer && pair?.page
           ? remoteTrainerToUi(pair.trainer, pair.page)
           : mergePublishedTrainer(pair);
-        if (merged) {
-          const existingIndex = state.trainers.findIndex(item => item.slug === merged.slug || item.id === merged.id);
-          if (existingIndex >= 0) state.trainers[existingIndex] = merged;
-          else state.trainers.push(merged);
-          state.selectedTrainerId = merged.id;
-          renderPublicSite();
-        }
+        if (!merged) throw new Error("No published trainer revision was returned.");
+        const existingIndex = state.trainers.findIndex(item => item.slug === merged.slug || item.id === merged.id);
+        if (existingIndex >= 0) state.trainers[existingIndex] = merged;
+        else state.trainers.push(merged);
+        state.selectedTrainerId = merged.id;
+        renderPublicSite();
       } catch (error) {
-        console.warn("LDTT published trainer page sync failed; using the local published fallback.", error);
+        console.warn("LDTT published trainer page sync failed", error);
+        if (localTrainer && document.body.dataset.releaseRevision) {
+          state.selectedTrainerId = localTrainer.id;
+          renderPublicSite();
+        } else {
+          publicTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Trainer page temporarily unavailable</h1><p>The current published page could not be loaded. Please refresh shortly.</p></main>`;
+        }
       }
+    } else {
+      renderPublicSite();
     }
     return;
   }
@@ -2691,6 +3192,7 @@ async function bootstrapApplication() {
       state.selectedTrainerId = state.trainers.find(trainer => trainer.remoteId === portalUser.trainer_id)?.id || state.selectedTrainerId;
     }
     render();
+    startOperationalSync();
   } catch (error) {
     console.error("LDTT portal bootstrap failed", error);
     session = { loggedIn: false, role: "" };
@@ -2797,7 +3299,7 @@ function renderTopbar() {
     clients: ["Client Database", "Central list for active, past, won, lost, bad lead, and do-not-contact records."],
     import: ["Client Import", "Prototype CSV import with preview, duplicate checks, and consent protection."],
     approvals: ["Trainer Reviews", "Read the complete review, inspect attached photos or videos, and publish or reject each submission."],
-    reports: ["Conversion Reports", "Conversions count only first session/payment or became a client."],
+    reports: ["Conversion Reports", "Conversions use confirmed lifecycle events and never browser-only counters."],
     adLandingPages: ["Ad Landing Pages", "Super Admin tracking for paid-ad market pages, traffic, form submissions, time on page, and conversion."],
     portalAccess: ["Portal Access", "Super Admin controls for staff, office admin, and trainer login access."],
     settings: ["Settings", "Portal access, database status, and account controls."]
@@ -2818,6 +3320,7 @@ function renderTopbar() {
   document.getElementById("topbar").innerHTML = `
     <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
     <div class="top-actions">
+      ${remoteSyncError ? `<span class="status lost" title="${escapeHtml(remoteSyncError)}">Live data unavailable</span>` : remoteReady ? `<span class="status live" title="Revision ${escapeHtml(remoteServerRevision)}">Synced ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "now")}</span>` : ""}
       ${isAdmin
         ? profileSetupRequired ? "" : `${isOfficeAdmin() ? "" : `<button class="btn btn-red add-trainer-primary" id="addTrainer">+ Add New Trainer</button>`}<button class="btn btn-outline">Filters</button>${isOfficeAdmin() ? "" : `<button class="btn btn-outline" data-open-client-import>Import Clients</button>`}`
         : passwordSetupRequired
@@ -2847,21 +3350,19 @@ const adminScreens = {
     const metrics = getMetrics();
     return `
       ${reportDateControls()}
-      <p class="panel-copy report-range-note">Dashboard numbers are using real shared portal data for ${escapeHtml(reportRangeLabel())}. Office Admin and Super Admin now read from the same metric source.</p>
+      <p class="panel-copy report-range-note">Dashboard numbers use immutable Supabase lifecycle events for ${escapeHtml(reportRangeLabel())}. Last live sync: ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "not available")}.</p>
       ${metricGrid([
-        ["monitor", "Site Visits / Clicks", metrics.visits, "Traffic only", ""],
-        ["lead", "Form Submissions", metrics.forms, "Inquiries only", ""],
+        ["monitor", "Site Visits/Clicks", metrics.visits, "Traffic only", ""],
+        ["lead", "Form Submissions (Inquiries Only)", metrics.forms, "Canonical forms", ""],
         ["calendar", "Evaluation Scheduled", metrics.evalScheduled, "Mid-funnel", "up"],
         ["calendar", "Evaluation Complete", metrics.evalCompleted, "Decision point", "up"],
-        ["calendar", "Follow Up Call Needed", metrics.followUpNeeded, "Office action", "down"],
-        ["lead", "Engaged Lead: No Outcome", metrics.engagedNoOutcome, "Needs decision", ""],
-        ["trophy", "First Session / Payment", metrics.firstPayment, "Conversion event", "up"],
         ["trophy", "Became a Client", metrics.clientWon, "Conversion event", "up"],
-        ["settings", "Lost / No Response", metrics.lostNoResponse, "Needs review", "down"]
+        ["settings", "Lost/No Response", metrics.lostNoResponse, "Lifecycle outcome", "down"],
+        ["message", "New Trainer Applications", metrics.newTrainerApplications, "Recruiting", "up"]
       ])}
       <div class="dashboard-grid">
-        ${panel("Trainer-Specific Conversion", `<button class="btn btn-outline" data-view="reports">View Reports</button>`, trainerPerformanceTable())}
-        ${panel("Office Funnel", "", leadSummary())}
+        ${panel("Conversion Overview", `<button class="btn btn-outline" data-view="reports">View Reports</button>`, leadSummary())}
+        ${panel("Conversions By Ad Market", "", marketConversionTable())}
       </div>
       <div class="bottom-grid">
         ${panel("Lead Status Updates", "", leadOutcomeTable())}
@@ -2880,7 +3381,7 @@ const adminScreens = {
       : `${trainerAdminForm()}<br>${panel("Existing Trainer Profiles", `<button class="btn btn-red" id="addTrainer">+ Add New Trainer</button>`, trainerSelectList(), "pad")}`;
   },
   leads() {
-    return `${leadSourceRecordNotice()}${panel("Office Lead Pipeline", `<button class="btn btn-outline" data-filter-leads="all">All Statuses</button><button class="btn btn-outline">Date Filter</button>`, leadPipelineTable(true), "pad")}`;
+    return `${leadSourceRecordNotice()}${panel("Office Lead Pipeline", `<button class="btn btn-outline" data-filter-leads="all">All Statuses</button><button class="btn btn-outline" data-export-operational="leads">Download Lead Sheet</button>`, leadPipelineTable(true), "pad")}`;
   },
   applications() {
     const apps = applicationRows();
@@ -2888,13 +3389,13 @@ const adminScreens = {
     return `${metricGrid([
       ["message", "Applications", apps.length, "Website submissions", ""],
       ["lead", "Needs Action", needsAction, "No office action yet", needsAction ? "down" : "up"],
-      ["calendar", "Discovery Follow-Up", apps.filter(app => app.status === "Discovery Follow-Up").length, "Recruiting action", "up"],
+      ["calendar", "Discovery Follow-up", apps.filter(app => app.status === "Discovery Follow-up").length, "Recruiting action", "up"],
       ["trophy", "Moved Forward", apps.filter(app => app.status === "Moved Forward").length, "Qualified", "up"]
     ])}${applicationStatusFilterBar()}${panel("Trainer Application Pipeline", `<button class="btn btn-outline" type="button" data-application-mode="sheet">View Sheet</button><button class="btn btn-outline" type="button" data-application-mode="summary">View Data In Charts</button><button class="btn btn-outline" type="button" data-export-applications>Download Sheet</button>`, applicationPipelineBoard(), "pad")}<br>${panel("Application Sheet, Charts & Export", "", trainerApplicationGoogleFormPanel(), "pad")}<br>${panel("Trainer Application Records", "", applicationTable(), "pad")}`;
   },
   clients() {
     const importer = isOfficeAdmin() ? "" : `<details class="client-import-panel" id="clientImportPanel"><summary>Import Existing Clients</summary><div class="import-layout">${panel("1. Upload CSV, Excel, or PDF", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div></details>`;
-    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${panel("Central Client Database", `${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Import Clients</button>`}`, clientTable(), "pad")}${importer}`;
+    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${panel("Central Client Database", `<button class="btn btn-outline" data-export-operational="clients">Download Client Sheet</button>${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Import Clients</button>`}`, clientTable(), "pad")}${importer}`;
   },
   import() {
     return `<div class="import-layout">${panel("1. Paste CSV / Spreadsheet Data", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div>`;
@@ -2906,17 +3407,17 @@ const adminScreens = {
     const metrics = getMetrics();
     return `
       ${reportDateControls()}
-      <p class="panel-copy report-range-note">Reports are filtered to ${escapeHtml(reportRangeLabel())}. Conversions are counted only from first session/payment or became-client outcomes.</p>
+      <p class="panel-copy report-range-note">Reports are filtered to ${escapeHtml(reportRangeLabel())}. Each record is counted once per confirmed lifecycle milestone.</p>
       ${metricGrid([
         ["monitor", "Visits", metrics.visits, "Not conversion", ""],
         ["lead", "Inquiries", metrics.forms, "Not conversion", ""],
         ["calendar", "Evaluation Complete", metrics.evalCompleted, "Funnel", "up"],
-        ["trophy", "True Conversions", metrics.trueConversions, "Won/payment only", "up"]
+        ["trophy", "True Conversions", metrics.trueConversions, "Became a Client", "up"]
       ])}
       <div class="dashboard-grid">${panel("Clicks By Region", "", regionClickReport(), "pad")}${panel("Clicks By Trainer", "", trainerClickReport(), "pad")}</div>
       <div class="dashboard-grid">${panel("Conversion By Trainer", "", trainerPerformanceTable())}${panel("Lost Reasons", "", lostReasonsTable())}</div>
       ${panel("Recent Activity Log", `${isSuperAdmin() ? `<button class="btn btn-outline" type="button" data-clear-activity-log>Clear Local Log</button>` : ""}`, recentActivityTable(), "pad")}
-      ${panel("Reporting Rule", "", `<p class="panel-copy">Conversions are counted only when a lead reaches <strong>First Session / Payment</strong> or <strong>Became a Client</strong>. Clicks and form submissions stay visible as traffic and inquiry metrics, but they do not inflate conversion reporting.</p>`, "pad")}`;
+      ${panel("Reporting Rule", "", `<p class="panel-copy">Conversions are counted only from the immutable <strong>Became a Client</strong> lifecycle event. Clicks and form submissions stay visible as traffic and inquiry metrics, but they do not inflate conversion reporting.</p>`, "pad")}`;
   },
   adLandingPages() {
     if (!isSuperAdmin()) return panel("Ad Landing Pages", "", `<p class="panel-copy">This section is available only to Super Admin accounts.</p>`, "pad");
@@ -2997,7 +3498,7 @@ function portalAccessScreen() {
     ["users", "Office Admins", rows.filter(user => portalPermissionValue(user) === "office_admin").length, "Office operations", ""],
     ["lead", "Trainer Accounts", rows.filter(user => portalPermissionValue(user) === "trainer").length, "Trainer portal", ""],
     ["settings", "Disabled / Pending", disabledRows.length, "No login access", disabledRows.length ? "down" : "up"]
-  ])}${panel("Portal User Access", `<button class="btn btn-outline" type="button" data-view="settings">My Profile</button>`, portalAccessTable(rows), "pad")}<br>${panel("Permission Rules", "", `<div class="portal-permission-grid"><article><strong>Super Admin</strong><p>Full access to settings, users, trainers, reports, system management, disabling accounts, and permission changes.</p></article><article><strong>Office Admin</strong><p>Day-to-day office operations: trainers, leads, appointments, communications, reports, reviews, applications, and clients.</p></article><article><strong>Trainer</strong><p>Only their own dashboard, assigned leads, schedule/profile basics, training records, and communications with assigned leads.</p></article></div><p class="panel-copy">Disable or revoke access instead of deleting. Records, lead history, notes, reviews, and reporting stay intact.</p>`, "pad")}`;
+  ])}${panel("Staff Access", `<button class="btn btn-outline" type="button" data-view="settings">My Profile</button>`, portalAccessTable(rows), "pad")}<br>${panel("Permission Rules", "", `<div class="portal-permission-grid"><article><strong>Super Admin</strong><p>Full access to settings, users, trainers, reports, system management, disabling accounts, and permission changes.</p></article><article><strong>Office Admin</strong><p>Day-to-day office operations: trainers, leads, appointments, communications, reports, reviews, applications, and clients.</p></article><article><strong>Trainer</strong><p>Only their own dashboard, assigned leads, schedule/profile basics, training records, and communications with assigned leads.</p></article></div><p class="panel-copy">Disable or revoke access instead of deleting. Records, lead history, notes, reviews, and reporting stay intact.</p>`, "pad")}`;
 }
 
 function portalAccessTable(rows) {
@@ -3056,7 +3557,7 @@ function portalProfileForm() {
     <div>
       <h3>My Portal Profile</h3>
       <p class="panel-copy">This name and photo identify staff or trainers inside the portal. It does not change public trainer page content unless the office updates the trainer profile separately.</p>
-      ${needsCompletion ? `<div class="source-record-note"><span class="status pending">Profile required</span><p>Enter and save your first and last name so Recent Activity, site edits, lead notes, and application notes show the actual staff member instead of a generic portal user.</p></div>` : ""}
+      ${needsCompletion ? `<div class="source-record-note"><span class="status pending">Profile required</span><p>Enter and save your first and last name so Recent Activity, site edits, lead notes, and application notes show the actual staff member.</p></div>` : ""}
       ${email ? `<p class="panel-copy"><strong>Email:</strong> ${escapeHtml(email)}</p>` : ""}
       <div class="form-grid-two">
         <label>First Name<input required name="firstName" value="${escapeHtml(firstName)}" autocomplete="given-name"></label>
@@ -3128,18 +3629,30 @@ function filteredReportEventRows() {
   return siteEventRows().filter(event => isWithinWindow(event.timestamp || event.created_at, "report"));
 }
 
+function reportLifecycleRows() {
+  return (remoteLifecycleEvents || []).filter(event =>
+    event.event_type !== "qa_release_check"
+    && event.raw_payload?.qa !== true
+    && !/^qa[_-]/i.test(String(event.event_key || ""))
+    && !/(?:localhost|127\.0\.0\.1|\.vercel\.app)(?::\d+)?(?:\/|$)/i.test(String(event.raw_payload?.page_url || ""))
+  );
+}
+
 function getMetrics() {
-  const leadRows = filteredReportLeadRows();
-  const events = filteredReportEventRows();
-  const visits = events.filter(event => ["trainer_page_view", "market_page_view"].includes(event.event_type)).length;
-  const forms = leadRows.filter(l => l.submitted).length;
-  const evalScheduled = leadRows.filter(l => l.status === "Evaluation Scheduled").length;
-  const evalCompleted = leadRows.filter(l => l.status === "Evaluation Complete").length;
-  const followUpNeeded = leadRows.filter(l => l.status === "Follow Up Call Needed").length;
-  const engagedNoOutcome = leadRows.filter(l => l.status === "Engaged Lead: No Outcome").length;
-  const firstPayment = leadRows.filter(l => l.status === "First Session / Payment").length;
-  const clientWon = leadRows.filter(l => l.status === "Became a Client").length;
-  return { visits, forms, evalScheduled, evalCompleted, followUpNeeded, engagedNoOutcome, firstPayment, clientWon, trueConversions: firstPayment + clientWon, lostNoResponse: leadRows.filter(l => l.status === "Lost / No Response").length };
+  const lifecycle = reportLifecycleRows().filter(event => isWithinWindow(event.occurred_at || event.created_at, "report"));
+  const count = type => new Set(lifecycle
+    .filter(event => event.event_type === type)
+    .map(event => `${event.entity_type || "event"}:${event.entity_id || event.event_key || event.id}`)).size;
+  return {
+    visits: count("site_visit") + count("cta_click"),
+    forms: count("form_received"),
+    evalScheduled: count("evaluation_scheduled"),
+    evalCompleted: count("evaluation_completed"),
+    clientWon: count("became_client"),
+    trueConversions: count("became_client"),
+    lostNoResponse: count("lost_no_response"),
+    newTrainerApplications: count("full_application")
+  };
 }
 
 function allLeadRows() {
@@ -3152,7 +3665,11 @@ function realLeadRows() {
 
 function siteEventRows() {
   const rows = remoteReady ? remoteEvents : storedRows(SITE_EVENT_KEY);
-  return rows.map(event => ({
+  return rows.filter(event =>
+    event.raw_payload?.qa !== true
+    && !/^qa[_-]/i.test(String(event.event_type || ""))
+    && !/(?:localhost|127\.0\.0\.1|\.vercel\.app)(?::\d+)?(?:\/|$)/i.test(String(event.raw_payload?.page_url || ""))
+  ).map(event => ({
     ...event,
     trainer_id: event.trainer_id || trainerIdFromSlug(event.trainer_slug) || trainerIdFromName(event.assigned_trainer),
     event_type: event.event_type || "trainer_page_view",
@@ -3393,7 +3910,7 @@ function adLandingPageSummary() {
   return `${metricGrid([
     ["monitor", "Tracked Ad Page Visits", visits, "Exact ad-page traffic", ""],
     ["lead", "Ad Leads Submitted", forms, "Short forms", "up"],
-    ["trophy", "Paid Clients", clients, "Won/payment only", "up"],
+    ["trophy", "Paid Clients", clients, "Became a Client", "up"],
     ["calendar", "Avg. Time On Page", formatDuration(avgTime), "Tracked on exit", ""]
   ])}<div class="source-record-note"><span class="status live">First-party tracking</span><p>Visits shown here are page loads recorded directly on Lorenzo's paid-ad landing pages. Google Ads click totals remain a separate advertising-platform metric until a Google Ads or GA4 reporting connection is added.</p></div>`;
 }
@@ -3466,7 +3983,8 @@ function filteredLeadRows(rows) {
     return created >= start && created <= end
       && (!state.leadSearch || haystack.includes(state.leadSearch.toLowerCase()))
       && (state.leadStatusFilter === "All" || lead.status === state.leadStatusFilter)
-      && (state.leadTrainerFilter === "All" || lead.trainerId === state.leadTrainerFilter);
+      && (state.leadTrainerFilter === "All" || lead.trainerId === state.leadTrainerFilter)
+      && (state.leadSmsFilter === "All" || lead.smsConsent === state.leadSmsFilter);
   });
 }
 
@@ -3477,36 +3995,42 @@ function leadRangeLabel() {
 
 function leadOutcomeTable() {
   const rows = realLeadRows();
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Service</th><th>Status</th><th>Office Note</th><th>Action</th></tr></thead><tbody>${rows.map(lead => `
-    <tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} (${escapeHtml(lead.breed)})</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td><input class="select-pill note-input" data-lead-note="${lead.id}" value="${escapeHtml(lead.note)}"></td><td><button class="btn btn-red" data-save-lead="${lead.id}">Update</button></td></tr>`).join("") || `<tr><td colspan="6">No website lead submissions match the current filters.</td></tr>`}</tbody></table></div><p class="panel-copy">Website contact submissions are shared with authorized office users through Supabase.</p>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Service</th><th>Status</th><th>Latest Office Note</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
+    const latest = latestOfficeNote("lead", lead.remoteId);
+    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} (${escapeHtml(lead.breed)})</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td>${escapeHtml(latest?.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-red" data-open-lead="${lead.id}">Open / Add Note</button></td></tr>`;
+  }).join("") || `<tr><td colspan="6">No website lead submissions match the current filters.</td></tr>`}</tbody></table></div><p class="panel-copy">Website contact submissions are shared with authorized office users through Supabase.</p>`;
 }
 
 function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const rows = filteredLeadRows(baseRows);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead Date</th><th>Owner / Dog</th><th>Contact</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDate(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(lead.phone || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="8">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   return `${leadDateControls()}${leadWorkspaceControls(admin)}<p class="panel-copy lead-result-count">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}.</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table"><summary>Open detailed table view</summary>${table}</details>` : ""}${leadDetailPanel()}`;
 }
 
 function leadWorkspaceControls(admin) {
   if (!admin) return "";
-  return `<div class="lead-workspace-controls"><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer"><option value="All">All trainers</option>${state.trainers.map(t => `<option value="${t.id}" ${state.leadTrainerFilter === t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select><select class="select-pill" data-lead-filter="status"><option>All</option>${leadStatuses.map(s => `<option ${state.leadStatusFilter === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
+  return `<div class="lead-workspace-controls"><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer"><option value="All">All trainers</option>${state.trainers.map(t => `<option value="${t.id}" ${state.leadTrainerFilter === t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select><select class="select-pill" data-lead-filter="status"><option>All</option>${leadStatuses.map(s => `<option ${state.leadStatusFilter === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select><select class="select-pill" data-lead-filter="sms"><option value="All">All SMS choices</option>${["Yes","No","Unknown"].map(value => `<option ${state.leadSmsFilter === value ? "selected" : ""}>${value}</option>`).join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
-const boardColumns = ["New Inquiry", "Office Contacted", "Evaluation Scheduled", "Evaluation Complete", "First Session / Payment", "Became a Client", "Lost"];
+const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client", "Lost"];
 function boardStatus(status) { return /^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status; }
-function deliveryBadges(lead) {
-  const badge = (label, value) => `<span class="${value === "saved" || value === "confirmed" ? "delivery-ok" : value === "failed" ? "delivery-failed" : "delivery-pending"}">${label}: ${escapeHtml(String(value || "unknown").replaceAll("_", " "))}</span>`;
-  return `<div class="delivery-badges">${badge("Local", lead.delivery_local || "saved")}${badge("Sheet", lead.delivery_google || "not recorded")}${badge("Email", lead.delivery_email || "not recorded")}${badge("Supabase", lead.delivery_supabase || "not connected")}</div>`;
-}
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDate(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(lead.phone || lead.email || "Contact pending")}</small>${deliveryBadges(lead)}</article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="kanban-scroll-toolbar"><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="start">Beginning</button><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="left" aria-label="Scroll pipeline left">←</button><span>Move across the complete pipeline</span><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="right" aria-label="Scroll pipeline right">→</button><button class="btn btn-outline btn-small" type="button" data-scroll-kanban="end">End</button></div><div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+}
+
+function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
+  const options = (remotePortalUsers || [])
+    .filter(user => user.active !== false && user.role === "admin")
+    .map(user => `<option value="${escapeHtml(user.user_id)}" ${user.user_id === selectedUserId ? "selected" : ""}>${escapeHtml(portalDisplayName(user))} · ${escapeHtml(user.email || "email pending")}</option>`)
+    .join("");
+  return `<select class="select-pill" data-office-assignee="${escapeHtml(entityType)}" data-record-id="${escapeHtml(recordId)}"><option value="">Unassigned</option>${options}</select>`;
 }
 
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(lead.phone || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${deliveryBadges(lead)}<label>Status${statusSelect(lead)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label><section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><button class="btn btn-outline" data-archive-lead="${lead.id}">Archive lead</button></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label><section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -3514,13 +4038,55 @@ function statusSelect(lead) {
 }
 
 function leadStatusCounts(rows) {
-  return ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Follow Up Call Needed", "Evaluation Scheduled", "Evaluation Complete", "Became a Client"].map(status => [status, rows.filter(lead => lead.status === status).length]);
+  return ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client"].map(status => [status, rows.filter(lead => lead.status === status).length]);
 }
 
 function leadSummary() {
-  const labels = leadStatusCounts(filteredReportLeadRows());
+  const metrics = getMetrics();
+  const labels = [
+    ["Form Submissions", metrics.forms],
+    ["Evaluations Scheduled", metrics.evalScheduled],
+    ["Evaluations Complete", metrics.evalCompleted],
+    ["Became a Client", metrics.clientWon],
+    ["Lost/No Response", metrics.lostNoResponse]
+  ];
   const total = labels.reduce((sum, [, value]) => sum + value, 0);
-  return `<div class="donut-panel"><div class="donut"><div class="donut-total"><strong>${total}</strong><span>Total Leads</span></div></div><div class="legend">${labels.map(([name, value], index) => `<div class="legend-row"><span class="dot" style="background:${["#246bfe", "#69b6ff", "#7759d8", "#ff9f1a", "#20a566", "#0b7e49", "#d20f32"][index]}"></span><span>${escapeHtml(name)}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
+  const values = labels.map(([, value]) => value);
+  const colors = ["#246bfe", "#7759d8", "#f59e0b", "#0c9b58", "#d20f32"];
+  let cursor = 0;
+  const segments = labels.map(([, value], index) => {
+    const start = total ? (cursor / total) * 100 : 0;
+    cursor += value;
+    const end = total ? (cursor / total) * 100 : 0;
+    return `${colors[index]} ${start}% ${end}%`;
+  }).join(", ");
+  return `<div class="donut-panel"><div class="donut" style="background:conic-gradient(${segments || "#e5edf7 0 100%"})"><div class="donut-total"><strong>${metrics.clientWon}</strong><span>Clients Won</span></div></div><div class="legend">${labels.map(([name, value], index) => `<div class="legend-row"><span class="dot" style="background:${colors[index]}"></span><span>${escapeHtml(name)}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
+}
+
+function marketConversionTable() {
+  const events = reportLifecycleRows().filter(event => isWithinWindow(event.occurred_at || event.created_at, "report"));
+  const isAdAttributed = event => Boolean(
+    event.utm_source || event.utm_medium || event.utm_campaign
+    || /(?:^|\/)(?:ad-|dog-training-[a-z]+-)/i.test(String(event.source_page || event.raw_payload?.source_page || ""))
+  );
+  const inquiryEvents = events.filter(event => event.event_type === "form_received" && isAdAttributed(event));
+  const inquiryByEntity = new Map(inquiryEvents.map(event => [`${event.entity_type}:${event.entity_id}`, event]));
+  const markets = new Map();
+  inquiryEvents.forEach(event => {
+    const market = String(event.market || event.raw_payload?.ad_market || "Unattributed").trim() || "Unattributed";
+    if (!markets.has(market)) markets.set(market, { forms: new Set(), clients: new Set() });
+    const row = markets.get(market);
+    row.forms.add(`${event.entity_type}:${event.entity_id}`);
+  });
+  events.filter(event => event.event_type === "became_client").forEach(event => {
+    const key = `${event.entity_type}:${event.entity_id}`;
+    const inquiry = inquiryByEntity.get(key);
+    if (!inquiry) return;
+    const market = String(inquiry.market || inquiry.raw_payload?.ad_market || "Unattributed").trim() || "Unattributed";
+    markets.get(market)?.clients.add(key);
+  });
+  const rows = [...markets.entries()].sort((a, b) => b[1].forms.size - a[1].forms.size);
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Ad Market</th><th>Inquiries</th><th>Became Client</th><th>Conversion</th></tr></thead><tbody>${rows.map(([market, value]) => `<tr><td><strong>${escapeHtml(market)}</strong></td><td>${value.forms.size}</td><td>${value.clients.size}</td><td>${value.forms.size ? Math.round((value.clients.size / value.forms.size) * 1000) / 10 : 0}%</td></tr>`).join("") || `<tr><td colspan="4">No ad-attributed inquiries in this date range.</td></tr>`}</tbody></table></div>`;
 }
 
 function protectionSummary() {
@@ -3637,11 +4203,15 @@ function trainerImageUploadCard(trainer, options) {
 }
 
 function trainerVideoUploadCard(trainer) {
-  const value = trainer.trainerVideoUrl || "";
+  const fallbackVideo = trainerVideoFor(trainer);
+  const value = trainer.trainerVideoUrl || fallbackVideo?.src || "";
+  const poster = trainer.trainerVideoUrl ? "" : fallbackVideo?.poster || "";
   return `<section class="trainer-image-upload-card trainer-video-upload-card">
     <div class="trainer-image-upload-heading"><span>Landing Page Video</span><h3>Trainer Introduction Video</h3><p>Shown below the three training paths on this trainer's landing page.</p></div>
-    <div class="wizard-media-preview video-preview">${value ? `<video src="${escapeHtml(value)}" controls preload="metadata"></video>` : `<div><strong>No trainer video uploaded yet</strong><span>MP4 or WebM · compressed before storage when supported</span></div>`}</div>
+    <div class="wizard-media-preview video-preview">${value ? videoPreviewMarkup(value, `${trainer.name || "Trainer"} introduction video`, poster) : `<div><strong>No trainer video uploaded yet</strong><span>MP4/WebM upload or YouTube, Vimeo, Loom, Google Drive, Dropbox link</span></div>`}</div>
     <label class="upload-drop"><strong>Upload Trainer Video</strong><small>MP4/WebM video · large files supported</small><input type="file" accept="video/mp4,video/webm,video/*" data-trainer-upload="trainerVideoUrl"></label>
+    <label class="video-link-field"><span>Or paste a video link</span><input data-main-trainer-video-url value="${escapeHtml(trainer.trainerVideoUrl || "")}" placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM"></label>
+    <button class="btn btn-outline btn-small" type="button" data-apply-main-video-url>Save Video Link</button>
   </section>`;
 }
 
@@ -3685,7 +4255,7 @@ function trainerAdminForm() {
   const mediaPreview = (src, fallback, alt) => `<div class="wizard-media-preview"><img src="${escapeHtml(src || fallback)}" alt="${escapeHtml(alt)}"></div>`;
   const textField = (key, label, opts = {}) => `<div class="field ${opts.wide ? "wide" : ""}"><label>${label}${opts.area ? `<textarea name="admin-trainer-${key}" placeholder="${escapeHtml(opts.placeholder || "")}">${escapeHtml(t[key] || "")}</textarea>` : `<input ${opts.type ? `type="${opts.type}"` : ""} name="admin-trainer-${key}" value="${escapeHtml(t[key] || "")}" placeholder="${escapeHtml(opts.placeholder || "")}">`}</label>${opts.help ? `<small class="field-help">${escapeHtml(opts.help)}</small>` : ""}</div>`;
   let content = "";
-  if (step === 1) content = `<div class="form-grid">${textField("name", "Trainer Name")}${textField("title", "Professional Title", { placeholder: "Lorenzo's Certified Dog Trainer" })}${textField("email", "Email / Username", { type: "email", help: "This email identifies the trainer's portal account." })}${textField("temporaryPassword", "Temporary Password", { help: "Use the office-issued temporary password for first login. The trainer must replace it immediately." })}${textField("phone", "Public Phone")}${textField("market", "City / Market")}${textField("state", "State / Region")}</div>`;
+  if (step === 1) content = `<div class="form-grid">${textField("name", "Trainer Name")}${textField("title", "Professional Title", { placeholder: "Team Trainer" })}${textField("email", "Email / Username", { type: "email", help: "This email identifies the trainer's portal account." })}${textField("temporaryPassword", "Temporary Password", { help: "Use the office-issued temporary password for first login. The trainer must replace it immediately." })}${textField("phone", "Public Phone")}${textField("market", "City / Market")}${textField("state", "State / Region")}</div>`;
   if (step === 2) content = `<div class="wizard-template-choice">${approvedLayouts.map(layout => `<label class="wizard-template-option ${t.layout === layout.id ? "selected" : ""}"><input type="radio" name="admin-trainer-layout" value="${layout.id}" ${t.layout === layout.id ? "checked" : ""}><img src="${layout.preview}" alt="${escapeHtml(layout.name)}"><span><strong>${escapeHtml(layout.name)}</strong><small>${escapeHtml(layout.tag)}</small></span></label>`).join("")}</div><div class="brand-lock-note">The office chooses one approved design. Lorenzo's colors, affiliation, office phone number, and required conversion sections stay locked.</div>`;
   if (step === 3) content = `<div class="form-grid">${textField("serviceArea", "Service Area", { wide: true, placeholder: "Cleveland, Garfield Heights, Akron, and surrounding areas" })}${textField("bio", "Office-Approved Trainer Bio", { wide: true, area: true, placeholder: "Tell the trainer's story, approach, and experience." })}${textField("tagline", "Page Tagline", { wide: true })}${textField("heroHeadline", "Hero Headline", { wide: true })}${textField("seoTitle", "SEO Page Title", { wide: true, help: "Use trainer name, dog training service, and city/state." })}${textField("seoDescription", "SEO Description", { wide: true, area: true, help: "Describe obedience training, behavior modification, service area, and Lorenzo affiliation in 150-160 characters." })}</div>`;
   if (step === 4) content = `<div class="wizard-media-purpose"><div><span class="step-label">Photos: each one has one job</span><h3>Pick the right photo for each place</h3><p><strong>Headshot</strong> shows only on Find a Trainer cards. <strong>Bio Photo</strong> shows when someone clicks View Bio and in the landing-page bio section. Save & Publish sends the Bio Photo to the front end.</p></div></div><div class="wizard-upload-grid image-role-grid">${trainerImageUploadCard(t, { key: "profilePhoto", frameKey: "profilePhotoFrame", positionKey: "profilePhotoPosition", fitKey: "profilePhotoFit", scaleKey: "profilePhotoScale", fallbackFit: "contain", fallbackFrame: "portrait", eyebrow: "Find a Trainer only", title: "Headshot", description: "Used only on trainer cards. It does not control the View Bio photo.", button: "Upload Headshot", contain: true })}${trainerImageUploadCard(t, { key: "heroTrainerPhoto", frameKey: "heroPhotoFrame", positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale", eyebrow: "Landing page top", title: "Top Landing Photo", description: "The first trainer image on the landing page.", button: "Upload Top Landing Photo" })}${trainerImageUploadCard(t, { key: "landingBioPhoto", frameKey: "bioPhotoFrame", positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", fallbackFit: "cover", fallbackFrame: "tight", eyebrow: "View Bio + landing bio", title: "Bio Photo", description: "Used when visitors click View Bio and beside the bio on the landing page.", button: "Upload Bio Photo" })}${trainerImageUploadCard(t, { key: "image", eyebrow: "Page background", title: "Hero Background", description: "The wide background behind the headline and consultation form.", button: "Upload Background Photo" })}${trainerImageUploadCard(t, { key: "companyLogo", eyebrow: "Optional", title: "Company Logo", description: "Leave the Lorenzo logo or upload an approved local logo.", button: "Upload Company Logo", contain: true })}${trainerVideoUploadCard(t)}</div><section class="hero-library"><div><span class="step-label">Background only</span><h3>Choose a page background</h3><p>This changes only the wide background. It never replaces the headshot or Bio Photo.</p></div><div class="hero-option-grid">${heroImageOptions.map(option => `<button type="button" class="hero-option ${t.image === option.src ? "selected" : ""}" data-hero-image="${escapeHtml(option.src)}"><img src="${escapeHtml(option.src)}" alt="${escapeHtml(option.label)}"><span>${escapeHtml(option.label)}</span></button>`).join("")}</div></section><div class="brand-lock-note">Lorenzo branding and office routing stay protected on every design.</div>`;
@@ -3759,8 +4329,10 @@ function trainerPageEditor() {
   };
   const editorVideoCard = () => `<article class="editor-image-card editor-video-card">
     <div><strong>Trainer Video</strong><span>Shown below the three training paths on the landing page</span></div>
-    <div class="editor-video-preview">${trainer.trainerVideoUrl ? `<video src="${escapeHtml(trainer.trainerVideoUrl)}" controls preload="metadata"></video>` : `<span>No trainer video uploaded yet</span>`}</div>
+    <div class="editor-video-preview">${videoPreviewMarkup(trainer.trainerVideoUrl || trainerVideoFor(trainer)?.src, `${trainer.name || "Trainer"} introduction video`, trainer.trainerVideoUrl ? "" : trainerVideoFor(trainer)?.poster || "")}</div>
     <label class="editor-upload"><span>Upload Trainer Video</span><input type="file" accept="video/mp4,video/webm,video/*" data-editor-upload="trainerVideoUrl"></label>
+    <label class="video-link-field"><span>Or paste a video link</span><input data-main-trainer-video-url value="${escapeHtml(trainer.trainerVideoUrl || "")}" placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM"></label>
+    <button class="btn btn-outline btn-small" type="button" data-apply-main-video-url>Save Video Link</button>
   </article>`;
   const preview = builderPreviewConfig(trainer);
   const activeTab = state.builderTab || "page";
@@ -3773,7 +4345,7 @@ function trainerPageEditor() {
     : `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Reorder or hide approved sections. Header, form routing, and Lorenzo trust elements stay protected.</p><div class="builder-section-list">${sectionOrder.map((section, index) => `<article><strong>${escapeHtml(section)}</strong><label><input type="checkbox" data-section-visible="${escapeHtml(section)}" ${hiddenSections.includes(section) ? "" : "checked"}> Visible</label><div><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Up</button><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="1" ${index === sectionOrder.length - 1 ? "disabled" : ""}>Down</button></div></article>`).join("")}</div></div>`;
   const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3><label><span>Trainer</span><select data-editor-trainer>${state.trainers.map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio", "bio", trainer.bio, { area: true })}</div>`;
   const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
-  const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Drive, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
+  const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
   const controls = {
     page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${selectedElementControls}`,
     sections: sectionControls,
@@ -4063,6 +4635,7 @@ function saveApplicationOverride(id, changes) {
 }
 
 function applicationRows() {
+  if (remoteReady) return [...state.applications].sort((a, b) => String(b.receivedAt || b.createdAt || "").localeCompare(String(a.receivedAt || a.createdAt || "")));
   const overrides = applicationOverrides();
   const imported = IMPORTED_APPLICATION_RESPONSES.map(row => ({
     ...row,
@@ -4148,7 +4721,7 @@ function trainerApplicationGoogleFormPanel() {
   </div>`;
 }
 
-const APPLICATION_STATUS_OPTIONS = ["All", "New Application", "Under Review", "Discovery Follow-Up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
+const APPLICATION_STATUS_OPTIONS = ["All", "New Application", "Under Review", "Discovery Follow-up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
 function currentApplicationFilter() {
   if (!APPLICATION_STATUS_OPTIONS.includes(state.applicationFilter)) state.applicationFilter = "All";
   return state.applicationFilter || "All";
@@ -4318,11 +4891,14 @@ function applicationTable() {
     .filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter)
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   return `<div class="application-sheet-actions"><span class="status live">${escapeHtml(activeFilter)} view</span><p>Review the applicant, change recruiting status, and leave office notes. Use the filter at the top of this Applications page to change which records show here.</p></div>
-  <div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Location</th><th>Contact</th><th>Eligibility</th><th>Experience</th><th>Status</th><th>Office Notes / Action Taken</th><th>Delivery</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(formatApplicationDate(app.createdAt))}</small></td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td><small>Work eligible: ${escapeHtml(app.legally_eligible || "—")}</small><small>Drug test: ${escapeHtml(app.drug_test || "—")}</small><small>Travel to Cleveland: ${escapeHtml(app.cleveland_training || "—")}</small></td><td><small>Dog comfort: ${escapeHtml(app.comfortable_dogs || "—")}</small><small>Owns dogs: ${escapeHtml(app.owns_dogs || "—")}</small><small>Referral: ${escapeHtml(app.referral_source || "—")}</small></td><td>${applicationStatusSelect(app)}</td><td><textarea class="application-note-input" data-application-note="${escapeHtml(app.id)}" placeholder="Office notes, calls made, interview result, next step...">${escapeHtml(app.note || "")}</textarea></td><td><small>Sheet: ${escapeHtml(app.delivery_google || "attempted")}</small><small>Email: ${escapeHtml(app.delivery_email || "attempted")}</small><small>Supabase: ${escapeHtml(app.delivery_supabase || "confirmed")}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`).join("") || `<tr><td colspan="9">No trainer applications found yet.</td></tr>`}</tbody></table></div>${applicationDetailPanel()}`;
+  <div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Received</th><th>Location</th><th>Contact</th><th>Source</th><th>Status</th><th>Latest Office Note</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => {
+    const latest = latestOfficeNote("application", app.remoteId);
+    return `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(app.inquiry_type === "full_application" ? "Full Application" : app.inquiry_type === "discovery_call" ? "Discovery Call" : "Contact-form interest")}</small></td><td>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.market || app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td>${escapeHtml(app.source_form || app.referral_source || "Website")}<small>${escapeHtml(app.source_page || "")}</small></td><td>${applicationStatusSelect(app)}</td><td>${escapeHtml(latest?.note || app.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`;
+  }).join("") || `<tr><td colspan="8">No trainer applications found yet.</td></tr>`}</tbody></table></div>${applicationDetailPanel()}`;
 }
 
 function applicationStatusSelect(app) {
-  return `<select class="select-pill" data-application-status="${escapeHtml(app.id)}">${["New Application","Under Review","Discovery Follow-Up","Interview Scheduled","Moved Forward","Declined","Archived"].map(status => `<option ${status === (app.status || "New Application") ? "selected" : ""}>${status}</option>`).join("")}</select>`;
+  return `<select class="select-pill" data-application-status="${escapeHtml(app.id)}">${["New Application","Under Review","Discovery Follow-up","Interview Scheduled","Moved Forward","Declined","Archived"].map(status => `<option ${status === (app.status || "New Application") ? "selected" : ""}>${status}</option>`).join("")}</select>`;
 }
 
 function applicationNeedsAction(app) {
@@ -4334,7 +4910,7 @@ function applicationDisplayName(app) {
 }
 
 function applicationPipelineBoard() {
-  const columns = ["New Application", "Under Review", "Discovery Follow-Up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
+  const columns = ["New Application", "Under Review", "Discovery Follow-up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
   const rows = applicationRows()
     .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   return `<div class="application-sheet-actions"><span class="status ${rows.some(applicationNeedsAction) ? "pending" : "live"}">${rows.filter(applicationNeedsAction).length} need action</span><p>Drag applications through the recruiting flow. Once a card is moved out of New Application, the notification count clears because the office has taken action.</p></div>
@@ -4350,7 +4926,7 @@ function applicationPipelineCard(app) {
     <div class="lead-card-top"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(formatApplicationDate(app.createdAt))}</span></div>
     <p>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "Location pending")}</p>
     <small>${escapeHtml(app.email || "No email")} · ${escapeHtml(app.phone || "No phone")}</small>
-    <div class="delivery-badges"><span class="delivery-ok">Supabase</span><span>${escapeHtml(app.referral_source || "Referral pending")}</span></div>
+    <div class="delivery-badges"><span>${escapeHtml(app.inquiry_type === "full_application" ? "Full Application" : app.inquiry_type === "discovery_call" ? "Discovery Call" : "Contact-form interest")}</span><span>${escapeHtml(app.referral_source || "Referral pending")}</span></div>
   </article>`;
 }
 
@@ -4359,10 +4935,7 @@ function exportApplicationsCsv() {
   const fields = [
     ...applicationExportFields(applicationRecords),
     { key: "status", label: "Recruiting Status" },
-    { key: "note", label: "Office Notes" },
-    { key: "delivery_google", label: "Google Sheet / Import Status" },
-    { key: "delivery_email", label: "Email Delivery Status" },
-    { key: "delivery_supabase", label: "Supabase Status" }
+    { key: "note", label: "Office Notes" }
   ];
   const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
   const rows = applicationRecords.map(app => fields.map(field => escapeCsv(applicationFieldValue(app, field.key, field.label))).join(","));
@@ -4378,6 +4951,36 @@ function exportApplicationsCsv() {
   URL.revokeObjectURL(url);
 }
 
+function exportOperationalSheet(kind) {
+  const canonicalRows = Array.isArray(remoteSheets?.[kind]) ? remoteSheets[kind] : [];
+  const rows = canonicalRows.length
+    ? canonicalRows
+    : kind === "leads" ? allLeadRows() : state.clients;
+  if (!rows.length) {
+    showToast(`No ${kind} are available to export.`);
+    return;
+  }
+  const fields = Array.from(rows.reduce((keys, row) => {
+    Object.keys(row || {}).forEach(key => keys.add(key));
+    return keys;
+  }, new Set()));
+  const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const displayValue = (key, value) => /(?:received_at|created_at|updated_at)$/i.test(key) && value ? formatDateTime(value) : typeof value === "object" && value !== null ? JSON.stringify(value) : value;
+  const csv = [
+    fields.map(field => escapeCsv(field.replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase()))).join(","),
+    ...rows.map(row => fields.map(field => escapeCsv(displayValue(field, row[field]))).join(","))
+  ].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ldtt-${kind}-sheet-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function applicationDetailGrid(app) {
   const fields = applicationExportFields([app]);
   const exactFields = fields.map(field => [field.label, applicationFieldValue(app, field.key, field.label)]);
@@ -4386,9 +4989,8 @@ function applicationDetailGrid(app) {
     .map(([label, value]) => [label, value]);
   const workflowFields = [
     ["Recruiting Status", app.status || "New Application"],
-    ["Office Notes", app.note || ""],
-    ["Email Delivery", app.delivery_email || "attempted"],
-    ["Supabase Status", app.delivery_supabase || "confirmed"]
+    ["Assigned Owner", app.assignedUserId ? portalActorLabel(app.assignedUserId) : "Unassigned"],
+    ["Office Notes", app.note || ""]
   ];
   return `<section class="application-complete-record"><header><div><span>Complete Response Record</span><h3>All application fields</h3></div><strong>${fields.length + extraFields.length} fields</strong></header><div class="application-detail-grid application-detail-grid-complete">${[...exactFields, ...extraFields].map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`).join("")}</div></section><section class="application-workflow-record"><header><div><span>Office Workflow</span><h3>Recruiting status and notes</h3></div></header><div class="application-detail-grid">${workflowFields.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`).join("")}</div></section>`;
 }
@@ -4396,13 +4998,11 @@ function applicationDetailGrid(app) {
 function applicationDetailPanel() {
   const app = applicationRows().find(item => item.id === state.selectedApplicationId);
   if (!app) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-application aria-label="Close">×</button><span class="portal-tag">Application Detail</span><h2>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</h2><p>${escapeHtml([app.city, app.state].filter(Boolean).join(", ") || "Location pending")}</p><div class="lead-contact-grid"><div><span>Email</span><strong>${escapeHtml(app.email || "—")}</strong></div><div><span>Phone</span><strong>${escapeHtml(app.phone || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml([app.address_line_1, app.address_line_2, app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}</strong></div><div><span>Referral</span><strong>${escapeHtml(app.referral_source || "—")}</strong></div><div><span>Status</span><strong>${escapeHtml(app.status || "New Application")}</strong></div><div><span>Submitted</span><strong>${escapeHtml(formatApplicationDate(app.createdAt))}</strong></div></div><label>Status${applicationStatusSelect(app)}</label><label>Office notes<textarea data-application-note="${escapeHtml(app.id)}">${escapeHtml(app.note || "")}</textarea></label>${applicationDetailGrid(app)}</aside><div class="lead-detail-scrim" data-close-application></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-application aria-label="Close">×</button><span class="portal-tag">Application Detail</span><h2>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</h2><p>${escapeHtml([app.city, app.state].filter(Boolean).join(", ") || "Location pending")}</p><div class="lead-contact-grid"><div><span>Email</span><strong>${escapeHtml(app.email || "—")}</strong></div><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(app.phone) || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml([app.address_line_1, app.address_line_2, app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}</strong></div><div><span>Source</span><strong>${escapeHtml(app.source_form || app.referral_source || "Website")}</strong></div><div><span>Status</span><strong>${escapeHtml(app.status || "New Application")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</strong></div></div><label>Status${applicationStatusSelect(app)}</label><label>Assigned recruiting owner${officeAssigneeSelect("application", app.id, app.assignedUserId)}</label><section class="detail-note-block"><span>Recruiting Notes</span>${officeNoteTimeline("application", app.remoteId)}<textarea data-new-office-note="${escapeHtml(app.remoteId || "")}" placeholder="Add recruiting note. Your name and exact time are recorded."></textarea><button class="btn btn-red btn-small" data-add-office-note="application" data-entity-id="${escapeHtml(app.remoteId || "")}">Add Recruiting Note</button></section>${applicationDetailGrid(app)}<div class="row-actions"><button class="btn btn-outline" data-archive-application="${escapeHtml(app.id)}">Archive application</button>${permanentDeleteButton("application", app)}</div></aside><div class="lead-detail-scrim" data-close-application></div>`;
 }
 
 function formatApplicationDate(value) {
-  if (!value) return state.remoteReady ? "Not reported" : "Browser fallback record";
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) return formatDate(value.slice(0, 10));
-  return "Submitted from this browser";
+  return value ? formatDateTime(value) : "Not reported";
 }
 
 function submissionForm(kind = "media") {
@@ -4560,6 +5160,9 @@ function reviewAssignmentControlsMarkup(submission) {
       const location = [trainer.city, trainer.state].filter(Boolean).join(", ") || trainer.market || "Trainer page";
       return `<option value="${escapeHtml(trainer.id)}">${escapeHtml(trainer.name)} · ${escapeHtml(location)}</option>`;
     }).join("");
+  const cityOptions = cityReviewDestinations
+    .map(([slug, label]) => `<option value="city:${escapeHtml(slug)}">${escapeHtml(label)} opportunity page</option>`)
+    .join("");
   return `<section class="review-assignment-controls">
     <span>Publish destinations</span>
     <div class="review-target-chip-row">
@@ -4571,10 +5174,11 @@ function reviewAssignmentControlsMarkup(submission) {
         <option value="">Choose destination</option>
         <option value="lorenzos-team">Homepage / Main Website</option>
         ${trainerOptions}
+        ${cityOptions}
       </select>
     </label>
     <button class="btn btn-outline btn-small" type="button" data-add-review-target="${escapeHtml(submission.id)}">+ Add Destination</button>
-    <small>Use this when a review should appear on the homepage, one trainer page, or multiple trainer pages.</small>
+    <small>Publish one approved review to the homepage, trainer pages, and approved city opportunity pages.</small>
   </section>`;
 }
 
@@ -4638,7 +5242,7 @@ function convertedLeadQueue() {
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Paid / Won Lead</th><th>Trainer</th><th>Status</th><th>Contact</th><th>Client Record</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
     const client = findClientForLead(lead);
     return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.service)}</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td><span class="status won">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(lead.phone || "—")}<small>${escapeHtml(lead.email || "—")}</small></td><td>${client ? `<span class="status live">In Client Database</span><small>${escapeHtml(client.status)}</small>` : `<span class="status draft">Needs client record</span>`}</td><td><button class="btn ${client ? "btn-outline" : "btn-red"}" data-convert-lead="${escapeHtml(lead.id)}">${client ? "Update Client" : "Add To Clients"}</button></td></tr>`;
-  }).join("") || `<tr><td colspan="6">No paid or won leads yet. When a lead moves to First Session / Payment or Became a Client, it appears here.</td></tr>`}</tbody></table></div><p class="panel-copy">This queue connects the office lead outcome to the Client Database. Conversion still means a real client/payment event, not a click or form submit.</p>`;
+  }).join("") || `<tr><td colspan="6">No converted clients yet. When a lead moves to Became a Client, it appears here.</td></tr>`}</tbody></table></div><p class="panel-copy">This queue connects the office lead outcome to the Client Database. Conversion means a confirmed client event, not a click or form submit.</p>`;
 }
 
 function clientTable() {
@@ -4657,7 +5261,7 @@ function consentSelect(clientId, type, current) {
 function clientDetailPanel() {
   const client = state.clients.find(item => item.id === state.selectedClientId);
   if (!client) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-client aria-label="Close">×</button><span class="portal-tag">Client Record</span><h2>${escapeHtml(client.name)}</h2><p>${escapeHtml(client.dog || "Dog pending")} · ${escapeHtml(client.breed || "Breed pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(client.phone || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(client.email || "—")}</strong></div><div><span>Trainer</span><strong>${escapeHtml(trainerName(client.trainerId))}</strong></div><div><span>Imported Source</span><strong>${escapeHtml(client.importedSource || "Manual")}</strong></div></div><label>Status${clientStatusSelect(client)}</label><label>Date started<input class="select-pill" type="date" data-client-date-started="${escapeHtml(client.id)}" value="${escapeHtml(client.dateStarted || "")}"></label><label>Last contacted<input class="select-pill" type="date" data-client-last-contacted="${escapeHtml(client.id)}" value="${escapeHtml(client.lastContacted || "")}"></label><label>SMS consent${consentSelect(client.id, "sms", client.smsConsent || "Unknown")}</label><label>Email consent${consentSelect(client.id, "email", client.emailConsent || "Unknown")}</label><label>Client record summary<textarea data-client-note="${escapeHtml(client.id)}">${escapeHtml(client.notes || "")}</textarea></label><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("client", client.remoteId)}<textarea data-new-office-note="${escapeHtml(client.remoteId || "")}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="client" data-entity-id="${escapeHtml(client.remoteId || "")}">Add Office Note</button></section><button class="btn btn-red" data-save-client="${escapeHtml(client.id)}">Save Client Record</button></aside><div class="lead-detail-scrim" data-close-client></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-client aria-label="Close">×</button><span class="portal-tag">Client Record</span><h2>${escapeHtml(client.name)}</h2><p>${escapeHtml(client.dog || "Dog pending")} · ${escapeHtml(client.breed || "Breed pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(client.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(client.email || "—")}</strong></div><div><span>Trainer</span><strong>${escapeHtml(trainerName(client.trainerId))}</strong></div><div><span>Imported Source</span><strong>${escapeHtml(client.importedSource || "Manual")}</strong></div></div><label>Status${clientStatusSelect(client)}</label><label>Date started<input class="select-pill" type="date" data-client-date-started="${escapeHtml(client.id)}" value="${escapeHtml(client.dateStarted || "")}"></label><label>Last contacted<input class="select-pill" type="date" data-client-last-contacted="${escapeHtml(client.id)}" value="${escapeHtml(client.lastContacted || "")}"></label><label>SMS consent${consentSelect(client.id, "sms", client.smsConsent || "Unknown")}</label><label>Email consent${consentSelect(client.id, "email", client.emailConsent || "Unknown")}</label><label>Client record summary<textarea data-client-note="${escapeHtml(client.id)}">${escapeHtml(client.notes || "")}</textarea></label><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("client", client.remoteId)}<textarea data-new-office-note="${escapeHtml(client.remoteId || "")}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="client" data-entity-id="${escapeHtml(client.remoteId || "")}">Add Office Note</button></section><div class="row-actions"><button class="btn btn-red" data-save-client="${escapeHtml(client.id)}">Save Client Record</button><button class="btn btn-outline" data-archive-client="${escapeHtml(client.id)}">Archive Client</button>${permanentDeleteButton("client", client)}</div></aside><div class="lead-detail-scrim" data-close-client></div>`;
 }
 
 function importInput() {
@@ -4858,7 +5462,7 @@ function clientRecordFromLead(lead) {
     zip: lead.zip || "",
     status: "Active",
     source: lead.source || "Lead Conversion",
-    importedSource: lead.status === "First Session / Payment" ? "First Payment Conversion" : "Lead Won Conversion",
+    importedSource: "Lead Conversion",
     smsConsent: lead.doNotContact ? "No" : "Unknown",
     emailConsent: lead.doNotContact ? "No" : "Unknown",
     dateStarted: today,
@@ -4932,22 +5536,8 @@ function trainerReviewsMarkup(trainer) {
       showLocation: Boolean(review.display?.showLocation)
     }
   })).filter(review => review.copy || review.mediaUrl);
-  const fallbackSlots = Math.max(0, 3 - approvedReviews.length);
-  const fallbackReviews = [1, 2, 3].map((number, index) => ({
-    id: `default-${number}`,
-    author: trainer[`review${number}Author`] || "",
-    rating: trainer[`review${number}Rating`] || "5",
-    copy: trainer[`review${number}Copy`] || "",
-    location: "",
-    mediaUrl: "",
-    mediaType: "",
-    display: { showText: true, showMedia: false, showAuthor: true, showLocation: false }
-  })).filter(review => review.copy || review.mediaUrl).slice(0, fallbackSlots);
-  const reviews = approvedReviews.concat(fallbackReviews);
-  if (!reviews.length) {
-    return `<div class="trainer-review-carousel empty"><article class="trainer-review-card"><p>Approved reviews will appear here after the office publishes them.</p></article></div>`;
-  }
-  return `<div class="trainer-review-carousel" aria-label="Approved trainer reviews">${reviews.map(review => trainerReviewCardMarkup(review)).join("")}</div>`;
+  if (!approvedReviews.length) return "";
+  return `<div class="trainer-review-carousel" aria-label="Approved trainer reviews">${approvedReviews.map(review => trainerReviewCardMarkup(review)).join("")}</div>`;
 }
 
 function publicSubmissionMediaUrl(value) {
@@ -5000,7 +5590,8 @@ const heardAboutUsOptions = [
   ["My Neighbor", "My Neighbor"],
   ["Your Website", "Your Website"],
   ["Your Trainer", "Your Trainer"],
-  ["A Former Client", "A Former Client"],
+  ["Is a past client", "Is a past client"],
+  ["Referred by a past client", "Referred by a past client"],
   ["Google Search", "Google Search"],
   ["Facebook or Instagram", "Facebook or Instagram"],
   ["Other", "Other"]
@@ -5027,7 +5618,7 @@ function officeLeadFormMarkup(trainer, compact = false) {
       <label>First Name<input required name="first_name" autocomplete="given-name" placeholder="First name"></label>
       <label>Last Name<input required name="last_name" autocomplete="family-name" placeholder="Last name"></label>
       <label>Email Address<input required type="email" name="email" autocomplete="email" placeholder="Email address"></label>
-      <label>Phone<input required name="phone" autocomplete="tel" placeholder="Phone number"></label>
+      <label>Phone <small>(required for callback)</small><input required name="phone" autocomplete="tel" placeholder="Phone number"></label>
       <label class="wide">What can we help you with?
         <select required name="i_want_to">
           <option value="">Select one</option>
@@ -5039,12 +5630,18 @@ function officeLeadFormMarkup(trainer, compact = false) {
         </select>
       </label>
       <label class="wide">Your dog and goals *<textarea required name="comments" placeholder="Tell us about your dog, behavior concerns, and training goals."></textarea></label>
+      <fieldset class="landing-interest-options wide">
+        <legend>I'm also interested in <small>(optional)</small></legend>
+        <label><input type="checkbox" name="additional_interest" value="Investor network"><span>Investor network</span></label>
+        <label><input type="checkbox" name="additional_interest" value="Donor or project support"><span>Donor/project support</span></label>
+        <label><input type="checkbox" name="additional_interest" value="Specialty dog training"><span>Specialty dog training</span></label>
+      </fieldset>
       <details class="landing-more-fields wide"><summary>Required address and referral details</summary><div class="landing-more-grid"><label>Address Line 1 *<input required name="address_line_1" autocomplete="address-line1" placeholder="Address Line 1"></label><label>Address Line 2 <small>(optional)</small><input name="address_line_2" autocomplete="address-line2" placeholder="Address Line 2"></label><label>City *<input required name="city" autocomplete="address-level2" placeholder="City"></label><label>State *<input required name="state" autocomplete="address-level1" placeholder="State"></label><label>ZIP Code *<input required name="zip" autocomplete="postal-code" placeholder="ZIP Code"></label><label class="wide">How did you hear about us? *${heardAboutUsSelect()}</label></div></details>
-      <label class="landing-consent wide"><input required type="checkbox" name="sms_consent" value="yes"><span>I agree to receive recurring messages from Lorenzo's Dog Training Team. Reply STOP to opt out.</span></label>
+      <label class="landing-consent wide"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
       <div class="landing-form-status wide" role="status" aria-live="polite"></div>
       <button class="btn btn-red wide" type="submit">Book My Free Consultation</button>
     </div>
-    <div class="form-privacy">Your information is sent securely to Lorenzo's production office.</div>
+    <div class="form-privacy">Your information is sent securely to Lorenzo's production office. Phone is required so the office can call about your request. SMS consent is optional and separate.</div>
   </form>`;
 }
 
@@ -5074,9 +5671,9 @@ function trainerVideoSectionMarkup(trainer) {
       <p>Hear directly from ${escapeHtml(trainer.name)} about their experience with Lorenzo's Dog Training Team, the training process, owner leadership, and what families can expect when they start.</p>
     </div>
     <div class="lp-video-shell">
-      <video controls preload="metadata"${posterAttr} playsinline>
-        <source src="${escapeHtml(video.src)}" type="video/mp4">
-      </video>
+      ${isEmbeddableVideoUrl(video.src)
+        ? `<iframe src="${escapeHtml(video.src)}" title="${escapeHtml(trainer.name)} trainer introduction video" loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>`
+        : `<video controls preload="metadata"${posterAttr} playsinline><source src="${escapeHtml(video.src)}" type="video/mp4"></video>`}
     </div>
   </section>`;
 }
@@ -5087,7 +5684,8 @@ function commonFooterFunnel(trainer) {
 
 function landingHeader(trainer) {
   const logo = trainer.companyLogo || "/assets/lorenzo-logo-white.png";
-  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a><a href="#reviews">Results</a><a class="landing-review-nav" href="#submit-review">Leave Review</a><a href="#contact">Contact</a></nav></header>`;
+  const hasReviews = Boolean(trainerReviewsMarkup(trainer));
+  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a>${hasReviews ? `<a href="#reviews">Results</a>` : ""}<a class="landing-review-nav" href="#submit-review">Leave Review</a><a href="#contact">Contact</a></nav></header>`;
 }
 
 function trainerCity(trainer) {
@@ -5117,11 +5715,13 @@ function trainerSectionMarkup(trainer, variant = "split") {
   const facts = (trainer.credentials || []).map(item => `<li>${escapeHtml(item)}</li>`).join("");
   const specialties = (trainer.specialties || []).map(item => `<li>${escapeHtml(item)}</li>`).join("");
   const bioPhotoStyle = trainerPhotoStyle(trainer, { positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", frameKey: "bioPhotoFrame", fallbackPosition: "center center", fallbackFit: "cover", fallbackFrame: "tight" });
-  return `<section class="landing-trainer-section ${variant}" id="trainer"><div class="landing-trainer-photo"><img src="${escapeHtml(trainerBioPhoto(trainer))}" style="${bioPhotoStyle}" alt="${escapeHtml(trainer.name)}, dog trainer in ${escapeHtml(trainer.market)}"></div><div class="landing-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title || "Lorenzo's Certified Dog Trainer")}</h3><p>${escapeHtml(trainer.bio)}</p><ul class="landing-facts">${facts}</ul></div><aside class="landing-trainer-side"><h3>${escapeHtml(trainer.name)} specializes in:</h3><ul>${specialties}</ul><div class="powered-badge"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><span>Certified and powered by Lorenzo's Dog Training Team</span></div></aside></section>`;
+  return `<section class="landing-trainer-section ${variant}" id="trainer"><div class="landing-trainer-photo"><img src="${escapeHtml(trainerBioPhoto(trainer))}" style="${bioPhotoStyle}" alt="${escapeHtml(trainer.name)}, dog trainer in ${escapeHtml(trainer.market)}"></div><div class="landing-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title || "Team Trainer")}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><ul class="landing-facts">${facts}</ul></div><aside class="landing-trainer-side"><h3>${escapeHtml(trainer.name)} specializes in:</h3><ul>${specialties}</ul><div class="powered-badge"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><span>Certified and powered by Lorenzo's Dog Training Team</span></div></aside></section>`;
 }
 
 function proofSectionMarkup(trainer, heading = "What our clients say") {
-  return `<section class="landing-reviews" id="reviews"><div class="landing-section-heading"><h2>${heading}</h2><p>Real feedback about owner leadership, calmer behavior, and training that holds up in daily life.</p></div>${trainerReviewsMarkup(trainer)}</section>`;
+  const reviews = trainerReviewsMarkup(trainer);
+  if (!reviews) return "";
+  return `<section class="landing-reviews" id="reviews"><div class="landing-section-heading"><h2>${heading}</h2><p>Real feedback about owner leadership, calmer behavior, and training that holds up in daily life.</p></div>${reviews}</section>`;
 }
 
 function processSectionMarkup() {
@@ -5160,7 +5760,8 @@ function publicSiteMarkup(trainer) {
   const heroImage = escapeHtml(trainer.image || trainerLandingDogs[layout.id] || "/assets/client-photo.jpg");
   const heroTrainerPhoto = escapeHtml(trainerHeroPhoto(trainer));
   const bioTrainerPhoto = escapeHtml(trainerBioPhoto(trainer));
-  const heroPhotoStyle = trainerPhotoStyle(trainer, { positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale", frameKey: "heroPhotoFrame", fallbackFit: "cover" });
+  const heroPhotoPosition = photoFrameValue(trainer.heroPhotoPosition, "center top");
+  const heroPhotoStyle = `object-position:${escapeHtml(heroPhotoPosition)};object-fit:contain;transform:none;background:#071f46;`;
   const bioPhotoStyle = trainerPhotoStyle(trainer, { positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", frameKey: "bioPhotoFrame", fallbackPosition: "center center", fallbackFit: "cover", fallbackFrame: "tight" });
   const styleSettings = trainer.styleSettings || {};
   const styleAttr = `--lp-font:${escapeHtml(styleSettings.fontFamily || "Inter")};--lp-scale:${Number(styleSettings.fontScale || 1)};--lp-primary:${escapeHtml(styleSettings.brandPrimary || "#071f44")};--lp-accent:${escapeHtml(styleSettings.brandAccent || "#d80f35")}`;
@@ -5178,19 +5779,23 @@ function publicSiteMarkup(trainer) {
   const stats = `<section class="lp-stats"><article><strong>40+</strong><span>Years of experience</span></article><article><strong>100,000+</strong><span>Dogs trained of all breeds</span></article><article><strong>50+</strong><span>Professional trainers nationwide</span></article><article><strong>100%</strong><span>Commitment to you and your dog</span></article></section>`;
   const services = `<section class="lp-services" id="services"><div class="lp-heading"><span>Training for real life</span><h2>Three solutions. One goal: a better dog.</h2><p>Professional dog training in ${market} for dogs of any age, size, breed, and temperament.</p></div><div class="lp-service-grid"><article><b>01</b><h3>Dog Obedience</h3><p>Build dependable heel, sit, stay, come, down, and real-world control.</p><ul><li>Puppy foundations</li><li>On-leash obedience</li><li>Advanced off-leash training</li></ul></article><article><b>02</b><h3>Behavior Modification</h3><p>Structured help for aggression, reactivity, barking, pulling, jumping, and house-soiling.</p><ul><li>Aggression and reactivity</li><li>Anxiety and fear</li><li>Leadership and boundaries</li></ul></article><article><b>03</b><h3>Specialty Training</h3><p>Purpose-driven programs for service tasks, protection, scent work, utility, and retrieval.</p><ul><li>Service and assistance dogs</li><li>Protection training</li><li>Scent, utility, and retrieval</li></ul></article></div></section>`;
   const trainerVideo = trainerVideoSectionMarkup(trainer);
-  const reviews = `<section class="lp-reviews" id="reviews"><div class="lp-heading"><span>Real people. Real results.</span><h2>What local clients say</h2></div>${trainerReviewsMarkup(trainer)}${publicReviewFormMarkup(trainer)}</section>`;
+  const approvedReviewMarkup = trainerReviewsMarkup(trainer);
+  const reviews = approvedReviewMarkup
+    ? `<section class="lp-reviews" id="reviews"><div class="lp-heading"><span>Real people. Real results.</span><h2>What local clients say</h2></div>${approvedReviewMarkup}</section>`
+    : "";
+  const reviewSubmission = `<section class="lp-review-submission">${publicReviewFormMarkup(trainer)}</section>`;
   const process = `<section class="lp-process"><div class="lp-heading"><span>A clear path forward</span><h2>How training begins</h2></div><div class="lp-process-grid"><article><b>1</b><h3>Request a consultation</h3><p>Tell Lorenzo's office about your dog, household, and goals.</p></article><article><b>2</b><h3>Complete an evaluation</h3><p>Your trainer assesses temperament, timing, handling, and priorities.</p></article><article><b>3</b><h3>Follow your plan</h3><p>The dog and owner learn together through technique and consistency.</p></article><article><b>4</b><h3>Build lasting results</h3><p>Use leadership, rules, and boundaries in everyday life.</p></article></div></section>`;
   const footer = `<section class="lp-final"><div><span>Start with Lorenzo's office</span><h2>Ready for a better life with your dog?</h2><p>Request your consultation today. Lorenzo's office will review your request and follow up with the next step.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}`;
 
   if (layout.id === "mock-6") {
-    return `<div class="landing-template landing-template-6 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp6-hero" style="--hero-art:url('${heroImage}')"><div class="lp6-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br><em>Serious results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Professional dog training for families in ${trainerLocationLabel(trainer)}. Lorenzo's proven system builds obedience, modifies behavior, and creates dependable control in real life.`)}</p><ul class="lp6-proof-points"><li>Proven methods</li><li>Trusted results</li><li>Lifetime impact</li></ul></div>${trainerHeroCard}<div class="lp6-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp6-trainer" id="trainer"><div class="lp6-trainer-image"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><div class="lp6-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p>${brandBadge}</div><aside><h3>${escapeHtml(trainer.name)}'s specialties</h3><ul>${specialties}</ul><h3>Credentials</h3><ul>${credentials}</ul></aside></section>${reviews}<section class="lp6-cta"><div><span>Professional training in ${market}</span><h2>Ready to transform your dog?</h2><ul><li>Professional evaluation</li><li>Tailored training recommendations</li><li>Office-guided next steps</li></ul></div>${officeLeadFormMarkup(trainer, true)}</section>${footer}</div>`;
+    return `<div class="landing-template landing-template-6 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp6-hero" style="--hero-art:url('${heroImage}')"><div class="lp6-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br><em>Serious results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Professional dog training for families in ${trainerLocationLabel(trainer)}. Lorenzo's proven system builds obedience, modifies behavior, and creates dependable control in real life.`)}</p><ul class="lp6-proof-points"><li>Proven methods</li><li>Trusted results</li><li>Lifetime impact</li></ul></div>${trainerHeroCard}<div class="lp6-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp6-trainer" id="trainer"><div class="lp6-trainer-image"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><div class="lp6-trainer-copy"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div>${brandBadge}</div><aside><h3>${escapeHtml(trainer.name)}'s specialties</h3><ul>${specialties}</ul><h3>Credentials</h3><ul>${credentials}</ul></aside></section>${reviews}<section class="lp6-cta"><div><span>Professional training in ${market}</span><h2>Ready to transform your dog?</h2><ul><li>Professional evaluation</li><li>Tailored training recommendations</li><li>Office-guided next steps</li></ul></div>${officeLeadFormMarkup(trainer, true)}</section>${reviewSubmission}${footer}</div>`;
   }
 
   if (layout.id === "mock-3") {
-    return `<div class="landing-template landing-template-3 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp3-hero" style="--hero-art:url('${heroImage}')"><div class="lp3-copy"><span>★★★★★ &nbsp; ${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br>Serious <em>results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Trusted dog obedience training and behavior modification for families in ${trainerLocationLabel(trainer)} and throughout ${trainer.serviceArea}.`)}</p><ul><li>Proven methods that work</li><li>Balanced training for real-life results</li><li>Backed by Lorenzo's nationwide team</li></ul></div>${trainerHeroCard}<div class="lp3-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp3-trainer" id="trainer"><div class="lp3-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)}, certified Lorenzo trainer"></div><div class="lp3-bio"><span>Meet your trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p><div class="lp3-trust"><ul>${credentials}</ul><ul>${specialties}</ul></div>${brandBadge}</div></section>${reviews}${process}<section class="lp3-contact"><div><span>Let's build a better future</span><h2>For you and your dog.</h2><p>Serving ${serviceArea} with professional, office-supported dog training.</p></div>${officeLeadFormMarkup(trainer, true)}<aside><strong>Office follow-up</strong><span>Submit the form and Lorenzo's team will review your request and follow up with the next step.</span></aside></section>${landingFooter(trainer)}</div>`;
+    return `<div class="landing-template landing-template-3 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp3-hero" style="--hero-art:url('${heroImage}')"><div class="lp3-copy"><span>★★★★★ &nbsp; ${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("Serious training.<br>Serious <em>results.</em>")}</h1><p>${escapeHtml(trainer.tagline || `Trusted dog obedience training and behavior modification for families in ${trainerLocationLabel(trainer)} and throughout ${trainer.serviceArea}.`)}</p><ul><li>Proven methods that work</li><li>Balanced training for real-life results</li><li>Backed by Lorenzo's nationwide team</li></ul></div>${trainerHeroCard}<div class="lp3-form">${formCard}</div></section>${stats}${services}${trainerVideo}<section class="lp3-trainer" id="trainer"><div class="lp3-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)}, certified Lorenzo trainer"></div><div class="lp3-bio"><span>Meet your trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><div class="lp3-trust"><ul>${credentials}</ul><ul>${specialties}</ul></div>${brandBadge}</div></section>${reviews}${process}<section class="lp3-contact"><div><span>Let's build a better future</span><h2>For you and your dog.</h2><p>Serving ${serviceArea} with professional, office-supported dog training.</p></div>${officeLeadFormMarkup(trainer, true)}<aside><strong>Office follow-up</strong><span>Submit the form and Lorenzo's team will review your request and follow up with the next step.</span></aside></section>${reviewSubmission}${landingFooter(trainer)}</div>`;
   }
 
-  return `<div class="landing-template landing-template-5 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp5-hero" style="--hero-art:url('${heroImage}')"><div class="lp5-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("The right trainer.<br><em>The right results.</em>")}</h1><h2>Obedience. Behavior solutions. Real results.</h2><p>${escapeHtml(trainer.tagline || `Personalized dog training in ${trainerLocationLabel(trainer)}, backed by Lorenzo's proven system and an office team that manages every lead and next step.`)}</p><div class="lp5-proof"><span>Proven methods that work</span><span>Personalized training plans</span><span>Results you can see and feel</span></div></div>${trainerHeroCard}<div class="lp5-form">${formCard}</div></section><section class="lp5-trust"><div class="lp-heading"><span>Why choose Lorenzo's?</span><h2>Experience, accountability, and a proven system.</h2></div>${stats}</section>${services}${trainerVideo}<section class="lp5-trainer" id="trainer"><div class="lp5-bio"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><p>${escapeHtml(trainer.bio)}</p><ul>${credentials}</ul>${brandBadge}</div><div class="lp5-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><aside><h3>${escapeHtml(trainer.name)} specializes in</h3><ul>${specialties}</ul></aside></section>${reviews}${process}<section class="lp5-final"><div><span>Ready to transform your dog?</span><h2>Start with a professional consultation.</h2><p>Office-guided scheduling. Local trainer expertise. Lorenzo-backed results.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${landingFooter(trainer)}</div>`;
+  return `<div class="landing-template landing-template-5 lp-page" id="top" style="${styleAttr}">${landingHeader(trainer)}<section class="lp5-hero" style="--hero-art:url('${heroImage}')"><div class="lp5-copy"><span>${escapeHtml(trainer.name)} · ${escapeHtml(trainerLocationLabel(trainer))}</span><h1>${customHeading("The right trainer.<br><em>The right results.</em>")}</h1><h2>Obedience. Behavior solutions. Real results.</h2><p>${escapeHtml(trainer.tagline || `Personalized dog training in ${trainerLocationLabel(trainer)}, backed by Lorenzo's proven system and an office team that manages every lead and next step.`)}</p><div class="lp5-proof"><span>Proven methods that work</span><span>Personalized training plans</span><span>Results you can see and feel</span></div></div>${trainerHeroCard}<div class="lp5-form">${formCard}</div></section><section class="lp5-trust"><div class="lp-heading"><span>Why choose Lorenzo's?</span><h2>Experience, accountability, and a proven system.</h2></div>${stats}</section>${services}${trainerVideo}<section class="lp5-trainer" id="trainer"><div class="lp5-bio"><span>Meet your local trainer</span><h2>${escapeHtml(trainer.name)}</h2><h3>${escapeHtml(trainerLocationLabel(trainer))}</h3><h3>${escapeHtml(trainer.title)}</h3><div class="landing-bio-paragraphs">${profileBioParagraphs(trainer.bio)}</div><ul>${credentials}</ul>${brandBadge}</div><div class="lp5-photo"><img src="${bioTrainerPhoto}" style="${bioPhotoStyle}" data-trainer-image-role="landingBioPhoto" alt="${escapeHtml(trainer.name)} with a trained dog"></div><aside><h3>${escapeHtml(trainer.name)} specializes in</h3><ul>${specialties}</ul></aside></section>${reviews}${process}<section class="lp5-final"><div><span>Ready to transform your dog?</span><h2>Start with a professional consultation.</h2><p>Office-guided scheduling. Local trainer expertise. Lorenzo-backed results.</p></div><a class="lp-button" href="#contact">Book My Free Consultation</a></section>${reviewSubmission}${landingFooter(trainer)}</div>`;
 }
 
 function profileBioParagraphs(text) {
@@ -5287,10 +5892,16 @@ function getVisitorId() {
   return visitorId;
 }
 
+function isReleaseQaHost() {
+  return /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname) || /\.vercel\.app$/i.test(window.location.hostname);
+}
+
 function trainerAttribution(trainer, eventType) {
   const params = new URLSearchParams(window.location.search);
   return {
+    event_id: `${isReleaseQaHost() ? "qa-release-" : ""}${globalThis.crypto?.randomUUID?.() || `event-${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
     event_type: eventType,
+    qa: isReleaseQaHost(),
     trainer_slug: trainer.slug || trainer.id,
     assigned_trainer: trainer.name,
     trainer_market: trainer.market,
@@ -5315,11 +5926,6 @@ function recordTrainerPageView(trainer) {
   sessionStorage.setItem(sessionKey, "1");
   if (!sessionStorage.getItem("ldttLandingSession")) sessionStorage.setItem("ldttLandingSession", globalThis.crypto?.randomUUID?.() || `session-${Date.now()}`);
   const event = trainerAttribution(trainer, "trainer_page_view");
-  const events = storedRows(SITE_EVENT_KEY);
-  events.push(event);
-  localStorage.setItem(SITE_EVENT_KEY, JSON.stringify(events));
-  trainer.clicks = Number(trainer.clicks || 0) + 1;
-  persistStateSnapshot();
   submitToSupabase("track-site-event", event).catch(error => console.warn("LDTT trainer page tracking failed", error));
 }
 
@@ -5361,12 +5967,20 @@ function formatDateTime(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     year: "numeric",
     hour: "numeric",
-    minute: "2-digit"
+    minute: "2-digit",
+    hour12: true
   });
+}
+
+function formatPhoneNumber(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  const local = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (local.length !== 10) return String(value || "");
+  return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`;
 }
 
 function escapeHtml(value) {
@@ -5377,9 +5991,13 @@ function formEntries(form) {
   const data = new FormData(form);
   const result = {};
   data.forEach((value, key) => {
+    if (key in result) {
+      result[key] = Array.isArray(result[key]) ? [...result[key], value] : [result[key], value];
+      return;
+    }
     result[key] = value;
   });
-  return result;
+  return Object.fromEntries(Object.entries(result).map(([key, value]) => [key, Array.isArray(value) ? value.join(", ") : value]));
 }
 
 async function submitToSupabase(functionName, entries) {
@@ -5463,7 +6081,7 @@ async function submitLandingGoogleSheet(entries, trainer) {
   const sheetEntries = {
     ...entries,
     trainer_name: entries.trainer_name || entries.assigned_trainer || trainer.name,
-    comments: entries.comments || ""
+    comments: [entries.comments || "", entries.additional_interest ? `Additional interest: ${entries.additional_interest}.` : ""].filter(Boolean).join("\n\n")
   };
   Object.entries(mapping).forEach(([field, entry]) => {
     if (sheetEntries[field]) payload.append(entry, sheetEntries[field]);
@@ -5471,6 +6089,24 @@ async function submitLandingGoogleSheet(entries, trainer) {
   payload.append("fvv", "1");
   payload.append("pageHistory", "0");
   return fetch(endpoint, { method: "POST", mode: "no-cors", body: payload });
+}
+
+async function recordClientFormDelivery(entries, canonical, status, error = "") {
+  const response = await fetch("/api/form-delivery", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      form_type: "contact",
+      entries,
+      canonical,
+      client_delivery: {
+        destination: "formsubmit_email",
+        status,
+        error
+      }
+    })
+  });
+  if (!response.ok) throw new Error("Browser delivery result could not be logged.");
 }
 
 document.addEventListener("click", async event => {
@@ -5516,6 +6152,53 @@ document.addEventListener("click", async event => {
   }
   const leadView = event.target.closest("[data-lead-view]");
   if (leadView) { state.leadViewMode = leadView.dataset.leadView; saveState(); return; }
+  const kanbanScroll = event.target.closest("[data-scroll-kanban]");
+  if (kanbanScroll) {
+    const board = kanbanScroll.closest(".panel")?.querySelector(".lead-kanban") || document.querySelector(".lead-kanban");
+    if (board) {
+      const direction = kanbanScroll.dataset.scrollKanban;
+      if (direction === "start" || direction === "end") board.scrollTo({ left: direction === "start" ? 0 : board.scrollWidth, behavior: "smooth" });
+      else board.scrollBy({ left: direction === "left" ? -Math.max(320, board.clientWidth * .75) : Math.max(320, board.clientWidth * .75), behavior: "smooth" });
+    }
+    return;
+  }
+  const toggleNoteEdit = event.target.closest("[data-toggle-note-edit]");
+  if (toggleNoteEdit) {
+    const editor = document.querySelector(`[data-note-editor="${CSS.escape(toggleNoteEdit.dataset.toggleNoteEdit)}"]`);
+    if (editor) editor.hidden = !editor.hidden;
+    return;
+  }
+  const saveNoteEdit = event.target.closest("[data-save-office-note-edit]");
+  if (saveNoteEdit) {
+    const noteId = saveNoteEdit.dataset.saveOfficeNoteEdit;
+    const editor = document.querySelector(`[data-office-note-edit="${CSS.escape(noteId)}"]`);
+    const note = editor?.value?.trim() || "";
+    if (!note) { showToast("A note cannot be empty."); return; }
+    runRemoteMutation("Office note edit saved with history", () => saveEditableOfficeNote(saveNoteEdit.dataset.entityType, saveNoteEdit.dataset.entityId, noteId, note), {
+      type: "Office Note",
+      detail: `${currentActorLabel()} edited an office note; the prior version was preserved.`
+    });
+    return;
+  }
+  const permanentDelete = event.target.closest("[data-permanent-delete]");
+  if (permanentDelete) {
+    const label = permanentDelete.dataset.recordLabel || "this record";
+    const confirmation = window.prompt(`Permanent deletion is only for archived QA, duplicate, or draft records. Type PERMANENTLY DELETE to remove ${label}.`);
+    if (confirmation !== "PERMANENTLY DELETE") { showToast("Permanent deletion cancelled."); return; }
+    const deleted = await runRemoteMutation("Archived QA or duplicate record permanently deleted", () => window.LDTT_PORTAL.operationalMutation({
+      operation: "permanent_delete",
+      entity_type: permanentDelete.dataset.permanentDelete,
+      id: permanentDelete.dataset.recordId,
+      confirmation,
+      summary: `${label} permanently deleted after Super Admin confirmation`
+    }), { type: "Security", detail: `${label} permanently deleted by ${currentActorLabel()}.` });
+    if (deleted) {
+      state.selectedLeadId = "";
+      state.selectedApplicationId = "";
+      state.selectedClientId = "";
+    }
+    return;
+  }
   const openLead = event.target.closest("[data-open-lead]");
   if (openLead && !event.target.closest("select,input,textarea,button")) { state.selectedLeadId = openLead.dataset.openLead; saveState(); return; }
   if (event.target.closest("[data-close-lead]")) { state.selectedLeadId = ""; saveState(); return; }
@@ -5523,7 +6206,14 @@ document.addEventListener("click", async event => {
   if (archiveLead) {
     const lead = updateLeadRecord(archiveLead.dataset.archiveLead, { status: "Archived" });
     state.selectedLeadId = "";
-    if (remoteReady) runRemoteMutation("Lead archived; record preserved", () => persistLeadRecord(lead), {
+    if (remoteReady) runRemoteMutation("Lead archived; record preserved", () => window.LDTT_PORTAL.operationalMutation({
+      operation: "archive",
+      entity_type: "lead",
+      id: lead.remoteId,
+      expected_version: lead.version,
+      expected_updated_at: lead.updatedAt,
+      summary: `${lead.owner || "Lead"} archived`
+    }), {
       type: "Lead",
       detail: `${lead?.owner || "Lead"} was archived by ${currentActorLabel()}.`
     });
@@ -5593,15 +6283,17 @@ document.addEventListener("click", async event => {
       return;
     }
     state.activeView = view.dataset.view;
+    persistStateSnapshot();
+    render();
     if (remoteReady) {
       try {
         await reloadRemoteData();
+        render();
       } catch (error) {
         console.error("LDTT shared portal refresh failed", error);
         showToast("Showing the most recently loaded data. Refresh to try again.");
       }
     }
-    saveState();
     return;
   }
   if (event.target.closest("[data-open-client-import]")) {
@@ -5995,6 +6687,12 @@ document.addEventListener("click", async event => {
     showToast("Trainer applications CSV downloaded for Google Sheet backfill");
     return;
   }
+  const operationalExport = event.target.closest("[data-export-operational]");
+  if (operationalExport) {
+    exportOperationalSheet(operationalExport.dataset.exportOperational);
+    showToast(`${operationalExport.dataset.exportOperational} CSV downloaded`);
+    return;
+  }
   const decline = event.target.closest("[data-decline-submission]");
   if (decline) {
     const sub = state.submissions.find(s => s.id === decline.dataset.declineSubmission);
@@ -6021,6 +6719,21 @@ document.addEventListener("click", async event => {
     saveState();
     return;
   }
+  const archiveApplication = event.target.closest("[data-archive-application]");
+  if (archiveApplication) {
+    const application = applicationRows().find(item => item.id === archiveApplication.dataset.archiveApplication);
+    state.selectedApplicationId = "";
+    if (application && remoteReady) runRemoteMutation("Application archived; history preserved", () => window.LDTT_PORTAL.operationalMutation({
+      operation: "archive",
+      entity_type: "application",
+      id: application.remoteId,
+      expected_version: application.version,
+      expected_updated_at: application.updatedAt,
+      summary: `${applicationDisplayName(application)} archived`
+    }), { type: "Application", detail: `${applicationDisplayName(application)} archived by ${currentActorLabel()}.` });
+    else saveState("Application archived; history preserved");
+    return;
+  }
   const openClient = event.target.closest("[data-open-client]");
   if (openClient) {
     state.selectedClientId = openClient.dataset.openClient;
@@ -6040,6 +6753,21 @@ document.addEventListener("click", async event => {
       detail: `${client?.name || "Client"} record was saved by ${currentActorLabel()}.`
     });
     else saveState("Client record saved");
+    return;
+  }
+  const archiveClient = event.target.closest("[data-archive-client]");
+  if (archiveClient) {
+    const client = state.clients.find(item => item.id === archiveClient.dataset.archiveClient);
+    state.selectedClientId = "";
+    if (client && remoteReady) runRemoteMutation("Client archived; history preserved", () => window.LDTT_PORTAL.operationalMutation({
+      operation: "archive",
+      entity_type: "client",
+      id: client.remoteId,
+      expected_version: client.version,
+      expected_updated_at: client.updatedAt,
+      summary: `${client.name || "Client"} archived`
+    }), { type: "Client", detail: `${client.name || "Client"} archived by ${currentActorLabel()}.` });
+    else saveState("Client archived; history preserved");
     return;
   }
   if (event.target.id === "submitDemoContent") {
@@ -6171,6 +6899,10 @@ document.addEventListener("click", async event => {
     return;
   }
   if (event.target.id === "saveTrainerProfile") {
+    if (isMediaUploadActive()) {
+      showToast("Wait for the video upload to finish before saving.");
+      return;
+    }
     if (remoteReady) {
       const trainer = trainerById();
       runRemoteMutation("Trainer profile and page draft saved by office", () => persistTrainerRecord(trainer), {
@@ -6183,6 +6915,10 @@ document.addEventListener("click", async event => {
   }
   const editorSave = event.target.closest("[data-editor-save]");
   if (editorSave) {
+    if (isMediaUploadActive()) {
+      showToast("Wait for the video upload to finish before saving or publishing.");
+      return;
+    }
     if (state.builderSurface !== "trainer") {
       persistStateSnapshot();
       showToast("Builder workspace changes saved");
@@ -6265,16 +7001,50 @@ document.addEventListener("click", async event => {
     const trainer = trainerById();
     const field = document.querySelector("[data-builder-embed-url]");
     const url = normalizeVideoUrl(field?.value);
-    if (!state.builderSelectedSelector || !url) {
-      showToast("Select a preview area and paste a video URL first.");
+    if (!url) {
+      showToast("Paste a video URL first.");
+      return;
+    }
+    if (!state.builderSelectedSelector) {
+      trainer.trainerVideoUrl = url;
+      trainer.mediaLibrary = Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [];
+      trainer.mediaLibrary.unshift({ type: "video", url, name: `${videoProviderLabel(url)} trainer video`, size: 0, uploadedAt: new Date().toISOString() });
+      refreshPageEditorPreview();
+      markBuilderDraftDirty("Trainer video link saved", `${trainer.name} trainer video was set from ${videoProviderLabel(url)}.`);
+      field.value = "";
+      render();
       return;
     }
     upsertLiveEdit(trainer, { t: "video", k: state.builderSelectedSelector, v: url, label: "External video embed" });
     trainer.mediaLibrary = Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [];
-    trainer.mediaLibrary.unshift({ type: "video", url, name: "External video", size: 0, uploadedAt: new Date().toISOString() });
+    trainer.mediaLibrary.unshift({ type: "video", url, name: `${videoProviderLabel(url)} external video`, size: 0, uploadedAt: new Date().toISOString() });
     refreshPageEditorPreview();
     recordActivity("Video added to builder draft", `${trainer.name} external video was attached to ${state.builderSelectedSelector}.`, "Page Editor");
     showToast("Video added to builder draft");
+    return;
+  }
+  if (event.target.closest("[data-apply-main-video-url]")) {
+    const trainer = trainerById();
+    const source = event.target.closest(".trainer-video-upload-card, .editor-video-card") || document;
+    const field = source.querySelector("[data-main-trainer-video-url]");
+    const url = normalizeVideoUrl(field?.value);
+    if (!url) {
+      showToast("Paste a video URL first.");
+      return;
+    }
+    trainer.trainerVideoUrl = url;
+    trainer.mediaLibrary = Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [];
+    trainer.mediaLibrary.unshift({ type: "video", url, name: `${videoProviderLabel(url)} trainer video`, size: 0, uploadedAt: new Date().toISOString() });
+    refreshPageEditorPreview();
+    if (remoteReady) {
+      await runRemoteMutation("Trainer video link saved", () => persistTrainerRecord(trainer, { persistProfile: true }), {
+        type: "Trainer Video",
+        detail: `${trainer.name} trainer video was set from ${videoProviderLabel(url)} by ${currentActorLabel()}.`
+      });
+    } else {
+      saveState("Trainer video link saved");
+    }
+    render();
     return;
   }
   if (event.target.id === "resetDemo") {
@@ -6684,7 +7454,7 @@ document.addEventListener("change", async event => {
           detail: `${trainer.name} ${upload.dataset.trainerUpload} was replaced with ${file.name}.`
         });
       } catch (error) {
-        showToast(`Image upload failed: ${error.message}`);
+        showToast(`${isTrainerVideoUpload ? "Video" : "Image"} upload failed: ${error.message}`);
       }
     } else {
       const reader = new FileReader();
@@ -6723,8 +7493,28 @@ document.addEventListener("change", async event => {
     else saveState("Lead status updated");
     return;
   }
+  const officeAssignee = event.target.closest("[data-office-assignee]");
+  if (officeAssignee) {
+    const entityType = officeAssignee.dataset.officeAssignee;
+    const recordId = officeAssignee.dataset.recordId;
+    const record = entityType === "lead"
+      ? updateLeadRecord(recordId, { assignedUserId: officeAssignee.value })
+      : updateApplicationRecord(recordId, { assignedUserId: officeAssignee.value });
+    const save = entityType === "lead" ? persistLeadRecord : persistApplicationRecord;
+    if (remoteReady) runRemoteMutation("Office owner saved", () => save(record), {
+      type: entityType === "lead" ? "Lead" : "Application",
+      detail: `${entityType === "lead" ? record?.owner : applicationDisplayName(record)} assigned by ${currentActorLabel()}.`
+    });
+    else saveState("Office owner updated");
+    return;
+  }
   const leadFilter = event.target.closest("[data-lead-filter]");
-  if (leadFilter) { state[leadFilter.dataset.leadFilter === "trainer" ? "leadTrainerFilter" : "leadStatusFilter"] = leadFilter.value; saveState(); return; }
+  if (leadFilter) {
+    const filterKey = leadFilter.dataset.leadFilter === "trainer" ? "leadTrainerFilter" : leadFilter.dataset.leadFilter === "sms" ? "leadSmsFilter" : "leadStatusFilter";
+    state[filterKey] = leadFilter.value;
+    saveState();
+    return;
+  }
   const followup = event.target.closest("[data-lead-followup]");
   if (followup) {
     const lead = updateLeadRecord(followup.dataset.leadFollowup, { followUpDate: followup.value });
@@ -6763,17 +7553,6 @@ document.addEventListener("change", async event => {
       detail: `${applicationDisplayName(application)} moved to ${application?.status || applicationStatus.value}.`
     });
     else saveState("Trainer application status updated");
-    return;
-  }
-  const applicationNote = event.target.closest("[data-application-note]");
-  if (applicationNote) {
-    const application = updateApplicationRecord(applicationNote.dataset.applicationNote, { note: applicationNote.value });
-    if (remoteReady) runRemoteMutation("Trainer application office note saved", () => persistApplicationRecord(application), {
-      render: false,
-      type: "Application",
-      detail: `${applicationDisplayName(application)} office note updated by ${currentActorLabel()}.`
-    });
-    else saveState("Trainer application office note saved", true);
     return;
   }
   const submissionNote = event.target.closest("[data-submission-note]");
@@ -6987,8 +7766,7 @@ document.addEventListener("drop", event => {
 document.addEventListener("submit", async event => {
   event.preventDefault();
   if (event.target.classList.contains("office-lead-form")) {
-    if (event.target.dataset.submitting === "true") return;
-    if (!event.target.reportValidity()) return;
+    if (event.target.dataset.submitting === "true" || !event.target.reportValidity()) return;
     const submitButton = event.target.querySelector('button[type="submit"]');
     const formStatus = event.target.querySelector(".landing-form-status");
     const setLandingStatus = (message, type = "success") => {
@@ -6998,81 +7776,49 @@ document.addEventListener("submit", async event => {
     };
     event.target.dataset.submitting = "true";
     submitButton?.setAttribute("disabled", "disabled");
-    const entries = formEntries(event.target);
     const trainerId = event.target.dataset.trainerId || currentTrainerId();
     const trainer = trainerById(trainerId);
-    const owner = `${entries.first_name || ""} ${entries.last_name || ""}`.trim() || "Website Contact";
-    const derivedMarket = deriveLeadMarket({ city: entries.city, state: entries.state, market: entries.trainer_market || trainer.market, rawPayload: entries });
-    const city = cleanLocationValue(entries.city) || derivedMarket.city;
-    const stateValue = cleanLocationValue(entries.state) || derivedMarket.state;
-    const newLead = {
-      id: `lead-${Date.now()}`,
-      owner,
-      dog: "Pending",
-      breed: "Pending",
-      source: entries.heard_about_us || "Trainer Landing Page",
-      service: entries.i_want_to || "Contact Request",
-      trainerId,
-      phone: entries.phone || "",
-      email: entries.email || "",
-      address: [entries.address_line_1, entries.address_line_2, city, stateValue, entries.zip].filter(Boolean).join(", "),
-      city,
-      state: stateValue,
-      zip: entries.zip || "",
-      market: derivedMarket.market,
-      sourcePageSlug: derivedMarket.pageSlug,
-      status: "New Inquiry",
-      createdAt: new Date().toISOString().slice(0, 10),
-      next: "Office follow-up needed",
-      note: entries.comments || "Trainer landing page consultation request. Production office should follow up.",
-      rawPayload: entries,
-      visits: 1,
-      submitted: true
+    const entries = {
+      ...formEntries(event.target),
+      ...trainerAttribution(trainer, "trainer_form_submitted"),
+      submission_id: `${isReleaseQaHost() ? "qa-release-" : "trainer-"}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      timestamp: new Date().toISOString(),
+      source_page: `trainer landing page: ${trainerName(trainerId)}`
     };
-    state.leads.unshift(newLead);
-    trainer.forms = Number(trainer.forms || 0) + 1;
-    const stored = storedRows("ldttContactSubmissions.v2");
-    const attribution = trainerAttribution(trainer, "trainer_form_submitted");
-    const storedPayload = { ...entries, ...attribution, submission_id: `trainer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, delivery_local: "saved", delivery_google: "pending", delivery_email: "pending", delivery_supabase: window.LDTT_SUPABASE?.enabled ? "pending" : "not_connected", timestamp: new Date().toISOString(), source_page: `trainer landing page: ${trainerName(trainerId)}` };
-    const events = storedRows(SITE_EVENT_KEY);
-    events.push(attribution);
-    localStorage.setItem(SITE_EVENT_KEY, JSON.stringify(events));
-    stored.push(storedPayload);
-    localStorage.setItem("ldttContactSubmissions.v2", JSON.stringify(stored));
-    event.target.reset();
-    setLandingStatus("Thank you. Your consultation request was submitted. Lorenzo's office has the details and will follow up with the next step.");
-    saveState("Consultation request saved to admin lead inbox", true);
-    showFormSuccessModal();
-
-    Promise.allSettled([
-      submitToSupabase("submit-contact", storedPayload),
-      submitLandingEmail(storedPayload, trainer),
-      submitLandingGoogleSheet(storedPayload, trainer)
-    ]).then(results => {
-      const deliveryKeys = ["delivery_supabase", "delivery_email", "delivery_google"];
-      const storedRowsNow = storedRows("ldttContactSubmissions.v2");
-      const storedRow = storedRowsNow.find(row => row.submission_id === storedPayload.submission_id);
-      results.forEach((result, index) => {
-        if (storedRow) storedRow[deliveryKeys[index]] = result.status === "fulfilled" ? (index === 2 ? "attempted" : (result.value?.skipped ? "not_connected" : "confirmed")) : "failed";
-        if (result.status === "rejected") {
-          const destinations = ["Supabase", "FormSubmit", "Google Sheet"];
-          console.warn(`LDTT trainer-page ${destinations[index]} delivery failed`, result.reason);
-        }
-      });
-      if (storedRow) { storedRow.delivery_updated_at = new Date().toISOString(); localStorage.setItem("ldttContactSubmissions.v2", JSON.stringify(storedRowsNow)); }
-    }).finally(() => {
-      window.setTimeout(() => {
-        delete event.target.dataset.submitting;
-        submitButton?.removeAttribute("disabled");
-      }, 4000);
-    });
-
-    window.setTimeout(() => {
-      if (event.target.dataset.submitting === "true") {
-        delete event.target.dataset.submitting;
-        submitButton?.removeAttribute("disabled");
+    if (entries.additional_interest) {
+      entries.comments = [entries.comments, `Additional interest: ${entries.additional_interest}.`].filter(Boolean).join("\n\n");
+    }
+    setLandingStatus("Submitting securely...", "pending");
+    try {
+      const canonical = await submitToSupabase("submit-contact", entries);
+      if (canonical?.skipped || (!canonical?.lead_id && !canonical?.application_id)) {
+        throw new Error("The live office record could not be confirmed. Please try again.");
       }
-    }, 10000);
+      const relayResponse = await fetch("/api/form-delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ form_type: "contact", entries, canonical })
+      });
+      const relay = await relayResponse.json().catch(() => ({}));
+      if (!relayResponse.ok || relay.ok === false) throw new Error(relay.message || "The office backup delivery could not be logged.");
+      if (relay.deliveries?.some(delivery => delivery.destination === "formsubmit_email" && delivery.status === "failed")) {
+        try {
+          await submitLandingEmail(entries, trainer);
+          await recordClientFormDelivery(entries, canonical, "accepted");
+        } catch (emailError) {
+          await recordClientFormDelivery(entries, canonical, "failed", emailError.message || String(emailError)).catch(() => {});
+        }
+      }
+      event.target.reset();
+      setLandingStatus("Thank you. Your consultation request was submitted. Lorenzo's office has the details and will follow up with the next step.");
+      showFormSuccessModal();
+    } catch (error) {
+      console.warn("LDTT canonical trainer-page submission failed", error);
+      setLandingStatus(error.message || "We could not submit the form. Your information is still on this screen; please try again.", "error");
+    } finally {
+      delete event.target.dataset.submitting;
+      submitButton?.removeAttribute("disabled");
+    }
     return;
   }
   if (event.target.classList.contains("public-review-form")) {
@@ -7180,14 +7926,27 @@ document.addEventListener("submit", async event => {
     try {
       submitButton?.setAttribute("disabled", "disabled");
       if (status) status.textContent = "Saving portal profile...";
-      const payload = { display_name: displayName };
+      const payload = { first_name: firstName, last_name: lastName, display_name: displayName };
       if (file) payload.profile_photo_url = await uploadPortalUserPhoto(portalUser, file);
-      Object.assign(portalUser, payload);
-      await persistPortalUserRecord(portalUser, payload);
+      if (isDemoPortalUser(portalUser)) {
+        Object.assign(portalUser, payload);
+        await persistPortalUserRecord(portalUser, payload);
+      } else {
+        const result = await window.LDTT_PORTAL.operationalMutation({
+          operation: "update",
+          entity_type: "portal_user",
+          id: portalUser.user_id,
+          expected_updated_at: portalUser.updated_at || null,
+          action: "portal_profile_saved",
+          summary: `${displayName} updated their portal profile`,
+          changes: payload
+        });
+        Object.assign(portalUser, result.record || payload);
+      }
       if (remoteReady && !isDemoPortalUser(portalUser)) await reloadRemoteData();
       relabelCurrentActorActivity();
       if (status) status.textContent = "Profile saved.";
-      recordActivity("Portal profile saved", `${currentActorLabel()} updated their portal profile.`, "Profile");
+      if (isDemoPortalUser(portalUser)) recordActivity("Portal profile saved", `${currentActorLabel()} updated their portal profile.`, "Profile");
       showToast("Portal profile saved");
       render();
     } catch (error) {
@@ -7246,7 +8005,7 @@ document.addEventListener("submit", async event => {
         render();
         return;
       }
-      await window.LDTT_PORTAL.signIn(username, password);
+      await window.LDTT_PORTAL.signIn(username, password, { remember: event.target.elements.remember?.checked === true });
       portalUser = await window.LDTT_PORTAL.currentPortalUser();
       if (!portalUserHasAccess(portalUser)) {
         await window.LDTT_PORTAL.signOut();

@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>The 5-Step Calm Dog Blueprint</title>
+  <style>
+    @page { size: Letter; margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Montserrat", Arial, sans-serif;
+      color: #071f40;
+      background: #eef3f9;
+    }
+    .page {
+      width: 8.5in;
+      min-height: 11in;
+      padding: .68in .72in;
+      page-break-after: always;
+      position: relative;
+      overflow: hidden;
+      background: #fff;
+    }
+    .cover {
+      color: #fff;
+      background:
+        radial-gradient(circle at 75% 18%, rgba(226, 9, 58, .42), transparent 23%),
+        linear-gradient(135deg, rgba(3, 15, 32, .94), rgba(5, 39, 78, .9)),
+        url("get-started-premium-hero-branded.png") center/cover no-repeat;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .cover:after {
+      content: "";
+      position: absolute;
+      left: -.5in;
+      right: -.5in;
+      bottom: 1.03in;
+      height: .13in;
+      background: #e2093a;
+      transform: rotate(-2deg);
+      box-shadow: 0 18px 40px rgba(226, 9, 58, .26);
+    }
+    .logo {
+      width: 2.24in;
+      height: auto;
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.24));
+    }
+    .kicker {
+      display: inline-block;
+      margin-bottom: .16in;
+      color: #ff3157;
+      font-size: 10pt;
+      font-weight: 900;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-size: 48pt;
+      line-height: .9;
+      letter-spacing: -.055em;
+    }
+    .cover h1 {
+      max-width: 6.6in;
+      font-size: 54pt;
+      text-shadow: 0 18px 46px rgba(0,0,0,.36);
+    }
+    .subtitle {
+      max-width: 5.9in;
+      margin: .23in 0 0;
+      font-size: 19pt;
+      line-height: 1.24;
+      font-weight: 700;
+      color: #eff6ff;
+    }
+    .cover .subtitle {
+      color: #eff6ff;
+      text-shadow: 0 10px 28px rgba(0,0,0,.28);
+    }
+    .quote {
+      margin-top: .32in;
+      padding: .18in .22in;
+      width: 5.6in;
+      border-left: 7px solid #e2093a;
+      background: rgba(255,255,255,.1);
+      font-size: 16pt;
+      font-style: italic;
+      line-height: 1.35;
+    }
+    .cover-bottom {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: .12in;
+    }
+    .proof {
+      padding: .16in;
+      border: 1px solid rgba(255,255,255,.2);
+      border-radius: .16in;
+      background: rgba(255,255,255,.1);
+      font-size: 10pt;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    .page h2 {
+      margin: 0 0 .18in;
+      font-size: 34pt;
+      line-height: .95;
+      letter-spacing: -.04em;
+    }
+    .page h3 {
+      margin: 0 0 .08in;
+      font-size: 18pt;
+      color: #e2093a;
+    }
+    .page p {
+      margin: 0 0 .16in;
+      color: #435a77;
+      font-size: 12.7pt;
+      line-height: 1.5;
+    }
+    .intro-card, .step-card, .cta-card {
+      border: 1px solid #dbe5f1;
+      border-radius: .2in;
+      padding: .26in;
+      background: #f7fbff;
+      box-shadow: 0 18px 40px rgba(7, 31, 64, .08);
+    }
+    .step-card {
+      margin-top: .18in;
+      display: grid;
+      grid-template-columns: .72in 1fr;
+      gap: .18in;
+      align-items: start;
+    }
+    .num {
+      width: .58in;
+      height: .58in;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #071f40;
+      color: #fff;
+      font-size: 18pt;
+      font-weight: 900;
+    }
+    ul {
+      margin: .04in 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: .07in;
+    }
+    li {
+      color: #071f40;
+      font-size: 11.7pt;
+      line-height: 1.38;
+      font-weight: 650;
+    }
+    li:before {
+      content: "✓";
+      margin-right: .07in;
+      color: #e2093a;
+      font-weight: 900;
+    }
+    .tip {
+      margin-top: .14in;
+      padding: .12in .16in;
+      border-radius: .14in;
+      color: #071f40;
+      background: #fff;
+      font-size: 10.5pt;
+      font-weight: 750;
+    }
+    .footer-mark {
+      position: absolute;
+      left: .72in;
+      right: .72in;
+      bottom: .42in;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #7b8fa8;
+      font-size: 9pt;
+      font-weight: 800;
+    }
+    .footer-mark img {
+      width: 1.35in;
+      opacity: .92;
+    }
+    .cta-card {
+      margin-top: .24in;
+      color: #fff;
+      background: linear-gradient(135deg, #071f40, #092f61);
+      border: 0;
+    }
+    .cta-card h2, .cta-card p { color: #fff; }
+    .cta-card p { opacity: .92; }
+    .cta-button {
+      display: inline-block;
+      margin-top: .12in;
+      padding: .14in .2in;
+      border-radius: .1in;
+      color: #fff;
+      background: #e2093a;
+      font-weight: 900;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <section class="page cover">
+    <div>
+      <img class="logo" src="lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team">
+      <div style="margin-top:.72in">
+        <span class="kicker">Free Guide</span>
+        <h1>The 5-Step Calm Dog Blueprint</h1>
+        <p class="subtitle">The simple daily routine that helps stop pulling, jumping, barking, and ignoring commands.</p>
+        <div class="quote">Small daily habits create big behavioral changes.</div>
+      </div>
+    </div>
+    <div class="cover-bottom">
+      <div class="proof">Built for focus</div>
+      <div class="proof">Owner leadership</div>
+      <div class="proof">15 minutes a day</div>
+    </div>
+  </section>
+
+  <section class="page">
+    <span class="kicker">Before You Begin</span>
+    <h2>Prevent the behavior before you correct it.</h2>
+    <div class="intro-card">
+      <p>Most owners try to correct bad behavior after it happens. Professional trainers focus on preventing unwanted behavior before it starts.</p>
+      <p>These five steps take about 15 minutes a day and create the foundation for better listening, calmer behavior, and a stronger relationship.</p>
+    </div>
+    <div class="step-card">
+      <div class="num">1</div>
+      <div>
+        <h3>Exercise Before You Expect Excellence</h3>
+        <p>A dog with excess energy struggles to concentrate. Before asking your dog to sit, stay, or walk politely, prepare the brain and body.</p>
+        <ul>
+          <li>Take a brisk 10-20 minute walk.</li>
+          <li>Play fetch or structured movement games.</li>
+          <li>Practice short recall games with focus.</li>
+        </ul>
+        <div class="tip">Trainer tip: Exercise is not the reward. It prepares the brain for learning.</div>
+      </div>
+    </div>
+    <div class="footer-mark"><span>Serious Training. Serious Results.</span><img src="lorenzo-logo-transparent.png" alt=""></div>
+  </section>
+
+  <section class="page">
+    <span class="kicker">Daily Foundation</span>
+    <h2>The calm dog routine.</h2>
+    <div class="step-card">
+      <div class="num">2</div>
+      <div>
+        <h3>Reward the Behavior You Want</h3>
+        <p>Dogs repeat what gets rewarded. Instead of waiting for mistakes, reward eye contact, calm body language, and checking in during daily life.</p>
+        <ul>
+          <li>Mark and reward quiet attention.</li>
+          <li>Praise calm decisions before the dog escalates.</li>
+          <li>Give fewer corrections by creating more successful moments.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="num">3</div>
+      <div>
+        <h3>Wait for the First Calm Moment</h3>
+        <p>Do not rush the command. Pause until your dog gives you even a small moment of attention. Then guide the next behavior clearly.</p>
+        <ul>
+          <li>Ask once when possible.</li>
+          <li>Stay calm and consistent.</li>
+          <li>Teach your dog that patience opens the door to success.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-mark"><span>Lorenzo's Dog Training Team</span><img src="lorenzo-logo-transparent.png" alt=""></div>
+  </section>
+
+  <section class="page">
+    <span class="kicker">Consistency Wins</span>
+    <h2>Small daily reps beat occasional intensity.</h2>
+    <div class="step-card">
+      <div class="num">4</div>
+      <div>
+        <h3>Consistency Beats Intensity</h3>
+        <p>Long, exhausting sessions are not required. Short, clear repetitions done every day create the patterns your dog can actually understand.</p>
+        <ul>
+          <li>Practice 3-5 minutes in the morning.</li>
+          <li>Add a short afternoon or evening win.</li>
+          <li>Use the same words, tone, timing, and expectations.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="num">5</div>
+      <div>
+        <h3>End Every Session With Success</h3>
+        <p>Never stop immediately after confusion or frustration. Finish with something your dog knows well so the session ends with confidence.</p>
+        <ul>
+          <li>Use a known command like sit, down, touch, or place.</li>
+          <li>Celebrate the win and end cleanly.</li>
+          <li>Help your dog want to come back and learn again.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-mark"><span>Five steps. Fifteen minutes. Better focus.</span><img src="lorenzo-logo-transparent.png" alt=""></div>
+  </section>
+
+  <section class="page">
+    <span class="kicker">Ready for Results?</span>
+    <h2>A professional evaluation can shorten the learning curve.</h2>
+    <div class="intro-card">
+      <p>If your dog is struggling with pulling, barking, anxiety, aggression, ignoring commands, or behavior that is affecting daily life, the right guidance can make the process clearer and safer.</p>
+      <p>Lorenzo's Dog Training Team helps owners understand technique, timing, communication, leadership, rules, and boundaries so the dog and owner learn together.</p>
+    </div>
+    <div class="cta-card">
+      <h2>Schedule a free consultation.</h2>
+      <p>Tell Lorenzo's office what is happening with your dog. The team will help route the next step.</p>
+      <a class="cta-button" href="https://www.lorenzosdogtrainingteam.com/get-started">Start My Request</a>
+    </div>
+    <div class="footer-mark"><span>(866) 436-4959 · lorenzosdogtrainingteam.com</span><img src="lorenzo-logo-transparent.png" alt=""></div>
+  </section>
+</body>
+</html>

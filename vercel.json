@@ -1,12 +1,30 @@
 {
   "cleanUrls": true,
-  "routes": [
+  "redirects": [
     {
-      "handle": "filesystem"
+      "source": "/carolinadon",
+      "destination": "/carolinaperez",
+      "permanent": true
     },
     {
-      "src": "/([a-zA-Z0-9-]+)/?",
-      "dest": "/trainer-backoffice/right-trainer-results.html"
+      "source": "/trainer-bio-carolina-don",
+      "destination": "/trainer-bio-carolina-perez",
+      "permanent": true
+    },
+    {
+      "source": "/dog-training-panama-city-fl",
+      "destination": "/dog-training-tallahassee-fl",
+      "permanent": false
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/trainer-bio-:slug",
+      "destination": "/trainer-profile?trainer=:slug"
+    },
+    {
+      "source": "/:slug",
+      "destination": "/trainer-backoffice/right-trainer-results?slug=:slug"
     }
   ]
 }

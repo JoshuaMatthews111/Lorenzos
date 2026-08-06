@@ -54,7 +54,7 @@ async function verifySuperAdmin(accessToken) {
   let rows;
   try {
     rows = await supabaseFetch(
-      `/rest/v1/portal_users?select=user_id,role,permission_level,active,access_status&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&permission_level=eq.super_admin&active=eq.true&access_status=eq.active&limit=1`
+      `/rest/v1/portal_users?select=user_id,role,permission_level,active,access_status,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&permission_level=eq.super_admin&active=eq.true&access_status=eq.active&limit=1`
     );
   } catch (error) {
     if (!isMissingColumnError(error)) throw error;
@@ -62,7 +62,35 @@ async function verifySuperAdmin(accessToken) {
       `/rest/v1/portal_users?select=user_id,role,active&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&active=eq.true&limit=1`
     );
   }
-  return rows?.[0] ? user : null;
+  const portalUser = rows?.[0];
+  if (!portalUser) return null;
+  return {
+    user,
+    portalUser,
+    actor: {
+      id: user.id,
+      email: clean(portalUser.email || user.email, 254),
+      name: clean([portalUser.first_name, portalUser.last_name].filter(Boolean).join(" ") || portalUser.display_name || user.email, 180)
+    }
+  };
+}
+
+async function auditPortalChange(admin, action, target, updated, summary) {
+  await supabaseFetch("/rest/v1/audit_events", {
+    method: "POST",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      actor_user_id: admin.actor.id,
+      actor_email: admin.actor.email,
+      actor_name: admin.actor.name,
+      action,
+      entity_type: "portal_user",
+      entity_id: String(target.user_id),
+      summary,
+      before_data: target,
+      after_data: updated
+    })
+  });
 }
 
 async function findAuthUserByEmail(email) {
@@ -111,7 +139,7 @@ module.exports = async function handler(req, res) {
           user_id: userId,
           role,
           trainer_id: body.trainer_id || null,
-          display_name: clean(body.display_name, 180) || targetEmail || "Portal User",
+          display_name: clean(body.display_name, 180) || targetEmail || "Staff profile incomplete",
           active: action === "restore"
         })
       });
@@ -123,7 +151,7 @@ module.exports = async function handler(req, res) {
     if (["restore", "disable", "revoke"].includes(action)) {
       changes = action === "restore"
         ? { active: true, access_status: "active", disabled_at: null, disabled_by: null }
-        : { active: false, access_status: action === "revoke" ? "revoked" : "disabled", disabled_at: new Date().toISOString(), disabled_by: admin.id };
+        : { active: false, access_status: action === "revoke" ? "revoked" : "disabled", disabled_at: new Date().toISOString(), disabled_by: admin.user.id };
     } else if (action === "set-role") {
       const permission = clean(body.permission_level, 40);
       if (!["super_admin", "office_admin", "trainer"].includes(permission)) {
@@ -173,7 +201,15 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    return res.status(200).json({ ok: true, user: updated?.[0] || { ...target, ...changes } });
+    const savedUser = updated?.[0] || { ...target, ...changes };
+    const auditAction = action === "set-role"
+      ? "portal_permission_updated"
+      : action === "set-profile"
+        ? "portal_profile_updated"
+        : `portal_access_${action}d`;
+    const targetLabel = clean(savedUser.display_name || savedUser.email || savedUser.user_id, 180);
+    await auditPortalChange(admin, auditAction, target, savedUser, `${targetLabel} portal ${action.replaceAll("-", " ")} saved`);
+    return res.status(200).json({ ok: true, user: savedUser });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message || "Portal access could not be updated." });
   }

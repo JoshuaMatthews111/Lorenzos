@@ -1,4 +1,6 @@
 .DS_Store
+._*
+**/._*
 .netlify/
 node_modules/
 npm-debug.log*
@@ -8,4 +10,13 @@ yarn-error.log*
 .env*
 .agents/
 .playwright-cli/
+supabase/.temp/
 skills-lock.json
+RECOVERY_MANIFEST_*.md
+output/
+tmp/
+release-reports/
+assets/_originals/
+*.bak
+*.bak-*
+*.bak-security

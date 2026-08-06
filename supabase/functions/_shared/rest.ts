@@ -3,6 +3,7 @@ type InsertOptions = {
   body: Record<string, unknown> | Record<string, unknown>[];
   returning?: "minimal" | "representation";
   onConflict?: string;
+  ignoreDuplicates?: boolean;
 };
 
 function credentials() {
@@ -22,10 +23,10 @@ function serviceHeaders(serviceRoleKey: string, extra: Record<string, string> = 
   return headers;
 }
 
-export async function insertRows({ table, body, returning = "representation", onConflict }: InsertOptions) {
+export async function insertRows({ table, body, returning = "representation", onConflict, ignoreDuplicates = false }: InsertOptions) {
   const { supabaseUrl, serviceRoleKey } = credentials();
   const prefer = [`return=${returning}`];
-  if (onConflict) prefer.push("resolution=merge-duplicates");
+  if (onConflict) prefer.push(ignoreDuplicates ? "resolution=ignore-duplicates" : "resolution=merge-duplicates");
 
   const query = onConflict ? `?on_conflict=${encodeURIComponent(onConflict)}` : "";
   const response = await fetch(`${supabaseUrl}/rest/v1/${table}${query}`, {

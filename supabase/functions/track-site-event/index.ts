@@ -11,16 +11,18 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json();
+    if (JSON.stringify(payload).length > 50000) return jsonResponse({ error: "Event payload is too large" }, 413);
     const eventType = clean(payload.event_type, 80);
     const trainerSlug = clean(payload.trainer_slug, 120);
-    if (!eventType || !trainerSlug) return jsonResponse({ error: "Missing attribution fields" }, 400);
+    const allowedEventTypes = new Set(["page_view", "site_visit", "cta_click", "trainer_page_view", "trainer_cta_click", "trainer_form_started", "trainer_form_submitted", "ad_page_view", "ad_cta_click", "market_page_view", "market_page_time", "market_form_submit", "market_ebook_download", "recruiting_page_view", "recruiting_cta_click"]);
+    if (!eventType || !allowedEventTypes.has(eventType)) return jsonResponse({ error: "Unsupported event type" }, 400);
 
-    const trainerRows = await selectRows({
+    const trainerRows = trainerSlug ? await selectRows({
       table: "trainers",
       select: "id,slug,full_name",
       filters: { slug: `eq.${trainerSlug}` },
       limit: 1
-    });
+    }) : [];
     const trainer = Array.isArray(trainerRows) ? trainerRows[0] : null;
     await insertRows({
       table: "site_events",
@@ -42,6 +44,32 @@ Deno.serve(async (req) => {
         utm_medium: clean(payload.utm_medium, 160),
         utm_campaign: clean(payload.utm_campaign, 240),
         raw_payload: payload
+      }
+    });
+    const isQaEvent = payload.qa === true
+      || /^qa[_-]/i.test(eventType)
+      || /(?:localhost|127\.0\.0\.1|\.vercel\.app)(?::\d+)?(?:\/|$)/i.test(clean(payload.page_url, 1000));
+    const lifecycleType = isQaEvent ? "qa_release_check" : /click/i.test(eventType) ? "cta_click" : "site_visit";
+    const eventKey = clean(payload.event_id, 240) || `${lifecycleType}:${clean(payload.session_id, 160)}:${clean(payload.page_path, 500)}:${clean(payload.timestamp, 80)}`;
+    await insertRows({
+      table: "lifecycle_events",
+      onConflict: "event_key",
+      ignoreDuplicates: true,
+      returning: "minimal",
+      body: {
+        event_key: eventKey,
+        entity_type: "site_event",
+        entity_id: eventKey,
+        event_type: lifecycleType,
+        market: clean(payload.trainer_market || payload.market, 160),
+        source_page: clean(payload.page_path, 500),
+        visitor_id: clean(payload.visitor_id, 160),
+        session_id: clean(payload.session_id, 160),
+        utm_source: clean(payload.utm_source, 160),
+        utm_medium: clean(payload.utm_medium, 160),
+        utm_campaign: clean(payload.utm_campaign, 240),
+        raw_payload: payload,
+        occurred_at: clean(payload.timestamp, 80) || new Date().toISOString()
       }
     });
     return jsonResponse({ ok: true });

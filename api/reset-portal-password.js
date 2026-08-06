@@ -48,9 +48,18 @@ async function verifySuperAdmin(accessToken) {
   const user = await userResponse.json();
   if (!user?.id) return null;
   const rows = await supabaseFetch(
-    `/rest/v1/portal_users?select=user_id,role,permission_level,active&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&permission_level=eq.super_admin&active=eq.true&limit=1`
+    `/rest/v1/portal_users?select=user_id,role,permission_level,active,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&permission_level=eq.super_admin&active=eq.true&limit=1`
   );
-  return rows?.[0] ? user : null;
+  const portalUser = rows?.[0];
+  if (!portalUser) return null;
+  return {
+    user,
+    actor: {
+      id: user.id,
+      email: clean(portalUser.email || user.email, 254),
+      name: clean([portalUser.first_name, portalUser.last_name].filter(Boolean).join(" ") || portalUser.display_name || user.email, 180)
+    }
+  };
 }
 
 module.exports = async function handler(req, res) {
@@ -70,6 +79,10 @@ module.exports = async function handler(req, res) {
     if (!userId) return res.status(400).json({ ok: false, message: "User ID is required." });
     if (password.length < 8) return res.status(400).json({ ok: false, message: "Password must be at least 8 characters." });
 
+    const targetRows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+    const target = targetRows?.[0];
+    if (!target) return res.status(404).json({ ok: false, message: "Portal user was not found." });
+
     await supabaseFetch(`/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
       method: "PUT",
       body: JSON.stringify({ password })
@@ -79,6 +92,23 @@ module.exports = async function handler(req, res) {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ must_change_password: false })
+    });
+
+    const targetName = clean([target.first_name, target.last_name].filter(Boolean).join(" ") || target.display_name || target.email || userId, 180);
+    await supabaseFetch("/rest/v1/audit_events", {
+      method: "POST",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        actor_user_id: admin.actor.id,
+        actor_email: admin.actor.email,
+        actor_name: admin.actor.name,
+        action: "portal_password_reset",
+        entity_type: "portal_user",
+        entity_id: userId,
+        summary: `${targetName} portal password reset by ${admin.actor.name}`,
+        before_data: { must_change_password: true },
+        after_data: { must_change_password: false }
+      })
     });
 
     return res.status(200).json({ ok: true });

@@ -3,12 +3,17 @@
   const STORAGE_KEY = "ldttPortalAuth.v1";
   const RECOVERABLE_CACHE_KEYS = [
     "ldttOperationalSnapshot.v1",
-    "ldttTrainerSiteEvents.v1"
+    "ldttTrainerSiteEvents.v1",
+    "lorenzoBackOfficePrototype.v9",
+    "ldttContactSubmissions.v2",
+    "ldttTrainerApplications.v1",
+    "ldttTrainerApplicationOverrides.v1"
   ];
 
   const enabled = Boolean(config.enabled && config.projectUrl && config.publishableKey);
   const baseUrl = String(config.projectUrl || "").replace(/\/$/, "");
   let refreshPromise = null;
+  let persistSession = Boolean(readStoredSession(localStorage));
 
   function readSession() {
     return readStoredSession(localStorage) || readStoredSession(sessionStorage);
@@ -39,13 +44,23 @@
     });
   }
 
-  function writeSession(session) {
+  function writeSession(session, remember = persistSession) {
     if (!session) {
       try { localStorage.removeItem(STORAGE_KEY); } catch {}
       try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
       return;
     }
     const value = JSON.stringify(session);
+    persistSession = Boolean(remember);
+    if (!persistSession) {
+      try {
+        sessionStorage.setItem(STORAGE_KEY, value);
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+      } catch (error) {
+        if (!isQuotaError(error)) throw error;
+      }
+    }
     try {
       localStorage.setItem(STORAGE_KEY, value);
       try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
@@ -130,7 +145,7 @@
     return data;
   }
 
-  async function signIn(username, password) {
+  async function signIn(username, password, options = {}) {
     const aliases = {
       admin: "production@lorenzosdogtrainingteam.com",
       trainer: "trainer-demo@lorenzosdogtrainingteam.com"
@@ -141,7 +156,7 @@
       body: JSON.stringify({ email, password }),
       session: null
     });
-    writeSession(session);
+    writeSession(session, options.remember === true);
     return session;
   }
 
@@ -156,7 +171,7 @@
         session: null,
         retryAuth: false
       });
-      writeSession(refreshed);
+      writeSession(refreshed, persistSession);
       return refreshed;
     })();
     try {
@@ -257,10 +272,147 @@
     });
   }
 
-  async function upload(bucket, path, file) {
+  function storageObjectUrl(bucket, path) {
+    return `${baseUrl}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`;
+  }
+
+  function signedUploadUrlFromResponse(result, bucket, path) {
+    if (result?.signedUrl || result?.signedURL) return result.signedUrl || result.signedURL;
+    if (result?.token) {
+      const encodedPath = path.split("/").map(encodeURIComponent).join("/");
+      return `${baseUrl}/storage/v1/object/upload/sign/${encodeURIComponent(bucket)}/${encodedPath}?token=${encodeURIComponent(result.token)}`;
+    }
+    return "";
+  }
+
+  async function createTrainerMediaUploadUrl(bucket, path, file) {
+    const token = accessToken();
+    if (!token || !["trainer-page-assets", "trainer-page-videos"].includes(bucket)) return null;
+    const response = await fetch("/api/trainer-media-upload-url", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        bucket,
+        path,
+        content_type: file.type || "application/octet-stream",
+        size: file.size || 0
+      })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 404 || response.status === 405) return null;
+    if (!response.ok) throw new Error(data.message || "Trainer media upload could not be authorized.");
+    return data;
+  }
+
+  function uploadToSignedUrl(signedUrl, file, options = {}) {
+    const methods = ["PUT", "POST"];
+    function attempt(index = 0) {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open(methods[index], signedUrl, true);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.upload.onprogress = event => {
+          if (!event.lengthComputable) return;
+          const percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+          options.onProgress?.({ loaded: event.loaded, total: event.total, percent });
+        };
+        xhr.onload = async () => {
+          let data = {};
+          try {
+            data = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+          } catch {
+            data = { message: xhr.responseText };
+          }
+          if ((xhr.status === 405 || xhr.status === 404) && index + 1 < methods.length) {
+            try {
+              resolve(await attempt(index + 1));
+            } catch (error) {
+              reject(error);
+            }
+            return;
+          }
+          if (xhr.status < 200 || xhr.status >= 300) {
+            reject(new Error(data.message || data.error || "Signed media upload failed"));
+            return;
+          }
+          options.onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
+          resolve(data);
+        };
+        xhr.onerror = () => reject(new Error("Signed media upload failed. Check your connection and try again."));
+        xhr.send(file);
+      });
+    }
+    return attempt();
+  }
+
+  async function uploadWithSignedTrainerMediaUrl(bucket, path, file, options = {}) {
+    const signed = await createTrainerMediaUploadUrl(bucket, path, file);
+    if (!signed) return null;
+    const signedUrl = signedUploadUrlFromResponse(signed, signed.bucket || bucket, signed.path || path);
+    if (!signedUrl) throw new Error("Trainer media upload could not be authorized.");
+    await uploadToSignedUrl(signedUrl, file, options);
+    return { signed: true, path: signed.path || path, bucket: signed.bucket || bucket, publicUrl: signed.publicUrl || publicStorageUrl(bucket, path) };
+  }
+
+  function uploadWithProgress(bucket, path, file, options = {}, retryAuth = true) {
+    return new Promise((resolve, reject) => {
+      const session = readSession();
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", storageObjectUrl(bucket, path), true);
+      xhr.setRequestHeader("apikey", config.publishableKey);
+      xhr.setRequestHeader("Authorization", `Bearer ${session?.access_token || ""}`);
+      xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+      xhr.setRequestHeader("x-upsert", "false");
+      xhr.upload.onprogress = event => {
+        if (!event.lengthComputable) return;
+        const percent = Math.max(0, Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        options.onProgress?.({ loaded: event.loaded, total: event.total, percent });
+      };
+      xhr.onload = async () => {
+        let data = {};
+        try {
+          data = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+        } catch {
+          data = { message: xhr.responseText };
+        }
+        if (xhr.status === 401 && retryAuth && session?.refresh_token) {
+          try {
+            await refreshSession();
+            resolve(await uploadWithProgress(bucket, path, file, options, false));
+          } catch (error) {
+            reject(error);
+          }
+          return;
+        }
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(new Error(data.message || data.error || "Upload failed"));
+          return;
+        }
+        options.onProgress?.({ loaded: file.size, total: file.size, percent: 100 });
+        resolve(data);
+      };
+      xhr.onerror = () => reject(new Error("Upload failed. Check your connection and try again."));
+      xhr.send(file);
+    });
+  }
+
+  async function upload(bucket, path, file, options = {}) {
+    if (typeof options.onProgress === "function" && ["trainer-page-assets", "trainer-page-videos"].includes(bucket)) {
+      const signedUpload = await uploadWithSignedTrainerMediaUrl(bucket, path, file, options).catch(error => {
+        if (/not found|method not allowed|failed to fetch/i.test(error.message || "")) return null;
+        throw error;
+      });
+      if (signedUpload) return signedUpload;
+    }
+    if (typeof options.onProgress === "function" && typeof XMLHttpRequest !== "undefined") {
+      return uploadWithProgress(bucket, path, file, options);
+    }
     async function uploadOnce(retryAuth = true) {
       const session = readSession();
-      const response = await fetch(`${baseUrl}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`, {
+      const response = await fetch(storageObjectUrl(bucket, path), {
         method: "POST",
         headers: {
           apikey: config.publishableKey,
@@ -301,59 +453,76 @@
 
   async function loadOperationalData() {
     const session = readSession();
-    if (session?.access_token) {
-      try {
-        const response = await fetch("/api/operational-data", {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`
-          }
-        });
-        const data = await response.json().catch(() => null);
-        if (response.ok && data?.ok) {
-          return {
-            trainers: data.trainers || [],
-            pages: data.pages || [],
-            leads: data.leads || [],
-            clients: data.clients || [],
-            dogs: data.dogs || [],
-            applications: data.applications || [],
-            submissions: data.submissions || [],
-            events: data.events || [],
-            portalUsers: data.portalUsers || [],
-            officeNotes: data.officeNotes || []
-          };
-        }
-        if (response.status !== 403) {
-          console.warn("LDTT operational API unavailable; falling back to direct Supabase reads.", data?.message || response.status);
-        }
-      } catch (error) {
-        console.warn("LDTT operational API failed; falling back to direct Supabase reads.", error);
-      }
+    if (!session?.access_token) throw new Error("Your staff session has expired. Sign in again to load live records.");
+    const response = await fetch("/api/operational-data", {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${session.access_token}` }
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.ok || !data?.canonical) {
+      throw new Error(data?.message || "Live staff records are temporarily unavailable. No cached records were shown.");
     }
-    const [
-      trainers,
-      pages,
-      leads,
-      clients,
-      dogs,
-      applications,
-      submissions,
-      events,
-      portalUsers,
-      officeNotes
-    ] = await Promise.all([
-      select("trainers", "select=*&order=full_name.asc"),
-      select("trainer_pages", "select=*&order=updated_at.desc"),
-      select("leads", "select=*&order=created_at.desc"),
-      select("clients", "select=*&order=created_at.desc"),
-      select("dogs", "select=*&order=created_at.desc"),
-      select("trainer_applications", "select=*&order=created_at.desc"),
-      select("content_submissions", "select=*&order=created_at.desc"),
-      select("site_events", "select=*&order=created_at.desc&limit=5000"),
-      select("portal_users", "select=*&order=created_at.desc"),
-      select("office_notes", "select=*&order=created_at.desc&limit=5000")
-    ]);
-    return { trainers, pages, leads, clients, dogs, applications, submissions, events, portalUsers, officeNotes };
+    return {
+      canonical: true,
+      syncedAt: data.syncedAt,
+      serverRevision: data.serverRevision,
+      unavailableCapabilities: data.unavailableCapabilities || [],
+      trainers: data.trainers || [],
+      pages: data.pages || [],
+      leads: data.leads || [],
+      leadEvents: data.leadEvents || [],
+      clients: data.clients || [],
+      dogs: data.dogs || [],
+      applications: data.applications || [],
+      submissions: data.submissions || [],
+      events: data.events || [],
+      portalUsers: data.portalUsers || [],
+      officeNotes: data.officeNotes || [],
+      auditEvents: data.auditEvents || [],
+      noteRevisions: data.noteRevisions || [],
+      deliveryAttempts: data.deliveryAttempts || [],
+      reviewPublications: data.reviewPublications || [],
+      lifecycleEvents: data.lifecycleEvents || [],
+      sheets: data.sheets || { leads: [], applications: [], clients: [] }
+    };
+  }
+
+  async function operationalMutation(payload) {
+    const session = readSession();
+    if (!session?.access_token) throw new Error("Your staff session has expired. Sign in again before saving.");
+    const response = await fetch("/api/operational-mutation", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload || {})
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const error = new Error(data.message || "The live record could not be saved.");
+      error.status = response.status;
+      error.conflict = data.conflict === true;
+      error.record = data.record || null;
+      throw error;
+    }
+    return data;
+  }
+
+  function subscribeOperationalChanges(onChange) {
+    if (!enabled || typeof onChange !== "function" || !window.supabase?.createClient) return () => {};
+    const session = readSession();
+    if (!session?.access_token) return () => {};
+    const realtimeClient = window.supabase.createClient(baseUrl, config.publishableKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      realtime: { params: { eventsPerSecond: 4 } }
+    });
+    realtimeClient.realtime.setAuth(session.access_token);
+    const tables = ["leads", "trainer_applications", "clients", "office_notes", "audit_events", "review_publications"];
+    const channel = tables.reduce((current, table) => current.on("postgres_changes", { event: "*", schema: "public", table }, payload => onChange(payload)), realtimeClient.channel(`office-sync-${session.user?.id || "staff"}-${Date.now()}`));
+    channel.subscribe();
+    return () => { realtimeClient.removeChannel(channel).catch(() => {}); };
   }
 
   async function loadPublishedTrainer(slug, options = {}) {
@@ -394,6 +563,8 @@
     currentAuthUser,
     accessToken,
     loadOperationalData,
+    operationalMutation,
+    subscribeOperationalChanges,
     loadPublishedTrainer,
     select,
     insert,

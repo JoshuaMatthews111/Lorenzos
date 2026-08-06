@@ -130,7 +130,7 @@ module.exports = async function handler(req, res) {
       return res.status(response.status).json({ ok: false, message: text || "Supabase insert failed" });
     }
     const rows = text ? JSON.parse(text) : [];
-    return res.status(200).json({ ok: true, submission_id: rows?.[0]?.id || null });
+    return res.status(200).json({ ok: true, submission_id: rows?.[0]?.id || null, file_url: fileUrl || "" });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message || "Review submission failed" });
   }

@@ -1,0 +1,15 @@
+create index if not exists idx_clients_archived_by on public.clients (archived_by);
+create index if not exists idx_content_submissions_archived_by on public.content_submissions (archived_by);
+create index if not exists idx_lead_events_actor_user on public.lead_events (actor_user_id);
+create index if not exists idx_lead_events_corrects_event on public.lead_events (corrects_event_id);
+create index if not exists idx_leads_archived_by on public.leads (archived_by);
+create index if not exists idx_lifecycle_events_actor_user on public.lifecycle_events (actor_user_id);
+create index if not exists idx_lifecycle_events_corrects_event on public.lifecycle_events (corrects_event_id);
+create index if not exists idx_office_note_revisions_edited_by on public.office_note_revisions (edited_by);
+create index if not exists idx_office_notes_archived_by on public.office_notes (archived_by);
+create index if not exists idx_portal_users_disabled_by on public.portal_users (disabled_by);
+create index if not exists idx_review_publications_published_by on public.review_publications (published_by);
+create index if not exists idx_trainer_applications_archived_by on public.trainer_applications (archived_by);
+create index if not exists idx_trainer_applications_linked_discovery on public.trainer_applications (linked_discovery_id);
+create index if not exists idx_trainer_pages_archived_by on public.trainer_pages (archived_by);
+create index if not exists idx_trainers_archived_by on public.trainers (archived_by);
