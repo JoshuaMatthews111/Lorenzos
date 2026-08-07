@@ -4544,6 +4544,14 @@ body.form-modal-open {
 .application-sheet-table-wrap{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff}
 .application-sheet-table{min-width:1280px}
 .application-sheet-table th{position:sticky;top:0;z-index:2;background:#f7fbff}
+.lead-sheet-table-wrap{max-height:640px}
+.lead-sheet-table{min-width:2850px}
+.lead-sheet-table th,.lead-sheet-table td{min-width:150px;vertical-align:top;white-space:pre-wrap}
+.lead-sheet-table th:nth-child(13),.lead-sheet-table td:nth-child(13),
+.lead-sheet-table th:nth-child(14),.lead-sheet-table td:nth-child(14),
+.lead-sheet-table th:nth-child(19),.lead-sheet-table td:nth-child(19),
+.lead-sheet-table th:nth-child(20),.lead-sheet-table td:nth-child(20){min-width:320px}
+.lead-sheet-table tr[data-open-lead]{cursor:pointer}
 .application-individual-list{display:grid;gap:16px}
 .application-individual-card{padding:18px;border:1px solid var(--line);border-radius:18px;background:#fff;box-shadow:0 16px 36px rgba(8,39,84,.05)}
 .application-individual-card header{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:12px}

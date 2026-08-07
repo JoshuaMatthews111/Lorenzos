@@ -219,6 +219,9 @@ const leadStatuses = [
   "Archived"
 ];
 
+const CONTACT_SMS_DISCLOSURE_TEXT = "By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the Terms of Service and Privacy Policy.";
+const CONTACT_PHONE_REQUIRED_NOTICE_TEXT = "Phone is required so Lorenzo's office can call about your request. SMS consent is optional and separate from submitting this form.";
+
 const clientStatuses = ["All", "Active", "Past", "Won", "Lost", "Bad Lead", "Do Not Contact", "Archived"];
 const defaultLeadEndDate = new Date();
 const defaultLeadStartDate = new Date(defaultLeadEndDate.getTime() - 59 * 86400000);
@@ -797,14 +800,21 @@ function remoteLeadToUi(row) {
   return {
     id: row.id,
     remoteId: row.id,
+    first_name: row.first_name || raw.first_name || "",
+    last_name: row.last_name || raw.last_name || "",
     owner: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Website Contact",
     dog: row.dog_name || raw.dog_name || "Pending",
     breed: row.dog_breed || raw.dog_breed || "Pending",
     source: row.lead_source || leadSourceLabel({ rawPayload: raw, city, state: stateValue }),
-    service: row.service_interest || "Contact Request",
+    service: row.service_interest || raw.i_want_to || "Contact Request",
+    i_want_to: row.service_interest || raw.i_want_to || "",
+    heard_about_us: raw.heard_about_us || row.lead_source || "",
+    vet_or_previous_client: raw.vet_or_previous_client || "",
     trainerId: trainer?.id || row.trainer_slug || "unassigned",
     phone: row.phone || "",
     email: row.email || "",
+    address_line_1: row.address_line_1 || raw.address_line_1 || "",
+    address_line_2: row.address_line_2 || raw.address_line_2 || "",
     address: [row.address_line_1, row.address_line_2, city, stateValue, row.zip].filter(Boolean).join(", "),
     city,
     state: stateValue,
@@ -819,6 +829,8 @@ function remoteLeadToUi(row) {
     next: raw.follow_up_date || "Office follow-up needed",
     followUpDate: raw.follow_up_date || "",
     clientNote,
+    comments: clientNote,
+    additional_interest: raw.additional_interest || "",
     note: row.office_notes || "",
     lostReason: row.lost_reason || "",
     doNotContact: row.status === "do_not_contact",
@@ -4152,11 +4164,153 @@ function leadOutcomeTable() {
   }).join("") || `<tr><td colspan="6">No website lead submissions match the current filters.</td></tr>`}</tbody></table></div><p class="panel-copy">Website contact submissions are shared with authorized office users through Supabase.</p>`;
 }
 
+const LEAD_EXACT_SHEET_FIELDS = [
+  { key: "first_name", label: "First Name *" },
+  { key: "last_name", label: "Last Name *" },
+  { key: "address_line_1", label: "Address Line 1 *" },
+  { key: "address_line_2", label: "Address Line 2 (optional)" },
+  { key: "city", label: "City *" },
+  { key: "state", label: "State *" },
+  { key: "zip", label: "ZIP Code *" },
+  { key: "email", label: "Email Address *" },
+  { key: "phone", label: "Phone (required for callback) *" },
+  { key: "i_want_to", label: "I want to... *" },
+  { key: "heard_about_us", label: "How did you hear about us? *" },
+  { key: "vet_or_previous_client", label: "Vet Name or Previous Client Name *" },
+  { key: "how_can_we_help", label: "How can we help?" },
+  { key: "comments", label: "Comments *" },
+  { key: "additional_interest", label: "I'm also interested in (optional)" },
+  { key: "investor_network", label: "Investor network" },
+  { key: "donor_or_project_support", label: "Donor or project support" },
+  { key: "specialty_dog_training", label: "Specialty dog training" },
+  { key: "sms_consent_agreement", label: "SMS consent checkbox/agreement text" },
+  { key: "phone_required_notice_text", label: "Phone required notice text" }
+];
+
+const LEAD_FIELD_ALIASES = {
+  first_name: ["First Name", "firstName"],
+  last_name: ["Last Name", "lastName"],
+  address_line_1: ["Address Line 1", "address1", "street_address"],
+  address_line_2: ["Address Line 2", "address2", "apt_suite"],
+  zip: ["zip_code", "postal_code", "ZIP Code", "Zip Code"],
+  email: ["email_address", "Email Address"],
+  phone: ["phone_number", "Phone", "Phone Number"],
+  i_want_to: ["service_interest", "I want to...", "intent"],
+  heard_about_us: ["How did you hear about us?", "referral_source", "lead_source"],
+  vet_or_previous_client: ["Vet Name or Previous Client Name", "previous_client_name", "vet_name"],
+  how_can_we_help: ["How can we help?", "service_interest", "comments"],
+  comments: ["Comments", "message", "client_note"],
+  additional_interest: ["I'm also interested in (optional)", "additional_interests", "other_interest"],
+  investor_network: ["investor_network", "Investor network"],
+  donor_or_project_support: ["donor_or_project_support", "Donor or project support"],
+  specialty_dog_training: ["specialty_dog_training", "Specialty dog training"],
+  sms_consent_agreement: ["sms_consent", "sms_opt_in", "SMS consent"],
+  phone_required_notice_text: ["phone_required_notice_text"]
+};
+
+function leadRawPayload(lead) {
+  return lead?.rawPayload || lead?.raw_payload || {};
+}
+
+function leadNameParts(lead = {}) {
+  const first = lead.first_name || leadRawPayload(lead).first_name || "";
+  const last = lead.last_name || leadRawPayload(lead).last_name || "";
+  if (first || last) return { first, last };
+  const parts = String(lead.owner || "").trim().split(/\s+/).filter(Boolean);
+  return { first: parts[0] || "", last: parts.slice(1).join(" ") };
+}
+
+function leadRawValue(lead, key) {
+  const raw = leadRawPayload(lead);
+  const aliases = [key, ...(LEAD_FIELD_ALIASES[key] || [])];
+  for (const alias of aliases) {
+    if (lead?.[alias] != null && lead?.[alias] !== "") return lead[alias];
+    if (raw?.[alias] != null && raw?.[alias] !== "") return raw[alias];
+  }
+  return "";
+}
+
+function leadValueText(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).join(", ");
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return String(value ?? "");
+}
+
+function leadInterestList(lead = {}) {
+  const raw = leadRawPayload(lead);
+  const combined = leadValueText(lead.additional_interest || raw.additional_interest || raw.additional_interests || "");
+  return combined.split(/,|;|\n/).map(value => value.trim()).filter(Boolean);
+}
+
+function leadHasInterest(lead, label, fieldKey) {
+  const raw = leadRawPayload(lead);
+  const direct = raw[fieldKey] ?? lead?.[fieldKey];
+  if (/^(true|yes|1)$/i.test(String(direct || ""))) return true;
+  return leadInterestList(lead).some(value => value.toLowerCase() === label.toLowerCase());
+}
+
+function leadSubmittedFieldValue(lead, key, label) {
+  const raw = leadRawPayload(lead);
+  const names = leadNameParts(lead);
+  if (key === "first_name") return names.first;
+  if (key === "last_name") return names.last;
+  if (key === "phone") return formatPhoneNumber(leadRawValue(lead, key)) || "";
+  if (key === "how_can_we_help") return leadRawValue(lead, key) || leadRawValue(lead, "comments") || "";
+  if (key === "investor_network") return leadHasInterest(lead, "Investor network", key) ? "Yes" : "No";
+  if (key === "donor_or_project_support") return leadHasInterest(lead, "Donor or project support", key) ? "Yes" : "No";
+  if (key === "specialty_dog_training") return leadHasInterest(lead, "Specialty dog training", key) ? "Yes" : "No";
+  if (key === "sms_consent_agreement") {
+    const rawConsent = String(raw.sms_consent ?? lead.smsConsent ?? "").toLowerCase();
+    const status = rawConsent === "yes" || lead.smsConsent === "Yes" || rawConsent === "true"
+      ? "Checked / Yes"
+      : rawConsent === "no" || lead.smsConsent === "No" || rawConsent === "false"
+        ? "Not checked / No"
+        : "Unknown / not recorded";
+    return `${status}\n${CONTACT_SMS_DISCLOSURE_TEXT}`;
+  }
+  if (key === "phone_required_notice_text") return raw.phone_required_notice_text || CONTACT_PHONE_REQUIRED_NOTICE_TEXT;
+  const value = leadRawValue(lead, key);
+  if (value !== "") return leadValueText(value);
+  if (raw[label] != null && raw[label] !== "") return leadValueText(raw[label]);
+  return "";
+}
+
+function leadRawFieldLabel(key) {
+  return String(key || "")
+    .replaceAll("_", " ")
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function leadSheetFields(rows = []) {
+  const fields = LEAD_EXACT_SHEET_FIELDS.map(field => ({ ...field }));
+  const seen = new Set();
+  fields.forEach(field => {
+    seen.add(field.key);
+    seen.add(field.label);
+    (LEAD_FIELD_ALIASES[field.key] || []).forEach(alias => seen.add(alias));
+  });
+  rows.forEach(lead => {
+    Object.keys(leadRawPayload(lead)).forEach(key => {
+      if (!key || seen.has(key)) return;
+      fields.push({ key, label: leadRawFieldLabel(key) });
+      seen.add(key);
+    });
+  });
+  return fields;
+}
+
+function leadSheetView(rows) {
+  const fields = leadSheetFields(rows);
+  return `<div class="application-sheet-actions lead-sheet-actions"><span class="status live">Detailed Lead Sheet</span><p>Every submitted lead-form field is shown first, followed by any extra raw submission fields captured with the record. Click any row to open the lead record and notes.</p></div><div class="table-wrap application-sheet-table-wrap lead-sheet-table-wrap"><table class="data-table application-sheet-table lead-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(lead => `<tr data-open-lead="${escapeHtml(lead.id)}">${fields.map(field => `<td>${escapeHtml(leadSubmittedFieldValue(lead, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No lead submissions match the current filters.</td></tr>`}</tbody></table></div>`;
+}
+
 function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const rows = filteredLeadRows(baseRows);
   const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
-  return `${leadDateControls()}${leadWorkspaceControls(admin)}<p class="panel-copy lead-result-count">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}.</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table"><summary>Open detailed table view</summary>${table}</details>` : ""}${leadDetailPanel()}`;
+  const detailedSheet = leadSheetView(rows);
+  return `${leadDateControls()}${leadWorkspaceControls(admin)}<p class="panel-copy lead-result-count">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}.</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table"><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
 }
 
 function leadWorkspaceControls(admin) {
@@ -5034,14 +5188,21 @@ function contactSubmissionRows() {
     const stateValue = cleanLocationValue(row.state) || derivedMarket.state;
     return {
       id: `contact-${index}`,
+      first_name: row.first_name || "",
+      last_name: row.last_name || "",
       owner: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Website Contact",
       dog: "Pending",
       breed: "Pending",
       source: leadSourceLabel({ source: row.heard_about_us || "Website Contact Form", rawPayload: row, city, state: stateValue }),
       service: row.i_want_to || "Contact Request",
+      i_want_to: row.i_want_to || "",
+      heard_about_us: row.heard_about_us || "",
+      vet_or_previous_client: row.vet_or_previous_client || "",
       trainerId: row.trainer_slug || "unassigned",
       phone: row.phone || "",
       email: row.email || "",
+      address_line_1: row.address_line_1 || "",
+      address_line_2: row.address_line_2 || "",
       address: [row.address_line_1, row.address_line_2, city, stateValue, row.zip].filter(Boolean).join(", "),
       city,
       state: stateValue,
@@ -5052,6 +5213,8 @@ function contactSubmissionRows() {
       createdAt: row.timestamp || row.createdAt || new Date().toISOString(),
       next: "Office follow-up needed",
       clientNote: row.comments || "",
+      comments: row.comments || "",
+      additional_interest: row.additional_interest || "",
       note: row.office_note || "",
       followUpDate: row.follow_up_date || "",
       lostReason: row.lost_reason || "",
@@ -5158,6 +5321,10 @@ function exportApplicationsCsv() {
 }
 
 function exportOperationalSheet(kind) {
+  if (kind === "leads") {
+    exportLeadsCsv();
+    return;
+  }
   const canonicalRows = Array.isArray(remoteSheets?.[kind]) ? remoteSheets[kind] : [];
   const rows = canonicalRows.length
     ? canonicalRows
@@ -5185,6 +5352,27 @@ function exportOperationalSheet(kind) {
   const link = document.createElement("a");
   link.href = url;
   link.download = `ldtt-${kind}-sheet-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportLeadsCsv() {
+  const leadRecords = allLeadRows();
+  if (!leadRecords.length) {
+    showToast("No leads are available to export.");
+    return;
+  }
+  const fields = leadSheetFields(leadRecords);
+  const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
+  const rows = leadRecords.map(lead => fields.map(field => escapeCsv(leadSubmittedFieldValue(lead, field.key, field.label))).join(","));
+  const csv = [fields.map(field => escapeCsv(field.label)).join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ldtt-leads-detailed-sheet-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(link);
   link.click();
   link.remove();
