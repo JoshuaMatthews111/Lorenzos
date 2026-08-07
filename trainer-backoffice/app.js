@@ -250,6 +250,7 @@ const defaultState = {
   leadTrainerFilter: "All",
   leadSmsFilter: "All",
   leadViewMode: "board",
+  leadDetailSheetOpen: false,
   selectedLeadId: "",
   selectedApplicationId: "",
   selectedClientId: "",
@@ -514,6 +515,7 @@ function persistStateSnapshot() {
     leadTrainerFilter: state.leadTrainerFilter,
     leadSmsFilter: state.leadSmsFilter,
     leadViewMode: state.leadViewMode,
+    leadDetailSheetOpen: state.leadDetailSheetOpen,
     builderDevice: state.builderDevice,
     demoPasswords: state.demoPasswords,
     demoPortalProfiles: state.demoPortalProfiles
@@ -825,6 +827,7 @@ function remoteLeadToUi(row) {
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || row.created_at || "",
     version: Number(row.version || 1),
+    source_submission_id: row.source_submission_id || raw.submission_id || raw.source_submission_id || "",
     assignedUserId: row.assigned_user_id || "",
     next: raw.follow_up_date || "Office follow-up needed",
     followUpDate: raw.follow_up_date || "",
@@ -857,6 +860,7 @@ function remoteApplicationToUi(row) {
     receivedAt: row.received_at || row.created_at,
     updatedAt: row.updated_at || row.created_at,
     version: Number(row.version || 1),
+    source_submission_id: row.source_submission_id || raw.submission_id || raw.source_submission_id || "",
     assignedUserId: row.assigned_user_id || "",
     inquiry_type: row.inquiry_type || raw.inquiry_type || "full_application",
     source_form: row.source_form || raw.source_form || "",
@@ -4208,6 +4212,32 @@ const LEAD_FIELD_ALIASES = {
   phone_required_notice_text: ["phone_required_notice_text"]
 };
 
+const LEAD_VERIFIED_DELIVERY_FIELDS = [
+  { key: "delivery_supabase_verified", label: "Delivery Supabase", destination: "supabase" },
+  { key: "delivery_google_verified", label: "Delivery Google", destination: "google_form_sheet" },
+  { key: "delivery_email_verified", label: "Delivery Email", destination: "formsubmit_email" }
+];
+
+const LEAD_INTERNAL_RAW_FIELD_KEYS = new Set([
+  "delivery_local",
+  "Delivery Local",
+  "deliveryLocal",
+  "delivery_google",
+  "Delivery Google",
+  "deliveryGoogle",
+  "delivery_email",
+  "Delivery Email",
+  "deliveryEmail",
+  "delivery_supabase",
+  "Delivery Supabase",
+  "deliverySupabase",
+  "delivery_complete",
+  "deliveryComplete",
+  "request_id",
+  "requestId",
+  "payload_hash"
+]);
+
 function leadRawPayload(lead) {
   return lead?.rawPayload || lead?.raw_payload || {};
 }
@@ -4236,6 +4266,46 @@ function leadValueText(value) {
   return String(value ?? "");
 }
 
+function leadDeliveryMatchTokens(lead = {}) {
+  const raw = leadRawPayload(lead);
+  return {
+    entityIds: new Set([lead.remoteId, lead.id, raw.entity_id].map(value => String(value || "").trim()).filter(Boolean)),
+    submissionIds: new Set([
+      lead.source_submission_id,
+      raw.source_submission_id,
+      raw.submission_id,
+      raw.sourceSubmissionId
+    ].map(value => String(value || "").trim()).filter(Boolean))
+  };
+}
+
+function deliveryAttemptsForLead(lead, destination = "") {
+  const tokens = leadDeliveryMatchTokens(lead);
+  return (remoteDeliveryAttempts || [])
+    .filter(attempt => {
+      if (destination && attempt.destination !== destination) return false;
+      const entityId = String(attempt.entity_id || "").trim();
+      const submissionId = String(attempt.submission_id || "").trim();
+      return (entityId && tokens.entityIds.has(entityId)) || (submissionId && tokens.submissionIds.has(submissionId));
+    })
+    .sort((a, b) => timestampValue(b.created_at || b.updated_at) - timestampValue(a.created_at || a.updated_at));
+}
+
+function leadDeliveryStatusText(lead, destination) {
+  if (destination === "supabase" && (lead.remoteId || lead.id) && remoteReady) {
+    const accepted = deliveryAttemptsForLead(lead, "supabase").find(attempt => attempt.status === "accepted");
+    const when = accepted ? `\nAudit accepted ${formatDateTime(accepted.created_at || accepted.updated_at)}` : "";
+    return `Confirmed by canonical Supabase lead record${when}`;
+  }
+  const attempts = deliveryAttemptsForLead(lead, destination);
+  const accepted = attempts.find(attempt => attempt.status === "accepted");
+  if (accepted) return `Accepted\n${formatDateTime(accepted.created_at || accepted.updated_at)}${accepted.request_id ? `\nRequest ${accepted.request_id}` : ""}`;
+  const latest = attempts[0];
+  if (!latest) return "Not recorded in delivery audit";
+  const status = leadRawFieldLabel(latest.status || "pending");
+  return `${status}\n${formatDateTime(latest.created_at || latest.updated_at)}${latest.error_summary ? `\n${latest.error_summary}` : ""}`;
+}
+
 function leadInterestList(lead = {}) {
   const raw = leadRawPayload(lead);
   const combined = leadValueText(lead.additional_interest || raw.additional_interest || raw.additional_interests || "");
@@ -4252,6 +4322,8 @@ function leadHasInterest(lead, label, fieldKey) {
 function leadSubmittedFieldValue(lead, key, label) {
   const raw = leadRawPayload(lead);
   const names = leadNameParts(lead);
+  const verifiedDelivery = LEAD_VERIFIED_DELIVERY_FIELDS.find(field => field.key === key);
+  if (verifiedDelivery) return leadDeliveryStatusText(lead, verifiedDelivery.destination);
   if (key === "first_name") return names.first;
   if (key === "last_name") return names.last;
   if (key === "phone") return formatPhoneNumber(leadRawValue(lead, key)) || "";
@@ -4290,6 +4362,12 @@ function leadSheetFields(rows = []) {
     seen.add(field.label);
     (LEAD_FIELD_ALIASES[field.key] || []).forEach(alias => seen.add(alias));
   });
+  LEAD_INTERNAL_RAW_FIELD_KEYS.forEach(key => seen.add(key));
+  LEAD_VERIFIED_DELIVERY_FIELDS.forEach(field => {
+    fields.push({ ...field });
+    seen.add(field.key);
+    seen.add(field.label);
+  });
   rows.forEach(lead => {
     Object.keys(leadRawPayload(lead)).forEach(key => {
       if (!key || seen.has(key)) return;
@@ -4302,7 +4380,7 @@ function leadSheetFields(rows = []) {
 
 function leadSheetView(rows) {
   const fields = leadSheetFields(rows);
-  return `<div class="application-sheet-actions lead-sheet-actions"><span class="status live">Detailed Lead Sheet</span><p>Every submitted lead-form field is shown first, followed by any extra raw submission fields captured with the record. Click any row to open the lead record and notes.</p></div><div class="table-wrap application-sheet-table-wrap lead-sheet-table-wrap"><table class="data-table application-sheet-table lead-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(lead => `<tr data-open-lead="${escapeHtml(lead.id)}">${fields.map(field => `<td>${escapeHtml(leadSubmittedFieldValue(lead, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No lead submissions match the current filters.</td></tr>`}</tbody></table></div>`;
+  return `<div class="application-sheet-actions lead-sheet-actions"><span class="status live">Detailed Lead Sheet</span><p>Submitted lead-form fields are shown first. Delivery columns are computed from the server audit log, followed by any extra raw submission fields captured with the record. Click any row to open the lead record and notes.</p></div><div class="table-wrap application-sheet-table-wrap lead-sheet-table-wrap"><table class="data-table application-sheet-table lead-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(lead => `<tr data-open-lead="${escapeHtml(lead.id)}">${fields.map(field => `<td>${escapeHtml(leadSubmittedFieldValue(lead, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No lead submissions match the current filters.</td></tr>`}</tbody></table></div>`;
 }
 
 function leadPipelineTable(admin) {
@@ -4310,7 +4388,7 @@ function leadPipelineTable(admin) {
   const rows = filteredLeadRows(baseRows);
   const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
-  return `${leadDateControls()}${leadWorkspaceControls(admin)}<p class="panel-copy lead-result-count">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}.</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table"><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
+  return `${leadDateControls()}${leadWorkspaceControls(admin)}<p class="panel-copy lead-result-count">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}.</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
 }
 
 function leadWorkspaceControls(admin) {
@@ -6527,6 +6605,13 @@ async function recordClientFormDelivery(entries, canonical, status, error = "") 
   });
   if (!response.ok) throw new Error("Browser delivery result could not be logged.");
 }
+
+document.addEventListener("toggle", event => {
+  const details = event.target?.matches?.("[data-lead-sheet-details]") ? event.target : null;
+  if (!details) return;
+  state.leadDetailSheetOpen = Boolean(details.open);
+  persistStateSnapshot();
+}, true);
 
 document.addEventListener("click", async event => {
   const horizontalScroll = event.target.closest("[data-scroll-horizontal]");
