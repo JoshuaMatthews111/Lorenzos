@@ -359,6 +359,7 @@ let remoteSyncError = "";
 let operationalSyncTimer = null;
 let operationalRealtimeUnsubscribe = null;
 let operationalRealtimeDebounce = null;
+let leadFilterRenderTimer = null;
 applyUrlState();
 
 function loadState() {
@@ -527,6 +528,15 @@ function saveState(message, skipRender = false) {
   persistStateSnapshot();
   if (message) showToast(message);
   if (!skipRender) render();
+}
+
+function scheduleLeadFilterRender() {
+  persistStateSnapshot();
+  window.clearTimeout(leadFilterRenderTimer);
+  leadFilterRenderTimer = window.setTimeout(() => {
+    leadFilterRenderTimer = null;
+    render();
+  }, 180);
 }
 
 function saveSession(role, extras = {}) {
@@ -3305,7 +3315,7 @@ function adminNav() {
     ["trainerPages", "Trainer Pages", "globe"],
     ["pageEditor", "Page Editor", "edit"],
     ["trainers", "Trainers", "users"],
-    ["leads", "Leads", "lead", unengagedLeadRows().length],
+    ["leads", "Leads", "lead", filteredLeadRows(allLeadRows()).length],
     ["applications", "Applications", "message", applicationRows().filter(applicationNeedsAction).length],
     ["clients", "Clients", "users"],
     ["approvals", "Reviews", "star", pendingReviewSubmissions().length],
@@ -3335,7 +3345,7 @@ function canAccessAdminView(view) {
 function trainerNav() {
   return [
     ["dashboard", "Dashboard", "dashboard"],
-    ["leads", "My Leads", "lead", trainerLeads().filter(l => !["Archived", "Became a Client"].includes(l.status)).length],
+    ["leads", "My Leads", "lead", filteredLeadRows(trainerLeads(), { useWorkspaceFilters: false }).filter(l => !["Archived", "Became a Client"].includes(l.status)).length],
     ["myPage", "My Trainer Page", "monitor"],
     ["performance", "Performance", "report"],
     ["submitMedia", "Submit Photos/Videos", "media", trainerMediaSubmissions().filter(s => s.status === "Pending").length],
@@ -3475,7 +3485,7 @@ const adminScreens = {
       : `${trainerAdminForm()}<br>${panel("Existing Trainer Profiles", `<button class="btn btn-red" id="addTrainer">+ Add New Trainer</button>`, trainerSelectList(), "pad")}`;
   },
   leads() {
-    return `${leadSourceRecordNotice()}${panel("Office Lead Pipeline", `<button class="btn btn-outline" data-filter-leads="all">All Statuses</button><button class="btn btn-outline" data-export-operational="leads">Download Lead Sheet</button>`, leadPipelineTable(true), "pad")}`;
+    return `${leadSourceRecordNotice()}${panel("Office Lead Pipeline", leadPanelActions(), leadPipelineTable(true), "pad")}`;
   },
   applications() {
     const apps = applicationRows();
@@ -3560,7 +3570,7 @@ const trainerScreens = {
   },
   performance() {
     const trainer = trainerById(currentTrainerId());
-    const leads = filteredLeadRows(trainerLeads(trainer.id));
+    const leads = filteredLeadRows(trainerLeads(trainer.id), { useWorkspaceFilters: false });
     const trueConversions = leads.filter(l => conversionStatuses().includes(l.status)).length;
     return `${metricGrid([
       ["lead", "Leads In Range", leads.length, leadRangeLabel(), ""],
@@ -4106,18 +4116,118 @@ function stateFromAddress(address = "") {
 }
 
 function leadSourceRecordNotice() {
-  const contactCount = realLeadRows().length;
+  const totalCount = realLeadRows().length;
+  const visibleCount = filteredLeadRows(realLeadRows()).length;
+  const filterNote = visibleCount === totalCount
+    ? `${totalCount} lead${totalCount === 1 ? "" : "s"} ${totalCount === 1 ? "is" : "are"} currently available to authorized office users.`
+    : `${totalCount} total lead${totalCount === 1 ? "" : "s"} are available. Current filters show ${visibleCount}.`;
   return `<div class="source-record-note lead-source-note">
     <span class="status live">Contact Lead Feed Active</span>
-    <p>Contact forms continue to log to the connected Google Sheet and office email while Supabase keeps the shared office lead record. ${contactCount} lead${contactCount === 1 ? "" : "s"} ${contactCount === 1 ? "is" : "are"} currently available to authorized office users.</p>
+    <p>Contact forms continue to log to the connected Google Sheet and office email while Supabase keeps the shared office lead record. ${filterNote}</p>
   </div><br>`;
 }
 
-function leadDateControls() {
+function leadPanelActions() {
+  const rows = allLeadRows();
+  const currentCount = filteredLeadRows(rows).length;
+  const allStatusCount = leadFilterCount(rows, { leadStatusFilter: "All" });
+  return `<button class="btn btn-outline" data-filter-leads="all">All Statuses (${allStatusCount})</button><button class="btn btn-outline" data-export-operational="leads">Download Lead Sheet (${currentCount})</button>`;
+}
+
+const LEAD_RANGE_OPTIONS = [["7", "Last 7 Days"], ["30", "Last 30 Days"], ["60", "Last 60 Days"]];
+const LEAD_SMS_FILTER_OPTIONS = ["Yes", "No", "Unknown"];
+
+function leadDateRangeWindow(overrides = {}) {
+  const range = overrides.leadDateRange ?? state.leadDateRange;
+  const customStart = overrides.customLeadStart ?? state.customLeadStart;
+  const customEnd = overrides.customLeadEnd ?? state.customLeadEnd;
+  const end = range === "custom" ? new Date(`${customEnd}T23:59:59`) : new Date();
+  const days = Number(range || 60);
+  const start = range === "custom"
+    ? new Date(`${customStart}T00:00:00`)
+    : new Date(end.getTime() - (days - 1) * 86400000);
+  return { start, end };
+}
+
+function leadSearchHaystack(lead = {}) {
+  return [lead.owner, lead.dog, lead.phone, lead.email, lead.address, lead.source, lead.service, leadMarketLabel(lead), trainerName(lead.trainerId)]
+    .join(" ")
+    .toLowerCase();
+}
+
+function leadMatchesTrainerFilter(lead, trainerFilter) {
+  if (trainerFilter === "All") return true;
+  const selectedTrainer = findTrainer(trainerFilter);
+  const leadTrainer = findTrainer(lead.trainerId);
+  return Boolean(selectedTrainer && leadTrainer && selectedTrainer.id === leadTrainer.id);
+}
+
+function leadMatchesFilters(lead, options = {}) {
+  const ignore = new Set(Array.isArray(options.ignore) ? options.ignore : []);
+  const overrides = options.overrides || {};
+  const useWorkspaceFilters = options.useWorkspaceFilters !== false;
+  if (!ignore.has("date")) {
+    const created = parseRecordDate(lead.createdAt);
+    const { start, end } = leadDateRangeWindow(overrides);
+    if (!created || created < start || created > end) return false;
+  }
+  if (!useWorkspaceFilters) return true;
+  const search = overrides.leadSearch ?? state.leadSearch;
+  const trainerFilter = overrides.leadTrainerFilter ?? state.leadTrainerFilter;
+  const statusFilter = overrides.leadStatusFilter ?? state.leadStatusFilter;
+  const smsFilter = overrides.leadSmsFilter ?? state.leadSmsFilter;
+  return (ignore.has("search") || !search || leadSearchHaystack(lead).includes(String(search).toLowerCase()))
+    && (ignore.has("trainer") || leadMatchesTrainerFilter(lead, trainerFilter))
+    && (ignore.has("status") || statusFilter === "All" || lead.status === statusFilter)
+    && (ignore.has("sms") || smsFilter === "All" || lead.smsConsent === smsFilter);
+}
+
+function filteredLeadRows(rows, options = {}) {
+  return [...rows]
+    .sort((a, b) => timestampValue(b.createdAt) - timestampValue(a.createdAt))
+    .filter(lead => leadMatchesFilters(lead, options));
+}
+
+function leadFilterCount(rows, overrides = {}, options = {}) {
+  return filteredLeadRows(rows, {
+    ...options,
+    overrides: { ...(options.overrides || {}), ...overrides }
+  }).length;
+}
+
+function leadOptionLabel(label, count) {
+  return `${label} (${count})`;
+}
+
+function activeLeadFilterLabels(admin = true) {
+  const labels = [];
+  if (admin && state.leadTrainerFilter !== "All") labels.push(`Trainer: ${trainerName(state.leadTrainerFilter)}`);
+  if (admin && state.leadStatusFilter !== "All") labels.push(`Status: ${state.leadStatusFilter}`);
+  if (admin && state.leadSmsFilter !== "All") labels.push(`SMS: ${state.leadSmsFilter}`);
+  if (admin && state.leadSearch) labels.push(`Search: "${state.leadSearch}"`);
+  return labels;
+}
+
+function leadResultCountText(rows, baseRows, admin = true) {
+  const dateTotal = filteredLeadRows(baseRows, {
+    useWorkspaceFilters: false,
+    overrides: {
+      leadDateRange: state.leadDateRange,
+      customLeadStart: state.customLeadStart,
+      customLeadEnd: state.customLeadEnd
+    }
+  }).length;
+  const filters = activeLeadFilterLabels(admin);
+  const noun = rows.length === 1 ? "lead" : "leads";
+  if (!filters.length) return `Showing ${rows.length} ${noun} from ${leadRangeLabel()}.`;
+  return `Showing ${rows.length} of ${dateTotal} ${dateTotal === 1 ? "lead" : "leads"} from ${leadRangeLabel()}. Active filters: ${filters.join("; ")}.`;
+}
+
+function leadDateControls(baseRows = allLeadRows(), options = {}) {
   return `<div class="lead-date-controls">
     <span>Lead date:</span>
-    ${[["7", "Last 7 Days"], ["30", "Last 30 Days"], ["60", "Last 60 Days"]].map(([value, label]) => `<button class="btn ${state.leadDateRange === value ? "btn-red" : "btn-outline"}" data-lead-range="${value}">${label}</button>`).join("")}
-    <button class="btn ${state.leadDateRange === "custom" ? "btn-red" : "btn-outline"}" data-lead-range="custom">Custom</button>
+    ${LEAD_RANGE_OPTIONS.map(([value, label]) => `<button class="btn ${state.leadDateRange === value ? "btn-red" : "btn-outline"}" data-lead-range="${value}">${escapeHtml(leadOptionLabel(label, leadFilterCount(baseRows, { leadDateRange: value }, options)))}</button>`).join("")}
+    <button class="btn ${state.leadDateRange === "custom" ? "btn-red" : "btn-outline"}" data-lead-range="custom">${escapeHtml(leadOptionLabel("Custom", leadFilterCount(baseRows, { leadDateRange: "custom" }, options)))}</button>
     <input class="select-pill" type="date" name="lead-custom-start" value="${escapeHtml(state.customLeadStart)}">
     <input class="select-pill" type="date" name="lead-custom-end" value="${escapeHtml(state.customLeadEnd)}">
   </div>`;
@@ -4136,23 +4246,6 @@ function reportDateControls() {
 function reportRangeLabel() {
   if (state.reportDateRange === "custom") return `${state.customReportStart} to ${state.customReportEnd}`;
   return `last ${state.reportDateRange} days`;
-}
-
-function filteredLeadRows(rows) {
-  const sorted = [...rows].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-  const { start, end } = dateRangeWindow("lead");
-  return sorted.filter(lead => {
-    const rawCreated = String(lead.createdAt || "");
-    const created = /^\d{4}-\d{2}-\d{2}$/.test(rawCreated)
-      ? new Date(`${rawCreated}T00:00:00`)
-      : new Date(rawCreated);
-    const haystack = [lead.owner, lead.dog, lead.phone, lead.email, lead.address, lead.source, lead.service, leadMarketLabel(lead), trainerName(lead.trainerId)].join(" ").toLowerCase();
-    return created >= start && created <= end
-      && (!state.leadSearch || haystack.includes(state.leadSearch.toLowerCase()))
-      && (state.leadStatusFilter === "All" || lead.status === state.leadStatusFilter)
-      && (state.leadTrainerFilter === "All" || Boolean(findTrainer(state.leadTrainerFilter)) && Boolean(findTrainer(lead.trainerId)) && findTrainer(state.leadTrainerFilter).id === findTrainer(lead.trainerId).id)
-      && (state.leadSmsFilter === "All" || lead.smsConsent === state.leadSmsFilter);
-  });
 }
 
 function leadRangeLabel() {
@@ -4385,15 +4478,22 @@ function leadSheetView(rows) {
 
 function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
-  const rows = filteredLeadRows(baseRows);
+  const filterOptions = { useWorkspaceFilters: admin };
+  const rows = filteredLeadRows(baseRows, filterOptions);
   const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
-  return `${leadDateControls()}${leadWorkspaceControls(admin)}<p class="panel-copy lead-result-count">Showing ${rows.length} lead${rows.length === 1 ? "" : "s"} from ${escapeHtml(leadRangeLabel())}.</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
+  return `${leadDateControls(baseRows, filterOptions)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
 }
 
-function leadWorkspaceControls(admin) {
+function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
   if (!admin) return "";
-  return `<div class="lead-workspace-controls"><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer"><option value="All">All trainers</option>${state.trainers.map(t => `<option value="${t.id}" ${state.leadTrainerFilter === t.id ? "selected" : ""}>${escapeHtml(t.name)}</option>`).join("")}</select><select class="select-pill" data-lead-filter="status"><option>All</option>${leadStatuses.map(s => `<option ${state.leadStatusFilter === s ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select><select class="select-pill" data-lead-filter="sms"><option value="All">All SMS choices</option>${["Yes","No","Unknown"].map(value => `<option ${state.leadSmsFilter === value ? "selected" : ""}>${value}</option>`).join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
+  const trainerOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All trainers", leadFilterCount(baseRows, { leadTrainerFilter: "All" })))}</option>`]
+    .concat(state.trainers.map(t => `<option value="${t.id}" ${state.leadTrainerFilter === t.id ? "selected" : ""}>${escapeHtml(leadOptionLabel(t.name, leadFilterCount(baseRows, { leadTrainerFilter: t.id })))}</option>`));
+  const statusOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All statuses", leadFilterCount(baseRows, { leadStatusFilter: "All" })))}</option>`]
+    .concat(leadStatuses.map(status => `<option value="${escapeHtml(status)}" ${state.leadStatusFilter === status ? "selected" : ""}>${escapeHtml(leadOptionLabel(status, leadFilterCount(baseRows, { leadStatusFilter: status })))}</option>`));
+  const smsOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All SMS choices", leadFilterCount(baseRows, { leadSmsFilter: "All" })))}</option>`]
+    .concat(LEAD_SMS_FILTER_OPTIONS.map(value => `<option value="${value}" ${state.leadSmsFilter === value ? "selected" : ""}>${escapeHtml(leadOptionLabel(value, leadFilterCount(baseRows, { leadSmsFilter: value })))}</option>`));
+  return `<div class="lead-workspace-controls"><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
 const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client", "Lost"];
@@ -5437,9 +5537,9 @@ function exportOperationalSheet(kind) {
 }
 
 function exportLeadsCsv() {
-  const leadRecords = allLeadRows();
+  const leadRecords = filteredLeadRows(allLeadRows());
   if (!leadRecords.length) {
-    showToast("No leads are available to export.");
+    showToast("No leads match the current filters.");
     return;
   }
   const fields = leadSheetFields(leadRecords);
@@ -7056,6 +7156,12 @@ document.addEventListener("click", async event => {
     saveState();
     return;
   }
+  const resetLeadStatus = event.target.closest("[data-filter-leads='all']");
+  if (resetLeadStatus) {
+    state.leadStatusFilter = "All";
+    saveState(`Showing ${filteredLeadRows(allLeadRows()).length} leads across all statuses`);
+    return;
+  }
   const convertLead = event.target.closest("[data-convert-lead]");
   if (convertLead) {
     const lead = allLeadRows().find(item => item.id === convertLead.dataset.convertLead);
@@ -7670,7 +7776,7 @@ document.addEventListener("input", event => {
       saveState(null, true);
     }
   }
-  if (field.dataset.leadSearch !== undefined) { state.leadSearch = field.value; saveState(null, true); }
+  if (field.dataset.leadSearch !== undefined) { state.leadSearch = field.value; scheduleLeadFilterRender(); }
   if (field.id === "csvInput") {
     state.importDraft = field.value;
     saveState(null, true);
@@ -7678,12 +7784,12 @@ document.addEventListener("input", event => {
   if (field.name === "lead-custom-start") {
     state.customLeadStart = field.value;
     state.leadDateRange = "custom";
-    saveState(null, true);
+    scheduleLeadFilterRender();
   }
   if (field.name === "lead-custom-end") {
     state.customLeadEnd = field.value;
     state.leadDateRange = "custom";
-    saveState(null, true);
+    scheduleLeadFilterRender();
   }
   if (field.name === "report-custom-start") {
     state.customReportStart = field.value;
