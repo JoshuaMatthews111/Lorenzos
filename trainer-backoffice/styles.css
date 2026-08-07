@@ -4542,8 +4542,10 @@ body.form-modal-open {
 .mini-bars span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:1rem;color:#16345a}
 .mini-bars b{display:block;min-width:42px;padding:9px 12px;border-radius:999px;background:#315eea;color:#fff;font-size:.9rem;text-align:right}
 .application-sheet-table-wrap{max-height:620px;overflow:auto;border:1px solid var(--line);border-radius:18px;background:#fff}
-.application-sheet-table{min-width:1280px}
+.application-sheet-table{min-width:7200px}
 .application-sheet-table th{position:sticky;top:0;z-index:2;background:#f7fbff}
+.application-sheet-table th,.application-sheet-table td{min-width:150px;vertical-align:top;white-space:pre-wrap}
+.application-sheet-table tr[data-open-application]{cursor:pointer}
 .lead-sheet-table-wrap{max-height:640px}
 .lead-sheet-table{min-width:2850px}
 .lead-sheet-table th,.lead-sheet-table td{min-width:150px;vertical-align:top;white-space:pre-wrap}

@@ -5220,8 +5220,23 @@ function applicationStatusFilterBar() {
 }
 
 const APPLICATION_FIELD_ALIASES = {
+  createdAt: ["received_at", "created_at", "Timestamp"],
+  referral_source: ["heard_about_us", "How did you hear about Lorenzo's Dog Training Team? *", "How were you referred to this opportunity?"],
+  birthdate: ["date_of_birth", "Date of Birth", "Birthdate"],
+  legally_eligible: ["work_eligibility", "eligible_to_work"],
+  drug_test: ["willing_drug_test"],
+  felony: ["felony_conviction"],
   date_of_conviction: ["conviction_date"],
   date_of_release: ["release_date"],
+  comfortable_dogs: ["comfortable_working_dogs"],
+  dog_bite_history: ["bitten_by_dog"],
+  owns_dogs: ["owned_dogs"],
+  owned_dogs_description: ["dog_experience", "describe_dog_experience"],
+  workout: ["physically_active"],
+  lift_100: ["lift_control_100"],
+  run_2_miles: ["run_walk_two_miles"],
+  team_player: ["comfortable_system_team"],
+  reliable_vehicle: ["reliable_transportation"],
   trade_technical_school: ["trade_school"],
   college_university: ["college"],
   company: ["employment_1_company"],
@@ -5259,30 +5274,94 @@ const APPLICATION_FIELD_ALIASES = {
   end_date_3: ["employment_3_end_date"],
   ending_job_title_3: ["employment_3_job_title"],
   salary_earnings_3: ["employment_3_salary"],
-  reason_for_leaving_3: ["employment_3_reason"]
+  reason_for_leaving_3: ["employment_3_reason"],
+  sms_consent_text: ["sms_agreement_text", "sms_disclosure", "sms_opt_in_text"],
+  application_certification: ["certification", "certification_text", "application_certification_text", "certify_true_complete"]
 };
 
 function applicationBaseFields() {
-  const fields = IMPORTED_APPLICATION_FIELDS.length ? IMPORTED_APPLICATION_FIELDS : [
+  const fields = [
     { key: "createdAt", label: "Timestamp" },
-    { key: "first_name", label: "First Name" },
-    { key: "last_name", label: "Last Name" },
-    { key: "email", label: "Email" },
-    { key: "phone", label: "Phone" },
-    { key: "address_line_1", label: "Address Line 1" },
-    { key: "address_line_2", label: "Address Line 2" },
-    { key: "city", label: "City" },
-    { key: "state", label: "State" },
-    { key: "zip", label: "Zip Code" },
-    { key: "referral_source", label: "How were you referred to this opportunity?" },
-    { key: "signature", label: "Signature" }
+    { key: "referral_source", label: "How did you hear about Lorenzo's Dog Training Team? *" },
+    { key: "first_name", label: "First Name *" },
+    { key: "last_name", label: "Last Name *" },
+    { key: "address_line_1", label: "Address Line 1 *" },
+    { key: "address_line_2", label: "Address Line 2 (optional)" },
+    { key: "city", label: "City *" },
+    { key: "state", label: "State *" },
+    { key: "zip", label: "ZIP Code *" },
+    { key: "email", label: "Email Address *" },
+    { key: "phone", label: "Phone *" },
+    { key: "birthdate", label: "Date of Birth" },
+    { key: "legally_eligible", label: "Are you legally eligible to work in the United States? *" },
+    { key: "drug_test", label: "Are you willing to submit to a drug test? *" },
+    { key: "felony", label: "Have you ever been convicted of a felony? *" },
+    { key: "felony_explanation", label: "If yes, please explain" },
+    { key: "date_of_conviction", label: "Conviction Date" },
+    { key: "date_of_release", label: "Release Date" },
+    { key: "comfortable_dogs", label: "Are you comfortable working around dogs of different sizes, breeds, and temperaments? *" },
+    { key: "dog_bite_history", label: "Have you ever been bitten by a dog? *" },
+    { key: "dog_bite_explanation", label: "If yes, please explain" },
+    { key: "owns_dogs", label: "Do you currently own, or have you previously owned, dogs? *" },
+    { key: "owned_dogs_description", label: "Describe your dog experience" },
+    { key: "physical_condition", label: "How would you describe your physical condition? *" },
+    { key: "workout", label: "Do you work out or stay physically active? *" },
+    { key: "lift_100", label: "Can you lift or control up to 100 pounds when needed? *" },
+    { key: "run_2_miles", label: "Could you run or walk two miles if the work required it? *" },
+    { key: "smoke", label: "Do you smoke? *" },
+    { key: "team_player", label: "Are you comfortable working inside a system and being part of a team? *" },
+    { key: "reliable_vehicle", label: "Do you have reliable transportation? *" },
+    { key: "drivers_license", label: "Do you have a valid driver's license? *" },
+    { key: "cleveland_training", label: "Are you willing and able to travel for required training in Cleveland, Ohio if accepted? *" },
+    { key: "education_level", label: "Highest education level completed" },
+    { key: "high_school", label: "High School" },
+    { key: "trade_technical_school", label: "Trade School" },
+    { key: "military", label: "Military Service" },
+    { key: "college_university", label: "College" },
+    { key: "additional_training", label: "Additional training, certifications, or experience" },
+    { key: "company", label: "Employment History 1 - Company *" },
+    { key: "ending_job_title", label: "Employment History 1 - Ending Job Title *" },
+    { key: "company_address", label: "Employment History 1 - Company Address *" },
+    { key: "city_2", label: "Employment History 1 - City *" },
+    { key: "state_2", label: "Employment History 1 - State *" },
+    { key: "zip_code_2", label: "Employment History 1 - ZIP Code *" },
+    { key: "are_you_still_employed", label: "Employment History 1 - Are you still employed? *" },
+    { key: "start_date", label: "Employment History 1 - Start Date *" },
+    { key: "end_date", label: "Employment History 1 - End Date *" },
+    { key: "salary_earnings", label: "Employment History 1 - Salary Earnings (USD / year) *" },
+    { key: "reason_for_leaving", label: "Employment History 1 - Reason for leaving" },
+    { key: "company_2", label: "Employment History 2 - Company" },
+    { key: "ending_job_title_2", label: "Employment History 2 - Ending Job Title" },
+    { key: "company_address_2", label: "Employment History 2 - Company Address" },
+    { key: "city_3", label: "Employment History 2 - City" },
+    { key: "state_3", label: "Employment History 2 - State" },
+    { key: "zip_code_3", label: "Employment History 2 - ZIP Code" },
+    { key: "are_you_still_employed_2", label: "Employment History 2 - Are you still employed?" },
+    { key: "start_date_2", label: "Employment History 2 - Start Date" },
+    { key: "end_date_2", label: "Employment History 2 - End Date" },
+    { key: "salary_earnings_2", label: "Employment History 2 - Salary Earnings (USD / year)" },
+    { key: "reason_for_leaving_2", label: "Employment History 2 - Reason for leaving" },
+    { key: "company_3", label: "Employment History 3 - Company" },
+    { key: "ending_job_title_3", label: "Employment History 3 - Ending Job Title" },
+    { key: "company_address_3", label: "Employment History 3 - Company Address" },
+    { key: "city_4", label: "Employment History 3 - City" },
+    { key: "state_4", label: "Employment History 3 - State" },
+    { key: "zip_code_4", label: "Employment History 3 - ZIP Code" },
+    { key: "are_you_still_employed_3", label: "Employment History 3 - Are you still employed?" },
+    { key: "start_date_3", label: "Employment History 3 - Start Date" },
+    { key: "end_date_3", label: "Employment History 3 - End Date" },
+    { key: "salary_earnings_3", label: "Employment History 3 - Salary Earnings (USD / year)" },
+    { key: "reason_for_leaving_3", label: "Employment History 3 - Reason for leaving" },
+    { key: "sms_consent", label: "SMS consent checkbox/agreement accepted" },
+    { key: "sms_consent_text", label: "SMS consent checkbox/agreement text" },
+    { key: "signature", label: "Electronic Signature *" },
+    { key: "application_certification", label: "*I certify that the information provided is true and complete to the best of my knowledge." }
   ];
   const existing = new Set(fields.map(field => field.key));
-  [
-    { key: "sms_consent", label: "SMS Opt-In" },
-    { key: "application_certification", label: "Application Certification" }
-  ].forEach(field => {
-    if (!existing.has(field.key)) fields.push(field);
+  IMPORTED_APPLICATION_FIELDS.forEach(field => {
+    if (!field?.key || existing.has(field.key)) return;
+    fields.push(field);
+    existing.add(field.key);
   });
   return fields;
 }
@@ -5310,7 +5389,7 @@ function applicationRawPayload(app) {
 }
 
 function applicationFieldValue(app, key, label) {
-  const keys = [key, ...(APPLICATION_FIELD_ALIASES[key] || [])];
+  const keys = [key, label, ...(APPLICATION_FIELD_ALIASES[key] || [])];
   for (const item of keys) {
     if (app[item] != null && app[item] !== "") return String(app[item]);
   }
@@ -5352,7 +5431,7 @@ function applicationChartCard(rows, field) {
 
 function applicationSheetView(rows) {
   const fields = applicationExportFields(rows);
-  return `<div class="table-wrap application-sheet-table-wrap"><table class="data-table application-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr>${fields.map(field => `<td>${escapeHtml(applicationFieldValue(row, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No trainer application responses have been loaded yet.</td></tr>`}</tbody></table></div>`;
+  return `<div class="application-sheet-actions"><span class="status live">Detailed Application Sheet</span><p>Every trainer application field is shown in the approved order. Blank answers stay visible as blank columns so the office can see exactly what was and was not submitted.</p></div><div class="table-wrap application-sheet-table-wrap"><table class="data-table application-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(row => `<tr data-open-application="${escapeHtml(row.id)}">${fields.map(field => `<td>${escapeHtml(applicationFieldValue(row, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No trainer application responses have been loaded yet.</td></tr>`}</tbody></table></div>`;
 }
 
 function applicationIndividualView(rows) {

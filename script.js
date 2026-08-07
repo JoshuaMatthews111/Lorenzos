@@ -457,6 +457,12 @@ const wireAsyncForm=(form,{storageKey,successMessage,onSubmit})=>{
     data.set('session_id',ldttSessionId());
     data.set('page_url',window.location.href);
     data.set('sms_consent',data.get('sms_consent')==='yes'?'yes':'no');
+    if(form.classList.contains('trainer-application-form')){
+      const smsText=String(form.querySelector('input[name="sms_consent"]')?.closest('label')?.textContent||'').replace(/\s+/g,' ').trim();
+      const certificationText=String(form.querySelector('input[name="application_certification"]')?.closest('label')?.textContent||'').replace(/\s+/g,' ').trim();
+      if(smsText) data.set('sms_consent_text',smsText);
+      if(certificationText) data.set('application_certification_text',certificationText);
+    }
     if(isReleaseQaHost) data.set('qa','true');
     if(!data.get('source_page')) data.set('source_page',document.title);
     ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','gbraid','wbraid'].forEach(key=>{
