@@ -121,7 +121,11 @@ function entriesForGoogleSheet(formType, entries) {
   const copy = { ...entries };
   const smsOptIn = clean(copy.sms_consent).toLowerCase() === "yes" ? "Yes" : "No";
   const consentLines = [`SMS opt-in: ${smsOptIn}`];
-  if (copy.application_certification) consentLines.push(`Application certification: ${clean(copy.application_certification)}`);
+  if (copy.sms_consent_text) consentLines.push(`SMS disclosure: ${clean(copy.sms_consent_text)}`);
+  if (copy.phone_required_notice_text) consentLines.push(`Phone notice: ${clean(copy.phone_required_notice_text)}`);
+  if (copy.application_certification || copy.application_certification_text) {
+    consentLines.push(`Application certification: ${clean(copy.application_certification_text || copy.application_certification)}`);
+  }
   if (copy.additional_interest) consentLines.push(`Additional interest: ${clean(copy.additional_interest)}`);
   const consentNote = consentLines.join("\n");
   if (formType === "trainer_application") {

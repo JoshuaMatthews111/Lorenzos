@@ -457,10 +457,12 @@ const wireAsyncForm=(form,{storageKey,successMessage,onSubmit})=>{
     data.set('session_id',ldttSessionId());
     data.set('page_url',window.location.href);
     data.set('sms_consent',data.get('sms_consent')==='yes'?'yes':'no');
+    const smsText=String(form.querySelector('input[name="sms_consent"]')?.closest('label')?.textContent||'').replace(/\s+/g,' ').trim();
+    const phoneNoticeText=String(form.querySelector('.form-disclaimer')?.textContent||'').replace(/\s+/g,' ').trim();
+    if(smsText) data.set('sms_consent_text',smsText);
+    if(phoneNoticeText) data.set('phone_required_notice_text',phoneNoticeText);
     if(form.classList.contains('trainer-application-form')){
-      const smsText=String(form.querySelector('input[name="sms_consent"]')?.closest('label')?.textContent||'').replace(/\s+/g,' ').trim();
       const certificationText=String(form.querySelector('input[name="application_certification"]')?.closest('label')?.textContent||'').replace(/\s+/g,' ').trim();
-      if(smsText) data.set('sms_consent_text',smsText);
       if(certificationText) data.set('application_certification_text',certificationText);
     }
     if(isReleaseQaHost) data.set('qa','true');

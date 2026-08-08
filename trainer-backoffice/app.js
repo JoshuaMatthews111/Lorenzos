@@ -4,7 +4,7 @@ const SESSION_KEY = "lorenzoBackOfficeSession.v4";
 const PUBLIC_SITE_ORIGIN = "https://www.lorenzosdogtrainingteam.com";
 const TRAINER_TEMP_PASSWORD_NOTICE = "Provided privately by Lorenzo's office";
 const TEMP_PASSWORD = ""; // temp passwords are issued by the office privately — never shipped in public code
-const DEMO_TEST_PASSWORD = "doglover26";
+const DEMO_TEST_PASSWORD = "doglovers26";
 const SITE_EVENT_KEY = "ldttTrainerSiteEvents.v1";
 const RECOVERABLE_LOCAL_CACHE_KEYS = [
   SITE_EVENT_KEY,
@@ -221,6 +221,8 @@ const leadStatuses = [
 
 const CONTACT_SMS_DISCLOSURE_TEXT = "By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the Terms of Service and Privacy Policy.";
 const CONTACT_PHONE_REQUIRED_NOTICE_TEXT = "Phone is required so Lorenzo's office can call about your request. SMS consent is optional and separate from submitting this form.";
+const APPLICATION_CERTIFICATION_TEXT = "I certify that the information provided is true and complete to the best of my knowledge.";
+const APPLICATION_SMS_DISCLOSURE_TEXT = "By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about trainer recruiting, application follow-up, training opportunities, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the Terms of Service and Privacy Policy.";
 
 const clientStatuses = ["All", "Active", "Past", "Won", "Lost", "Bad Lead", "Do Not Contact", "Archived"];
 const defaultLeadEndDate = new Date();
@@ -246,9 +248,11 @@ const defaultState = {
   customReportStart: toDateInputValue(new Date(defaultLeadEndDate.getTime() - 29 * 86400000)),
   customReportEnd: toDateInputValue(defaultLeadEndDate),
   leadSearch: "",
+  applicationSearch: "",
   leadStatusFilter: "All",
   leadTrainerFilter: "All",
   leadSmsFilter: "All",
+  leadOwnerFilter: "All",
   leadViewMode: "board",
   leadDetailSheetOpen: false,
   selectedLeadId: "",
@@ -360,6 +364,7 @@ let operationalSyncTimer = null;
 let operationalRealtimeUnsubscribe = null;
 let operationalRealtimeDebounce = null;
 let leadFilterRenderTimer = null;
+let applicationFilterRenderTimer = null;
 applyUrlState();
 
 function loadState() {
@@ -512,9 +517,11 @@ function persistStateSnapshot() {
     customReportStart: state.customReportStart,
     customReportEnd: state.customReportEnd,
     leadSearch: state.leadSearch,
+    applicationSearch: state.applicationSearch,
     leadStatusFilter: state.leadStatusFilter,
     leadTrainerFilter: state.leadTrainerFilter,
     leadSmsFilter: state.leadSmsFilter,
+    leadOwnerFilter: state.leadOwnerFilter,
     leadViewMode: state.leadViewMode,
     leadDetailSheetOpen: state.leadDetailSheetOpen,
     builderDevice: state.builderDevice,
@@ -530,13 +537,56 @@ function saveState(message, skipRender = false) {
   if (!skipRender) render();
 }
 
-function scheduleLeadFilterRender() {
+function focusedPortalInputSnapshot() {
+  const active = document.activeElement;
+  if (!active || !["INPUT", "TEXTAREA"].includes(active.tagName)) return null;
+  const selector = active.dataset?.leadSearch !== undefined
+    ? "[data-lead-search]"
+    : active.dataset?.applicationSearch !== undefined
+      ? "[data-application-search]"
+      : "";
+  if (!selector) return null;
+  return {
+    selector,
+    start: active.selectionStart,
+    end: active.selectionEnd
+  };
+}
+
+function restorePortalInputFocus(snapshot) {
+  if (!snapshot?.selector) return;
+  requestAnimationFrame(() => {
+    const field = document.querySelector(snapshot.selector);
+    if (!field) return;
+    field.focus({ preventScroll: true });
+    if (typeof field.setSelectionRange === "function") {
+      const end = snapshot.end ?? field.value.length;
+      field.setSelectionRange(snapshot.start ?? end, end);
+    }
+  });
+}
+
+function scheduleFilteredWorkspaceRender(kind) {
   persistStateSnapshot();
-  window.clearTimeout(leadFilterRenderTimer);
-  leadFilterRenderTimer = window.setTimeout(() => {
-    leadFilterRenderTimer = null;
+  const snapshot = focusedPortalInputSnapshot();
+  const timer = kind === "application" ? applicationFilterRenderTimer : leadFilterRenderTimer;
+  window.clearTimeout(timer);
+  const nextTimer = window.setTimeout(() => {
+    if (kind === "application") applicationFilterRenderTimer = null;
+    else leadFilterRenderTimer = null;
     render();
+    restorePortalInputFocus(snapshot);
   }, 180);
+  if (kind === "application") applicationFilterRenderTimer = nextTimer;
+  else leadFilterRenderTimer = nextTimer;
+}
+
+function scheduleLeadFilterRender() {
+  scheduleFilteredWorkspaceRender("lead");
+}
+
+function scheduleApplicationFilterRender() {
+  scheduleFilteredWorkspaceRender("application");
 }
 
 function saveSession(role, extras = {}) {
@@ -581,6 +631,7 @@ leadStatusFromDb.follow_up_call_needed = "Office Contacted";
 const applicationStatusToDb = {
   "New Application": "new_application",
   "Under Review": "reviewing",
+  "Discovery Call Inquiry": "discovery_follow_up",
   "Discovery Follow-up": "discovery_follow_up",
   "Interview Scheduled": "reviewing",
   "Moved Forward": "moved_forward",
@@ -590,7 +641,7 @@ const applicationStatusToDb = {
 const applicationStatusFromDb = {
   new_application: "New Application",
   reviewing: "Under Review",
-  discovery_follow_up: "Discovery Follow-up",
+  discovery_follow_up: "Discovery Call Inquiry",
   moved_forward: "Moved Forward",
   not_a_fit: "Declined",
   archived: "Archived"
@@ -1020,14 +1071,16 @@ function mergeRemoteOperationalData(data) {
   state.applications = (data.applications || []).map(remoteApplicationToUi);
   remoteReviewPublications = data.reviewPublications || [];
   state.submissions = (data.submissions || []).map(remoteSubmissionToUi).map(submission => {
-    const publications = remoteReviewPublications.filter(item => item.submission_id === submission.remoteId && item.status === "published");
+    const publications = remoteReviewPublications.filter(item =>
+      item.submission_id === submission.remoteId && ["draft", "published"].includes(String(item.status || "").toLowerCase())
+    );
     if (!publications.length) return submission;
     return {
       ...submission,
       reviewTargets: publications.map(item => item.destination_type === "homepage"
         ? "lorenzos-team"
         : item.destination_type === "city_page" ? `city:${item.destination_id}` : item.destination_id),
-      status: "Approved"
+      status: publications.some(item => String(item.status || "").toLowerCase() === "published") ? "Approved" : submission.status
     };
   });
   state.clients = (data.clients || []).map(client => remoteClientToUi(client, data.dogs || []));
@@ -1499,8 +1552,6 @@ async function persistLeadRecord(lead) {
     operation: "update",
     entity_type: "lead",
     id: lead.remoteId,
-    expected_version: lead.version,
-    expected_updated_at: lead.updatedAt,
     action: "lead_updated",
     summary: `${lead.owner || "Lead"} saved as ${lead.status || "New Inquiry"}`,
     changes: {
@@ -1556,8 +1607,6 @@ async function saveEditableOfficeNote(entityType, entityId, noteId, note) {
     entity_type: entityType,
     entity_id: entityId,
     note_id: existing.id,
-    expected_version: existing?.version,
-    expected_updated_at: existing?.updated_at,
     note: String(note).trim()
   });
   await reloadRemoteData();
@@ -1610,8 +1659,6 @@ async function persistApplicationRecord(application) {
     operation: "update",
     entity_type: "application",
     id: application.remoteId,
-    expected_version: application.version,
-    expected_updated_at: application.updatedAt,
     action: "application_updated",
     summary: `${applicationDisplayName(application)} saved as ${application.status || "New Application"}`,
     changes: {
@@ -1644,8 +1691,6 @@ async function persistSubmissionRecord(submission) {
     operation: "update",
     entity_type: "submission",
     id: submission.remoteId,
-    expected_version: submission.version,
-    expected_updated_at: submission.updatedAt,
     action: "submission_updated",
     summary: `${submission.title || "Content submission"} saved as ${requestedStatus}`,
     changes: {
@@ -1735,6 +1780,23 @@ function reviewDisplayOptionsFor(submission = {}) {
   };
 }
 
+async function saveReviewDestinations(submission, published = false) {
+  if (!submission?.remoteId || !["Review", "Testimonial"].includes(submission.type)) return null;
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "set_review_publications",
+    submission_id: submission.remoteId,
+    destinations: reviewPublicationDestinations(submission),
+    published,
+    workflow_status: published ? "approved" : String(submission.status || "pending").toLowerCase(),
+    office_note: submission.officeNote || submission.note || "",
+    summary: `${submission.title || "Review"} destinations saved: ${reviewTargetLabels(submission)}`
+  });
+  submission.version = Number(result.version || submission.version || 1);
+  submission.updatedAt = result.updated_at || submission.updatedAt;
+  if (published) submission.status = "Approved";
+  return result;
+}
+
 async function publishApprovedReview(submission) {
   if (!submission?.remoteId || !["Review", "Testimonial"].includes(submission.type)) {
     if (submission) {
@@ -1772,17 +1834,7 @@ async function publishApprovedReview(submission) {
     ];
   }
   submission.status = "Approved";
-  const publicationResult = await window.LDTT_PORTAL.operationalMutation({
-    operation: "set_review_publications",
-    submission_id: submission.remoteId,
-    destinations: reviewPublicationDestinations(submission),
-    published: true,
-    workflow_status: "approved",
-    office_note: submission.officeNote || submission.note || "",
-    summary: `${submission.title || "Approved review"} published to ${reviewTargetLabels(submission)}`
-  });
-  submission.version = Number(publicationResult.version || submission.version || 1);
-  submission.updatedAt = publicationResult.updated_at || submission.updatedAt;
+  await saveReviewDestinations(submission, true);
   for (const target of trainerTargets) {
     const trainer = state.trainers.find(item => item.id === target);
     if (trainer) await persistTrainerRecord(trainer, { publish: true });
@@ -2357,8 +2409,6 @@ async function persistClientRecord(client) {
       operation: "update",
       entity_type: "client",
       id: client.remoteId,
-      expected_version: client.version,
-      expected_updated_at: client.updatedAt,
       action: "client_updated",
       summary: `${client.name || "Client"} record saved`,
       changes: payload
@@ -2403,12 +2453,9 @@ async function runRemoteMutation(message, action, options = {}) {
   } catch (error) {
     console.error(`LDTT ${message || "save"} failed`, error);
     if (error.conflict) {
-      const reload = window.confirm("Another staff member saved a newer version of this record. Reload the live version now? Choose Cancel to keep this screen open while you review your unsaved entry.");
-      if (reload) {
-        await reloadRemoteData().catch(() => {});
-        render();
-      }
-      showToast("Save paused because a newer live version exists.");
+      await reloadRemoteData().catch(() => {});
+      render();
+      showToast("Live record refreshed to the latest saved version.");
       return false;
     }
     showToast(`Could not save: ${error.message}`);
@@ -3310,12 +3357,13 @@ async function bootstrapApplication() {
 }
 
 function adminNav() {
+  const newLeadCount = allLeadRows().filter(lead => (lead.status || "New Inquiry") === "New Inquiry").length;
   const items = [
     ["dashboard", "Dashboard", "dashboard"],
     ["trainerPages", "Trainer Pages", "globe"],
     ["pageEditor", "Page Editor", "edit"],
     ["trainers", "Trainers", "users"],
-    ["leads", "Leads", "lead", filteredLeadRows(allLeadRows()).length],
+    ["leads", "Leads", "lead", newLeadCount],
     ["applications", "Applications", "message", applicationRows().filter(applicationNeedsAction).length],
     ["clients", "Clients", "users"],
     ["approvals", "Reviews", "star", pendingReviewSubmissions().length],
@@ -3459,13 +3507,13 @@ const adminScreens = {
       ${reportDateControls()}
       <p class="panel-copy report-range-note">Dashboard numbers use immutable Supabase lifecycle events for ${escapeHtml(reportRangeLabel())}. Last live sync: ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "not available")}.</p>
       ${metricGrid([
-        ["monitor", "Site Visits/Clicks", metrics.visits, "Traffic only", ""],
-        ["lead", "Form Submissions (Inquiries Only)", metrics.forms, "Canonical forms", ""],
-        ["calendar", "Evaluation Scheduled", metrics.evalScheduled, "Mid-funnel", "up"],
-        ["calendar", "Evaluation Complete", metrics.evalCompleted, "Decision point", "up"],
-        ["trophy", "Became a Client", metrics.clientWon, "Conversion event", "up"],
-        ["settings", "Lost/No Response", metrics.lostNoResponse, "Lifecycle outcome", "down"],
-        ["message", "New Trainer Applications", metrics.newTrainerApplications, "Recruiting", "up"]
+        ["monitor", "Site Visits/Clicks", metrics.visits, "Traffic only", "", { view: "adLandingPages" }],
+        ["lead", "Form Submissions (Inquiries Only)", metrics.forms, "Canonical forms", "", { view: "leads" }],
+        ["calendar", "Evaluation Scheduled", metrics.evalScheduled, "Mid-funnel", "up", { view: "leads" }],
+        ["calendar", "Evaluation Complete", metrics.evalCompleted, "Decision point", "up", { view: "leads" }],
+        ["trophy", "Became a Client", metrics.clientWon, "Conversion event", "up", { view: "clients" }],
+        ["settings", "Lost/No Response", metrics.lostNoResponse, "Lifecycle outcome", "down", { view: "leads" }],
+        ["message", "New Trainer Applications", metrics.newTrainerApplications, "Recruiting", "up", { view: "applications" }]
       ])}
       <div class="dashboard-grid">
         ${panel("Conversion Overview", `<button class="btn btn-outline" data-view="reports">View Reports</button>`, leadSummary())}
@@ -3493,7 +3541,7 @@ const adminScreens = {
     return `${metricGrid([
       ["message", "Applications", apps.length, "Website submissions", ""],
       ["lead", "Needs Action", needsAction, "No office action yet", needsAction ? "down" : "up"],
-      ["calendar", "Discovery Follow-up", apps.filter(app => app.status === "Discovery Follow-up").length, "Recruiting action", "up"],
+      ["calendar", "Discovery Call Inquiry", apps.filter(app => app.status === "Discovery Call Inquiry").length, "Recruiting action", "up"],
       ["trophy", "Moved Forward", apps.filter(app => app.status === "Moved Forward").length, "Qualified", "up"]
     ])}${applicationStatusFilterBar()}${panel("Trainer Application Pipeline", `<button class="btn btn-outline" type="button" data-application-mode="sheet">View Sheet</button><button class="btn btn-outline" type="button" data-application-mode="summary">View Data In Charts</button><button class="btn btn-outline" type="button" data-export-applications>Download Sheet</button>`, applicationPipelineBoard(), "pad")}<br>${panel("Application Sheet, Charts & Export", "", trainerApplicationGoogleFormPanel(), "pad")}<br>${panel("Trainer Application Records", "", applicationTable(), "pad")}`;
   },
@@ -3536,7 +3584,7 @@ const adminScreens = {
     return portalAccessScreen();
   },
     settings() {
-    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
   }
 };
 
@@ -3593,6 +3641,22 @@ const trainerScreens = {
 
 function savedPortalShortcutHelp() {
   return `<section class="saved-portal-help"><h3>Using a saved Staff Portal shortcut?</h3><ol><li>Open <a href="https://www.lorenzosdogtrainingteam.com/staff" target="_blank" rel="noopener">www.lorenzosdogtrainingteam.com/staff</a>.</li><li>Sign out and sign in once so the shortcut uses the current live session.</li><li>If an old shortcut opens any other address, remove it before saving the live Staff Portal again.</li><li>On iPhone: remove the old Home Screen icon, open the live address in Safari, then use Share and Add to Home Screen.</li><li>On Mac: remove the old dock or browser shortcut, open the live address, then add it again.</li><li>Confirm the top of the portal says <strong>Synced</strong>. If it says <strong>Live data unavailable</strong>, reload before making edits.</li></ol></section>`;
+}
+
+function liveDataReferenceLinks() {
+  const projectUrl = "https://supabase.com/dashboard/project/ptnzaeprvkgjgtupmcty";
+  const tables = [
+    ["Leads", "leads"],
+    ["Applications / Recruiting", "trainer_applications"],
+    ["Clients", "clients"],
+    ["Office Notes", "office_notes"],
+    ["Form Delivery Audit", "form_delivery_attempts"]
+  ];
+  return `<section class="source-record-note live-data-links">
+    <span class="status live">Live Supabase backup links</span>
+    <p>Use these as a direct backup view if the portal or Google Sheet is being checked. Supabase sign-in is required.</p>
+    <div class="live-data-link-row"><a class="btn btn-outline btn-small" href="${projectUrl}/editor" target="_blank" rel="noopener">Open Table Editor</a>${tables.map(([label, table]) => `<a class="btn btn-outline btn-small" href="${projectUrl}/editor?schema=public&table=${encodeURIComponent(table)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`).join("")}</div>
+  </section>`;
 }
 
 function portalAccessScreen() {
@@ -3732,9 +3796,12 @@ function passwordSetupForm() {
 }
 
 function metricGrid(items) {
-  return `<div class="metrics-grid ${items.length === 4 ? "trainer-metrics" : ""}">${items.map(([iconName, label, value, change, tone]) => `
-    <article class="metric-card"><div class="metric-top">${icon(iconName)} ${label}</div><strong>${value}</strong><span class="${tone}">${change}</span></article>
-  `).join("")}</div>`;
+  return `<div class="metrics-grid ${items.length === 4 ? "trainer-metrics" : ""}">${items.map(([iconName, label, value, change, tone, action]) => {
+    const body = `<div class="metric-top">${icon(iconName)} ${escapeHtml(label)}</div><strong>${escapeHtml(value)}</strong><span class="${escapeHtml(tone || "")}">${escapeHtml(change)}</span>`;
+    return action?.view
+      ? `<button class="metric-card metric-button" type="button" data-view="${escapeHtml(action.view)}">${body}</button>`
+      : `<article class="metric-card">${body}</article>`;
+  }).join("")}</div>`;
 }
 
 function panel(title, action, body, extra = "") {
@@ -4176,10 +4243,15 @@ function leadMatchesFilters(lead, options = {}) {
   const trainerFilter = overrides.leadTrainerFilter ?? state.leadTrainerFilter;
   const statusFilter = overrides.leadStatusFilter ?? state.leadStatusFilter;
   const smsFilter = overrides.leadSmsFilter ?? state.leadSmsFilter;
+  const ownerFilter = overrides.leadOwnerFilter ?? state.leadOwnerFilter ?? "All";
   return (ignore.has("search") || !search || leadSearchHaystack(lead).includes(String(search).toLowerCase()))
     && (ignore.has("trainer") || leadMatchesTrainerFilter(lead, trainerFilter))
     && (ignore.has("status") || statusFilter === "All" || lead.status === statusFilter)
-    && (ignore.has("sms") || smsFilter === "All" || lead.smsConsent === smsFilter);
+    && (ignore.has("sms") || smsFilter === "All" || lead.smsConsent === smsFilter)
+    && (ignore.has("owner") || ownerFilter === "All"
+      || (ownerFilter === "Me" && String(lead.assignedUserId || "") === String(currentPortalUserId()))
+      || (ownerFilter === "Unassigned" && !lead.assignedUserId)
+      || String(lead.assignedUserId || "") === String(ownerFilter));
 }
 
 function filteredLeadRows(rows, options = {}) {
@@ -4204,6 +4276,7 @@ function activeLeadFilterLabels(admin = true) {
   if (admin && state.leadTrainerFilter !== "All") labels.push(`Trainer: ${trainerName(state.leadTrainerFilter)}`);
   if (admin && state.leadStatusFilter !== "All") labels.push(`Status: ${state.leadStatusFilter}`);
   if (admin && state.leadSmsFilter !== "All") labels.push(`SMS: ${state.leadSmsFilter}`);
+  if (admin && state.leadOwnerFilter !== "All") labels.push(`Owner: ${state.leadOwnerFilter === "Me" ? "Assigned to me" : state.leadOwnerFilter === "Unassigned" ? "Unassigned" : portalActorLabel(state.leadOwnerFilter)}`);
   if (admin && state.leadSearch) labels.push(`Search: "${state.leadSearch}"`);
   return labels;
 }
@@ -4273,7 +4346,7 @@ const LEAD_EXACT_SHEET_FIELDS = [
   { key: "phone", label: "Phone (required for callback) *" },
   { key: "i_want_to", label: "I want to... *" },
   { key: "heard_about_us", label: "How did you hear about us? *" },
-  { key: "vet_or_previous_client", label: "Vet Name or Previous Client Name *" },
+  { key: "vet_or_previous_client", label: "Vet Name or Previous Client Name (optional)" },
   { key: "how_can_we_help", label: "How can we help?" },
   { key: "comments", label: "Comments *" },
   { key: "additional_interest", label: "I'm also interested in (optional)" },
@@ -4301,7 +4374,7 @@ const LEAD_FIELD_ALIASES = {
   investor_network: ["investor_network", "Investor network"],
   donor_or_project_support: ["donor_or_project_support", "Donor or project support"],
   specialty_dog_training: ["specialty_dog_training", "Specialty dog training"],
-  sms_consent_agreement: ["sms_consent", "sms_opt_in", "SMS consent"],
+  sms_consent_agreement: ["sms_consent", "sms_consent_text", "sms_opt_in", "SMS consent"],
   phone_required_notice_text: ["phone_required_notice_text"]
 };
 
@@ -4385,7 +4458,7 @@ function deliveryAttemptsForLead(lead, destination = "") {
 }
 
 function leadDeliveryStatusText(lead, destination) {
-  if (destination === "supabase" && (lead.remoteId || lead.id) && remoteReady) {
+  if (destination === "supabase" && lead.remoteId && remoteReady) {
     const accepted = deliveryAttemptsForLead(lead, "supabase").find(attempt => attempt.status === "accepted");
     const when = accepted ? `\nAudit accepted ${formatDateTime(accepted.created_at || accepted.updated_at)}` : "";
     return `Confirmed by canonical Supabase lead record${when}`;
@@ -4431,7 +4504,7 @@ function leadSubmittedFieldValue(lead, key, label) {
       : rawConsent === "no" || lead.smsConsent === "No" || rawConsent === "false"
         ? "Not checked / No"
         : "Unknown / not recorded";
-    return `${status}\n${CONTACT_SMS_DISCLOSURE_TEXT}`;
+    return `${status}\n${raw.sms_consent_text || raw.sms_consent_agreement || CONTACT_SMS_DISCLOSURE_TEXT}`;
   }
   if (key === "phone_required_notice_text") return raw.phone_required_notice_text || CONTACT_PHONE_REQUIRED_NOTICE_TEXT;
   const value = leadRawValue(lead, key);
@@ -4482,7 +4555,24 @@ function leadPipelineTable(admin) {
   const rows = filteredLeadRows(baseRows, filterOptions);
   const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
-  return `${leadDateControls(baseRows, filterOptions)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
+  return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
+}
+
+function assignedLeadNotice(baseRows = allLeadRows()) {
+  if (session.role !== "admin") return "";
+  const userId = currentPortalUserId();
+  if (!userId) return "";
+  const assigned = filteredLeadRows(baseRows, {
+    useWorkspaceFilters: false,
+    overrides: {
+      leadDateRange: state.leadDateRange,
+      customLeadStart: state.customLeadStart,
+      customLeadEnd: state.customLeadEnd
+    }
+  }).filter(lead => String(lead.assignedUserId || "") === String(userId) && !["Archived", "Became a Client"].includes(lead.status));
+  if (!assigned.length) return "";
+  const sample = assigned.slice(0, 3).map(lead => lead.owner || "Unnamed lead").join(", ");
+  return `<div class="assignment-alert"><div><strong>${assigned.length} lead${assigned.length === 1 ? "" : "s"} assigned to you</strong><p>${escapeHtml(sample)}${assigned.length > 3 ? "..." : ""}</p></div><button class="btn btn-outline btn-small" type="button" data-lead-owner-quick="Me">Show Mine</button></div>`;
 }
 
 function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
@@ -4493,7 +4583,14 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
     .concat(leadStatuses.map(status => `<option value="${escapeHtml(status)}" ${state.leadStatusFilter === status ? "selected" : ""}>${escapeHtml(leadOptionLabel(status, leadFilterCount(baseRows, { leadStatusFilter: status })))}</option>`));
   const smsOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All SMS choices", leadFilterCount(baseRows, { leadSmsFilter: "All" })))}</option>`]
     .concat(LEAD_SMS_FILTER_OPTIONS.map(value => `<option value="${value}" ${state.leadSmsFilter === value ? "selected" : ""}>${escapeHtml(leadOptionLabel(value, leadFilterCount(baseRows, { leadSmsFilter: value })))}</option>`));
-  return `<div class="lead-workspace-controls"><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
+  const ownerOptions = [
+    `<option value="All">${escapeHtml(leadOptionLabel("All owners", leadFilterCount(baseRows, { leadOwnerFilter: "All" })))}</option>`,
+    `<option value="Me" ${state.leadOwnerFilter === "Me" ? "selected" : ""}>${escapeHtml(leadOptionLabel("Assigned to me", leadFilterCount(baseRows, { leadOwnerFilter: "Me" })))}</option>`,
+    `<option value="Unassigned" ${state.leadOwnerFilter === "Unassigned" ? "selected" : ""}>${escapeHtml(leadOptionLabel("Unassigned", leadFilterCount(baseRows, { leadOwnerFilter: "Unassigned" })))}</option>`
+  ].concat((remotePortalUsers || [])
+    .filter(user => user.active !== false && user.role === "admin")
+    .map(user => `<option value="${escapeHtml(user.user_id)}" ${state.leadOwnerFilter === user.user_id ? "selected" : ""}>${escapeHtml(leadOptionLabel(portalDisplayName(user), leadFilterCount(baseRows, { leadOwnerFilter: user.user_id })))}</option>`));
+  return `<div class="lead-workspace-controls"><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
 const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client", "Lost"];
@@ -4513,7 +4610,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label><section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label><section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -4555,6 +4652,11 @@ function marketConversionTable() {
   const inquiryEvents = events.filter(event => event.event_type === "form_received" && isAdAttributed(event));
   const inquiryByEntity = new Map(inquiryEvents.map(event => [`${event.entity_type}:${event.entity_id}`, event]));
   const markets = new Map();
+  adLandingPageConfigs()
+    .filter(page => page.slug.startsWith("dog-training-"))
+    .forEach(page => {
+      markets.set(page.market, { forms: new Set(), clients: new Set(), page });
+    });
   inquiryEvents.forEach(event => {
     const market = String(event.market || event.raw_payload?.ad_market || "Unattributed").trim() || "Unattributed";
     if (!markets.has(market)) markets.set(market, { forms: new Set(), clients: new Set() });
@@ -4568,8 +4670,8 @@ function marketConversionTable() {
     const market = String(inquiry.market || inquiry.raw_payload?.ad_market || "Unattributed").trim() || "Unattributed";
     markets.get(market)?.clients.add(key);
   });
-  const rows = [...markets.entries()].sort((a, b) => b[1].forms.size - a[1].forms.size);
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Ad Market</th><th>Inquiries</th><th>Became Client</th><th>Conversion</th></tr></thead><tbody>${rows.map(([market, value]) => `<tr><td><strong>${escapeHtml(market)}</strong></td><td>${value.forms.size}</td><td>${value.clients.size}</td><td>${value.forms.size ? Math.round((value.clients.size / value.forms.size) * 1000) / 10 : 0}%</td></tr>`).join("") || `<tr><td colspan="4">No ad-attributed inquiries in this date range.</td></tr>`}</tbody></table></div>`;
+  const rows = [...markets.entries()].sort((a, b) => b[1].forms.size - a[1].forms.size || a[0].localeCompare(b[0]));
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Ad Market</th><th>Inquiries</th><th>Became Client</th><th>Conversion</th><th>Page</th></tr></thead><tbody>${rows.map(([market, value]) => `<tr><td><strong>${escapeHtml(market)}</strong></td><td>${value.forms.size}</td><td>${value.clients.size}</td><td>${value.forms.size ? Math.round((value.clients.size / value.forms.size) * 1000) / 10 : 0}%</td><td>${value.page ? `<a href="${escapeHtml(value.page.href)}" target="_blank" rel="noopener">${escapeHtml(value.page.label)}</a>` : "Lifecycle event"}</td></tr>`).join("") || `<tr><td colspan="5">No ad-attributed inquiries in this date range.</td></tr>`}</tbody></table></div>`;
 }
 
 function approvedLayoutCards() {
@@ -5176,11 +5278,41 @@ function updateApplicationRecord(id, changes) {
   return storedApplication;
 }
 
+function applicationSearchHaystack(app = {}) {
+  return [
+    applicationDisplayName(app),
+    app.email,
+    app.phone,
+    app.city,
+    app.state,
+    app.zip,
+    app.market,
+    app.source_form,
+    app.source_page,
+    app.referral_source,
+    app.status,
+    applicationInquiryTypeLabel(app),
+    ...Object.values(applicationRawPayload(app) || {})
+  ]
+    .map(value => typeof value === "object" && value !== null ? JSON.stringify(value) : String(value || ""))
+    .join(" ")
+    .toLowerCase();
+}
+
+function filteredApplicationRows(options = {}) {
+  const activeFilter = options.filter ?? currentApplicationFilter();
+  const search = String(options.search ?? state.applicationSearch ?? "").trim().toLowerCase();
+  return applicationRows()
+    .filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter)
+    .filter(app => !search || applicationSearchHaystack(app).includes(search))
+    .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
+}
+
 function trainerApplicationGoogleFormPanel() {
   const mode = state.applicationViewMode || "sheet";
   const activeFilter = currentApplicationFilter();
   const allRows = applicationRows();
-  const rows = allRows.filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter);
+  const rows = filteredApplicationRows({ filter: activeFilter });
   const body = mode === "sheet" ? applicationSheetView(rows) : mode === "individual" ? applicationIndividualView(rows) : applicationSummaryCharts(rows);
   const modes = [
     ["sheet", "View Sheet"],
@@ -5196,14 +5328,15 @@ function trainerApplicationGoogleFormPanel() {
         <button class="btn btn-outline" type="button" data-export-applications>Download Sheet CSV</button>
         <a class="btn btn-outline" href="../trainer-application.html" target="_blank" rel="noopener">Preview Website Application</a>
       </div>
-      <p class="panel-copy"><strong>${rows.length} of ${allRows.length} applications shown (${escapeHtml(activeFilter)}).</strong> The exact form fields, including signature, are preserved in the internal sheet and each full application record.</p>
+      <p class="panel-copy"><strong>${rows.length} of ${allRows.length} applications shown (${escapeHtml(activeFilter)}${state.applicationSearch ? `, search: "${escapeHtml(state.applicationSearch)}"` : ""}).</strong> The exact form fields, including signature, are preserved in the internal sheet and each full application record.</p>
     </div>
     ${body}
   </div>`;
 }
 
-const APPLICATION_STATUS_OPTIONS = ["All", "New Application", "Under Review", "Discovery Follow-up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
+const APPLICATION_STATUS_OPTIONS = ["All", "New Application", "Under Review", "Discovery Call Inquiry", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
 function currentApplicationFilter() {
+  if (state.applicationFilter === "Discovery Follow-up") state.applicationFilter = "Discovery Call Inquiry";
   if (!APPLICATION_STATUS_OPTIONS.includes(state.applicationFilter)) state.applicationFilter = "All";
   return state.applicationFilter || "All";
 }
@@ -5216,6 +5349,7 @@ function applicationStatusFilterBar() {
       <p>This filter changes the sheet/table below. The pipeline always shows every application so cards never look missing.</p>
     </div>
     <div class="filter-bar application-filter-bar" role="group" aria-label="Filter application sheet by status">${APPLICATION_STATUS_OPTIONS.map(status => `<button type="button" class="btn application-filter-chip ${activeFilter === status ? "btn-red active" : "btn-outline"}" data-application-filter="${escapeHtml(status)}" aria-pressed="${activeFilter === status ? "true" : "false"}">${escapeHtml(status)}</button>`).join("")}</div>
+    <input class="select-pill application-search" data-application-search value="${escapeHtml(state.applicationSearch || "")}" placeholder="Search applications by name, phone, email, city, source, answer...">
   </section>`;
 }
 
@@ -5276,8 +5410,18 @@ const APPLICATION_FIELD_ALIASES = {
   salary_earnings_3: ["employment_3_salary"],
   reason_for_leaving_3: ["employment_3_reason"],
   sms_consent_text: ["sms_agreement_text", "sms_disclosure", "sms_opt_in_text"],
-  application_certification: ["certification", "certification_text", "application_certification_text", "certify_true_complete"]
+  application_certification: ["application_certification_text", "certification", "certification_text", "certify_true_complete"]
 };
+
+const APPLICATION_INTERNAL_RAW_FIELD_KEYS = new Set([
+  ...LEAD_INTERNAL_RAW_FIELD_KEYS,
+  "delivery_complete",
+  "deliveryComplete",
+  "entry_id",
+  "entryId",
+  "form_endpoint",
+  "google_form_endpoint"
+]);
 
 function applicationBaseFields() {
   const fields = [
@@ -5376,7 +5520,7 @@ function applicationExportFields(rows = applicationRows()) {
   });
   rows.forEach(app => {
     Object.keys(applicationRawPayload(app)).forEach(label => {
-      if (!label || seen.has(label)) return;
+      if (!label || seen.has(label) || APPLICATION_INTERNAL_RAW_FIELD_KEYS.has(label)) return;
       fields.push({ key: label, label });
       seen.add(label);
     });
@@ -5390,11 +5534,26 @@ function applicationRawPayload(app) {
 
 function applicationFieldValue(app, key, label) {
   const keys = [key, label, ...(APPLICATION_FIELD_ALIASES[key] || [])];
+  const raw = applicationRawPayload(app);
+  if (key === "sms_consent") {
+    const consent = String(app.sms_consent ?? raw.sms_consent ?? "").toLowerCase();
+    if (consent === "yes" || consent === "true") return "Checked / Yes";
+    if (consent === "no" || consent === "false") return "Not checked / No";
+    return "";
+  }
+  if (key === "sms_consent_text") {
+    return raw.sms_consent_text || app.sms_consent_text || APPLICATION_SMS_DISCLOSURE_TEXT;
+  }
+  if (key === "application_certification") {
+    const accepted = String(app.application_certification ?? raw.application_certification ?? "").toLowerCase();
+    const text = raw.application_certification_text || app.application_certification_text || APPLICATION_CERTIFICATION_TEXT;
+    if (accepted === "yes" || accepted === "true") return `Checked / Yes\n${text}`;
+    return text;
+  }
   for (const item of keys) {
     if (app[item] != null && app[item] !== "") return String(app[item]);
   }
   if (app[key] != null && app[key] !== "") return String(app[key]);
-  const raw = applicationRawPayload(app);
   for (const item of keys) {
     if (raw[item] != null && raw[item] !== "") return String(raw[item]);
   }
@@ -5513,22 +5672,26 @@ function updateLeadRecord(id, changes) {
 
 function applicationTable() {
   const activeFilter = currentApplicationFilter();
-  const rows = applicationRows()
-    .filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter)
-    .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
+  const rows = filteredApplicationRows({ filter: activeFilter });
   return `<div class="application-sheet-actions"><span class="status live">${escapeHtml(activeFilter)} view</span><p>Review the applicant, change recruiting status, and leave office notes. Use the filter at the top of this Applications page to change which records show here.</p></div>
   <div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Received</th><th>Location</th><th>Contact</th><th>Source</th><th>Status</th><th>Latest Office Note</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => {
     const latest = latestOfficeNote("application", app.remoteId);
-    return `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(app.inquiry_type === "full_application" ? "Full Application" : app.inquiry_type === "discovery_call" ? "Discovery Call" : "Contact-form interest")}</small></td><td>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.market || app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td>${escapeHtml(app.source_form || app.referral_source || "Website")}<small>${escapeHtml(app.source_page || "")}</small></td><td>${applicationStatusSelect(app)}</td><td>${escapeHtml(latest?.note || app.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`;
+    return `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(applicationInquiryTypeLabel(app))}</small></td><td>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.market || app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td>${escapeHtml(app.source_form || app.referral_source || "Website")}<small>${escapeHtml(app.source_page || "")}</small></td><td>${applicationStatusSelect(app)}</td><td>${escapeHtml(latest?.note || app.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`;
   }).join("") || `<tr><td colspan="8">No trainer applications found yet.</td></tr>`}</tbody></table></div>${applicationDetailPanel()}`;
 }
 
 function applicationStatusSelect(app) {
-  return `<select class="select-pill" data-application-status="${escapeHtml(app.id)}">${["New Application","Under Review","Discovery Follow-up","Interview Scheduled","Moved Forward","Declined","Archived"].map(status => `<option ${status === (app.status || "New Application") ? "selected" : ""}>${status}</option>`).join("")}</select>`;
+  return `<select class="select-pill" data-application-status="${escapeHtml(app.id)}">${["New Application","Under Review","Discovery Call Inquiry","Interview Scheduled","Moved Forward","Declined","Archived"].map(status => `<option ${status === (app.status || "New Application") ? "selected" : ""}>${status}</option>`).join("")}</select>`;
 }
 
 function applicationNeedsAction(app) {
   return (app.status || "New Application") === "New Application";
+}
+
+function applicationInquiryTypeLabel(app = {}) {
+  if (app.inquiry_type === "full_application") return "Full Application";
+  if (app.inquiry_type === "discovery_call") return "Discovery Call Inquiry";
+  return "Contact-form interest";
 }
 
 function applicationDisplayName(app) {
@@ -5536,7 +5699,7 @@ function applicationDisplayName(app) {
 }
 
 function applicationPipelineBoard() {
-  const columns = ["New Application", "Under Review", "Discovery Follow-up", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
+  const columns = ["New Application", "Under Review", "Discovery Call Inquiry", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
   const rows = applicationRows()
     .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
   return `<div class="application-sheet-actions"><span class="status ${rows.some(applicationNeedsAction) ? "pending" : "live"}">${rows.filter(applicationNeedsAction).length} need action</span><p>Drag applications through the recruiting flow. Once a card is moved out of New Application, the notification count clears because the office has taken action.</p></div>
@@ -5552,7 +5715,7 @@ function applicationPipelineCard(app) {
     <div class="lead-card-top"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</span></div>
     <p>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "Location pending")}</p>
     <small>${escapeHtml(app.email || "No email")} · ${escapeHtml(app.phone || "No phone")}</small>
-    <div class="delivery-badges"><span>${escapeHtml(app.inquiry_type === "full_application" ? "Full Application" : app.inquiry_type === "discovery_call" ? "Discovery Call" : "Contact-form interest")}</span><span>${escapeHtml(app.referral_source || "Referral pending")}</span></div>
+    <div class="delivery-badges"><span>${escapeHtml(applicationInquiryTypeLabel(app))}</span><span>${escapeHtml(app.referral_source || "Referral pending")}</span></div>
   </article>`;
 }
 
@@ -5653,7 +5816,7 @@ function applicationDetailGrid(app) {
 function applicationDetailPanel() {
   const app = applicationRows().find(item => item.id === state.selectedApplicationId);
   if (!app) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-application aria-label="Close">×</button><span class="portal-tag">Application Detail</span><h2>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</h2><p>${escapeHtml([app.city, app.state].filter(Boolean).join(", ") || "Location pending")}</p><div class="lead-contact-grid"><div><span>Email</span><strong>${escapeHtml(app.email || "—")}</strong></div><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(app.phone) || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml([app.address_line_1, app.address_line_2, app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}</strong></div><div><span>Source</span><strong>${escapeHtml(app.source_form || app.referral_source || "Website")}</strong></div><div><span>Status</span><strong>${escapeHtml(app.status || "New Application")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</strong></div></div><label>Status${applicationStatusSelect(app)}</label><label>Assigned recruiting owner${officeAssigneeSelect("application", app.id, app.assignedUserId)}</label><section class="detail-note-block"><span>Recruiting Notes</span>${officeNoteTimeline("application", app.remoteId)}<textarea data-new-office-note="${escapeHtml(app.remoteId || "")}" placeholder="Add recruiting note. Your name and exact time are recorded."></textarea><button class="btn btn-red btn-small" data-add-office-note="application" data-entity-id="${escapeHtml(app.remoteId || "")}">Add Recruiting Note</button></section>${applicationDetailGrid(app)}<div class="row-actions"><button class="btn btn-outline" data-archive-application="${escapeHtml(app.id)}">Archive application</button>${permanentDeleteButton("application", app)}</div></aside><div class="lead-detail-scrim" data-close-application></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-application aria-label="Close">×</button><span class="portal-tag">Application Detail</span><h2>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</h2><p>${escapeHtml([app.city, app.state].filter(Boolean).join(", ") || "Location pending")}</p><div class="lead-contact-grid"><div><span>Email</span><strong>${escapeHtml(app.email || "—")}</strong></div><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(app.phone) || "—")}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml([app.address_line_1, app.address_line_2, app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}</strong></div><div><span>Source</span><strong>${escapeHtml(app.source_form || app.referral_source || "Website")}</strong></div><div><span>Status</span><strong>${escapeHtml(app.status || "New Application")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</strong></div></div><label>Status${applicationStatusSelect(app)}</label><label>Assigned recruiting owner${officeAssigneeSelect("application", app.id, app.assignedUserId)}</label><section class="detail-note-block"><span>Recruiting Notes</span>${officeNoteTimeline("application", app.remoteId)}<textarea data-new-office-note="${escapeHtml(app.remoteId || "")}" placeholder="Add recruiting note. Your name and exact time are recorded."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="application" data-entity-id="${escapeHtml(app.remoteId || "")}">Add Recruiting Note</button></section>${applicationDetailGrid(app)}<div class="row-actions"><button class="btn btn-outline" type="button" data-archive-application="${escapeHtml(app.id)}">Archive application</button>${permanentDeleteButton("application", app)}</div></aside><div class="lead-detail-scrim" data-close-application></div>`;
 }
 
 function formatApplicationDate(value) {
@@ -5916,7 +6079,7 @@ function consentSelect(clientId, type, current) {
 function clientDetailPanel() {
   const client = state.clients.find(item => item.id === state.selectedClientId);
   if (!client) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" data-close-client aria-label="Close">×</button><span class="portal-tag">Client Record</span><h2>${escapeHtml(client.name)}</h2><p>${escapeHtml(client.dog || "Dog pending")} · ${escapeHtml(client.breed || "Breed pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(client.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(client.email || "—")}</strong></div><div><span>Trainer</span><strong>${escapeHtml(trainerName(client.trainerId))}</strong></div><div><span>Imported Source</span><strong>${escapeHtml(client.importedSource || "Manual")}</strong></div></div><label>Status${clientStatusSelect(client)}</label><label>Date started<input class="select-pill" type="date" data-client-date-started="${escapeHtml(client.id)}" value="${escapeHtml(client.dateStarted || "")}"></label><label>Last contacted<input class="select-pill" type="date" data-client-last-contacted="${escapeHtml(client.id)}" value="${escapeHtml(client.lastContacted || "")}"></label><label>SMS consent${consentSelect(client.id, "sms", client.smsConsent || "Unknown")}</label><label>Email consent${consentSelect(client.id, "email", client.emailConsent || "Unknown")}</label><label>Client record summary<textarea data-client-note="${escapeHtml(client.id)}">${escapeHtml(client.notes || "")}</textarea></label><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("client", client.remoteId)}<textarea data-new-office-note="${escapeHtml(client.remoteId || "")}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" data-add-office-note="client" data-entity-id="${escapeHtml(client.remoteId || "")}">Add Office Note</button></section><div class="row-actions"><button class="btn btn-red" data-save-client="${escapeHtml(client.id)}">Save Client Record</button><button class="btn btn-outline" data-archive-client="${escapeHtml(client.id)}">Archive Client</button>${permanentDeleteButton("client", client)}</div></aside><div class="lead-detail-scrim" data-close-client></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-client aria-label="Close">×</button><span class="portal-tag">Client Record</span><h2>${escapeHtml(client.name)}</h2><p>${escapeHtml(client.dog || "Dog pending")} · ${escapeHtml(client.breed || "Breed pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(client.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(client.email || "—")}</strong></div><div><span>Trainer</span><strong>${escapeHtml(trainerName(client.trainerId))}</strong></div><div><span>Imported Source</span><strong>${escapeHtml(client.importedSource || "Manual")}</strong></div></div><label>Status${clientStatusSelect(client)}</label><label>Date started<input class="select-pill" type="date" data-client-date-started="${escapeHtml(client.id)}" value="${escapeHtml(client.dateStarted || "")}"></label><label>Last contacted<input class="select-pill" type="date" data-client-last-contacted="${escapeHtml(client.id)}" value="${escapeHtml(client.lastContacted || "")}"></label><label>SMS consent${consentSelect(client.id, "sms", client.smsConsent || "Unknown")}</label><label>Email consent${consentSelect(client.id, "email", client.emailConsent || "Unknown")}</label><label>Client record summary<textarea data-client-note="${escapeHtml(client.id)}">${escapeHtml(client.notes || "")}</textarea></label><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("client", client.remoteId)}<textarea data-new-office-note="${escapeHtml(client.remoteId || "")}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="client" data-entity-id="${escapeHtml(client.remoteId || "")}">Add Office Note</button></section><div class="row-actions"><button class="btn btn-red" type="button" data-save-client="${escapeHtml(client.id)}">Save Client Record</button><button class="btn btn-outline" type="button" data-archive-client="${escapeHtml(client.id)}">Archive Client</button>${permanentDeleteButton("client", client)}</div></aside><div class="lead-detail-scrim" data-close-client></div>`;
 }
 
 function importInput() {
@@ -6844,6 +7007,12 @@ document.addEventListener("click", async event => {
   }
   const leadView = event.target.closest("[data-lead-view]");
   if (leadView) { state.leadViewMode = leadView.dataset.leadView; saveState(); return; }
+  const leadOwnerQuick = event.target.closest("[data-lead-owner-quick]");
+  if (leadOwnerQuick) {
+    state.leadOwnerFilter = leadOwnerQuick.dataset.leadOwnerQuick || "All";
+    saveState("Showing leads assigned to you");
+    return;
+  }
   const kanbanScroll = event.target.closest("[data-scroll-kanban]");
   if (kanbanScroll) {
     const board = kanbanScroll.closest(".panel")?.querySelector(".lead-kanban") || document.querySelector(".lead-kanban");
@@ -7856,6 +8025,7 @@ document.addEventListener("input", event => {
     }
   }
   if (field.dataset.leadSearch !== undefined) { state.leadSearch = field.value; scheduleLeadFilterRender(); }
+  if (field.dataset.applicationSearch !== undefined) { state.applicationSearch = field.value; scheduleApplicationFilterRender(); }
   if (field.id === "csvInput") {
     state.importDraft = field.value;
     saveState(null, true);
@@ -7873,12 +8043,12 @@ document.addEventListener("input", event => {
   if (field.name === "report-custom-start") {
     state.customReportStart = field.value;
     state.reportDateRange = "custom";
-    saveState(null, true);
+    saveState(null);
   }
   if (field.name === "report-custom-end") {
     state.customReportEnd = field.value;
     state.reportDateRange = "custom";
-    saveState(null, true);
+    saveState(null);
   }
 });
 
@@ -7915,7 +8085,7 @@ document.addEventListener("change", async event => {
     if (remoteReady) {
       const saved = await runRemoteMutation(
         "Review assignment saved",
-        () => sub.status === "Approved" ? publishApprovedReview(sub) : persistSubmissionRecord(sub)
+        () => sub.status === "Approved" ? publishApprovedReview(sub) : saveReviewDestinations(sub, false)
       );
       if (saved) showActionConfirmation("Review destination added", sub.status === "Approved" ? `This review is now live on: ${reviewTargetLabels(sub)}.` : `This review can now publish to: ${reviewTargetLabels(sub)}.`);
     } else {
@@ -7933,7 +8103,7 @@ document.addEventListener("change", async event => {
     if (remoteReady) {
       const saved = await runRemoteMutation(
         "Review destination removed",
-        () => sub.status === "Approved" ? publishApprovedReview(sub) : persistSubmissionRecord(sub)
+        () => sub.status === "Approved" ? publishApprovedReview(sub) : saveReviewDestinations(sub, false)
       );
       if (saved) showActionConfirmation("Review destination removed", `Current destinations: ${reviewTargetLabels(sub)}.`);
     } else {
@@ -8121,7 +8291,8 @@ document.addEventListener("change", async event => {
     editorUpload.value = "";
     return;
   }
-  if (event.target.dataset.leadSearch !== undefined) { state.leadSearch = event.target.value; saveState(); return; }
+  if (event.target.dataset.leadSearch !== undefined) { state.leadSearch = event.target.value; persistStateSnapshot(); return; }
+  if (event.target.dataset.applicationSearch !== undefined) { state.applicationSearch = event.target.value; persistStateSnapshot(); return; }
   const upload = event.target.closest("[data-trainer-upload]");
   if (upload && upload.files?.[0]) {
     const file = upload.files[0];
@@ -8210,7 +8381,13 @@ document.addEventListener("change", async event => {
   }
   const leadFilter = event.target.closest("[data-lead-filter]");
   if (leadFilter) {
-    const filterKey = leadFilter.dataset.leadFilter === "trainer" ? "leadTrainerFilter" : leadFilter.dataset.leadFilter === "sms" ? "leadSmsFilter" : "leadStatusFilter";
+    const filterKey = leadFilter.dataset.leadFilter === "trainer"
+      ? "leadTrainerFilter"
+      : leadFilter.dataset.leadFilter === "sms"
+        ? "leadSmsFilter"
+        : leadFilter.dataset.leadFilter === "owner"
+          ? "leadOwnerFilter"
+          : "leadStatusFilter";
     state[filterKey] = leadFilter.value;
     saveState();
     return;
