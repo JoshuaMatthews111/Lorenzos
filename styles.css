@@ -1716,6 +1716,38 @@ body.review-modal-open{overflow:hidden}
 .ad-capture-modal .market-guide-form{
   padding:0;
 }
+.market-funnel-redesign .market-guide-strip{
+  padding:0 0 clamp(42px,5vw,72px);
+}
+.market-funnel-redesign .market-guide-mini{
+  grid-template-columns:minmax(0,1fr) minmax(280px,420px);
+  gap:22px;
+  align-items:center;
+  padding:22px;
+  border-radius:22px;
+  background:rgba(255,255,255,.07);
+}
+.market-funnel-redesign .market-guide-mini h2{
+  color:#fff;
+  font-size:clamp(1.45rem,2.5vw,2.25rem);
+  line-height:1.05;
+  letter-spacing:0;
+}
+.market-funnel-redesign .market-guide-mini p{
+  margin-bottom:0;
+  font-size:.98rem;
+}
+.market-funnel-redesign .market-guide-mini .market-guide-form{
+  grid-template-columns:1fr;
+  padding:14px;
+  border-radius:18px;
+}
+.market-funnel-redesign .market-guide-mini .interest-options{
+  grid-column:auto;
+}
+.market-funnel-redesign .market-guide-mini .sms-opt-in{
+  font-size:.68rem;
+}
 @media(max-width:900px){
   .ad-funnel-redesign .market-guide-card,
   .market-funnel-redesign .market-guide-card{
@@ -1725,6 +1757,101 @@ body.review-modal-open{overflow:hidden}
   .market-funnel-redesign .market-guide-preview{min-height:520px;max-width:360px;margin:0 auto;width:100%}
 }
 @media(max-width:720px){
+  html:has(.market-funnel-redesign),
+  body.market-funnel-redesign{
+    max-width:100%;
+    overflow-x:hidden;
+  }
+  .market-funnel-redesign .ad-nav-v2{
+    width:calc(100% - 28px);
+    min-width:0;
+    gap:10px;
+  }
+  .market-funnel-redesign .ad-brand-v2{
+    min-width:0;
+    flex:1 1 auto;
+  }
+  .market-funnel-redesign .ad-header-actions{
+    flex:0 1 auto;
+    min-width:0;
+    gap:8px;
+  }
+  .market-funnel-redesign .ad-header-actions .btn-red{
+    max-width:104px;
+    padding:10px 12px;
+    white-space:nowrap;
+  }
+  .market-funnel-redesign .market-hero-grid{
+    width:calc(100vw - 28px);
+    max-width:calc(100vw - 28px);
+    grid-template-columns:minmax(0,1fr);
+    min-width:0;
+    overflow:hidden;
+  }
+  .market-funnel-redesign .market-copy,
+  .market-funnel-redesign .market-copy *,
+  .market-funnel-redesign .ad-hero-video-card,
+  .market-funnel-redesign .ad-video-frame,
+  .market-funnel-redesign .ad-consult-panel{
+    max-width:100%;
+    min-width:0;
+  }
+  .market-funnel-redesign .market-copy,
+  .market-funnel-redesign .ad-rating-row,
+  .market-funnel-redesign .market-copy .ad-lead,
+  .market-funnel-redesign .ad-hero-video-card,
+  .market-funnel-redesign .ad-consult-panel{
+    width:calc(100vw - 28px);
+    max-width:calc(100vw - 28px);
+  }
+  .market-funnel-redesign .market-copy h1{
+    width:calc(100vw - 28px);
+    max-width:calc(100vw - 28px);
+    font-size:2.28rem;
+    line-height:1.02;
+    letter-spacing:0;
+    overflow-wrap:break-word;
+    white-space:normal;
+    text-wrap:auto;
+  }
+  .market-funnel-redesign .ad-rating-row{
+    display:grid;
+    grid-template-columns:auto minmax(0,1fr);
+    align-items:center;
+    gap:8px;
+    width:100%;
+    padding:10px 12px;
+    text-align:left;
+    border-radius:24px;
+  }
+  .market-funnel-redesign .ad-rating-row span{
+    white-space:nowrap;
+    font-size:.78rem;
+    letter-spacing:.02em;
+  }
+  .market-funnel-redesign .ad-rating-row strong{
+    white-space:normal;
+    min-width:0;
+    font-size:.66rem;
+    line-height:1.1;
+    letter-spacing:.04em;
+  }
+  .market-funnel-redesign .ad-benefit-row span{
+    width:100%;
+    justify-content:center;
+    text-align:center;
+  }
+  .market-funnel-redesign .ad-hero-video-card figcaption{
+    margin-left:8px;
+    margin-right:8px;
+  }
+  .market-funnel-redesign .ad-hero-video-card{
+    aspect-ratio:auto;
+    display:block;
+  }
+  .market-funnel-redesign .ad-video-frame{
+    aspect-ratio:16/9;
+  }
   .ad-funnel-redesign .video-bubble,
   .market-funnel-redesign .video-bubble{
     left:12px;
@@ -1747,6 +1874,10 @@ body.review-modal-open{overflow:hidden}
   .ad-funnel-redesign .market-guide-card h2,
   .market-funnel-redesign .market-guide-card h2{
     font-size:clamp(2.15rem,10vw,3.2rem);
+  }
+  .market-funnel-redesign .market-guide-mini h2{
+    font-size:1.55rem;
+    letter-spacing:0;
   }
   .market-guide-name-row{grid-template-columns:1fr}
   .ad-funnel-redesign .market-guide-preview,

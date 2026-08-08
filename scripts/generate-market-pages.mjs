@@ -134,8 +134,12 @@ const markets = [
   }
 ];
 
-const cacheVersion = "20260801adpages6";
+const cacheVersion = "20260808adpages8";
 const googleEndpoint = "https://docs.google.com/forms/d/e/1FAIpQLSdV1-0yBlRusq9tkjymZKm_BfXfpmMKDDrcyqfP3KbEq-Qd_g/formResponse";
+const googleAdsId = "AW-11463464040";
+const consultationConversion = "AW-11463464040/kLPdCPzSo4oaEOiomtoq";
+const pdfConversion = "AW-11463464040/EkfvCK6B8o8ZEOiomtoq";
+const attributionFields = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "gclid", "landing_url"];
 
 const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({
   "&": "&amp;",
@@ -144,6 +148,58 @@ const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({
   '"': "&quot;",
   "'": "&#39;"
 }[char]));
+
+const attributionInputs = () => attributionFields
+  .map(name => `<input type="hidden" name="${name}" value="">`)
+  .join("\n              ");
+
+const googleAdsHead = () => `<script async src="https://www.googletagmanager.com/gtag/js?id=${googleAdsId}"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', '${googleAdsId}');
+  </script>`;
+
+const conversionAndAttributionScript = () => `<script>
+    (function(){
+      const conversions = {
+        consultation: '${consultationConversion}',
+        pdf: '${pdfConversion}'
+      };
+      const sendConversion = function(sendTo, value){
+        if (typeof window.gtag !== 'function') return;
+        window.gtag('event', 'conversion', {
+          send_to: sendTo,
+          value: value,
+          currency: 'USD'
+        });
+      };
+      document.addEventListener('submit', function(event){
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+        if (form.classList.contains('contact-intake')) sendConversion(conversions.consultation, 250);
+        if (form.classList.contains('pdf-optin')) sendConversion(conversions.pdf, 25);
+      }, true);
+      document.addEventListener('DOMContentLoaded', function(){
+        const params = new URLSearchParams(window.location.search);
+        const values = {
+          utm_source: params.get('utm_source') || '',
+          utm_medium: params.get('utm_medium') || '',
+          utm_campaign: params.get('utm_campaign') || '',
+          utm_content: params.get('utm_content') || '',
+          utm_term: params.get('utm_term') || '',
+          gclid: params.get('gclid') || '',
+          landing_url: window.location.href
+        };
+        Object.entries(values).forEach(function(entry){
+          document.querySelectorAll('input[name="' + entry[0] + '"]').forEach(function(input){
+            input.value = entry[1];
+          });
+        });
+      });
+    })();
+  </script>`;
 
 const page = market => {
   const metaDescription = `Request ${market.market} dog training from Lorenzo's Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with office-routed follow-up.`;
@@ -160,6 +216,7 @@ const page = market => {
   <link rel="icon" type="image/png" href="assets/ldtt-favicon.png">
   <link rel="apple-touch-icon" href="assets/ldtt-favicon.png">
   <link rel="stylesheet" href="styles.css?v=${cacheVersion}">
+  ${googleAdsHead()}
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2" data-market="${escapeHtml(market.market)}">
   <header class="ad-header ad-header-v2 market-header">
@@ -170,7 +227,7 @@ const page = market => {
       </a>
       <div class="ad-header-actions">
         <a class="btn btn-ghost-light" href="#consultation">Book My Consultation</a>
-        <a class="btn btn-red" href="tel:18664364959"><span class="desktop-call">Call (866) 436-4959</span><span class="mobile-call">Call Now</span></a>
+        <a class="btn btn-red" href="tel:+18664364959"><span class="desktop-call">Call (866) 436-4959</span><span class="mobile-call">Call Now</span></a>
       </div>
     </div>
   </header>
@@ -187,7 +244,7 @@ const page = market => {
             <strong>600+ Google reviews · ${escapeHtml(market.market)} request</strong>
           </a>
           <h1>${escapeHtml(market.h1)}</h1>
-          <p class="ad-lead">Request dog training help now. Lorenzo's office reviews your ZIP code, service need, and dog goals so the right next step can move quickly.</p>
+            <p class="ad-lead">Request a free, no-obligation evaluation. Lorenzo's office reviews your ZIP code, service need, and dog goals so the right next step can move quickly.</p>
           <div class="ad-benefit-row">
             <span>Local market page</span>
             <span>Fast office intake</span>
@@ -211,7 +268,7 @@ const page = market => {
         <aside id="consultation" class="ad-consult-panel market-consult-panel">
           <div class="ad-consult-header">
             <span>${escapeHtml(market.market)}</span>
-            <h2>Book your free consultation.</h2>
+            <h2>Book your free, no-obligation evaluation.</h2>
             <p>Use the short form. The office reviews your ZIP code and training need for the fastest next step.</p>
           </div>
           <form class="ad-form-card ad-form-card-v2 contact-intake"
@@ -245,9 +302,10 @@ const page = market => {
               <textarea name="comments" rows="3" placeholder="Example: pulling on leash, barking, jumping, potty training, aggression, anxiety..."></textarea>
             </label>
             <label class="consent-row">
-              <input required type="checkbox" name="sms_consent" value="yes">
-              <span>I agree to receive text messages from Lorenzo's Dog Training Team about my request. Reply STOP to opt out.</span>
+              <input type="checkbox" name="sms_consent" value="yes">
+              <span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy-policy.html">Privacy Policy</a>.</span>
             </label>
+            <p class="form-disclaimer">Phone is required so Lorenzo's office can call about your request. SMS consent is optional and separate from submitting this form.</p>
 
             <input type="hidden" name="trainer_name" value="${escapeHtml(market.trainers)}">
             <input type="hidden" name="assigned_trainer" value="${escapeHtml(market.trainers)}">
@@ -265,6 +323,7 @@ const page = market => {
             <input type="hidden" name="vet_or_previous_client" value="Market ad landing page">
             <input type="hidden" name="internal_route_note" value="Market ad landing page lead for ${escapeHtml(market.market)}. Office to confirm full address and evaluation preference during follow-up. Nearby trainer group: ${escapeHtml(market.trainers)}.">
             <input type="hidden" name="source_page" value="${escapeHtml(market.slug)}">
+            ${attributionInputs()}
             <input type="hidden" name="timestamp" value="">
             <div class="form-status" role="status" aria-live="polite"></div>
             <button class="btn btn-red" type="submit">Book My Consultation</button>
@@ -276,7 +335,7 @@ const page = market => {
 
     <section class="ad-proof-band-v2">
       <div class="container ad-proof-grid-v2">
-        <div><strong>40+</strong><span>Years of experience</span></div>
+        <div><strong>39</strong><span>Years of experience</span></div>
         <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
         <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
         <div><strong>${escapeHtml(market.state)}</strong><span>Market routing active</span></div>
@@ -296,17 +355,17 @@ const page = market => {
           <article>
             <span>01</span>
             <h3>Dog Obedience Training</h3>
-            <p>Heel, sit, stay, come, down, leash manners, off-leash goals, and reliable control around everyday distractions.</p>
+            <p>Practical obedience that helps your dog listen in the moments that matter: at home, on walks, around people, and around distractions.</p>
           </article>
           <article>
             <span>02</span>
             <h3>Behavior Modification</h3>
-            <p>Structured help for aggression, reactivity, barking, pulling, jumping, anxiety, and house-soiling.</p>
+            <p>Balanced training support for aggression, reactivity, barking, pulling, jumping, anxiety, and house-soiling with owner guidance built in.</p>
           </article>
           <article>
             <span>03</span>
             <h3>Specialty Training</h3>
-            <p>Support for protection, service and assistance needs, scent work, utility training, retrieval, and advanced control.</p>
+            <p>Outcome-based support for protection, service and assistance needs, scent work, utility training, retrieval, and advanced control.</p>
           </article>
         </div>
       </div>
@@ -326,9 +385,10 @@ const page = market => {
   </main>
 
   <footer class="footer ad-footer">
-    <div class="container subfooter">&copy; Lorenzo's Dog Training Team. Serious Training. Serious Results. | <a href="tel:18664364959">(866) 436-4959</a></div>
+    <div class="container subfooter">&copy; Lorenzo's Dog Training Team. Serious Training. Serious Results. | <a href="tel:+18664364959">(866) 436-4959</a></div>
   </footer>
 
+  ${conversionAndAttributionScript()}
   <script src="supabase-config.js"></script>
   <script src="script.js?v=${cacheVersion}"></script>
   <script src="market-landing.js?v=${cacheVersion}"></script>

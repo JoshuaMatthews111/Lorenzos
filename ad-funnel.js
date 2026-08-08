@@ -120,15 +120,16 @@
     return {
       submission_id: submissionId,
       qa: isReleaseQaHost,
-      first_name: String(data.get("first_name") || "").trim(),
-      last_name: String(data.get("last_name") || "").trim(),
-      email: String(data.get("email") || "").trim(),
-      phone: String(data.get("phone") || "").trim(),
-      zip: String(data.get("zip") || "").trim(),
-      additional_interest: data.getAll("additional_interest").map(value => String(value).trim()).filter(Boolean).join(", "),
-      i_want_to: `Send me ${ebookTitle}`,
-      heard_about_us: "Paid Advertising",
-      comments: `${source} from ${marketName}${data.getAll("additional_interest").length ? `. Additional interest: ${data.getAll("additional_interest").join(", ")}.` : ""}`,
+	      first_name: String(data.get("first_name") || "").trim(),
+	      last_name: String(data.get("last_name") || "").trim() || "Ebook Lead",
+	      email: String(data.get("email") || "").trim(),
+	      phone: String(data.get("phone") || "").trim() || "Not provided - PDF opt-in",
+	      zip: String(data.get("zip") || "").trim(),
+	      additional_interest: data.getAll("additional_interest").map(value => String(value).trim()).filter(Boolean).join(", "),
+	      i_want_to: `Send me ${ebookTitle}`,
+	      lead_type: "pdf_download",
+	      heard_about_us: "Paid Advertising",
+	      comments: `${source} from ${marketName}. This PDF opt-in collected first name and email only${data.getAll("additional_interest").length ? `. Additional interest: ${data.getAll("additional_interest").join(", ")}.` : "."}`,
       address_line_1: "Free Ebook Request",
       address_line_2: "",
       city: marketCity,
@@ -142,9 +143,18 @@
       landing_page_type: "Paid ads market page",
       source_page: pageTitle,
       page_url: pageUrl,
-      timestamp: new Date().toISOString(),
-      lead_magnet: ebookTitle,
-      market: marketName,
+	      timestamp: new Date().toISOString(),
+	      lead_magnet: ebookTitle,
+	      utm_source: search.get("utm_source") || "",
+	      utm_medium: search.get("utm_medium") || "",
+	      utm_campaign: search.get("utm_campaign") || "",
+	      utm_content: search.get("utm_content") || "",
+	      utm_term: search.get("utm_term") || "",
+	      gclid: search.get("gclid") || "",
+	      gbraid: search.get("gbraid") || "",
+	      wbraid: search.get("wbraid") || "",
+	      landing_url: pageUrl,
+	      market: marketName,
       _subject: `New ${ebookTitle} request - ${marketName}`,
       _template: "table",
       _captcha: "false"
@@ -242,9 +252,19 @@
     });
   });
 
-  const showExitCapture = () => {
-    if (sessionStorage.getItem("ldttAdExitCaptureShown") === "yes") return;
-    sessionStorage.setItem("ldttAdExitCaptureShown", "yes");
+	  const bookingStartedKey = `ldttBookingStarted:${pageSlug}`;
+	  const hasStartedBookingForm = () => sessionStorage.getItem(bookingStartedKey) === "yes"
+	    || Array.from(document.querySelectorAll(".contact-intake input, .contact-intake select, .contact-intake textarea"))
+	      .some(control => control.type === "checkbox" ? control.checked : String(control.value || "").trim());
+	  document.querySelectorAll(".contact-intake input, .contact-intake select, .contact-intake textarea").forEach(control => {
+	    control.addEventListener("input", () => sessionStorage.setItem(bookingStartedKey, "yes"), { once: true });
+	    control.addEventListener("change", () => sessionStorage.setItem(bookingStartedKey, "yes"), { once: true });
+	  });
+
+	  const showExitCapture = () => {
+	    if (sessionStorage.getItem("ldttAdExitCaptureShown") === "yes") return;
+	    if (hasStartedBookingForm()) return;
+	    sessionStorage.setItem("ldttAdExitCaptureShown", "yes");
 
     let modal = document.querySelector(".ad-capture-modal");
     if (!modal) {
@@ -253,23 +273,16 @@
       modal.innerHTML = `
         <div class="ad-capture-modal-card" role="dialog" aria-modal="true" aria-label="Free dog training ebook">
           <button class="ad-capture-close" type="button" aria-label="Close">×</button>
-          <span>Wait before you go</span>
-          <h2>Get the free calm dog Ebook before you leave.</h2>
-          <p>Join Lorenzo's training tips list and receive <strong>${ebookTitle}</strong> with practical steps you can start today.</p>
-          <form class="market-guide-form ad-exit-form" novalidate>
-            <div class="market-guide-name-row">
-              <label><span>First name</span><input required name="first_name" autocomplete="given-name" placeholder="First name"></label>
-              <label><span>Last name</span><input required name="last_name" autocomplete="family-name" placeholder="Last name"></label>
-            </div>
-            <label><span>Email address</span><input required type="email" name="email" autocomplete="email" placeholder="you@example.com"></label>
-            <label><span>Phone number (required callback)</span><input required name="phone" autocomplete="tel" inputmode="tel" placeholder="Phone number"></label>
-            <label><span>ZIP code</span><input required name="zip" inputmode="numeric" autocomplete="postal-code" placeholder="ZIP code"></label>
-            <fieldset class="interest-options">
-              <legend>I'm also interested in <small>(optional)</small></legend>
-              <label><input type="checkbox" name="additional_interest" value="Investor network"><span>Investor network</span></label>
-              <label><input type="checkbox" name="additional_interest" value="Donor or project support"><span>Donor/project support</span></label>
-              <label><input type="checkbox" name="additional_interest" value="Specialty dog training"><span>Specialty training</span></label>
-            </fieldset>
+	          <span>Free PDF Guide</span>
+	          <h2>Not ready to talk yet? Get the free guide.</h2>
+	          <p>Join Lorenzo's training tips list and receive <strong>${ebookTitle}</strong> with practical steps you can start today.</p>
+	          <form class="market-guide-form ad-exit-form pdf-optin" novalidate>
+	            <label><span>First name</span><input required name="first_name" autocomplete="given-name" placeholder="First name"></label>
+	            <label><span>Email address</span><input required type="email" name="email" autocomplete="email" placeholder="you@example.com"></label>
+	            <fieldset class="interest-options">
+	              <legend>I'm also interested in <small>(optional)</small></legend>
+	              <label><input type="checkbox" name="additional_interest" value="Specialty dog training"><span>Specialty training</span></label>
+	            </fieldset>
             <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training tips, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
           <button class="btn" type="submit">Download the Free Guide</button>
             <p class="market-guide-status" role="status" aria-live="polite"></p>
@@ -313,18 +326,7 @@
     modal.classList.add("open");
   };
 
-  document.addEventListener("mouseleave", (event) => {
-    if (event.clientY <= 0) showExitCapture();
-  });
-
-  let lastScroll = window.scrollY;
-  let mobileTimer = window.setTimeout(showExitCapture, 45000);
-  window.addEventListener("scroll", () => {
-    const current = window.scrollY;
-    if (window.innerWidth <= 760 && current < lastScroll && current > 500) {
-      window.clearTimeout(mobileTimer);
-      showExitCapture();
-    }
-    lastScroll = current;
-  }, { passive: true });
-})();
+	  document.addEventListener("mouseleave", (event) => {
+	    if (event.clientY <= 0) showExitCapture();
+	  });
+	})();
