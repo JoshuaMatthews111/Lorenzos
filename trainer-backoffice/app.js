@@ -237,6 +237,7 @@ const defaultState = {
   activeView: "dashboard",
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
+  clientSearch: "",
   applicationFilter: "All",
   applicationViewMode: "sheet",
   reviewSubmissionFilter: "Active",
@@ -365,6 +366,7 @@ let operationalRealtimeUnsubscribe = null;
 let operationalRealtimeDebounce = null;
 let leadFilterRenderTimer = null;
 let applicationFilterRenderTimer = null;
+let clientFilterRenderTimer = null;
 applyUrlState();
 
 function loadState() {
@@ -506,6 +508,7 @@ function persistStateSnapshot() {
     activeView: state.activeView,
     selectedTrainerId: state.selectedTrainerId,
     clientFilter: state.clientFilter,
+    clientSearch: state.clientSearch,
     applicationFilter: state.applicationFilter,
     applicationViewMode: state.applicationViewMode,
     reviewSubmissionFilter: state.reviewSubmissionFilter,
@@ -544,7 +547,9 @@ function focusedPortalInputSnapshot() {
     ? "[data-lead-search]"
     : active.dataset?.applicationSearch !== undefined
       ? "[data-application-search]"
-      : "";
+      : active.dataset?.clientSearch !== undefined
+        ? "[data-client-search]"
+        : "";
   if (!selector) return null;
   return {
     selector,
@@ -569,15 +574,21 @@ function restorePortalInputFocus(snapshot) {
 function scheduleFilteredWorkspaceRender(kind) {
   persistStateSnapshot();
   const snapshot = focusedPortalInputSnapshot();
-  const timer = kind === "application" ? applicationFilterRenderTimer : leadFilterRenderTimer;
+  const timer = kind === "application"
+    ? applicationFilterRenderTimer
+    : kind === "client"
+      ? clientFilterRenderTimer
+      : leadFilterRenderTimer;
   window.clearTimeout(timer);
   const nextTimer = window.setTimeout(() => {
     if (kind === "application") applicationFilterRenderTimer = null;
+    else if (kind === "client") clientFilterRenderTimer = null;
     else leadFilterRenderTimer = null;
     render();
     restorePortalInputFocus(snapshot);
   }, 180);
   if (kind === "application") applicationFilterRenderTimer = nextTimer;
+  else if (kind === "client") clientFilterRenderTimer = nextTimer;
   else leadFilterRenderTimer = nextTimer;
 }
 
@@ -587,6 +598,10 @@ function scheduleLeadFilterRender() {
 
 function scheduleApplicationFilterRender() {
   scheduleFilteredWorkspaceRender("application");
+}
+
+function scheduleClientFilterRender() {
+  scheduleFilteredWorkspaceRender("client");
 }
 
 function saveSession(role, extras = {}) {
@@ -1767,6 +1782,10 @@ function reviewTargetLabels(submission) {
   return targets.length ? targets.map(reviewTargetLabel).join(", ") : "No destinations selected";
 }
 
+function reviewTargetLabelList(submission) {
+  return reviewTargetsFor(submission, { allowEmpty: true }).map(reviewTargetLabel);
+}
+
 function publishedReviewForSubmission(submission) {
   if (!submission?.remoteId) return null;
   for (const trainer of state.trainers || []) {
@@ -2581,15 +2600,80 @@ function showToast(message) {
   showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
 }
 
-function showActionConfirmation(title, message) {
+function actionConfirmationList(items = []) {
+  const cleaned = (items || []).map(item => String(item || "").trim()).filter(Boolean);
+  if (!cleaned.length) return "";
+  return `<ul class="action-confirmation-list">${cleaned.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function showActionConfirmation(title, message, options = {}) {
   const dialog = document.createElement("dialog");
   dialog.className = "action-confirmation-dialog";
-  dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">✓</div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p><button type="button" class="btn btn-red action-confirmation-done">Done</button>`;
+  dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">✓</div><h2>${escapeHtml(title)}</h2><p>${escapeHtml(message)}</p>${actionConfirmationList(options.items)}${options.meta ? `<small class="action-confirmation-meta">${escapeHtml(options.meta)}</small>` : ""}<button type="button" class="btn btn-red action-confirmation-done">Done</button>`;
   document.body.appendChild(dialog);
   const close = () => { dialog.close(); dialog.remove(); };
   dialog.querySelectorAll(".action-confirmation-close,.action-confirmation-done").forEach(button => button.addEventListener("click", close));
   dialog.addEventListener("click", event => { if (event.target === dialog) close(); });
   dialog.showModal();
+}
+
+function showActionProgress(title, message, options = {}) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "action-confirmation-dialog action-progress-dialog is-pending";
+  dialog.setAttribute("aria-live", "polite");
+  dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button>
+    <div class="action-confirmation-icon action-progress-icon"><span class="action-progress-spinner" aria-hidden="true"></span></div>
+    <h2></h2>
+    <p></p>
+    <div class="action-progress-list"></div>
+    <div class="action-progress-bar" aria-hidden="true"><span></span></div>
+    <button type="button" class="btn btn-red action-confirmation-done" disabled>Saving...</button>`;
+  document.body.appendChild(dialog);
+  const iconEl = dialog.querySelector(".action-progress-icon");
+  const titleEl = dialog.querySelector("h2");
+  const messageEl = dialog.querySelector("p");
+  const listEl = dialog.querySelector(".action-progress-list");
+  const doneButton = dialog.querySelector(".action-confirmation-done");
+  const closeButton = dialog.querySelector(".action-confirmation-close");
+  const close = () => {
+    if (dialog.open) dialog.close();
+    dialog.remove();
+  };
+  closeButton.addEventListener("click", close);
+  doneButton.addEventListener("click", close);
+  dialog.addEventListener("click", event => {
+    if (event.target === dialog && !dialog.classList.contains("is-pending")) close();
+  });
+  const renderState = (state, nextTitle, nextMessage, nextOptions = {}) => {
+    dialog.classList.toggle("is-pending", state === "pending");
+    dialog.classList.toggle("is-complete", state === "complete");
+    dialog.classList.toggle("is-error", state === "error");
+    titleEl.textContent = nextTitle || title;
+    messageEl.textContent = nextMessage || message;
+    listEl.innerHTML = actionConfirmationList(nextOptions.items || options.items || []);
+    if (state === "pending") {
+      iconEl.innerHTML = `<span class="action-progress-spinner" aria-hidden="true"></span>`;
+      closeButton.disabled = true;
+      doneButton.disabled = true;
+      doneButton.textContent = "Saving...";
+      return;
+    }
+    closeButton.disabled = false;
+    iconEl.textContent = state === "error" ? "!" : "✓";
+    doneButton.disabled = false;
+    doneButton.textContent = state === "error" ? "Close" : "Done";
+  };
+  renderState("pending", title, message, options);
+  dialog.showModal();
+  return {
+    done(nextTitle, nextMessage, nextOptions = {}) {
+      renderState("complete", nextTitle, nextMessage, nextOptions);
+    },
+    fail(nextTitle, nextMessage, nextOptions = {}) {
+      renderState("error", nextTitle, nextMessage, nextOptions);
+    },
+    close
+  };
 }
 
 function icon(name) {
@@ -4282,10 +4366,77 @@ function leadDateRangeWindow(overrides = {}) {
   return { start, end };
 }
 
-function leadSearchHaystack(lead = {}) {
-  return [lead.owner, lead.dog, lead.phone, lead.email, lead.address, lead.source, lead.service, leadMarketLabel(lead), trainerName(lead.trainerId)]
+function flattenSearchValues(value) {
+  if (value === null || value === undefined) return [];
+  if (Array.isArray(value)) return value.flatMap(flattenSearchValues);
+  if (typeof value === "object") return Object.values(value).flatMap(flattenSearchValues);
+  return [String(value)];
+}
+
+function normalizedSearchText(values) {
+  return flattenSearchValues(values)
     .join(" ")
-    .toLowerCase();
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizedSearchTerms(query) {
+  return normalizedSearchText(query).split(/\s+/).filter(Boolean);
+}
+
+function normalizedSearchDigits(values) {
+  return flattenSearchValues(values).join(" ").replace(/\D/g, "");
+}
+
+function recordMatchesSearch(values, query) {
+  const terms = normalizedSearchTerms(query);
+  if (!terms.length) return true;
+  const haystack = normalizedSearchText(values);
+  const haystackDigits = normalizedSearchDigits(values);
+  return terms.every(term => {
+    const termDigits = term.replace(/\D/g, "");
+    return haystack.includes(term) || Boolean(termDigits && haystackDigits.includes(termDigits));
+  });
+}
+
+function leadSearchValues(lead = {}) {
+  return [
+    lead.owner,
+    lead.first_name,
+    lead.last_name,
+    lead.dog,
+    lead.breed,
+    lead.phone,
+    lead.email,
+    lead.address,
+    lead.address_line_1,
+    lead.address_line_2,
+    lead.city,
+    lead.state,
+    lead.zip,
+    lead.source,
+    lead.service,
+    lead.i_want_to,
+    lead.heard_about_us,
+    lead.vet_or_previous_client,
+    lead.additional_interest,
+    lead.comments,
+    lead.clientNote,
+    lead.note,
+    lead.status,
+    lead.lostReason,
+    leadMarketLabel(lead),
+    trainerName(lead.trainerId),
+    portalUserById(lead.assignedUserId) ? portalActorLabel(lead.assignedUserId) : "",
+    lead.rawPayload
+  ];
+}
+
+function leadSearchHaystack(lead = {}) {
+  return normalizedSearchText(leadSearchValues(lead));
 }
 
 function leadMatchesTrainerFilter(lead, trainerFilter) {
@@ -4310,7 +4461,7 @@ function leadMatchesFilters(lead, options = {}) {
   const statusFilter = overrides.leadStatusFilter ?? state.leadStatusFilter;
   const smsFilter = overrides.leadSmsFilter ?? state.leadSmsFilter;
   const ownerFilter = overrides.leadOwnerFilter ?? state.leadOwnerFilter ?? "All";
-  return (ignore.has("search") || !search || leadSearchHaystack(lead).includes(String(search).toLowerCase()))
+  return (ignore.has("search") || recordMatchesSearch(leadSearchValues(lead), search))
     && (ignore.has("trainer") || leadMatchesTrainerFilter(lead, trainerFilter))
     && (ignore.has("status") || statusFilter === "All" || lead.status === statusFilter)
     && (ignore.has("sms") || smsFilter === "All" || lead.smsConsent === smsFilter)
@@ -5358,11 +5509,15 @@ function updateApplicationRecord(id, changes) {
   return storedApplication;
 }
 
-function applicationSearchHaystack(app = {}) {
+function applicationSearchValues(app = {}) {
   return [
     applicationDisplayName(app),
+    app.first_name,
+    app.last_name,
     app.email,
     app.phone,
+    app.address_line_1,
+    app.address_line_2,
     app.city,
     app.state,
     app.zip,
@@ -5371,20 +5526,23 @@ function applicationSearchHaystack(app = {}) {
     app.source_page,
     app.referral_source,
     app.status,
+    app.note,
+    app.assignedUserId ? portalActorLabel(app.assignedUserId) : "",
     applicationInquiryTypeLabel(app),
-    ...Object.values(applicationRawPayload(app) || {})
-  ]
-    .map(value => typeof value === "object" && value !== null ? JSON.stringify(value) : String(value || ""))
-    .join(" ")
-    .toLowerCase();
+    applicationRawPayload(app)
+  ];
+}
+
+function applicationSearchHaystack(app = {}) {
+  return normalizedSearchText(applicationSearchValues(app));
 }
 
 function filteredApplicationRows(options = {}) {
   const activeFilter = options.filter ?? currentApplicationFilter();
-  const search = String(options.search ?? state.applicationSearch ?? "").trim().toLowerCase();
+  const search = options.search ?? state.applicationSearch ?? "";
   return applicationRows()
     .filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter)
-    .filter(app => !search || applicationSearchHaystack(app).includes(search))
+    .filter(app => recordMatchesSearch(applicationSearchValues(app), search))
     .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
 }
 
@@ -6137,8 +6295,43 @@ function openPublicReviewMedia(trigger) {
   dialog.showModal();
 }
 
+function clientSearchValues(client = {}) {
+  return [
+    client.name,
+    client.phone,
+    client.email,
+    client.dog,
+    client.breed,
+    trainerName(client.trainerId),
+    client.status,
+    client.source,
+    client.importedSource,
+    client.smsConsent,
+    client.emailConsent,
+    client.dateStarted,
+    client.lastContacted,
+    client.notes,
+    client.leadId,
+    officeNotesFor("client", client.remoteId).map(note => note.note)
+  ];
+}
+
+function filteredClientRows(options = {}) {
+  const status = options.status ?? state.clientFilter;
+  const search = options.search ?? state.clientSearch ?? "";
+  return state.clients
+    .filter(client => status === "All" || client.status === status)
+    .filter(client => recordMatchesSearch(clientSearchValues(client), search));
+}
+
 function clientFilterBar() {
-  return `<div class="filter-bar">${clientStatuses.map(status => `<button class="btn ${state.clientFilter === status ? "btn-red" : "btn-outline"}" data-client-filter="${status}">${status}</button>`).join("")}</div>`;
+  const rows = filteredClientRows();
+  const searchNote = state.clientSearch ? ` matching "${escapeHtml(state.clientSearch)}"` : "";
+  return `<section class="client-filter-shell">
+    <div class="filter-bar">${clientStatuses.map(status => `<button class="btn ${state.clientFilter === status ? "btn-red" : "btn-outline"}" data-client-filter="${escapeHtml(status)}">${escapeHtml(status)}</button>`).join("")}</div>
+    <input class="select-pill client-search" data-client-search value="${escapeHtml(state.clientSearch || "")}" placeholder="Search clients by name, dog, phone, email, trainer, notes...">
+    <p class="panel-copy lead-result-count"><strong>${rows.length} of ${state.clients.length} client records shown${searchNote}.</strong></p>
+  </section>`;
 }
 
 function convertedLeadQueue() {
@@ -6150,7 +6343,7 @@ function convertedLeadQueue() {
 }
 
 function clientTable() {
-  const rows = state.clients.filter(c => state.clientFilter === "All" || c.status === state.clientFilter);
+  const rows = filteredClientRows();
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Trainer</th><th>Status</th><th>Consent</th><th>Imported Source</th><th>Campaign Eligibility</th><th>Notes</th></tr></thead><tbody>${rows.map(client => `<tr data-open-client="${escapeHtml(client.id)}"><td><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.phone)} · ${escapeHtml(client.email)}</small></td><td>${escapeHtml(client.dog)}<small>${escapeHtml(client.breed)}</small></td><td>${escapeHtml(trainerName(client.trainerId))}</td><td><span class="status ${clientStatusClass(client.status)}">${escapeHtml(client.status)}</span></td><td>SMS: ${consentBadge(client.smsConsent)}<br>Email: ${consentBadge(client.emailConsent)}</td><td>${escapeHtml(client.importedSource)}</td><td>${campaignEligibility(client)}</td><td>${escapeHtml(client.notes)}</td></tr>`).join("") || `<tr><td colspan="8">No client records match this filter yet.</td></tr>`}</tbody></table></div>${clientDetailPanel()}`;
 }
 
@@ -7525,12 +7718,20 @@ document.addEventListener("click", async event => {
   if (approve) {
     const sub = state.submissions.find(s => s.id === approve.dataset.approveSubmission);
     approve.disabled = true;
+    const isReviewSubmission = ["Review", "Testimonial"].includes(sub?.type);
+    const progress = remoteReady && isReviewSubmission
+      ? showActionProgress("Publishing review", "Saving the approved review to the selected live destinations.", { items: reviewTargetLabelList(sub) })
+      : null;
     if (remoteReady) {
       const saved = await runRemoteMutation("Submission approved", () => publishApprovedReview(sub), {
         type: "Review",
         detail: `${sub?.title || "Submission"} approved for ${reviewTargetLabels(sub)}.`
       });
-      if (saved && ["Review", "Testimonial"].includes(sub?.type)) showActionConfirmation("Review published", `The approved review is now available on: ${reviewTargetLabels(sub)}.`);
+      if (saved && progress) {
+        progress.done("Review published", "The approved review is live on these destinations.", { items: reviewTargetLabelList(sub) });
+      } else if (!saved && progress) {
+        progress.fail("Review not saved", "The live save did not complete. Please retry before leaving this screen.", { items: reviewTargetLabelList(sub) });
+      }
       if (!saved) approve.disabled = false;
     } else if (sub) {
       sub.status = "Approved";
@@ -7542,12 +7743,19 @@ document.addEventListener("click", async event => {
   if (publishReview) {
     const sub = state.submissions.find(s => s.id === publishReview.dataset.publishReview);
     publishReview.disabled = true;
+    const progress = remoteReady
+      ? showActionProgress("Publishing review", "Saving review placements to the live site.", { items: reviewTargetLabelList(sub) })
+      : null;
     if (remoteReady) {
       const saved = await runRemoteMutation("Review landing page refreshed", () => publishApprovedReview(sub), {
         type: "Review",
         detail: `${sub?.title || "Review"} published/refreshed on ${reviewTargetLabels(sub)}.`
       });
-      if (saved) showActionConfirmation("Review published", `The review is now live on: ${reviewTargetLabels(sub)}.`);
+      if (saved && progress) {
+        progress.done("Review published", "The review is live on these destinations.", { items: reviewTargetLabelList(sub) });
+      } else if (!saved && progress) {
+        progress.fail("Review not saved", "The live save did not complete. Please retry before leaving this screen.", { items: reviewTargetLabelList(sub) });
+      }
       else publishReview.disabled = false;
     } else if (sub) {
       sub.status = "Approved";
@@ -7577,12 +7785,20 @@ document.addEventListener("click", async event => {
   if (unpublishReview) {
     const sub = state.submissions.find(s => s.id === unpublishReview.dataset.unpublishReview);
     unpublishReview.disabled = true;
+    const selectedDestinations = reviewTargetLabelList(sub);
+    const progress = remoteReady
+      ? showActionProgress("Unpublishing review", "Removing this review from public display.", { items: selectedDestinations })
+      : null;
     if (remoteReady) {
       const saved = await runRemoteMutation("Review unpublished", () => unpublishApprovedReview(sub, "Unpublished"), {
         type: "Review",
         detail: `${sub?.title || "Review"} unpublished from ${reviewTargetLabels(sub)}.`
       });
-      if (saved) showActionConfirmation("Review unpublished", "The review was removed from public display and kept in the review inbox.");
+      if (saved && progress) {
+        progress.done("Review unpublished", "The review was removed from public display. These selected destinations were kept for the next publish.", { items: selectedDestinations });
+      } else if (!saved && progress) {
+        progress.fail("Review still published", "The live save did not complete. Please retry before leaving this screen.", { items: selectedDestinations });
+      }
       else unpublishReview.disabled = false;
     } else if (sub) {
       sub.status = "Unpublished";
@@ -8217,6 +8433,7 @@ document.addEventListener("input", event => {
   }
   if (field.dataset.leadSearch !== undefined) { state.leadSearch = field.value; scheduleLeadFilterRender(); }
   if (field.dataset.applicationSearch !== undefined) { state.applicationSearch = field.value; scheduleApplicationFilterRender(); }
+  if (field.dataset.clientSearch !== undefined) { state.clientSearch = field.value; scheduleClientFilterRender(); }
   if (field.id === "csvInput") {
     state.importDraft = field.value;
     saveState(null, true);
@@ -8447,6 +8664,7 @@ document.addEventListener("change", async event => {
   }
   if (event.target.dataset.leadSearch !== undefined) { state.leadSearch = event.target.value; persistStateSnapshot(); return; }
   if (event.target.dataset.applicationSearch !== undefined) { state.applicationSearch = event.target.value; persistStateSnapshot(); return; }
+  if (event.target.dataset.clientSearch !== undefined) { state.clientSearch = event.target.value; persistStateSnapshot(); return; }
   const upload = event.target.closest("[data-trainer-upload]");
   if (upload && upload.files?.[0]) {
     const file = upload.files[0];
@@ -8522,15 +8740,45 @@ document.addEventListener("change", async event => {
   if (officeAssignee) {
     const entityType = officeAssignee.dataset.officeAssignee;
     const recordId = officeAssignee.dataset.recordId;
+    const entityLabel = entityType === "lead" ? "Lead" : "Application";
+    const assigneeLabel = officeAssignee.value ? portalActorLabel(officeAssignee.value) : "Unassigned";
     const record = entityType === "lead"
       ? updateLeadRecord(recordId, { assignedUserId: officeAssignee.value })
       : updateApplicationRecord(recordId, { assignedUserId: officeAssignee.value });
+    const recordLabel = entityType === "lead"
+      ? record?.owner || "Selected lead"
+      : applicationDisplayName(record) || "Selected application";
     const save = entityType === "lead" ? persistLeadRecord : persistApplicationRecord;
-    if (remoteReady) runRemoteMutation("Office owner saved", () => save(record), {
-      type: entityType === "lead" ? "Lead" : "Application",
-      detail: `${entityType === "lead" ? record?.owner : applicationDisplayName(record)} assigned by ${currentActorLabel()}.`
-    });
-    else saveState("Office owner updated");
+    if (remoteReady) {
+      officeAssignee.disabled = true;
+      const assignmentItems = [
+        recordLabel,
+        officeAssignee.value ? `Assigned to ${assigneeLabel}` : "Unassigned"
+      ];
+      const progress = showActionProgress("Saving assignment", `Updating this ${entityLabel.toLowerCase()} owner in the live portal.`, { items: assignmentItems });
+      const saved = await runRemoteMutation("Office owner saved", () => save(record), {
+        type: entityLabel,
+        detail: officeAssignee.value
+          ? `${recordLabel} assigned to ${assigneeLabel} by ${currentActorLabel()}.`
+          : `${recordLabel} unassigned by ${currentActorLabel()}.`
+      });
+      if (saved) {
+        progress.done(
+          officeAssignee.value ? `${entityLabel} assigned` : `${entityLabel} unassigned`,
+          officeAssignee.value ? `${recordLabel} is now assigned to ${assigneeLabel}.` : `${recordLabel} is now unassigned.`,
+          { items: assignmentItems }
+        );
+      } else {
+        progress.fail("Assignment not saved", "The live save did not complete. Please retry before leaving this screen.", { items: assignmentItems });
+        officeAssignee.disabled = false;
+      }
+    } else {
+      saveState("Office owner updated");
+      showActionConfirmation(
+        officeAssignee.value ? `${entityLabel} assigned` : `${entityLabel} unassigned`,
+        officeAssignee.value ? `${recordLabel} is now assigned to ${assigneeLabel}.` : `${recordLabel} is now unassigned.`
+      );
+    }
     return;
   }
   const leadFilter = event.target.closest("[data-lead-filter]");
