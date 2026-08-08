@@ -1002,7 +1002,7 @@ function remoteSubmissionToUi(row) {
     ? workflowMatch[1][0].toUpperCase() + workflowMatch[1].slice(1).toLowerCase()
     : (row.status ? row.status[0].toUpperCase() + row.status.slice(1) : "Pending");
   const fallbackTarget = trainer?.id || (isHomepageReview ? "lorenzos-team" : "");
-  const reviewTargets = parsedTargets.length ? parsedTargets : [fallbackTarget].filter(Boolean);
+  const reviewTargets = targetsMatch ? parsedTargets : [fallbackTarget].filter(Boolean);
   const cleanOfficeNote = officeNote
     .replace(/\s*\[\[review_workflow:(?:unpublished|deleted|archived)\]\]\s*/ig, "")
     .replace(/\s*\[\[review_targets:[^\]]*\]\]\s*/ig, "")
@@ -1726,18 +1726,21 @@ function defaultReviewDisplayOptions(submission = {}) {
   };
 }
 
-function reviewTargetsFor(submission = {}) {
-  const targets = Array.isArray(submission.reviewTargets) && submission.reviewTargets.length
+function reviewTargetsFor(submission = {}, options = {}) {
+  const explicitTargets = Array.isArray(submission.reviewTargets);
+  const targets = explicitTargets
     ? submission.reviewTargets
     : [submission.trainerId || "lorenzos-team"];
-  return Array.from(new Set(targets.filter(Boolean).map(target => target || "lorenzos-team")));
+  const cleaned = Array.from(new Set(targets.filter(Boolean).map(target => target || "lorenzos-team")));
+  if (!cleaned.length && !options.allowEmpty) return ["lorenzos-team"];
+  return cleaned;
 }
 
-function setReviewTargets(submission, targets = []) {
+function setReviewTargets(submission, targets = [], options = {}) {
   if (!submission) return [];
   const cleaned = Array.from(new Set(targets.filter(Boolean)));
-  submission.reviewTargets = cleaned.length ? cleaned : ["lorenzos-team"];
-  submission.trainerId = submission.reviewTargets.find(target => target !== "lorenzos-team") || submission.reviewTargets[0] || "lorenzos-team";
+  submission.reviewTargets = cleaned.length || options.allowEmpty ? cleaned : ["lorenzos-team"];
+  submission.trainerId = submission.reviewTargets.find(target => target !== "lorenzos-team") || submission.reviewTargets[0] || "";
   submission.reviewDisplay = reviewDisplayOptionsFor(submission);
   return submission.reviewTargets;
 }
@@ -1751,8 +1754,8 @@ function reviewTargetLabel(target) {
   return trainerName(target);
 }
 
-function reviewPublicationDestinations(submission) {
-  return reviewTargetsFor(submission).map(target => {
+function reviewPublicationDestinations(submission, options = {}) {
+  return reviewTargetsFor(submission, options).map(target => {
     if (target === "lorenzos-team") return { destination_type: "homepage", destination_id: "lorenzos-team" };
     if (String(target).startsWith("city:")) return { destination_type: "city_page", destination_id: String(target).slice(5) };
     return { destination_type: "trainer_page", destination_id: target };
@@ -1760,7 +1763,8 @@ function reviewPublicationDestinations(submission) {
 }
 
 function reviewTargetLabels(submission) {
-  return reviewTargetsFor(submission).map(reviewTargetLabel).join(", ");
+  const targets = reviewTargetsFor(submission, { allowEmpty: true });
+  return targets.length ? targets.map(reviewTargetLabel).join(", ") : "No destinations selected";
 }
 
 function publishedReviewForSubmission(submission) {
@@ -1780,15 +1784,93 @@ function reviewDisplayOptionsFor(submission = {}) {
   };
 }
 
-async function saveReviewDestinations(submission, published = false) {
+function cleanReviewOfficeNoteText(submission = {}) {
+  return String(submission.officeNote || submission.note || "")
+    .replace(/\s*\[\[review_workflow:(?:unpublished|deleted|archived)\]\]\s*/ig, "")
+    .replace(/\s*\[\[review_targets:[^\]]*\]\]\s*/ig, "")
+    .trim();
+}
+
+function reviewOfficeNotePayload(submission = {}, workflowStatus = "") {
+  const markers = [];
+  const workflow = String(workflowStatus || "").trim().toLowerCase();
+  if (["unpublished", "deleted", "archived"].includes(workflow)) {
+    markers.push(`[[review_workflow:${workflow}]]`);
+  }
+  const targets = Array.isArray(submission.reviewTargets)
+    ? reviewTargetsFor(submission, { allowEmpty: true })
+    : reviewTargetsFor(submission);
+  if (targets.length || Array.isArray(submission.reviewTargets)) markers.push(`[[review_targets:${targets.join(",")}]]`);
+  return [cleanReviewOfficeNoteText(submission), ...markers].filter(Boolean).join("\n");
+}
+
+function approvedReviewFromSubmission(submission) {
+  return {
+    submission_id: submission.remoteId,
+    author: submission.reviewerName || "Verified Client",
+    rating: submission.starRating || "5",
+    copy: submission.reviewText || submission.note || "",
+    location: submission.reviewerLocation || "",
+    media_url: submission.storagePath || submission.contentUrl || "",
+    media_type: submission.fileType || "",
+    media_name: submission.fileName || "",
+    display: reviewDisplayOptionsFor(submission),
+    published_at: new Date().toISOString()
+  };
+}
+
+function reviewKeyFor(review, index = 0) {
+  return String(review?.submission_id || review?.id || `review-${index}`);
+}
+
+function submissionForApprovedReview(review = {}) {
+  return (state.submissions || []).find(submission =>
+    String(submission.remoteId || submission.id || "") === String(review.submission_id || review.id || "")
+  );
+}
+
+function trainerApprovedReviewManagerMarkup(trainer, options = {}) {
+  const reviews = Array.isArray(trainer?.approvedReviews) ? trainer.approvedReviews : [];
+  const compactClass = options.compact ? " compact" : "";
+  const rows = reviews.map((review, index) => {
+    const submission = submissionForApprovedReview(review);
+    const key = reviewKeyFor(review, index);
+    const copy = String(review.copy || submission?.reviewText || "").trim();
+    const title = submission?.title || `${review.author || "Approved client"} review`;
+    const destinations = submission ? reviewTargetLabels(submission) : `${trainer.name} landing page`;
+    const mediaLabel = review.media_url || submission?.contentUrl ? "Media attached" : "Text only";
+    return `<article class="trainer-approved-review-row" data-review-placement="${escapeHtml(key)}">
+      <div>
+        <strong>${escapeHtml(title)}</strong>
+        <span>${escapeHtml(review.author || submission?.reviewerName || "Verified Client")}${review.location || submission?.reviewerLocation ? ` · ${escapeHtml(review.location || submission?.reviewerLocation)}` : ""}</span>
+        <p>${escapeHtml(copy || "Approved media review from a Lorenzo client.")}</p>
+        <small>Saved destinations: ${escapeHtml(destinations)} · ${escapeHtml(mediaLabel)}</small>
+      </div>
+      <div class="review-placement-actions">
+        <button class="btn btn-outline btn-small" type="button" data-trainer-review-move="${escapeHtml(trainer.id)}" data-review-key="${escapeHtml(key)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Up</button>
+        <button class="btn btn-outline btn-small" type="button" data-trainer-review-move="${escapeHtml(trainer.id)}" data-review-key="${escapeHtml(key)}" data-direction="1" ${index === reviews.length - 1 ? "disabled" : ""}>Down</button>
+        <button class="btn btn-outline btn-small btn-danger" type="button" data-trainer-review-remove="${escapeHtml(trainer.id)}" data-review-key="${escapeHtml(key)}">Remove From Trainer</button>
+      </div>
+    </article>`;
+  }).join("");
+  return `<section class="trainer-approved-review-manager${compactClass}">
+    <div class="trainer-approved-review-head">
+      <div><span class="step-label">Approved review placements</span><h3>Reviews attached to ${escapeHtml(trainer?.name || "this trainer")}</h3></div>
+      <strong>${reviews.length}</strong>
+    </div>
+    ${rows || `<div class="empty-state compact"><strong>No approved reviews attached yet.</strong><p>When a review is published to this trainer, it will appear here and on the trainer landing-page review section.</p></div>`}
+  </section>`;
+}
+
+async function saveReviewDestinations(submission, published = false, options = {}) {
   if (!submission?.remoteId || !["Review", "Testimonial"].includes(submission.type)) return null;
   const result = await window.LDTT_PORTAL.operationalMutation({
     operation: "set_review_publications",
     submission_id: submission.remoteId,
-    destinations: reviewPublicationDestinations(submission),
+    destinations: reviewPublicationDestinations(submission, { allowEmpty: options.allowEmpty }),
     published,
     workflow_status: published ? "approved" : String(submission.status || "pending").toLowerCase(),
-    office_note: submission.officeNote || submission.note || "",
+    office_note: reviewOfficeNotePayload(submission, published ? "" : submission.status),
     summary: `${submission.title || "Review"} destinations saved: ${reviewTargetLabels(submission)}`
   });
   submission.version = Number(result.version || submission.version || 1);
@@ -1805,19 +1887,12 @@ async function publishApprovedReview(submission) {
     }
     return;
   }
-  const targets = reviewTargetsFor(submission);
-  const publishedReview = {
-    submission_id: submission.remoteId,
-    author: submission.reviewerName || "Verified Client",
-    rating: submission.starRating || "5",
-    copy: submission.reviewText || submission.note || "",
-    location: submission.reviewerLocation || "",
-    media_url: submission.storagePath || submission.contentUrl || "",
-    media_type: submission.fileType || "",
-    media_name: submission.fileName || "",
-    display: reviewDisplayOptionsFor(submission),
-    published_at: new Date().toISOString()
-  };
+  const targets = reviewTargetsFor(submission, { allowEmpty: true });
+  if (!targets.length) {
+    await unpublishApprovedReview(submission, "Unpublished");
+    return;
+  }
+  const publishedReview = approvedReviewFromSubmission(submission);
   const trainerTargets = targets.filter(target => target !== "lorenzos-team" && !String(target).startsWith("city:"));
   for (const trainer of state.trainers || []) {
     if (!trainerTargets.includes(trainer.id) && (trainer.approvedReviews || []).some(review => review.submission_id === submission.remoteId)) {
@@ -1842,16 +1917,7 @@ async function publishApprovedReview(submission) {
 }
 
 async function deletePublishedReview(submission) {
-  if (!submission?.remoteId) return;
-  const trainers = (state.trainers || []).filter(trainer =>
-    (trainer.approvedReviews || []).some(review => review.submission_id === submission.remoteId)
-  );
-  for (const trainer of trainers) {
-    trainer.approvedReviews = (trainer.approvedReviews || []).filter(review => review.submission_id !== submission.remoteId);
-    await persistTrainerRecord(trainer, { publish: true });
-  }
-  submission.status = "Deleted";
-  await persistSubmissionRecord(submission);
+  await unpublishApprovedReview(submission, "Deleted");
 }
 
 async function unpublishApprovedReview(submission, status = "Unpublished") {
@@ -1870,7 +1936,7 @@ async function unpublishApprovedReview(submission, status = "Unpublished") {
     destinations: [],
     published: false,
     workflow_status: status === "Archived" || status === "Deleted" ? "archived" : "pending",
-    office_note: submission.officeNote || submission.note || "",
+    office_note: reviewOfficeNotePayload(submission, status),
     summary: `${submission.title || "Review"} ${status.toLowerCase()}`
   });
   submission.version = Number(result.version || submission.version || 1);
@@ -4544,35 +4610,47 @@ function leadSheetFields(rows = []) {
   return fields;
 }
 
-function leadSheetView(rows) {
-  const fields = leadSheetFields(rows);
-  return `<div class="application-sheet-actions lead-sheet-actions"><span class="status live">Detailed Lead Sheet</span><p>Submitted lead-form fields are shown first. Delivery columns are computed from the server audit log, followed by any extra raw submission fields captured with the record. Click any row to open the lead record and notes.</p></div><div class="table-wrap application-sheet-table-wrap lead-sheet-table-wrap"><table class="data-table application-sheet-table lead-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(lead => `<tr data-open-lead="${escapeHtml(lead.id)}">${fields.map(field => `<td>${escapeHtml(leadSubmittedFieldValue(lead, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No lead submissions match the current filters.</td></tr>`}</tbody></table></div>`;
-}
-
-function leadPipelineTable(admin) {
-  const baseRows = admin ? allLeadRows() : trainerLeads();
-  const filterOptions = { useWorkspaceFilters: admin };
-  const rows = filteredLeadRows(baseRows, filterOptions);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
-  const detailedSheet = leadSheetView(rows);
-  return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
-}
-
-function assignedLeadNotice(baseRows = allLeadRows()) {
-  if (session.role !== "admin") return "";
+function leadAssignedToCurrentUser(lead) {
   const userId = currentPortalUserId();
-  if (!userId) return "";
-  const assigned = filteredLeadRows(baseRows, {
+  return Boolean(userId) && String(lead?.assignedUserId || "") === String(userId);
+}
+
+function assignedLeadRowsForCurrentUser(baseRows = allLeadRows()) {
+  return filteredLeadRows(baseRows, {
     useWorkspaceFilters: false,
     overrides: {
       leadDateRange: state.leadDateRange,
       customLeadStart: state.customLeadStart,
       customLeadEnd: state.customLeadEnd
     }
-  }).filter(lead => String(lead.assignedUserId || "") === String(userId) && !["Archived", "Became a Client"].includes(lead.status));
+  }).filter(lead => leadAssignedToCurrentUser(lead) && !["Archived", "Became a Client"].includes(lead.status));
+}
+
+function leadAssignedHighlightClass(lead) {
+  return state.leadOwnerFilter === "Me" && leadAssignedToCurrentUser(lead) ? " lead-assigned-highlight" : "";
+}
+
+function leadSheetView(rows) {
+  const fields = leadSheetFields(rows);
+  return `<div class="application-sheet-actions lead-sheet-actions"><span class="status live">Detailed Lead Sheet</span><p>Submitted lead-form fields are shown first. Delivery columns are computed from the server audit log, followed by any extra raw submission fields captured with the record. Click any row to open the lead record and notes.</p></div><div class="table-wrap application-sheet-table-wrap lead-sheet-table-wrap"><table class="data-table application-sheet-table lead-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(lead => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${escapeHtml(lead.id)}">${fields.map(field => `<td>${escapeHtml(leadSubmittedFieldValue(lead, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No lead submissions match the current filters.</td></tr>`}</tbody></table></div>`;
+}
+
+function leadPipelineTable(admin) {
+  const baseRows = admin ? allLeadRows() : trainerLeads();
+  const filterOptions = { useWorkspaceFilters: admin };
+  const rows = filteredLeadRows(baseRows, filterOptions);
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const detailedSheet = leadSheetView(rows);
+  return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
+}
+
+function assignedLeadNotice(baseRows = allLeadRows()) {
+  if (session.role !== "admin") return "";
+  const assigned = assignedLeadRowsForCurrentUser(baseRows);
   if (!assigned.length) return "";
   const sample = assigned.slice(0, 3).map(lead => lead.owner || "Unnamed lead").join(", ");
-  return `<div class="assignment-alert"><div><strong>${assigned.length} lead${assigned.length === 1 ? "" : "s"} assigned to you</strong><p>${escapeHtml(sample)}${assigned.length > 3 ? "..." : ""}</p></div><button class="btn btn-outline btn-small" type="button" data-lead-owner-quick="Me">Show Mine</button></div>`;
+  const active = state.leadOwnerFilter === "Me";
+  return `<div class="assignment-alert ${active ? "active" : ""}"><div><strong>${assigned.length} lead${assigned.length === 1 ? "" : "s"} assigned to you</strong><p>${escapeHtml(sample)}${assigned.length > 3 ? "..." : ""}</p></div><button class="btn btn-outline btn-small" type="button" data-lead-owner-quick="toggle">${active ? "Show All Leads" : `My Assigned Leads (${assigned.length})`}</button></div>`;
 }
 
 function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
@@ -4590,13 +4668,15 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
   ].concat((remotePortalUsers || [])
     .filter(user => user.active !== false && user.role === "admin")
     .map(user => `<option value="${escapeHtml(user.user_id)}" ${state.leadOwnerFilter === user.user_id ? "selected" : ""}>${escapeHtml(leadOptionLabel(portalDisplayName(user), leadFilterCount(baseRows, { leadOwnerFilter: user.user_id })))}</option>`));
-  return `<div class="lead-workspace-controls"><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
+  const myAssignedCount = assignedLeadRowsForCurrentUser(baseRows).length;
+  const myAssignedActive = state.leadOwnerFilter === "Me";
+  return `<div class="lead-workspace-controls"><button class="btn ${myAssignedActive ? "btn-red" : "btn-outline"} lead-owner-toggle" type="button" data-lead-owner-quick="toggle">My Assigned Leads <span>${myAssignedCount}</span></button><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
 const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client", "Lost"];
 function boardStatus(status) { return /^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status; }
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -4841,7 +4921,7 @@ function trainerAdminForm() {
     `</div><div class="form-grid bio-photo-url-row">${textField("landingBioPhoto", "Bio Photo URL (View Bio + Landing Bio)", { wide: true, help: "Paste the approved candid photo URL here if upload is blocked. Save & Publish sends this exact photo to the View Bio page." })}</div></div><div class="wizard-upload-grid image-role-grid">`
   );
   if (step === 5) content = `<div class="form-grid">${textField("specialtiesText", "Services / Specialties", { wide: true, area: true, placeholder: "Obedience Training\nBehavior Modification\nPuppy Training", help: "Enter one approved service per line." })}${textField("credentialsText", "Credentials / Trust Points", { wide: true, area: true, placeholder: "Lorenzo's Certified Dog Trainer\nLDTT training system\nOngoing education", help: "Enter one approved credential per line." })}</div><div class="credential-preview"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><div><strong>Powered by Lorenzo's Dog Training Team</strong><span>Serious Training. Serious Results.</span></div></div>`;
-  if (step === 6) content = `<div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Testimonial ${n}</h3>${textField(`review${n}Author`, "Client Name")}${textField(`review${n}Copy`, "Approved Review", { area: true })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
+  if (step === 6) content = `${trainerApprovedReviewManagerMarkup(t)}<div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Testimonial ${n}</h3>${textField(`review${n}Author`, "Client Name")}${textField(`review${n}Copy`, "Approved Review", { area: true })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
   if (step === 7) {
     const publicUrl = trainerPublicUrl(t);
     content = `<section class="publish-review publish-review-clear"><div><span>Landing-page status</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.pageStatus)} ${t.locked ? "· Office locked" : "· Editable draft"}</small></div><div>${pageStatusBadge(t)}</div></section><section class="publish-url-card"><span>Final public address</span><strong>${escapeHtml(publicUrl)}</strong><p>Publishing uses this trainer-specific URL. It will not inherit another trainer’s name, photo, city, state, or page record.</p></section><div class="publish-action-grid"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Draft Landing Page</a>${t.pageStatus === "Published" ? `<a class="btn btn-outline" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">View Published Landing Page</a>` : ""}<button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? "Return Page To Draft" : "Publish Landing Page"}</button></div>${t.pageStatus === "Published" ? trainerInviteCard(t) : ""}`;
@@ -4930,7 +5010,7 @@ function trainerPageEditor() {
     page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${selectedElementControls}`,
     sections: sectionControls,
     media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images & Video</h3><p class="builder-help">Simple rule: Headshot is for Find a Trainer cards. Bio Photo is for View Bio and the landing-page bio section.</p><div class="editor-image-grid">${editorImageCard("profilePhoto", "Headshot (cards only)", "Find a Trainer cards only", { frameKey: "profilePhotoFrame", positionKey: "profilePhotoPosition", fitKey: "profilePhotoFit", scaleKey: "profilePhotoScale", fallbackFit: "contain", fallbackFrame: "portrait" }) }${editorImageCard("heroTrainerPhoto", "Top Landing Photo", "First trainer photo on the landing page", { frameKey: "heroPhotoFrame", positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale" }) }${editorImageCard("landingBioPhoto", "Bio Photo (View Bio)", "View Bio page and landing-page bio section", { frameKey: "bioPhotoFrame", positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", fallbackFit: "cover", fallbackFrame: "tight" }) }${editorImageCard("image", "Hero Background", "Wide background behind the hero") }${editorImageCard("companyLogo", "Company Logo", "Optional approved local logo") }${editorVideoCard()}</div></div>`,
-    style: `<div class="editor-control-section"><h3>Typography & Color</h3><label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS","Impact"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label><label><span>Type Scale</span><input type="range" min="0.85" max="1.25" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label><label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label><label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label></div><div class="editor-control-section"><h3>Approved Reviews</h3>${field("Review 1 Client", "review1Author", trainer.review1Author)}${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}${field("Review 2 Client", "review2Author", trainer.review2Author)}${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}${field("Review 3 Client", "review3Author", trainer.review3Author)}${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}</div>`,
+    style: `<div class="editor-control-section"><h3>Typography & Color</h3><label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS","Impact"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label><label><span>Type Scale</span><input type="range" min="0.85" max="1.25" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label><label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label><label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label></div><div class="editor-control-section"><h3>Approved Reviews</h3>${trainerApprovedReviewManagerMarkup(trainer, { compact: true })}${field("Review 1 Client", "review1Author", trainer.review1Author)}${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}${field("Review 2 Client", "review2Author", trainer.review2Author)}${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}${field("Review 3 Client", "review3Author", trainer.review3Author)}${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}</div>`,
     history: `<div class="editor-control-section"><h3>Live Edits</h3>${renderLiveEditList(trainer)}<button class="btn btn-outline" type="button" data-reset-live-edits>Reset All Live Edits</button></div>`
   };
   const pagePicker = state.builderSurface === "site"
@@ -5971,7 +6051,9 @@ function reviewDisplayControlsMarkup(submission) {
 
 function reviewAssignmentControlsMarkup(submission) {
   if (!["Review", "Testimonial"].includes(submission?.type)) return "";
-  const targets = reviewTargetsFor(submission);
+  const targets = reviewTargetsFor(submission, { allowEmpty: true });
+  const destinationStatus = submission.status === "Approved" ? "Published" : "Saved draft";
+  const savedDestinations = targets.map(target => `<li><strong>${escapeHtml(reviewTargetLabel(target))}</strong><span>${escapeHtml(destinationStatus)}</span></li>`).join("");
   const trainerOptions = (state.trainers || [])
     .filter(trainer => trainer?.id && trainer.name)
     .map(trainer => {
@@ -5983,6 +6065,10 @@ function reviewAssignmentControlsMarkup(submission) {
     .join("");
   return `<section class="review-assignment-controls">
     <span>Publish destinations</span>
+    <div class="review-destination-ledger">
+      <strong>Saved destinations</strong>
+      <ul>${savedDestinations || `<li><strong>No destinations selected</strong><span>Choose below</span></li>`}</ul>
+    </div>
     <div class="review-target-chip-row">
       ${targets.map(target => `<button class="review-target-chip" type="button" data-remove-review-target="${escapeHtml(submission.id)}" data-review-target="${escapeHtml(target)}">${escapeHtml(reviewTargetLabel(target))}<b>×</b></button>`).join("")}
     </div>
@@ -7009,8 +7095,11 @@ document.addEventListener("click", async event => {
   if (leadView) { state.leadViewMode = leadView.dataset.leadView; saveState(); return; }
   const leadOwnerQuick = event.target.closest("[data-lead-owner-quick]");
   if (leadOwnerQuick) {
-    state.leadOwnerFilter = leadOwnerQuick.dataset.leadOwnerQuick || "All";
-    saveState("Showing leads assigned to you");
+    const quickValue = leadOwnerQuick.dataset.leadOwnerQuick || "All";
+    state.leadOwnerFilter = quickValue === "toggle"
+      ? (state.leadOwnerFilter === "Me" ? "All" : "Me")
+      : quickValue;
+    saveState(state.leadOwnerFilter === "Me" ? "Showing leads assigned to you" : "Showing all lead owners");
     return;
   }
   const kanbanScroll = event.target.closest("[data-scroll-kanban]");
@@ -7531,6 +7620,108 @@ document.addEventListener("click", async event => {
       if (!saved) restoreReview.disabled = false;
     }
     else saveState("Review restored to pending");
+    return;
+  }
+  const addReviewTarget = event.target.closest("[data-add-review-target]");
+  if (addReviewTarget) {
+    const sub = state.submissions.find(s => s.id === addReviewTarget.dataset.addReviewTarget);
+    if (!sub) return;
+    const select = document.querySelector(`[data-review-target-select="${CSS.escape(sub.id)}"]`);
+    const target = select?.value || "";
+    if (!target) return;
+    setReviewTargets(sub, [...reviewTargetsFor(sub), target]);
+    if (remoteReady) {
+      const saved = await runRemoteMutation(
+        "Review assignment saved",
+        () => sub.status === "Approved" ? publishApprovedReview(sub) : saveReviewDestinations(sub, false)
+      );
+      if (saved) showActionConfirmation("Review destination added", sub.status === "Approved" ? `This review is now live on: ${reviewTargetLabels(sub)}.` : `This review can now publish to: ${reviewTargetLabels(sub)}.`);
+    } else {
+      saveState("Review assignment saved");
+    }
+    return;
+  }
+  const removeReviewTarget = event.target.closest("[data-remove-review-target]");
+  if (removeReviewTarget) {
+    const sub = state.submissions.find(s => s.id === removeReviewTarget.dataset.removeReviewTarget);
+    if (!sub) return;
+    const target = removeReviewTarget.dataset.reviewTarget;
+    const nextTargets = reviewTargetsFor(sub).filter(item => item !== target);
+    setReviewTargets(sub, nextTargets, { allowEmpty: true });
+    if (remoteReady) {
+      const saved = await runRemoteMutation(
+        "Review destination removed",
+        () => sub.status === "Approved"
+          ? (nextTargets.length ? publishApprovedReview(sub) : unpublishApprovedReview(sub, "Unpublished"))
+          : saveReviewDestinations(sub, false, { allowEmpty: true })
+      );
+      if (saved) showActionConfirmation("Review destination removed", `Current destinations: ${reviewTargetLabels(sub)}.`);
+    } else {
+      saveState("Review destination removed");
+    }
+    return;
+  }
+  const trainerReviewMove = event.target.closest("[data-trainer-review-move]");
+  if (trainerReviewMove) {
+    const trainer = findTrainer(trainerReviewMove.dataset.trainerReviewMove);
+    const reviews = Array.isArray(trainer?.approvedReviews) ? trainer.approvedReviews : [];
+    const index = reviews.findIndex((review, reviewIndex) => reviewKeyFor(review, reviewIndex) === trainerReviewMove.dataset.reviewKey);
+    const direction = Number(trainerReviewMove.dataset.direction || 0);
+    const nextIndex = index + direction;
+    if (!trainer || index < 0 || nextIndex < 0 || nextIndex >= reviews.length) return;
+    const reordered = [...reviews];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(nextIndex, 0, moved);
+    trainer.approvedReviews = reordered;
+    if (remoteReady) {
+      await runRemoteMutation("Trainer review order saved", () => persistTrainerRecord(trainer, {
+        skipProfile: true,
+        publish: trainer.pageStatus === "Published" && trainer.locked
+      }), {
+        type: "Review",
+        detail: `${trainer.name} review placement order was updated by ${currentActorLabel()}.`
+      });
+    } else {
+      saveState("Trainer review order saved");
+    }
+    return;
+  }
+  const trainerReviewRemove = event.target.closest("[data-trainer-review-remove]");
+  if (trainerReviewRemove) {
+    const trainer = findTrainer(trainerReviewRemove.dataset.trainerReviewRemove);
+    const reviews = Array.isArray(trainer?.approvedReviews) ? trainer.approvedReviews : [];
+    const index = reviews.findIndex((review, reviewIndex) => reviewKeyFor(review, reviewIndex) === trainerReviewRemove.dataset.reviewKey);
+    if (!trainer || index < 0) return;
+    const review = reviews[index];
+    const sub = submissionForApprovedReview(review);
+    if (sub) {
+      const nextTargets = reviewTargetsFor(sub, { allowEmpty: true }).filter(target => target !== trainer.id);
+      setReviewTargets(sub, nextTargets, { allowEmpty: true });
+      if (remoteReady) {
+        const saved = await runRemoteMutation("Trainer review placement removed", () =>
+          nextTargets.length ? publishApprovedReview(sub) : unpublishApprovedReview(sub, "Unpublished"), {
+            type: "Review",
+            detail: `${sub.title || "Review"} was removed from ${trainer.name}'s landing page.`
+          });
+        if (saved) showActionConfirmation("Review placement removed", nextTargets.length ? `Still saved to: ${reviewTargetLabels(sub)}.` : "The review is no longer published anywhere.");
+      } else {
+        trainer.approvedReviews = reviews.filter((_, reviewIndex) => reviewIndex !== index);
+        saveState("Trainer review placement removed");
+      }
+      return;
+    }
+    trainer.approvedReviews = reviews.filter((_, reviewIndex) => reviewIndex !== index);
+    if (remoteReady) {
+      await runRemoteMutation("Trainer review placement removed", () => persistTrainerRecord(trainer, {
+        skipProfile: true,
+        publish: trainer.pageStatus === "Published" && trainer.locked
+      }), {
+        type: "Review",
+        detail: `Manual review placement removed from ${trainer.name}.`
+      });
+    } else {
+      saveState("Trainer review placement removed");
+    }
     return;
   }
   const openSubmission = event.target.closest("[data-open-submission-media]");
@@ -8072,43 +8263,6 @@ document.addEventListener("change", async event => {
   if (reviewSort) {
     state.reviewSort = reviewSort.value;
     saveState();
-    return;
-  }
-  const addReviewTarget = event.target.closest("[data-add-review-target]");
-  if (addReviewTarget) {
-    const sub = state.submissions.find(s => s.id === addReviewTarget.dataset.addReviewTarget);
-    if (!sub) return;
-    const select = document.querySelector(`[data-review-target-select="${CSS.escape(sub.id)}"]`);
-    const target = select?.value || "";
-    if (!target) return;
-    setReviewTargets(sub, [...reviewTargetsFor(sub), target]);
-    if (remoteReady) {
-      const saved = await runRemoteMutation(
-        "Review assignment saved",
-        () => sub.status === "Approved" ? publishApprovedReview(sub) : saveReviewDestinations(sub, false)
-      );
-      if (saved) showActionConfirmation("Review destination added", sub.status === "Approved" ? `This review is now live on: ${reviewTargetLabels(sub)}.` : `This review can now publish to: ${reviewTargetLabels(sub)}.`);
-    } else {
-      saveState("Review assignment saved");
-    }
-    return;
-  }
-  const removeReviewTarget = event.target.closest("[data-remove-review-target]");
-  if (removeReviewTarget) {
-    const sub = state.submissions.find(s => s.id === removeReviewTarget.dataset.removeReviewTarget);
-    if (!sub) return;
-    const target = removeReviewTarget.dataset.reviewTarget;
-    const nextTargets = reviewTargetsFor(sub).filter(item => item !== target);
-    setReviewTargets(sub, nextTargets);
-    if (remoteReady) {
-      const saved = await runRemoteMutation(
-        "Review destination removed",
-        () => sub.status === "Approved" ? publishApprovedReview(sub) : saveReviewDestinations(sub, false)
-      );
-      if (saved) showActionConfirmation("Review destination removed", `Current destinations: ${reviewTargetLabels(sub)}.`);
-    } else {
-      saveState("Review destination removed");
-    }
     return;
   }
   const portalRoleField = event.target.closest("[data-portal-role]");
