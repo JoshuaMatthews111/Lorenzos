@@ -272,6 +272,15 @@ async function saveNote(admin, body, requestId) {
     });
   }
   const record = rows?.[0];
+  if (record && entityType === "application") {
+    const applicationNotes = await supabaseFetch(`/rest/v1/office_notes?select=note&entity_type=eq.application&entity_id=eq.${encodeURIComponent(entityId)}&order=created_at.asc`);
+    const officeNotesSummary = (applicationNotes || []).map(item => clean(item.note, 20000)).filter(Boolean).join("\n\n");
+    await supabaseFetch(`/rest/v1/${ENTITY_CONFIG.application.table}?id=eq.${encodeURIComponent(entityId)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ office_notes: officeNotesSummary || null })
+    });
+  }
   await audit(admin, before ? "note_edited" : "note_added", entityType, entityId, before, record, body.summary || noteText.slice(0, 240), requestId);
   return { status: 200, body: { ok: true, record, actor: admin.actor, updated_at: record.updated_at || record.created_at, version: record.version || 1 } };
 }

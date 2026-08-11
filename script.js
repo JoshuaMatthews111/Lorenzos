@@ -53,6 +53,12 @@ const publicTrainerBioPhoto=(record,fallback='')=>{
   const publishedContent=record?.publishedPage?.published_content||{};
   return publishedContent.landing_bio_photo_url||publishedContent.bio_photo_url||fallback||record?.headshot_url||'assets/lorenzo-logo-transparent.png';
 };
+const publicTrainerHeadshot=(record,fallback='')=>{
+  const publishedContent=record?.publishedPage?.published_content||{};
+  return safeTrainerHeadshotUrl(record?.headshot_url||publishedContent.headshot_url||fallback)||'assets/lorenzo-logo-transparent.png';
+};
+const publicTrainerName=record=>String(record?.publishedPage?.published_content?.trainer_name||record?.full_name||'Lorenzo Trainer').trim();
+const publicTrainerSummary=record=>String(record?.publishedPage?.published_content?.bio||record?.bio||'Office-approved trainer profile.').trim();
 const publicSlugify=value=>String(value||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 const safeTrainerHeadshotUrl=value=>{
   const url=String(value||'').trim();
@@ -70,6 +76,18 @@ const publicTrainerDisplaySlug=record=>{
   if(nameSlug&&!['new-trainer','new-trainer-draft'].includes(nameSlug)&&(blocked.has(slug)||/^office-draft-\d+$/.test(slug))) return nameSlug;
   return slug||nameSlug;
 };
+const publicTrainerAliases=record=>{
+  const displaySlug=publicTrainerDisplaySlug(record);
+  const pageSlug=String(record?.publishedPage?.slug||'').trim();
+  return [...new Set([
+    record?.slug,
+    displaySlug,
+    displaySlug.replaceAll('-',''),
+    pageSlug,
+    publicSlugify(pageSlug),
+    publicSlugify(record?.full_name)
+  ].map(value=>String(value||'').trim()).filter(Boolean))];
+};
 const publicTrainerSlugIsReady=record=>Boolean(publicTrainerDisplaySlug(record));
 const publicTrainerProfilesPromise=(async()=>{
   const config=window.LDTT_SUPABASE||{};
@@ -78,14 +96,19 @@ const publicTrainerProfilesPromise=(async()=>{
     const base=String(config.projectUrl).replace(/\/$/,'');
     const headers={apikey:config.publishableKey};
     const [trainerResponse,pageResponse]=await Promise.all([
-      fetch(`${base}/rest/v1/trainers?select=id,slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active&access_status=eq.active`,{headers}),
+      fetch(`${base}/rest/v1/trainers?select=id,slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active`,{headers}),
       fetch(`${base}/rest/v1/trainer_pages?select=trainer_id,slug,page_status,locked,published_content&page_status=eq.published&locked=eq.true`,{headers})
     ]);
     if(!trainerResponse.ok) throw new Error(`Trainer profile request failed (${trainerResponse.status})`);
     const rows=await trainerResponse.json();
     const publishedPages=pageResponse.ok?await pageResponse.json():[];
     const publishedByTrainer=new Map((publishedPages||[]).map(page=>[page.trainer_id,page]));
-    return new Map((rows||[]).map(row=>[row.slug,{...row,publishedPage:publishedByTrainer.get(row.id)||null}]));
+    const profiles=new Map();
+    (rows||[]).forEach(row=>{
+      const record={...row,publishedPage:publishedByTrainer.get(row.id)||null};
+      publicTrainerAliases(record).forEach(alias=>profiles.set(alias,record));
+    });
+    return profiles;
   }catch(error){
     console.warn('Live trainer profiles could not be loaded',error);
     return new Map();
@@ -107,17 +130,19 @@ buttons.forEach(button=>button.addEventListener('click',()=>{
 
 publicTrainerProfilesPromise.then(profiles=>{
   const trainerGrid=document.querySelector('#trainerGrid');
-  profiles.forEach(record=>{
+  const uniqueRecords=[...new Map([...profiles.values()].map(record=>[record.id,record])).values()];
+  uniqueRecords.forEach(record=>{
     if(!publicTrainerSlugIsReady(record)) return;
     const displaySlug=publicTrainerDisplaySlug(record);
-    if(!trainerGrid||!record.publishedPage||trainerGrid.querySelector(`[data-trainer-slug="${CSS.escape(displaySlug)}"]`)) return;
+    const selectorEscape=window.CSS?.escape||((value)=>String(value).replace(/"/g,'\\"'));
+    if(!trainerGrid||!record.publishedPage||publicTrainerAliases(record).some(alias=>trainerGrid.querySelector(`[data-trainer-slug="${selectorEscape(alias)}"]`))) return;
     const location=publicTrainerLocation(record);
     const publicSlug=displaySlug.replaceAll('-','');
     const article=document.createElement('article');
     article.className='trainer-card';
     article.dataset.trainerSlug=displaySlug;
     article.dataset.search=`${record.full_name||''} ${location} ${record.service_area||''}`.toLowerCase();
-    article.innerHTML=`<div class="trainer-photo-frame"><img src="${escapePublicText(safeTrainerHeadshotUrl(record.headshot_url)||'assets/lorenzo-logo-transparent.png')}" alt="${escapePublicText(record.full_name||'Lorenzo trainer')}" loading="lazy"></div><div class="trainer-info"><span class="tag">${escapePublicText(record.state||'Trainer Network')}</span><h3>${escapePublicText(record.full_name||'Lorenzo Trainer')}</h3><p class="trainer-card-location">${escapePublicText(location)}</p><p class="trainer-bio">${escapePublicText(String(record.bio||'Office-approved trainer profile.').slice(0,220))}</p><div class="trainer-links"><a class="link" href="trainer-bio-${escapePublicText(displaySlug)}.html">View bio →</a><a class="link" href="/${escapePublicText(publicSlug)}#contact">Schedule this trainer →</a></div></div>`;
+    article.innerHTML=`<div class="trainer-photo-frame"><img src="${escapePublicText(publicTrainerHeadshot(record))}" alt="${escapePublicText(publicTrainerName(record))}" loading="lazy"></div><div class="trainer-info"><span class="tag">${escapePublicText(record.state||'Trainer Network')}</span><h3>${escapePublicText(publicTrainerName(record))}</h3><p class="trainer-card-location">${escapePublicText(location)}</p><p class="trainer-bio">${escapePublicText(publicTrainerSummary(record).slice(0,220))}</p><div class="trainer-links"><a class="link" href="trainer-bio-${escapePublicText(displaySlug)}.html">View bio →</a><a class="link" href="/${escapePublicText(publicSlug)}#contact">Schedule this trainer →</a></div></div>`;
     trainerGrid.appendChild(article);
     cards.push(article);
   });
@@ -126,7 +151,7 @@ publicTrainerProfilesPromise.then(profiles=>{
     if(!record) return;
     const location=publicTrainerLocation(record);
     const name=card.querySelector('.trainer-info h3');
-    if(name&&record.full_name) name.textContent=record.full_name;
+    if(name&&record.full_name) name.textContent=publicTrainerName(record);
     const stateTag=card.querySelector('.trainer-info .tag');
     if(stateTag&&record.state) stateTag.textContent=record.state;
     const locationNode=card.querySelector('.trainer-card-location');
@@ -816,7 +841,7 @@ const approvedHomepageReviewCards=rows=>(Array.isArray(rows)?rows:[]).map(row=>{
       ? publicReviewVideoMarkup(fileUrl,`${reviewer} review video`)
       : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy">`
     : '';
-  return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Office-approved review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote>${escapePublicText(reviewText||'Office-approved client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
+  return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Client review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote>${escapePublicText(reviewText||'Real client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
 }).join('');
 async function loadApprovedHomepageReviews(){
   if(!approvedHomeReviewRail) return;
