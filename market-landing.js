@@ -215,10 +215,6 @@
 	      <form class="market-guide-form pdf-optin" novalidate>
 	        <label><span>First name</span><input name="first_name" autocomplete="given-name" placeholder="First name" required></label>
 	        <label><span>Email address</span><input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
-	        <fieldset class="interest-options">
-	          <legend>I'm also interested in <small>(optional)</small></legend>
-	          <label><input type="checkbox" name="additional_interest" value="Specialty dog training"><span>Specialty training</span></label>
-	        </fieldset>
         <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training tips, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
         <a class="market-guide-download" href="assets/calm-dog-blueprint-final.pdf" download aria-hidden="true" tabindex="-1">Download the Free Guide</a>
         <button class="btn" type="submit">Download the Free Guide</button>

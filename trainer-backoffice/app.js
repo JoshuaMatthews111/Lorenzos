@@ -6838,12 +6838,6 @@ function officeLeadFormMarkup(trainer, compact = false) {
         </select>
       </label>
       <label class="wide">Your dog and goals *<textarea required name="comments" placeholder="Tell us about your dog, behavior concerns, and training goals."></textarea></label>
-      <fieldset class="landing-interest-options wide">
-        <legend>I'm also interested in <small>(optional)</small></legend>
-        <label><input type="checkbox" name="additional_interest" value="Investor network"><span>Investor network</span></label>
-        <label><input type="checkbox" name="additional_interest" value="Donor or project support"><span>Donor/project support</span></label>
-        <label><input type="checkbox" name="additional_interest" value="Specialty dog training"><span>Specialty dog training</span></label>
-      </fieldset>
       <details class="landing-more-fields wide"><summary>Required address and referral details</summary><div class="landing-more-grid"><label>Address Line 1 *<input required name="address_line_1" autocomplete="address-line1" placeholder="Address Line 1"></label><label>Address Line 2 <small>(optional)</small><input name="address_line_2" autocomplete="address-line2" placeholder="Address Line 2"></label><label>City *<input required name="city" autocomplete="address-level2" placeholder="City"></label><label>State *<input required name="state" autocomplete="address-level1" placeholder="State"></label><label>ZIP Code *<input required name="zip" autocomplete="postal-code" placeholder="ZIP Code"></label><label class="wide">How did you hear about us? *${heardAboutUsSelect()}</label></div></details>
       <label class="landing-consent wide"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
       <div class="landing-form-status wide" role="status" aria-live="polite"></div>
