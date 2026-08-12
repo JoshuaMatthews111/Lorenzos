@@ -4,6 +4,11 @@ import { resolve } from "node:path";
 const markets = [
   {
     slug: "dog-training-cleveland-oh",
+    photo: "assets/facility-exterior-main.jpg",
+    photoName: "Our 17,000 sq ft Cleveland headquarters",
+    photoCaption: "Harley McGrew & Brady DeRemer — your Northeast Ohio trainers",
+    tint: "21,37,105",
+    tint2: "200,16,46",
     hook: "See where it started: a free evaluation backed by our 17,000 sq ft Cleveland headquarters — the facility where every Lorenzo's trainer is certified.",
     title: "Cleveland & Akron Dog Training",
     h1: "Dog training in Cleveland and Akron for real-world results.",
@@ -18,6 +23,11 @@ const markets = [
   },
   {
     slug: "dog-training-columbus-oh",
+    photo: "assets/trainer-bio-photos/shannon-paskins.jpg",
+    photoName: "Shannon Paskins",
+    photoCaption: "Your Columbus dog trainer",
+    tint: "21,37,105",
+    tint2: "120,20,60",
     hook: "Dogs fighting in the same house? Multi-dog conflict is exactly what we fix — ask about a same-week assessment.",
     title: "Columbus Dog Training",
     h1: "Dog training in Columbus, Reynoldsburg, and Central Ohio.",
@@ -32,6 +42,11 @@ const markets = [
   },
   {
     slug: "dog-training-atlanta-ga",
+    photo: "assets/trainer-bio-photos/aryson-whorley.jpg",
+    photoName: "Aryson Whorley",
+    photoCaption: "One of three Atlanta trainers — specialty & service dog focus",
+    tint: "30,25,90",
+    tint2: "190,60,30",
     hook: "Specialty & service dog training few in Atlanta offer — ask about a free suitability assessment for your dog.",
     title: "Atlanta Dog Training",
     h1: "Dog training in Atlanta and surrounding Georgia communities.",
@@ -46,6 +61,11 @@ const markets = [
   },
   {
     slug: "dog-training-san-diego-ca",
+    photo: "assets/trainer-bio-photos/genevieve-twilla.jpg",
+    photoName: "Genevieve Twilla",
+    photoCaption: "One of three San Diego trainers",
+    tint: "15,60,110",
+    tint2: "200,16,46",
     hook: "Transparent pricing: professional dog training from $1,250 — no mystery quotes.",
     title: "San Diego Dog Training",
     h1: "San Diego dog training backed by Lorenzo's proven system.",
@@ -60,6 +80,11 @@ const markets = [
   },
   {
     slug: "dog-training-san-antonio-tx",
+    photo: "assets/trainer-bio-photos/carolina-perez.jpg",
+    photoName: "Carolina Perez",
+    photoCaption: "Your San Antonio trainer — hablamos español",
+    tint: "90,30,30",
+    tint2: "200,120,30",
     hook: "Military family? Your training follows you — Lorenzo's has certified trainers in cities nationwide, so a PCS move never means starting over.",
     title: "San Antonio Dog Training",
     h1: "Dog training in San Antonio and surrounding Texas communities.",
@@ -75,6 +100,11 @@ const markets = [
   },
   {
     slug: "dog-training-chicago-il",
+    photo: "assets/trainer-bio-photos/jasmine-bland.jpg",
+    photoName: "Jasmine Bland",
+    photoCaption: "Your Chicago dog trainer — no waitlist",
+    tint: "10,30,80",
+    tint2: "200,16,46",
     hook: "No waitlist. Evaluations available this week across Chicagoland.",
     title: "Chicago Dog Training",
     h1: "Dog training for the Chicago market and Northwest Indiana.",
@@ -89,6 +119,11 @@ const markets = [
   },
   {
     slug: "dog-training-tallahassee-fl",
+    photo: "assets/trainer-bio-photos/victoria-bayleigh-morris.jpg",
+    photoName: "Victoria Bayleigh Morris",
+    photoCaption: "Your Tallahassee dog trainer",
+    tint: "110,45,20",
+    tint2: "21,37,105",
     hook: "He knows the commands — he just won't listen. Reactivity and reliability are what we fix.",
     title: "Tallahassee Dog Training",
     h1: "Dog training in Tallahassee and North Florida.",
@@ -103,6 +138,11 @@ const markets = [
   },
   {
     slug: "dog-training-miramar-beach-fl",
+    photo: "assets/trainer-bio-photos/trainers.jpg",
+    photoName: "The Lorenzo's team",
+    photoCaption: "Tabatha Shelley — your Emerald Coast trainer",
+    tint: "10,90,120",
+    tint2: "21,37,105",
     hook: "Vacation-ready: beach recall, restaurant manners, and a dog your rental will welcome back.",
     title: "Miramar Beach Dog Training",
     h1: "Dog training in Miramar Beach and the Emerald Coast.",
@@ -117,6 +157,11 @@ const markets = [
   },
   {
     slug: "dog-training-lexington-ky",
+    photo: "assets/trainer-bio-photos/bailey-brown.jpg",
+    photoName: "Bailey Brown",
+    photoCaption: "Your Lexington trainer — raised with horses",
+    tint: "25,70,45",
+    tint2: "21,37,105",
     hook: "Farm & property dogs: recall that holds on open acreage, and manners around horses and livestock.",
     title: "Lexington Dog Training",
     h1: "Dog training for Lexington, Harrodsburg, and Central Kentucky.",
@@ -131,6 +176,11 @@ const markets = [
   },
   {
     slug: "dog-training-ann-arbor-mi",
+    photo: "assets/trainer-bio-photos/dylan-atkinson.jpg",
+    photoName: "Dylan Atkinson",
+    photoCaption: "Your Ann Arbor dog trainer",
+    tint: "40,40,100",
+    tint2: "200,16,46",
     hook: "Apartment-friendly puppy training — built for small spaces, shared walls, and busy schedules.",
     title: "Ann Arbor Dog Training",
     h1: "Dog training in Ann Arbor and Southeast Michigan.",
@@ -251,6 +301,9 @@ const page = market => {
     .market-pricing h2{margin-top:6px}
     .market-pricing .market-service-grid article{border-top:4px solid #c8102e}
     .market-pricing .market-service-grid article span{color:#c8102e;font-weight:800}
+    .market-tint{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply}
+    .market-trainer-media img{width:100%;height:100%;min-height:280px;object-fit:cover;object-position:top center;display:block}
+    .market-trainer-media figcaption strong{display:block}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2" data-market="${escapeHtml(market.market)}">
@@ -270,6 +323,7 @@ const page = market => {
   <main>
     <section class="market-hero">
       <img class="market-hero-bg" src="assets/get-started-premium-hero.jpg" alt="" width="1680" height="945" decoding="async" aria-hidden="true">
+      <div class="market-tint" aria-hidden="true" style="background:linear-gradient(135deg, rgba(${market.tint},.55), rgba(${market.tint2},.28))"></div>
       <div class="market-side-rail market-side-rail-left" aria-hidden="true"><span>Obedience</span><span>Behavior Modification</span><span>Puppy Training</span></div>
       <div class="market-side-rail market-side-rail-right" aria-hidden="true"><span>Service Area</span><span>Office Routed</span><span>Local Follow-Up</span></div>
       <div class="container market-hero-grid">
@@ -295,11 +349,11 @@ const page = market => {
           </ul>
         </div>
 
-        <figure class="market-hero-media">
-          <img src="assets/get-started-premium-hero.jpg" alt="Professional dog training consultation for ${escapeHtml(market.market)}" width="1680" height="945" loading="lazy" decoding="async">
+        <figure class="market-hero-media market-trainer-media">
+          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — dog trainer for ${escapeHtml(market.market)}" loading="lazy" decoding="async">
           <figcaption>
-            <strong>${escapeHtml(market.market)}</strong>
-            <span>Office-routed training request</span>
+            <strong>${escapeHtml(market.photoName)}</strong>
+            <span>${escapeHtml(market.photoCaption)}</span>
           </figcaption>
         </figure>
 
