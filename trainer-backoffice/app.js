@@ -3743,19 +3743,14 @@ const adminScreens = {
       ${reportDateControls()}
       <p class="panel-copy report-range-note">Dashboard numbers use the live lead and trainer-application rows for ${escapeHtml(reportRangeLabel())}, so changing the report filter changes these counts. Last live sync: ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "not available")}.</p>
       ${metricGrid([
-        ["monitor", "Site Visits/Clicks", metrics.visits, "Traffic only", "", { view: "adLandingPages" }],
-        ["lead", "Form Submissions", metrics.forms, "Actual lead rows", "", { view: "leads" }],
-        ["calendar", "Evaluation Scheduled", metrics.evalScheduled, "Mid-funnel", "up", { view: "leads" }],
-        ["calendar", "Evaluation Complete", metrics.evalCompleted, "Decision point", "up", { view: "leads" }],
+        ["lead", "Contact Us Forms", metrics.contactForms, "Lead source", "", { view: "leads" }],
+        ["lead", "Paid Ad Submitted Inquiries", metrics.paidAdSubmittedInquiries, "Ad landing pages", "", { view: "leads" }],
+        ["lead", "Ebook Requests", metrics.ebookRequests, "Guide downloads", "", { view: "leads" }],
         ["trophy", "Became a Client", metrics.clientWon, "Current lead outcome", "up", { view: "clients" }],
-        ["settings", "Lost/No Response", metrics.lostNoResponse, "Current lead outcome", "down", { view: "leads" }],
+        ["settings", "Lost", metrics.lostLeads, "Lead section total", "down", { view: "leads" }],
         ["message", "New Trainer Applications", metrics.newTrainerApplications, "Application rows", "up", { view: "applications" }]
       ])}
-      <div class="dashboard-grid">
-        ${panel("Dashboard Buckets", `<button class="btn btn-outline" data-view="reports">View Outcomes</button>`, leadSummary())}
-        ${panel("Lead Status Updates", "", leadOutcomeTable(filteredReportLeadRows()))}
-      </div>
-      ${panel("Reporting Note", "", `<p class="panel-copy">The removed ad-market conversion chart was not reliable enough for budget decisions. Use this dashboard for real lead/application counts and keep ad-market attribution in the dedicated ad landing-page report until campaign attribution is fully connected.</p>`, "pad")}`;
+      ${panel("Dashboard Buckets", "", leadSummary())}`;
   },
   trainerPages() {
     return `${panel("Three Approved Trainer Landing Page Designs", "", approvedLayoutCards(), "pad")}<br>${panel("Trainer Page Control & Performance", `<button class="btn btn-red" id="addTrainer">Onboard New Trainer</button>`, trainerPageCards())}<br>${panel("Recent Trainer Page Activity", "", trainerSiteActivityTable(), "pad")}`;
@@ -4100,7 +4095,7 @@ function leadSubmissionBucket(lead = {}) {
     || raw.ad_market
     || sourcePage.includes("dog-training-")
     || /paid ad|paid advertising|market ad/.test(text)
-  ) return "Paid ad leads";
+  ) return "Paid Ad Submitted Inquiries";
   return "Contact Us forms";
 }
 
@@ -4108,11 +4103,15 @@ function formSubmissionBucketRows() {
   const rows = filteredReportLeadRows().filter(lead => lead.submitted !== false);
   const buckets = new Map([
     ["Contact Us forms", 0],
-    ["Paid ad leads", 0],
+    ["Paid Ad Submitted Inquiries", 0],
     ["Ebook requests", 0]
   ]);
   rows.forEach(lead => buckets.set(leadSubmissionBucket(lead), (buckets.get(leadSubmissionBucket(lead)) || 0) + 1));
   return Array.from(buckets.entries());
+}
+
+function dashboardLostLeadRows(leadRows = filteredReportLeadRows()) {
+  return leadRows.filter(lead => boardStatus(lead.status) === "Lost");
 }
 
 function dashboardBucketRows() {
@@ -4120,10 +4119,10 @@ function dashboardBucketRows() {
   const appRows = filteredReportApplicationRows();
   const buckets = new Map([
     ["Contact Us forms", 0],
-    ["Paid ad leads", 0],
+    ["Paid Ad Submitted Inquiries", 0],
     ["Ebook requests", 0],
     ["Became a Client", leadRows.filter(lead => lead.status === "Became a Client").length],
-    ["Lost / No Response", leadRows.filter(lead => lead.status === "Lost / No Response").length],
+    ["Lost", dashboardLostLeadRows(leadRows).length],
     ["New Trainer Applications", appRows.length]
   ]);
   leadRows.forEach(lead => {
@@ -4149,14 +4148,19 @@ function getMetrics() {
     .map(event => `${event.entity_type || "event"}:${event.entity_id || event.event_key || event.id}`)).size;
   const leadRows = filteredReportLeadRows().filter(lead => lead.submitted !== false);
   const appRows = filteredReportApplicationRows();
+  const bucketCounts = Object.fromEntries(dashboardBucketRows());
   return {
     visits: count("site_visit") + count("cta_click"),
     forms: leadRows.length,
+    contactForms: bucketCounts["Contact Us forms"] || 0,
+    paidAdSubmittedInquiries: bucketCounts["Paid Ad Submitted Inquiries"] || 0,
+    ebookRequests: bucketCounts["Ebook requests"] || 0,
     evalScheduled: leadRows.filter(lead => lead.status === "Evaluation Scheduled").length,
     evalCompleted: leadRows.filter(lead => lead.status === "Evaluation Complete").length,
     clientWon: leadRows.filter(lead => lead.status === "Became a Client").length,
     trueConversions: leadRows.filter(lead => lead.status === "Became a Client").length,
     lostNoResponse: leadRows.filter(lead => lead.status === "Lost / No Response").length,
+    lostLeads: dashboardLostLeadRows(leadRows).length,
     newTrainerApplications: appRows.length
   };
 }
