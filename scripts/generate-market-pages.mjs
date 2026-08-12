@@ -12,7 +12,7 @@ const markets = [
     tint2: "200,16,46",
     hook: "See where it started: a free evaluation backed by our 17,000 sq ft Cleveland headquarters — the facility where every Lorenzo's trainer is certified.",
     title: "Cleveland & Akron Dog Training",
-    h1: "Dog training in Cleveland and Akron for real-world results.",
+    h1: "Aggression, Leash Pulling, or a New Puppy? Cleveland's Dog Trainers Start Here.",
     market: "Cleveland / Akron, OH",
     city: "Cleveland",
     state: "OH",
@@ -32,7 +32,7 @@ const markets = [
     tint2: "120,20,60",
     hook: "Dogs fighting in the same house? Multi-dog conflict is exactly what we fix — ask about a same-week assessment.",
     title: "Columbus Dog Training",
-    h1: "Dog training in Columbus, Reynoldsburg, and Central Ohio.",
+    h1: "Dogs Fighting at Home? Columbus Aggression & Behavior Training Starts Here.",
     market: "Columbus / Reynoldsburg, OH",
     city: "Columbus",
     state: "OH",
@@ -52,7 +52,7 @@ const markets = [
     tint2: "190,60,30",
     hook: "Specialty & service dog training few in Atlanta offer — ask about a free suitability assessment for your dog.",
     title: "Atlanta Dog Training",
-    h1: "Dog training in Atlanta and surrounding Georgia communities.",
+    h1: "Service Dog Training in Atlanta — Plus Aggression Help & Real-World Obedience.",
     market: "Atlanta, GA",
     city: "Atlanta",
     state: "GA",
@@ -72,7 +72,7 @@ const markets = [
     tint2: "200,16,46",
     hook: "Transparent pricing: professional dog training from $1,250 — no mystery quotes.",
     title: "San Diego Dog Training",
-    h1: "San Diego dog training backed by Lorenzo's proven system.",
+    h1: "San Diego Dog Training From $1,250 — Obedience, Puppy & Behavior Help.",
     market: "San Diego, CA",
     city: "San Diego",
     state: "CA",
@@ -92,7 +92,7 @@ const markets = [
     tint2: "200,120,30",
     hook: "Military family? Your training follows you — Lorenzo's has certified trainers in cities nationwide, so a PCS move never means starting over.",
     title: "San Antonio Dog Training",
-    h1: "Dog training in San Antonio and surrounding Texas communities.",
+    h1: "Aggression, Puppy Training & Obedience in San Antonio — Hablamos Español.",
     market: "San Antonio, TX",
     city: "San Antonio",
     state: "TX",
@@ -113,7 +113,7 @@ const markets = [
     tint2: "200,16,46",
     hook: "No waitlist. Evaluations available this week across Chicagoland.",
     title: "Chicago Dog Training",
-    h1: "Dog training for the Chicago market and Northwest Indiana.",
+    h1: "Reactive Dog? New Puppy? Chicago Dog Training With No Waitlist.",
     market: "Chicago, IL",
     city: "Chicago",
     state: "IL",
@@ -133,7 +133,7 @@ const markets = [
     tint2: "21,37,105",
     hook: "He knows the commands — he just won't listen. Reactivity and reliability are what we fix.",
     title: "Tallahassee Dog Training",
-    h1: "Dog training in Tallahassee and North Florida.",
+    h1: "Knows the Commands but Won't Listen? Tallahassee Reactive Dog Training.",
     market: "Tallahassee, FL",
     city: "Tallahassee",
     state: "FL",
@@ -153,7 +153,7 @@ const markets = [
     tint2: "21,37,105",
     hook: "Vacation-ready: beach recall, restaurant manners, and a dog your rental will welcome back.",
     title: "Miramar Beach Dog Training",
-    h1: "Dog training in Miramar Beach and the Emerald Coast.",
+    h1: "Beach Recall, Rental Manners & Board and Train — Emerald Coast Dog Training.",
     market: "Miramar Beach, FL",
     city: "Miramar Beach",
     state: "FL",
@@ -173,7 +173,7 @@ const markets = [
     tint2: "21,37,105",
     hook: "Farm & property dogs: recall that holds on open acreage, and manners around horses and livestock.",
     title: "Lexington Dog Training",
-    h1: "Dog training for Lexington, Harrodsburg, and Central Kentucky.",
+    h1: "Farm Dogs, Rock-Solid Recall & Manners Around Horses — Lexington Dog Training.",
     market: "Lexington / Harrodsburg, KY",
     city: "Lexington",
     state: "KY",
@@ -193,7 +193,7 @@ const markets = [
     tint2: "200,16,46",
     hook: "Apartment-friendly puppy training — built for small spaces, shared walls, and busy schedules.",
     title: "Ann Arbor Dog Training",
-    h1: "Dog training in Ann Arbor and Southeast Michigan.",
+    h1: "Puppy Training for Apartment Life in Ann Arbor — Potty, Crate & Leash Skills.",
     market: "Ann Arbor, MI",
     city: "Ann Arbor",
     state: "MI",
@@ -424,7 +424,7 @@ const page = market => {
     .arch-campus .market-hook,.arch-portrait2 .market-hook{background:#fff;color:var(--mk1)}
   </style>
 </head>
-<body id="top" class="market-landing ad-landing ad-landing-v2 arch-${market.arch}" style="--mk1:${market.mk1};--mk2:${market.mk2}" data-market="${escapeHtml(market.market)}">
+<body id="top" class="market-landing ad-landing ad-landing-v2 arch-${market.arch}" style="--mk1:${market.mk1};--mk2:${market.mk2}" data-market="${escapeHtml(market.market)}" data-hero-title="${escapeHtml(market.h1)}">
   <header class="ad-header ad-header-v2 market-header">
     <div class="container ad-nav ad-nav-v2">
       <a class="ad-brand-v2" href="index.html" aria-label="Lorenzo's Dog Training Team home">

@@ -82,14 +82,17 @@
   trackMarketEvent("market_page_view");
 
   const heroTitle = marketCopy?.querySelector("h1");
-  const heroLead = marketCopy?.querySelector(".ad-lead");
+  // Pages now declare their own problem-led, keyword-rich headline; only fall
+  // back to the generic template when a page doesn't. Never overwrite the
+  // per-market hook or Spanish strips — target the plain lead only.
+  const heroLead = marketCopy?.querySelector(".ad-lead:not(.market-hook):not(.market-spanish)");
   if (heroTitle) {
-    heroTitle.textContent = `Dog problems in ${marketName}? Start here.`;
+    heroTitle.textContent = document.body.dataset.heroTitle || `Dog problems in ${marketName}? Start here.`;
   }
-	  if (heroLead) {
-	    heroLead.textContent =
-	      "Watch a real client result, then request a free, no-obligation evaluation so the office can route the right next step for your dog.";
-	  }
+  if (heroLead) {
+    heroLead.textContent =
+      "Watch a real client result, then request a free, no-obligation evaluation so the office can route the right next step for your dog.";
+  }
 
   document.querySelectorAll(".market-side-rail").forEach((node) => node.remove());
   const heroGrid = hero.querySelector(".market-hero-grid");
