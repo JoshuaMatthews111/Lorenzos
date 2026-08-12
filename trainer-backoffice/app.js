@@ -1102,9 +1102,7 @@ function mergeRemoteOperationalData(data) {
     if (!publications.length) return submission;
     return {
       ...submission,
-      reviewTargets: publications.map(item => item.destination_type === "homepage"
-        ? "lorenzos-team"
-        : item.destination_type === "city_page" ? `city:${item.destination_id}` : item.destination_id),
+      reviewTargets: reviewTargetsFromPublications(publications),
       status: publications.some(item => String(item.status || "").toLowerCase() === "published") ? "Approved" : submission.status
     };
   });
@@ -1804,6 +1802,15 @@ function reviewPublicationForTarget(submission = {}, target = "") {
   ) || null;
 }
 
+function reviewTargetsFromPublications(publications = []) {
+  return (publications || [])
+    .filter(item => ["draft", "published"].includes(String(item.status || "").toLowerCase()))
+    .sort((a, b) => timestampValue(b.published_at || b.updated_at) - timestampValue(a.published_at || a.updated_at))
+    .map(item => item.destination_type === "homepage"
+      ? "lorenzos-team"
+      : item.destination_type === "city_page" ? `city:${item.destination_id}` : item.destination_id);
+}
+
 function reviewDestinationStatusLabel(submission = {}, target = "") {
   const publication = reviewPublicationForTarget(submission, target);
   const status = String(publication?.status || "").toLowerCase();
@@ -1927,6 +1934,14 @@ async function saveReviewDestinations(submission, published = false, options = {
     office_note: reviewOfficeNotePayload(submission, published ? "" : submission.status),
     summary: `${submission.title || "Review"} destinations saved: ${reviewTargetLabels(submission)}`
   });
+  if (Array.isArray(result.publications)) {
+    remoteReviewPublications = [
+      ...remoteReviewPublications.filter(item => item.submission_id !== submission.remoteId),
+      ...result.publications
+    ];
+    const savedTargets = reviewTargetsFromPublications(result.publications);
+    setReviewTargets(submission, savedTargets, { allowEmpty: true });
+  }
   submission.version = Number(result.version || submission.version || 1);
   submission.updatedAt = result.updated_at || submission.updatedAt;
   if (published) submission.status = "Approved";
@@ -3726,21 +3741,21 @@ const adminScreens = {
     const metrics = getMetrics();
     return `
       ${reportDateControls()}
-      <p class="panel-copy report-range-note">Dashboard numbers use immutable Supabase lifecycle events for ${escapeHtml(reportRangeLabel())}. Last live sync: ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "not available")}.</p>
+      <p class="panel-copy report-range-note">Dashboard numbers use the live lead and trainer-application rows for ${escapeHtml(reportRangeLabel())}, so changing the report filter changes these counts. Last live sync: ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "not available")}.</p>
       ${metricGrid([
         ["monitor", "Site Visits/Clicks", metrics.visits, "Traffic only", "", { view: "adLandingPages" }],
-        ["lead", "Form Submissions (Inquiries Only)", metrics.forms, "Canonical forms", "", { view: "leads" }],
+        ["lead", "Form Submissions", metrics.forms, "Actual lead rows", "", { view: "leads" }],
         ["calendar", "Evaluation Scheduled", metrics.evalScheduled, "Mid-funnel", "up", { view: "leads" }],
         ["calendar", "Evaluation Complete", metrics.evalCompleted, "Decision point", "up", { view: "leads" }],
-        ["trophy", "Became a Client", metrics.clientWon, "Conversion event", "up", { view: "clients" }],
-        ["settings", "Lost/No Response", metrics.lostNoResponse, "Lifecycle outcome", "down", { view: "leads" }],
-        ["message", "New Trainer Applications", metrics.newTrainerApplications, "Recruiting", "up", { view: "applications" }]
+        ["trophy", "Became a Client", metrics.clientWon, "Current lead outcome", "up", { view: "clients" }],
+        ["settings", "Lost/No Response", metrics.lostNoResponse, "Current lead outcome", "down", { view: "leads" }],
+        ["message", "New Trainer Applications", metrics.newTrainerApplications, "Application rows", "up", { view: "applications" }]
       ])}
       <div class="dashboard-grid">
-        ${panel("Form Submission Buckets", `<button class="btn btn-outline" data-view="reports">View Outcomes</button>`, leadSummary())}
-        ${panel("Conversions By Ad Market", "", marketConversionTable())}
+        ${panel("Dashboard Buckets", `<button class="btn btn-outline" data-view="reports">View Outcomes</button>`, leadSummary())}
+        ${panel("Lead Status Updates", "", leadOutcomeTable(filteredReportLeadRows()))}
       </div>
-      ${panel("Lead Status Updates", "", leadOutcomeTable())}`;
+      ${panel("Reporting Note", "", `<p class="panel-copy">The removed ad-market conversion chart was not reliable enough for budget decisions. Use this dashboard for real lead/application counts and keep ad-market attribution in the dedicated ad landing-page report until campaign attribution is fully connected.</p>`, "pad")}`;
   },
   trainerPages() {
     return `${panel("Three Approved Trainer Landing Page Designs", "", approvedLayoutCards(), "pad")}<br>${panel("Trainer Page Control & Performance", `<button class="btn btn-red" id="addTrainer">Onboard New Trainer</button>`, trainerPageCards())}<br>${panel("Recent Trainer Page Activity", "", trainerSiteActivityTable(), "pad")}`;
@@ -4059,6 +4074,10 @@ function filteredReportLeadRows() {
   return realLeadRows().filter(lead => isWithinWindow(lead.createdAt, "report"));
 }
 
+function filteredReportApplicationRows() {
+  return applicationRows().filter(app => isWithinWindow(app.receivedAt || app.createdAt, "report"));
+}
+
 function filteredReportEventRows() {
   return siteEventRows().filter(event => isWithinWindow(event.timestamp || event.created_at, "report"));
 }
@@ -4096,6 +4115,24 @@ function formSubmissionBucketRows() {
   return Array.from(buckets.entries());
 }
 
+function dashboardBucketRows() {
+  const leadRows = filteredReportLeadRows().filter(lead => lead.submitted !== false);
+  const appRows = filteredReportApplicationRows();
+  const buckets = new Map([
+    ["Contact Us forms", 0],
+    ["Paid ad leads", 0],
+    ["Ebook requests", 0],
+    ["Became a Client", leadRows.filter(lead => lead.status === "Became a Client").length],
+    ["Lost / No Response", leadRows.filter(lead => lead.status === "Lost / No Response").length],
+    ["New Trainer Applications", appRows.length]
+  ]);
+  leadRows.forEach(lead => {
+    const bucket = leadSubmissionBucket(lead);
+    buckets.set(bucket, (buckets.get(bucket) || 0) + 1);
+  });
+  return Array.from(buckets.entries());
+}
+
 function reportLifecycleRows() {
   return (remoteLifecycleEvents || []).filter(event =>
     event.event_type !== "qa_release_check"
@@ -4110,15 +4147,17 @@ function getMetrics() {
   const count = type => new Set(lifecycle
     .filter(event => event.event_type === type)
     .map(event => `${event.entity_type || "event"}:${event.entity_id || event.event_key || event.id}`)).size;
+  const leadRows = filteredReportLeadRows().filter(lead => lead.submitted !== false);
+  const appRows = filteredReportApplicationRows();
   return {
     visits: count("site_visit") + count("cta_click"),
-    forms: count("form_received"),
-    evalScheduled: count("evaluation_scheduled"),
-    evalCompleted: count("evaluation_completed"),
-    clientWon: count("became_client"),
-    trueConversions: count("became_client"),
-    lostNoResponse: count("lost_no_response"),
-    newTrainerApplications: count("full_application")
+    forms: leadRows.length,
+    evalScheduled: leadRows.filter(lead => lead.status === "Evaluation Scheduled").length,
+    evalCompleted: leadRows.filter(lead => lead.status === "Evaluation Complete").length,
+    clientWon: leadRows.filter(lead => lead.status === "Became a Client").length,
+    trueConversions: leadRows.filter(lead => lead.status === "Became a Client").length,
+    lostNoResponse: leadRows.filter(lead => lead.status === "Lost / No Response").length,
+    newTrainerApplications: appRows.length
   };
 }
 
@@ -4647,8 +4686,8 @@ function leadRangeLabel() {
   return `last ${state.leadDateRange} days`;
 }
 
-function leadOutcomeTable() {
-  const rows = realLeadRows();
+function leadOutcomeTable(sourceRows = realLeadRows()) {
+  const rows = sourceRows;
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Service</th><th>Status</th><th>Latest Office Note</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
     const latest = latestOfficeNote("lead", lead.remoteId);
     return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} (${escapeHtml(lead.breed)})</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td>${escapeHtml(latest?.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-red" data-open-lead="${lead.id}">Open / Add Note</button></td></tr>`;
@@ -4957,9 +4996,9 @@ function leadStatusCounts(rows) {
 }
 
 function leadSummary() {
-  const labels = formSubmissionBucketRows();
+  const labels = dashboardBucketRows();
   const total = labels.reduce((sum, [, value]) => sum + value, 0);
-  const colors = ["#246bfe", "#f59e0b", "#0c9b58"];
+  const colors = ["#246bfe", "#f59e0b", "#64748b", "#0c9b58", "#d80f35", "#8b5cf6"];
   let cursor = 0;
   const segments = labels.map(([, value], index) => {
     const start = total ? (cursor / total) * 100 : 0;
@@ -4967,7 +5006,7 @@ function leadSummary() {
     const end = total ? (cursor / total) * 100 : 0;
     return `${colors[index]} ${start}% ${end}%`;
   }).join(", ");
-  return `<div class="donut-panel"><div class="donut" style="background:conic-gradient(${segments || "#e5edf7 0 100%"})"><div class="donut-total"><strong>${total}</strong><span>Form Submissions</span></div></div><div class="legend">${labels.map(([name, value], index) => `<div class="legend-row"><span class="dot" style="background:${colors[index]}"></span><span>${escapeHtml(name)}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
+  return `<div class="donut-panel"><div class="donut" style="background:conic-gradient(${segments || "#e5edf7 0 100%"})"><div class="donut-total"><strong>${total}</strong><span>Dashboard Count</span></div></div><div class="legend">${labels.map(([name, value], index) => `<div class="legend-row"><span class="dot" style="background:${colors[index]}"></span><span>${escapeHtml(name)}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
 }
 
 function marketConversionTable() {
@@ -8997,7 +9036,15 @@ document.addEventListener("change", async event => {
         [reviewDisplay.dataset.reviewDisplayKey]: reviewDisplay.checked
       };
       recordActivity("Review display choice saved", `${submission.title || "Review"} display option "${reviewDisplay.dataset.reviewDisplayKey}" set to ${reviewDisplay.checked ? "show" : "hide"}.`, "Review");
-      saveState("Review display choice saved", true);
+      if (remoteReady && submission.status === "Approved") {
+        await runRemoteMutation("Review display choice saved", () => publishApprovedReview(submission), {
+          type: "Review",
+          detail: `${submission.title || "Review"} display options republished to ${reviewTargetLabels(submission)}.`,
+          preserveScroll: true
+        });
+      } else {
+        saveState("Review display choice saved", true);
+      }
     }
     return;
   }

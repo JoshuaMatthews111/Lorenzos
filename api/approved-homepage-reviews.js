@@ -100,11 +100,15 @@ module.exports = async function handler(req, res) {
     const destinationId = clean(req.query?.destination_id, 180) || (destinationType === "homepage" ? "lorenzos-team" : "");
     if (!destinationId) return res.status(400).json({ ok: false, message: "A review destination is required." });
     let publicationIds = [];
+    const publicationPublishedAt = new Map();
     try {
       const publications = await supabaseFetch(
-        `/rest/v1/review_publications?select=submission_id&destination_type=eq.${encodeURIComponent(destinationType)}&destination_id=eq.${encodeURIComponent(destinationId)}&status=eq.published&order=published_at.desc&limit=50`
+        `/rest/v1/review_publications?select=submission_id,published_at,updated_at&destination_type=eq.${encodeURIComponent(destinationType)}&destination_id=eq.${encodeURIComponent(destinationId)}&status=eq.published&order=published_at.desc&limit=50`
       );
-      publicationIds = (Array.isArray(publications) ? publications : []).map(item => item.submission_id).filter(Boolean);
+      publicationIds = (Array.isArray(publications) ? publications : []).map(item => {
+        if (item.submission_id) publicationPublishedAt.set(item.submission_id, item.published_at || item.updated_at || "");
+        return item.submission_id;
+      }).filter(Boolean);
     } catch (error) {
       if (!isMissingRelationError(error)) throw error;
     }
@@ -116,6 +120,7 @@ module.exports = async function handler(req, res) {
       .filter(row => publicationIds.length
         ? publicationIds.includes(row.id)
         : destinationType === "homepage" && isHomepageReviewRow(row))
+      .sort((a, b) => new Date(publicationPublishedAt.get(b.id) || b.created_at || 0) - new Date(publicationPublishedAt.get(a.id) || a.created_at || 0))
       .slice(0, 12);
 
     const reviews = await Promise.all(homepageRows.map(async row => {
@@ -130,6 +135,7 @@ module.exports = async function handler(req, res) {
         rating,
         media_url: await signedMediaUrl(row.file_url),
         media_type: mediaTypeFromRow(row),
+        published_at: publicationPublishedAt.get(row.id) || row.created_at,
         created_at: row.created_at
       };
     }));

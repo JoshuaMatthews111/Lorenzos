@@ -850,6 +850,7 @@ async function loadApprovedHomepageReviews(){
     const apiData=await apiResponse.json().catch(()=>({}));
     if(!apiResponse.ok) throw new Error(apiData.message||`Approved homepage reviews request failed (${apiResponse.status})`);
     const cards=approvedHomepageReviewCards(apiData?.reviews||[]);
+    approvedHomeReviewRail.querySelectorAll('[data-approved-home-review]').forEach(card=>card.remove());
     if(cards) approvedHomeReviewRail.insertAdjacentHTML('afterbegin',cards);
   }catch(error){
     console.warn('Approved homepage reviews could not be loaded',error);

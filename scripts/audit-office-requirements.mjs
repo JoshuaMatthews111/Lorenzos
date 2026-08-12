@@ -9,6 +9,7 @@ const portal = read("trainer-backoffice/supabase.js");
 const contact = read("contact.html");
 const delivery = read("api/form-delivery.js");
 const reviewSubmission = read("api/submit-content-review.js");
+const approvedReviews = read("api/approved-homepage-reviews.js");
 const applicationData = read("trainer-backoffice/application-data.js");
 const publicScript = read("script.js");
 const publicTrainerShell = read("trainer-backoffice/right-trainer-results.html");
@@ -20,8 +21,9 @@ const checks = [
   ["office notes edit exact records and expose revisions", /data-save-office-note-edit/.test(app) && /remoteNoteRevisions/.test(app)],
   ["lead SMS consent is visible and filterable", /leadSmsFilter/.test(app) && /SMS consent/.test(app)],
   ["pipeline keeps every requested outcome", ["Lost: Client Complaint", "Lost: No Trainer in the Area", "Evaluation Scheduled", "Evaluation Complete", "Became a Client"].every(value => app.includes(value))],
-  ["dashboard uses immutable lifecycle milestones", /lifecycle/.test(app) && /Each record is counted once per confirmed lifecycle milestone/.test(app)],
-  ["ad-market conversion table requires attribution", /isAdAttributed/.test(app)],
+  ["dashboard counts live lead and application rows", /filteredReportLeadRows/.test(app) && /filteredReportApplicationRows/.test(app) && /forms: leadRows\.length/.test(app)],
+  ["dashboard pie includes client, lost, and application buckets", /dashboardBucketRows/.test(app) && /Became a Client/.test(app) && /Lost \/ No Response/.test(app) && /New Trainer Applications/.test(app)],
+  ["inaccurate ad-market conversion chart is removed from dashboard", !/panel\("Conversions By Ad Market"/.test(app)],
   ["shared office data uses realtime and polling", /subscribeOperationalChanges/.test(portal) && /refreshOperationalData\("poll"\)/.test(app)],
   ["trainer access flags stay synchronized", /access_status: enabled \? "active" : "disabled"/.test(app) && /active: enabled/.test(app)],
   ["contact form preserves required callback phone", /name="phone"[^>]*required|required[^>]*name="phone"/.test(contact)],
@@ -34,6 +36,9 @@ const checks = [
   ["office sheet downloads include every canonical field", /completeSheetRows\(leads, leadsSheet\)/.test(read("api/operational-data.js")) && /completeSheetRows\(applications, applicationsSheet\)/.test(read("api/operational-data.js"))],
   ["public staff bundle contains no historical application rows", /LDTT_TRAINER_APPLICATION_RESPONSES = \[\];/.test(applicationData) && !/@/.test(applicationData)],
   ["city review destinations bypass trainer lookup", /!String\(target\)\.startsWith\("city:"\)/.test(app)],
+  ["review destinations reload from saved publication rows", /reviewTargetsFromPublications/.test(app) && /result\.publications/.test(app)],
+  ["approved homepage reviews sort by latest publish time", /publicationPublishedAt/.test(approvedReviews) && /published_at\.desc/.test(approvedReviews)],
+  ["approved homepage review loader avoids duplicate cards", /querySelectorAll\('\[data-approved-home-review\]'\)\.forEach/.test(publicScript)],
   ["Karemela rebuild source keeps candid photo", bios["karemela-sefferin"]?.photo === "assets/trainer-bio-photos/karemela-sefferin-candid.jpg"],
   ["Carolina legacy URLs redirect", vercel.redirects?.some(row => row.source === "/carolinadon" && row.destination === "/carolinaperez")],
   ["all trainer landing bios preserve paragraphs", /landing-bio-paragraphs/.test(app) && /profileBioParagraphs\(trainer\.bio\)/.test(app)],
