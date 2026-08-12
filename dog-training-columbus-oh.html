@@ -32,9 +32,91 @@
     .market-tint{position:absolute;inset:0;pointer-events:none;mix-blend-mode:multiply}
     .market-trainer-media img{width:100%;height:100%;min-height:280px;object-fit:cover;object-position:top center;display:block}
     .market-trainer-media figcaption strong{display:block}
+
+    /* ═══ per-market design archetypes ═══ */
+    /* HQ — Cleveland: navy ground, the facility as a full-width banner */
+    .arch-hq .market-hero{background:var(--mk1)}
+    .arch-hq .market-hero-bg{opacity:.14}
+    .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
+    .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
+    .arch-hq .market-hero-media{grid-column:1/-1;order:-1;max-height:320px;overflow:hidden;border:8px solid #fff;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+    .arch-hq .ad-checks-v2 li{color:#dfe4f5}
+
+    /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
+    .arch-portrait .market-hero{background:linear-gradient(180deg,#FBF8F2,var(--mk2))}
+    .arch-portrait .market-copy h1{color:var(--mk1);text-transform:none;letter-spacing:0}
+    .arch-portrait .market-hero-media{border:1px solid var(--mk1);border-radius:16px;overflow:hidden;box-shadow:12px 12px 0 var(--mk1)}
+    .arch-portrait .market-hook{border-left-color:var(--mk1);background:#fff}
+    .arch-portrait .ad-proof-band-v2{background:var(--mk1)}
+
+    /* METRO — Chicago: midnight panel, giant type, tilted polaroid */
+    .arch-metro .market-hero{background:linear-gradient(120deg,var(--mk1) 0%,#122a55 70%)}
+    .arch-metro .market-hero-bg{opacity:.1}
+    .arch-metro .market-copy h1{color:#fff;font-size:clamp(34px,5vw,54px);letter-spacing:-.03em}
+    .arch-metro .market-copy .ad-lead{color:#c9d4ef}
+    .arch-metro .market-copy .ad-lead.market-hook{background:var(--mk2);color:#fff;border-left-color:#fff}
+    .arch-metro .market-hero-media{transform:rotate(-2deg);border:10px solid #fff;box-shadow:0 22px 45px rgba(0,0,0,.45)}
+    .arch-metro .ad-checks-v2 li{color:#dfe6f8}
+
+    /* SPECIALTY — Atlanta: near-black, gold detailing, premium quiet */
+    .arch-specialty .market-hero{background:var(--mk1)}
+    .arch-specialty .market-hero-bg{opacity:.08}
+    .arch-specialty .market-copy h1{color:#fff;letter-spacing:.02em}
+    .arch-specialty .market-copy .ad-lead{color:#cfc9de}
+    .arch-specialty .market-copy .ad-lead.market-hook{background:transparent;border:1px solid var(--mk2);border-left:4px solid var(--mk2);color:var(--mk2)}
+    .arch-specialty .ad-rating-row span{color:var(--mk2)}
+    .arch-specialty .market-hero-media{border:1px solid var(--mk2);padding:8px;background:var(--mk1)}
+    .arch-specialty .ad-checks-v2 li{color:#d8d3e6}
+
+    /* COAST — San Diego: white air, ocean blue, soft pill geometry */
+    .arch-coast .market-hero{background:linear-gradient(180deg,#fff,var(--mk2))}
+    .arch-coast .market-copy h1{color:var(--mk1);text-transform:none}
+    .arch-coast .market-hero-media{border-radius:28px;overflow:hidden;border:4px solid #fff;box-shadow:0 16px 36px rgba(14,94,138,.25)}
+    .arch-coast .market-hook{border-radius:999px;border-left:none;border:2px solid var(--mk1);background:#fff;padding:12px 20px}
+    .arch-coast .ad-benefit-row span{border-radius:999px;background:var(--mk1);color:#fff;padding:4px 12px}
+
+    /* MISSION — San Antonio: deep red + gold, bilingual up front */
+    .arch-mission .market-hero{background:linear-gradient(135deg,var(--mk1),#4d1414)}
+    .arch-mission .market-hero-bg{opacity:.12}
+    .arch-mission .market-copy h1,.arch-mission .market-copy .ad-lead{color:#fff}
+    .arch-mission .market-copy .ad-lead.market-hook{background:rgba(217,164,65,.15);border-left-color:var(--mk2);color:#ffe9c4}
+    .arch-mission .market-spanish{background:var(--mk2);border-left-color:#fff;color:var(--mk1);font-weight:700}
+    .arch-mission .market-hero-media{border:6px double var(--mk2)}
+    .arch-mission .ad-checks-v2 li{color:#f4dfd0}
+
+    /* HERITAGE — Lexington: hunter green + saddle tan, farm-plate frame */
+    .arch-heritage .market-hero{background:linear-gradient(180deg,#F7F4EC,#EDE6D6)}
+    .arch-heritage .market-copy h1{color:var(--mk1);text-transform:none;letter-spacing:0}
+    .arch-heritage .market-hook{border-left-color:var(--mk1);background:#fff}
+    .arch-heritage .market-hero-media{border:4px solid var(--mk1);outline:2px solid var(--mk2);outline-offset:5px}
+    .arch-heritage .ad-proof-band-v2{background:var(--mk1)}
+    .arch-heritage .visit,.arch-heritage .btn-red{background:var(--mk1)}
+
+    /* PORTRAIT² — Tallahassee: coral + palm, mirrored composition */
+    .arch-portrait2 .market-hero{background:linear-gradient(180deg,#FDF6F1,#F6E7DF)}
+    .arch-portrait2 .market-copy{order:2}
+    .arch-portrait2 .market-hero-media{order:1;border-radius:0 60px 0 60px;overflow:hidden;border:3px solid var(--mk2)}
+    .arch-portrait2 .market-copy h1{color:var(--mk2);text-transform:none}
+    .arch-portrait2 .market-hook{border-left-color:var(--mk1);background:#fff}
+
+    /* RESORT — Miramar: aqua band over sand, holiday postcard */
+    .arch-resort .market-hero{background:linear-gradient(180deg,var(--mk1) 0 46%,var(--mk2) 46%)}
+    .arch-resort .market-hero-bg{opacity:.1}
+    .arch-resort .market-copy h1{color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.25)}
+    .arch-resort .market-copy .ad-lead{color:#eafcff}
+    .arch-resort .market-copy .ad-lead.market-hook{background:#fff;color:var(--mk1);border-left-color:var(--mk1)}
+    .arch-resort .market-hero-media{border:8px solid #fff;border-bottom-width:30px;box-shadow:0 16px 34px rgba(0,0,0,.28);transform:rotate(1.5deg)}
+
+    /* CAMPUS — Ann Arbor: clean white, blue + maize underline energy */
+    .arch-campus .market-hero{background:#fff}
+    .arch-campus .market-copy h1{color:var(--mk1);text-transform:none}
+    .arch-campus .market-copy h1::after{content:"";display:block;width:110px;height:8px;background:var(--mk2);margin-top:10px}
+    .arch-campus .market-hook{border-left-color:var(--mk1);background:#F6F8FE}
+    .arch-campus .market-hero-media{border-radius:12px;overflow:hidden;border:3px solid var(--mk1)}
+    .arch-campus .ad-proof-band-v2{background:var(--mk1)}
   </style>
 </head>
-<body id="top" class="market-landing ad-landing ad-landing-v2" data-market="Columbus / Reynoldsburg, OH">
+<body id="top" class="market-landing ad-landing ad-landing-v2 arch-portrait" style="--mk1:#7A1E2C;--mk2:#EFE7DA" data-market="Columbus / Reynoldsburg, OH">
   <header class="ad-header ad-header-v2 market-header">
     <div class="container ad-nav ad-nav-v2">
       <a class="ad-brand-v2" href="index.html" aria-label="Lorenzo's Dog Training Team home">
