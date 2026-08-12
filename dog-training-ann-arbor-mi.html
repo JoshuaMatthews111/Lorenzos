@@ -114,6 +114,18 @@
     .arch-campus .market-hook{border-left-color:var(--mk1);background:#F6F8FE}
     .arch-campus .market-hero-media{border-radius:12px;overflow:hidden;border:3px solid var(--mk1)}
     .arch-campus .ad-proof-band-v2{background:var(--mk1)}
+
+    /* market-landing.js repaints the hero dark at runtime — headings must stay
+       readable on that ground, so light archetypes keep white type and express
+       their identity through hooks, frames, buttons and bands instead. */
+    .arch-portrait .market-copy h1,.arch-heritage .market-copy h1,.arch-coast .market-copy h1,
+    .arch-campus .market-copy h1,.arch-portrait2 .market-copy h1{color:#fff}
+    .arch-campus .market-copy h1::after{background:var(--mk2)}
+    .arch-portrait .market-copy .ad-lead,.arch-heritage .market-copy .ad-lead,
+    .arch-coast .market-copy .ad-lead,.arch-campus .market-copy .ad-lead,
+    .arch-portrait2 .market-copy .ad-lead{color:#dfe3ee}
+    .arch-portrait .market-hook,.arch-heritage .market-hook,.arch-coast .market-hook,
+    .arch-campus .market-hook,.arch-portrait2 .market-hook{background:#fff;color:var(--mk1)}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2 arch-campus" style="--mk1:#1E3A8A;--mk2:#F0C93B" data-market="Ann Arbor, MI">
