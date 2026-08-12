@@ -47,6 +47,8 @@ const checks = [
   ["public staff bundle contains no historical application rows", /LDTT_TRAINER_APPLICATION_RESPONSES = \[\];/.test(applicationData) && !/@/.test(applicationData)],
   ["city review destinations bypass trainer lookup", /!String\(target\)\.startsWith\("city:"\)/.test(app)],
   ["review destinations reload from saved publication rows", /reviewTargetsFromPublications/.test(app) && /result\.publications/.test(app)],
+  ["review publish includes dropdown destination before saving", /applyPendingReviewTargetSelection\(sub\)/.test(app) && /function applyPendingReviewTargetSelection/.test(app)],
+  ["review publication mutation deduplicates destination rows", /desiredByKey/.test(read("api/operational-mutation.js")) && /on_conflict=submission_id,destination_type,destination_id/.test(read("api/operational-mutation.js"))],
   ["approved homepage reviews sort by latest publish time", /publicationPublishedAt/.test(approvedReviews) && /published_at\.desc/.test(approvedReviews)],
   ["approved homepage review loader avoids duplicate cards", /querySelectorAll\('\[data-approved-home-review\]'\)\.forEach/.test(publicScript)],
   ["Karemela rebuild source keeps candid photo", bios["karemela-sefferin"]?.photo === "assets/trainer-bio-photos/karemela-sefferin-candid.jpg"],

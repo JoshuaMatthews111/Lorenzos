@@ -1828,6 +1828,21 @@ function reviewTargetLabelList(submission) {
   return reviewTargetsFor(submission, { allowEmpty: true }).map(reviewTargetLabel);
 }
 
+function pendingReviewTargetSelection(submission = {}) {
+  if (!submission?.id || typeof document === "undefined") return "";
+  const select = document.querySelector(`[data-review-target-select="${CSS.escape(submission.id)}"]`);
+  return select?.value || "";
+}
+
+function applyPendingReviewTargetSelection(submission = {}) {
+  const target = pendingReviewTargetSelection(submission);
+  if (!target) return false;
+  const currentTargets = reviewTargetsFor(submission, { allowEmpty: true });
+  if (currentTargets.includes(target)) return false;
+  setReviewTargets(submission, [...currentTargets, target]);
+  return true;
+}
+
 function publishedReviewForSubmission(submission) {
   if (!submission?.remoteId) return null;
   for (const trainer of state.trainers || []) {
@@ -6520,8 +6535,8 @@ function reviewAssignmentControlsMarkup(submission) {
         ${cityOptions}
       </select>
     </label>
-    <button class="btn btn-outline btn-small" type="button" data-add-review-target="${escapeHtml(submission.id)}">+ Add Destination</button>
-    <small>Publish one approved review to the homepage, trainer pages, and approved city opportunity pages.</small>
+    <button class="btn btn-outline btn-small" type="button" data-add-review-target="${escapeHtml(submission.id)}">+ Add Destination Now</button>
+    <small>Publish also saves the destination currently selected in this dropdown, then pushes the review to every saved place.</small>
   </section>`;
 }
 
@@ -8008,6 +8023,7 @@ document.addEventListener("click", async event => {
   const approve = event.target.closest("[data-approve-submission]");
   if (approve) {
     const sub = state.submissions.find(s => s.id === approve.dataset.approveSubmission);
+    if (sub && ["Review", "Testimonial"].includes(sub.type)) applyPendingReviewTargetSelection(sub);
     approve.disabled = true;
     const isReviewSubmission = ["Review", "Testimonial"].includes(sub?.type);
     const progress = remoteReady && isReviewSubmission
@@ -8023,6 +8039,7 @@ document.addEventListener("click", async event => {
         progress.done("Review published", "The approved review is live on these destinations.", { items: reviewTargetLabelList(sub) });
       } else if (!saved && progress) {
         progress.fail("Review not saved", "The live save did not complete. Please retry before leaving this screen.", { items: reviewTargetLabelList(sub) });
+        approve.disabled = false;
       }
       if (!saved) approve.disabled = false;
     } else if (sub) {
@@ -8034,6 +8051,7 @@ document.addEventListener("click", async event => {
   const publishReview = event.target.closest("[data-publish-review]");
   if (publishReview) {
     const sub = state.submissions.find(s => s.id === publishReview.dataset.publishReview);
+    if (sub) applyPendingReviewTargetSelection(sub);
     publishReview.disabled = true;
     const progress = remoteReady
       ? showActionProgress("Publishing review", "Saving review placements to the live site.", { items: reviewTargetLabelList(sub) })
@@ -8048,6 +8066,7 @@ document.addEventListener("click", async event => {
         progress.done("Review published", "The review is live on these destinations.", { items: reviewTargetLabelList(sub) });
       } else if (!saved && progress) {
         progress.fail("Review not saved", "The live save did not complete. Please retry before leaving this screen.", { items: reviewTargetLabelList(sub) });
+        publishReview.disabled = false;
       }
       else publishReview.disabled = false;
     } else if (sub) {
@@ -8136,8 +8155,7 @@ document.addEventListener("click", async event => {
   if (addReviewTarget) {
     const sub = state.submissions.find(s => s.id === addReviewTarget.dataset.addReviewTarget);
     if (!sub) return;
-    const select = document.querySelector(`[data-review-target-select="${CSS.escape(sub.id)}"]`);
-    const target = select?.value || "";
+    const target = pendingReviewTargetSelection(sub);
     if (!target) return;
     const previousTargets = reviewTargetsFor(sub, { allowEmpty: true });
     if (previousTargets.includes(target)) {

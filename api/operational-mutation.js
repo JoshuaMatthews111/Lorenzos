@@ -343,10 +343,17 @@ async function setReviewPublications(admin, body, requestId) {
   const submission = await getRecord("content_submissions", submissionId);
   if (!submission) return { status: 404, body: { ok: false, message: "Review submission not found." } };
   const current = await supabaseFetch(`/rest/v1/review_publications?select=*&submission_id=eq.${encodeURIComponent(submissionId)}`);
-  const desired = destinations.map(item => ({
-    destination_type: ["homepage", "trainer_page", "city_page"].includes(clean(item.destination_type, 40)) ? clean(item.destination_type, 40) : "trainer_page",
-    destination_id: clean(item.destination_id, 180)
-  })).filter(item => item.destination_id);
+  const desiredByKey = new Map();
+  destinations.forEach(item => {
+    const destinationType = ["homepage", "trainer_page", "city_page"].includes(clean(item.destination_type, 40)) ? clean(item.destination_type, 40) : "trainer_page";
+    const destinationId = clean(item.destination_id, 180);
+    if (!destinationId) return;
+    desiredByKey.set(`${destinationType}:${destinationId}`, {
+      destination_type: destinationType,
+      destination_id: destinationId
+    });
+  });
+  const desired = [...desiredByKey.values()];
   const desiredKeys = new Set(desired.map(item => `${item.destination_type}:${item.destination_id}`));
   for (const row of current || []) {
     if (desiredKeys.has(`${row.destination_type}:${row.destination_id}`)) continue;
