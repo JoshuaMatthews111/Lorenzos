@@ -847,12 +847,12 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     tagline: remotePage?.subheadline || existing.tagline || "",
     seoTitle: content.seo_title || existing.seoTitle || "",
     seoDescription: content.seo_description || existing.seoDescription || "",
-    review1Author: objectHas(content, "review1_author") ? (content.review1_author || "") : (existing.review1Author || "Local Client"),
-    review1Copy: objectHas(content, "review1_copy") ? (content.review1_copy || "") : (existing.review1Copy || "Professional, patient, and focused on training that works in everyday life."),
-    review2Author: objectHas(content, "review2_author") ? (content.review2_author || "") : (existing.review2Author || "Dog Owner"),
-    review2Copy: objectHas(content, "review2_copy") ? (content.review2_copy || "") : (existing.review2Copy || "The office follow-up was clear and the training path was practical."),
-	    review3Author: objectHas(content, "review3_author") ? (content.review3_author || "") : (existing.review3Author || "Verified Client"),
-	    review3Copy: objectHas(content, "review3_copy") ? (content.review3_copy || "") : (existing.review3Copy || "Better communication, calmer behavior, and real-world results."),
+    review1Author: objectHas(content, "review1_author") ? (content.review1_author || "") : (existing.review1Author || ""),
+    review1Copy: objectHas(content, "review1_copy") ? (content.review1_copy || "") : (existing.review1Copy || ""),
+    review2Author: objectHas(content, "review2_author") ? (content.review2_author || "") : (existing.review2Author || ""),
+    review2Copy: objectHas(content, "review2_copy") ? (content.review2_copy || "") : (existing.review2Copy || ""),
+	    review3Author: objectHas(content, "review3_author") ? (content.review3_author || "") : (existing.review3Author || ""),
+	    review3Copy: objectHas(content, "review3_copy") ? (content.review3_copy || "") : (existing.review3Copy || ""),
     approvedReviews: Array.isArray(content.approved_reviews) ? content.approved_reviews : (existing.approvedReviews || []),
 	    liveEdits: Array.isArray(content.live_edits) ? content.live_edits : (existing.liveEdits || []),
 	    mediaLibrary: Array.isArray(content.media_library) ? content.media_library : (existing.mediaLibrary || []),
@@ -1325,12 +1325,12 @@ function createOfficeTrainerDraft() {
     profileSpecialtiesText: "Obedience Training\nBehavior Modification",
     credentials: ["Lorenzo's Certified Dog Trainer", "Powered by Lorenzo's Dog Training Team"],
     profileCredentialsText: "Lorenzo's Certified Dog Trainer\nPowered by Lorenzo's Dog Training Team",
-    review1Author: "Client Name",
-    review1Copy: "Office-approved client testimonial.",
-    review2Author: "Client Name",
-    review2Copy: "Office-approved client testimonial.",
-    review3Author: "Client Name",
-    review3Copy: "Office-approved client testimonial.",
+    review1Author: "",
+    review1Copy: "",
+    review2Author: "",
+    review2Copy: "",
+    review3Author: "",
+    review3Copy: "",
     socials: { facebook: "", instagram: "", tiktok: "" }
   };
 }
@@ -4445,18 +4445,21 @@ function regionClickReport() {
     if (!code) return `<span class="us-state-tile-spacer" aria-hidden="true"></span>`;
     const state = rowByCode.get(code) || { code, name: US_STATE_NAMES[code], clicks: 0, leads: 0, total: 0 };
     const intensity = state.total ? Math.min(.92, .12 + (state.total / max) * .74) : 0;
-    return `<span class="us-state-tile ${state.total ? "active" : ""}" style="--state-fill:rgba(216,13,54,${intensity.toFixed(2)})" title="${escapeHtml(`${state.name}: ${state.total} total (${state.clicks} page events, ${state.leads} leads)`)}"><strong>${code}</strong><b>${state.total}</b></span>`;
+    const title = `${state.name}: ${state.total} total (${state.clicks} views, ${state.leads} submitted leads)`;
+    return `<span class="us-state-tile ${state.total ? "active" : ""}" tabindex="0" aria-label="${escapeHtml(title)}" style="--state-fill:rgba(216,13,54,${intensity.toFixed(2)})" title="${escapeHtml(title)}"><strong>${code}</strong><b>${state.total}</b><em>${escapeHtml(`${state.name}: ${state.clicks} views · ${state.leads} submitted leads`)}</em></span>`;
   }).join("")}</div>`).join("");
+  const totalActivity = activeRows.reduce((sum, row) => sum + row.total, 0);
   return `<div class="region-map-report">
     <div class="us-state-map-card" role="img" aria-label="United States activity map with visible counts by state">
       <div class="state-map-heading">
-        <div><span>50-state report</span><h3>Activity by State</h3></div>
-        <strong>${activeRows.reduce((sum, row) => sum + row.total, 0)}</strong>
+        <span>50-state report</span>
+        <h3>Activity by State</h3>
       </div>
+      <div class="state-map-total"><strong>${totalActivity}</strong><span>Total state activity</span></div>
       <div class="us-state-tile-map">${tiles}</div>
-      <p class="panel-copy">Each state number is page events plus submitted lead rows with that state attached for ${escapeHtml(reportRangeLabel())}.</p>
+      <p class="panel-copy">Each state number is views plus submitted lead rows with that state attached for ${escapeHtml(reportRangeLabel())}.</p>
     </div>
-    <div class="region-bars">${activeRows.map(row => `<article class="region-row"><div><strong>${escapeHtml(row.name)} (${escapeHtml(row.code)})</strong><span>${escapeHtml(`${row.clicks} page events · ${row.leads} submitted leads`)}</span></div><div class="region-meter"><span style="width:${Math.max(8, Math.round((row.total / max) * 100))}%"></span></div><b>${row.total}</b></article>`).join("") || `<p class="panel-copy">No state-level activity matches the current report filters yet.</p>`}</div>
+    <div class="region-bars">${activeRows.map(row => `<article class="region-row"><div><strong>${escapeHtml(row.name)} (${escapeHtml(row.code)})</strong><span>${escapeHtml(`${row.clicks} views · ${row.leads} submitted leads`)}</span></div><div class="region-meter"><span style="width:${Math.max(8, Math.round((row.total / max) * 100))}%"></span></div><b>${row.total}</b></article>`).join("") || `<p class="panel-copy">No state-level activity matches the current report filters yet.</p>`}</div>
   </div>`;
 }
 
@@ -5338,7 +5341,7 @@ function trainerAdminForm() {
     [3, "Story & Local SEO", "Bio, market, and search copy"],
     [4, "Photos & Branding", "Trainer, hero, and logo media"],
     [5, "Services & Credentials", "Approved expertise and trust"],
-    [6, "Reviews & Social", "Testimonials and social profiles"],
+    [6, "Reviews & Social", "Review placements and social profiles"],
     [7, "Preview & Publish", "Review, publish, and lock the page"]
   ];
   const mediaPreview = (src, fallback, alt) => `<div class="wizard-media-preview"><img src="${escapeHtml(src || fallback)}" alt="${escapeHtml(alt)}"></div>`;
@@ -5353,7 +5356,7 @@ function trainerAdminForm() {
     `</div><div class="form-grid bio-photo-url-row">${textField("landingBioPhoto", "Bio Photo URL (View Bio + Landing Bio)", { wide: true, help: "Paste the approved candid photo URL here if upload is blocked. Save & Publish sends this exact photo to the View Bio page." })}</div></div><div class="wizard-upload-grid image-role-grid">`
   );
   if (step === 5) content = `<div class="form-grid">${textField("specialtiesText", "Services / Specialties", { wide: true, area: true, placeholder: "Obedience Training\nBehavior Modification\nPuppy Training", help: "Enter one approved service per line." })}${textField("credentialsText", "Credentials / Trust Points", { wide: true, area: true, placeholder: "Lorenzo's Certified Dog Trainer\nLDTT training system\nOngoing education", help: "Enter one approved credential per line." })}</div><div class="credential-preview"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><div><strong>Powered by Lorenzo's Dog Training Team</strong><span>Serious Training. Serious Results.</span></div></div>`;
-  if (step === 6) content = `${trainerApprovedReviewManagerMarkup(t)}<div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Testimonial ${n}</h3>${textField(`review${n}Author`, "Client Name")}${textField(`review${n}Copy`, "Approved Review", { area: true })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
+  if (step === 6) content = `${trainerApprovedReviewManagerMarkup(t)}<div class="brand-lock-note"><strong>Reviews are not published automatically.</strong> Use the Review Inbox above to publish approved client reviews to this trainer. Click X to remove a review placement. Leave the optional boxes below blank unless the office intentionally wants a manual testimonial on this trainer page.</div><div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Optional Manual Testimonial ${n}</h3>${textField(`review${n}Author`, "Client Name", { placeholder: "Leave blank unless approved" })}${textField(`review${n}Copy`, "Approved Review", { area: true, placeholder: "Leave blank unless approved", help: "Published client reviews should normally come from the Review Inbox." })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
   if (step === 7) {
     const publicUrl = trainerPublicUrl(t);
     content = `<section class="publish-review publish-review-clear"><div><span>Landing-page status</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.pageStatus)} ${t.locked ? "· Office locked" : "· Editable draft"}</small></div><div>${pageStatusBadge(t)}</div></section>${trainerPublishChecklistMarkup(t)}<section class="publish-url-card"><span>Final public address</span><strong>${escapeHtml(publicUrl)}</strong><p>Publishing uses this trainer-specific URL. It will not inherit another trainer’s name, photo, city, state, or page record.</p></section><div class="publish-action-grid"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Draft Landing Page</a>${t.pageStatus === "Published" ? `<a class="btn btn-outline" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">View Published Landing Page</a>` : ""}<button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? "Return Page To Draft" : "Publish Landing Page"}</button></div>${t.pageStatus === "Published" ? trainerInviteCard(t) : ""}`;

@@ -826,6 +826,24 @@ if(homepageReviewForm){
 const reviewCarousel=document.querySelector('[data-review-carousel]');
 const reviewRail=reviewCarousel?.querySelector('.review-shot-grid');
 const approvedHomeReviewRail=reviewRail;
+const resetHomepageReviewCarousel=()=>{
+  if(!reviewCarousel||!reviewRail) return;
+  const reset=()=>{
+    const firstCard=reviewRail.querySelector('.review-shot-card');
+    const previousBehavior=reviewCarousel.style.scrollBehavior;
+    const previousSnap=reviewCarousel.style.scrollSnapType;
+    reviewCarousel.style.scrollBehavior='auto';
+    reviewCarousel.style.scrollSnapType='none';
+    reviewCarousel.scrollLeft=0;
+    firstCard?.scrollIntoView({behavior:'auto',block:'nearest',inline:'start'});
+    reviewCarousel.style.scrollSnapType=previousSnap;
+    reviewCarousel.style.scrollBehavior=previousBehavior;
+  };
+  reset();
+  requestAnimationFrame(()=>{ reset(); requestAnimationFrame(reset); });
+  setTimeout(reset,150);
+  setTimeout(reset,700);
+};
 const approvedHomepageReviewCards=rows=>(Array.isArray(rows)?rows:[]).map(row=>{
   const notes=String(row.notes||'');
   const reviewer=(row.reviewer||String(row.title||'').replace(/^Website review from\s+/i,'').trim())||'Verified Client';
@@ -849,14 +867,18 @@ async function loadApprovedHomepageReviews(){
     const apiResponse=await fetch('/api/approved-homepage-reviews');
     const apiData=await apiResponse.json().catch(()=>({}));
     if(!apiResponse.ok) throw new Error(apiData.message||`Approved homepage reviews request failed (${apiResponse.status})`);
-    const cards=approvedHomepageReviewCards(apiData?.reviews||[]);
+    const approvedRows=[...(apiData?.reviews||[])].sort((a,b)=>new Date(b.published_at||b.created_at||0)-new Date(a.published_at||a.created_at||0));
+    const cards=approvedHomepageReviewCards(approvedRows);
     approvedHomeReviewRail.querySelectorAll('[data-approved-home-review]').forEach(card=>card.remove());
     if(cards) approvedHomeReviewRail.insertAdjacentHTML('afterbegin',cards);
+    resetHomepageReviewCarousel();
   }catch(error){
     console.warn('Approved homepage reviews could not be loaded',error);
   }
 }
 loadApprovedHomepageReviews();
+resetHomepageReviewCarousel();
+window.addEventListener('load',resetHomepageReviewCarousel,{once:true});
 
 const approvedMarketReviewSection=document.querySelector('[data-approved-market-reviews]');
 async function loadApprovedMarketReviews(){
