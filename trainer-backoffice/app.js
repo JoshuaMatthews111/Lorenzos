@@ -3743,14 +3743,20 @@ const adminScreens = {
       ${reportDateControls()}
       <p class="panel-copy report-range-note">Dashboard numbers use the live lead and trainer-application rows for ${escapeHtml(reportRangeLabel())}, so changing the report filter changes these counts. Last live sync: ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "not available")}.</p>
       ${metricGrid([
+        ["monitor", "Site Visits/Clicks", metrics.visits, "Traffic only", "", { view: "reports" }],
+        ["lead", "Form Submissions", metrics.forms, "Actual lead rows", "", { view: "leads" }],
         ["lead", "Contact Us Forms", metrics.contactForms, "Lead source", "", { view: "leads" }],
         ["lead", "Paid Ad Submitted Inquiries", metrics.paidAdSubmittedInquiries, "Ad landing pages", "", { view: "leads" }],
         ["lead", "Ebook Requests", metrics.ebookRequests, "Guide downloads", "", { view: "leads" }],
         ["trophy", "Became a Client", metrics.clientWon, "Current lead outcome", "up", { view: "clients" }],
         ["settings", "Lost", metrics.lostLeads, "Lead section total", "down", { view: "leads" }],
-        ["message", "New Trainer Applications", metrics.newTrainerApplications, "Application rows", "up", { view: "applications" }]
+        ["message", "New Trainer Applications", metrics.newTrainerApplications, "Application rows", "up", { view: "applications" }],
+        ["report", "Office Notes", metrics.officeNotes, "Saved note rows", "", { view: "reports" }]
       ])}
-      ${panel("Dashboard Buckets", "", leadSummary())}`;
+      <div class="dashboard-grid">
+        ${panel("Dashboard Buckets", "", leadSummary())}
+        ${panel("Lead Status Updates", "", leadOutcomeTable(filteredReportLeadRows()))}
+      </div>`;
   },
   trainerPages() {
     return `${panel("Three Approved Trainer Landing Page Designs", "", approvedLayoutCards(), "pad")}<br>${panel("Trainer Page Control & Performance", `<button class="btn btn-red" id="addTrainer">Onboard New Trainer</button>`, trainerPageCards())}<br>${panel("Recent Trainer Page Activity", "", trainerSiteActivityTable(), "pad")}`;
@@ -3797,8 +3803,9 @@ const adminScreens = {
         ["calendar", "Evaluation Complete", metrics.evalCompleted, "Funnel", "up"],
         ["trophy", "True Conversions", metrics.trueConversions, "Became a Client", "up"]
       ])}
-      <div class="dashboard-grid">${panel("Clicks By Region", "", regionClickReport(), "pad")}${panel("Clicks By Trainer", "", trainerClickReport(), "pad")}</div>
-      <div class="dashboard-grid">${panel("Conversion By Trainer", "", trainerPerformanceTable())}${panel("Lost Reasons", "", lostReasonsTable())}</div>
+      <div class="reports-stack">${panel("State Activity Map", "", regionClickReport(), "pad")}</div>
+      <div class="dashboard-grid reports-grid">${panel("Clicks By Trainer", "", trainerClickReport(), "pad")}${panel("Conversion By Trainer", "", trainerPerformanceTable(), "pad")}</div>
+      <div class="reports-stack">${panel("Lost Reasons", "", lostReasonsTable(), "pad")}</div>
       ${panel("Recent Activity Log", `${isSuperAdmin() ? `<button class="btn btn-outline" type="button" data-clear-activity-log>Clear Local Log</button>` : ""}`, recentActivityTable(), "pad")}
       ${panel("Reporting Rule", "", `<p class="panel-copy">Conversions are counted only from the immutable <strong>Became a Client</strong> lifecycle event. Clicks and form submissions stay visible as traffic and inquiry metrics, but they do not inflate conversion reporting.</p>`, "pad")}`;
   },
@@ -4073,6 +4080,10 @@ function filteredReportApplicationRows() {
   return applicationRows().filter(app => isWithinWindow(app.receivedAt || app.createdAt, "report"));
 }
 
+function filteredReportOfficeNoteRows() {
+  return (remoteOfficeNotes || []).filter(note => isWithinWindow(note.updated_at || note.created_at, "report"));
+}
+
 function filteredReportEventRows() {
   return siteEventRows().filter(event => isWithinWindow(event.timestamp || event.created_at, "report"));
 }
@@ -4198,7 +4209,8 @@ function getMetrics() {
     trueConversions: leadRows.filter(lead => lead.status === "Became a Client").length,
     lostNoResponse: leadRows.filter(lead => lead.status === "Lost / No Response").length,
     lostLeads: dashboardLostLeadRows(leadRows).length,
-    newTrainerApplications: appRows.length
+    newTrainerApplications: appRows.length,
+    officeNotes: filteredReportOfficeNoteRows().length
   };
 }
 
@@ -4262,6 +4274,17 @@ const US_STATE_NAMES = {
   NM: "New Mexico", NY: "New York", NC: "North Carolina", ND: "North Dakota", OH: "Ohio", OK: "Oklahoma", OR: "Oregon", PA: "Pennsylvania", RI: "Rhode Island", SC: "South Carolina",
   SD: "South Dakota", TN: "Tennessee", TX: "Texas", UT: "Utah", VT: "Vermont", VA: "Virginia", WA: "Washington", WV: "West Virginia", WI: "Wisconsin", WY: "Wyoming", DC: "District of Columbia"
 };
+const US_STATE_ABBREVIATIONS = Object.fromEntries(Object.entries(US_STATE_NAMES).map(([code, name]) => [name.toLowerCase(), code]));
+const STATE_TILE_LAYOUT = [
+  ["AK", "", "", "", "", "", "", "", "", "", "ME"],
+  ["", "", "", "", "", "", "", "", "VT", "NH", ""],
+  ["WA", "ID", "MT", "ND", "MN", "IL", "WI", "MI", "NY", "MA", "RI"],
+  ["OR", "NV", "WY", "SD", "IA", "IN", "OH", "PA", "NJ", "CT", ""],
+  ["CA", "UT", "CO", "NE", "MO", "KY", "WV", "VA", "MD", "DE", ""],
+  ["", "AZ", "NM", "KS", "AR", "TN", "NC", "SC", "", "", ""],
+  ["HI", "", "", "OK", "LA", "MS", "AL", "GA", "", "", ""],
+  ["", "", "", "TX", "", "", "", "FL", "", "", ""]
+];
 
 function fullStateName(value = "") {
   const clean = String(value || "").trim();
@@ -4269,6 +4292,36 @@ function fullStateName(value = "") {
   const abbreviation = clean.toUpperCase();
   if (US_STATE_NAMES[abbreviation]) return US_STATE_NAMES[abbreviation];
   return Object.values(US_STATE_NAMES).find(name => name.toLowerCase() === clean.toLowerCase()) || clean;
+}
+
+function stateCodeFromValue(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+  const upper = clean.toUpperCase();
+  if (US_STATE_NAMES[upper]) return upper;
+  return US_STATE_ABBREVIATIONS[clean.toLowerCase()] || "";
+}
+
+function stateCodeFromEvent(event = {}) {
+  const raw = event.raw_payload || {};
+  return stateCodeFromValue(
+    event.trainer_state
+    || raw.trainer_state
+    || raw.market_state
+    || raw.state
+    || stateFromMarket(event.trainer_market || raw.trainer_market || raw.ad_market || raw.market)
+  );
+}
+
+function stateCodeFromLead(lead = {}) {
+  const raw = lead.rawPayload || lead.raw_payload || {};
+  const derived = deriveLeadMarket({
+    city: lead.city || cityFromAddress(lead.address),
+    state: lead.state || stateFromAddress(lead.address),
+    market: lead.market,
+    rawPayload: raw
+  });
+  return stateCodeFromValue(derived.state || raw.market_state || stateFromMarket(raw.ad_market || raw.trainer_market || raw.market));
 }
 
 function normalizeTrainerLocation(market = "", state = "") {
@@ -4369,16 +4422,51 @@ function trainerPerformanceTable() {
 }
 
 function regionClickReport() {
-  const rows = regionClickRows();
-  const max = Math.max(1, ...rows.map(row => row.clicks));
+  const rows = stateActivityRows();
+  const activeRows = rows.filter(row => row.total > 0).sort((a, b) => b.total - a.total || a.code.localeCompare(b.code));
+  const max = Math.max(1, ...rows.map(row => row.total));
+  const rowByCode = new Map(rows.map(row => [row.code, row]));
+  const tiles = STATE_TILE_LAYOUT.map(row => `<div class="us-state-tile-row">${row.map(code => {
+    if (!code) return `<span class="us-state-tile-spacer" aria-hidden="true"></span>`;
+    const state = rowByCode.get(code) || { code, name: US_STATE_NAMES[code], clicks: 0, leads: 0, total: 0 };
+    const intensity = state.total ? Math.min(.92, .12 + (state.total / max) * .74) : 0;
+    return `<span class="us-state-tile ${state.total ? "active" : ""}" style="--state-fill:rgba(216,13,54,${intensity.toFixed(2)})" title="${escapeHtml(`${state.name}: ${state.total} total (${state.clicks} page events, ${state.leads} leads)`)}"><strong>${code}</strong><b>${state.total}</b></span>`;
+  }).join("")}</div>`).join("");
   return `<div class="region-map-report">
-    <div class="map-card">
-      <span class="map-pin pin-1"></span><span class="map-pin pin-2"></span><span class="map-pin pin-3"></span>
-      <h3>Trainer Page Click Heat Map</h3>
-      <p>Shows the city/state attached to each trainer landing page click. Visitor IP geolocation will become exact after Supabase analytics is connected.</p>
+    <div class="us-state-map-card" role="img" aria-label="United States activity map with visible counts by state">
+      <div class="state-map-heading">
+        <div><span>50-state report</span><h3>Activity by State</h3></div>
+        <strong>${activeRows.reduce((sum, row) => sum + row.total, 0)}</strong>
+      </div>
+      <div class="us-state-tile-map">${tiles}</div>
+      <p class="panel-copy">Each state number is page events plus submitted lead rows with that state attached for ${escapeHtml(reportRangeLabel())}.</p>
     </div>
-    <div class="region-bars">${rows.map((row, index) => `<article class="region-row"><div><strong>${escapeHtml(row.city || "Unknown City")}, ${escapeHtml(row.state || "Unknown State")}</strong><span>${escapeHtml(row.trainerNames.join(", ") || "Unassigned trainer")}</span></div><div class="region-meter"><span style="width:${Math.max(8, Math.round((row.clicks / max) * 100))}%"></span></div><b>${row.clicks}</b></article>`).join("") || `<p class="panel-copy">No trainer page clicks recorded yet. Open a trainer landing page to record the first region event.</p>`}</div>
+    <div class="region-bars">${activeRows.map(row => `<article class="region-row"><div><strong>${escapeHtml(row.name)} (${escapeHtml(row.code)})</strong><span>${escapeHtml(`${row.clicks} page events · ${row.leads} submitted leads`)}</span></div><div class="region-meter"><span style="width:${Math.max(8, Math.round((row.total / max) * 100))}%"></span></div><b>${row.total}</b></article>`).join("") || `<p class="panel-copy">No state-level activity matches the current report filters yet.</p>`}</div>
   </div>`;
+}
+
+function stateActivityRows() {
+  const rows = new Map(Object.entries(US_STATE_NAMES)
+    .filter(([code]) => code !== "DC")
+    .map(([code, name]) => [code, { code, name, clicks: 0, leads: 0, total: 0 }]));
+  const ensure = code => {
+    if (!code || code === "DC") return null;
+    if (!rows.has(code)) rows.set(code, { code, name: US_STATE_NAMES[code] || code, clicks: 0, leads: 0, total: 0 });
+    return rows.get(code);
+  };
+  filteredReportEventRows().forEach(event => {
+    const row = ensure(stateCodeFromEvent(event));
+    if (!row) return;
+    row.clicks += 1;
+    row.total += 1;
+  });
+  filteredReportLeadRows().forEach(lead => {
+    const row = ensure(stateCodeFromLead(lead));
+    if (!row) return;
+    row.leads += 1;
+    row.total += 1;
+  });
+  return [...rows.values()];
 }
 
 function trainerClickReport() {
@@ -4731,7 +4819,9 @@ function leadOutcomeTable(sourceRows = realLeadRows()) {
   const rows = sourceRows;
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Service</th><th>Status</th><th>Latest Office Note</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
     const latest = latestOfficeNote("lead", lead.remoteId);
-    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} (${escapeHtml(lead.breed)})</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td>${escapeHtml(latest?.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-red" data-open-lead="${lead.id}">Open / Add Note</button></td></tr>`;
+    const noteText = latest?.note || lead.note || "";
+    const noteMeta = latest ? `${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}` : lead.note ? "Saved on lead record" : "";
+    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} (${escapeHtml(lead.breed)})</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td>${escapeHtml(noteText || "No note yet")}<small>${escapeHtml(noteMeta)}</small></td><td><button class="btn btn-red" data-open-lead="${lead.id}">Open / Add Note</button></td></tr>`;
   }).join("") || `<tr><td colspan="6">No website lead submissions match the current filters.</td></tr>`}</tbody></table></div><p class="panel-copy">Website contact submissions are shared with authorized office users through Supabase.</p>`;
 }
 
