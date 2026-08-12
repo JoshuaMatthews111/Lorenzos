@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 const markets = [
   {
     slug: "dog-training-cleveland-oh",
+    hook: "See where it started: a free evaluation backed by our 17,000 sq ft Cleveland headquarters — the facility where every Lorenzo's trainer is certified.",
     title: "Cleveland & Akron Dog Training",
     h1: "Dog training in Cleveland and Akron for real-world results.",
     market: "Cleveland / Akron, OH",
@@ -17,6 +18,7 @@ const markets = [
   },
   {
     slug: "dog-training-columbus-oh",
+    hook: "Dogs fighting in the same house? Multi-dog conflict is exactly what we fix — ask about a same-week assessment.",
     title: "Columbus Dog Training",
     h1: "Dog training in Columbus, Reynoldsburg, and Central Ohio.",
     market: "Columbus / Reynoldsburg, OH",
@@ -30,6 +32,7 @@ const markets = [
   },
   {
     slug: "dog-training-atlanta-ga",
+    hook: "Specialty & service dog training few in Atlanta offer — ask about a free suitability assessment for your dog.",
     title: "Atlanta Dog Training",
     h1: "Dog training in Atlanta and surrounding Georgia communities.",
     market: "Atlanta, GA",
@@ -43,6 +46,7 @@ const markets = [
   },
   {
     slug: "dog-training-san-diego-ca",
+    hook: "Transparent pricing: professional dog training from $1,250 — no mystery quotes.",
     title: "San Diego Dog Training",
     h1: "San Diego dog training backed by Lorenzo's proven system.",
     market: "San Diego, CA",
@@ -56,6 +60,7 @@ const markets = [
   },
   {
     slug: "dog-training-san-antonio-tx",
+    hook: "Military family? Your training follows you — Lorenzo's has certified trainers in cities nationwide, so a PCS move never means starting over.",
     title: "San Antonio Dog Training",
     h1: "Dog training in San Antonio and surrounding Texas communities.",
     market: "San Antonio, TX",
@@ -69,6 +74,7 @@ const markets = [
   },
   {
     slug: "dog-training-chicago-il",
+    hook: "No waitlist. Evaluations available this week across Chicagoland.",
     title: "Chicago Dog Training",
     h1: "Dog training for the Chicago market and Northwest Indiana.",
     market: "Chicago, IL",
@@ -82,6 +88,7 @@ const markets = [
   },
   {
     slug: "dog-training-tallahassee-fl",
+    hook: "He knows the commands — he just won't listen. Reactivity and reliability are what we fix.",
     title: "Tallahassee Dog Training",
     h1: "Dog training in Tallahassee and North Florida.",
     market: "Tallahassee, FL",
@@ -95,6 +102,7 @@ const markets = [
   },
   {
     slug: "dog-training-miramar-beach-fl",
+    hook: "Vacation-ready: beach recall, restaurant manners, and a dog your rental will welcome back.",
     title: "Miramar Beach Dog Training",
     h1: "Dog training in Miramar Beach and the Emerald Coast.",
     market: "Miramar Beach, FL",
@@ -108,6 +116,7 @@ const markets = [
   },
   {
     slug: "dog-training-lexington-ky",
+    hook: "Farm & property dogs: recall that holds on open acreage, and manners around horses and livestock.",
     title: "Lexington Dog Training",
     h1: "Dog training for Lexington, Harrodsburg, and Central Kentucky.",
     market: "Lexington / Harrodsburg, KY",
@@ -121,6 +130,7 @@ const markets = [
   },
   {
     slug: "dog-training-ann-arbor-mi",
+    hook: "Apartment-friendly puppy training — built for small spaces, shared walls, and busy schedules.",
     title: "Ann Arbor Dog Training",
     h1: "Dog training in Ann Arbor and Southeast Michigan.",
     market: "Ann Arbor, MI",
@@ -134,7 +144,7 @@ const markets = [
   }
 ];
 
-const cacheVersion = "20260808adpages8";
+const cacheVersion = "20260812marketoffers1";
 const googleEndpoint = "https://docs.google.com/forms/d/e/1FAIpQLSdV1-0yBlRusq9tkjymZKm_BfXfpmMKDDrcyqfP3KbEq-Qd_g/formResponse";
 const googleAdsId = "AW-11463464040";
 const consultationConversion = "AW-11463464040/kLPdCPzSo4oaEOiomtoq";
@@ -216,6 +226,23 @@ const page = market => {
   <link rel="icon" type="image/png" href="assets/ldtt-favicon.png">
   <link rel="apple-touch-icon" href="assets/ldtt-favicon.png">
   <link rel="stylesheet" href="styles.css?v=${cacheVersion}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="${escapeHtml(market.title)} | Lorenzo's Dog Training Team">
+  <meta property="og:description" content="${escapeHtml(metaDescription)}">
+  <meta property="og:url" content="https://www.lorenzosdogtrainingteam.com/${escapeHtml(market.slug)}">
+  <meta property="og:image" content="https://www.lorenzosdogtrainingteam.com/assets/get-started-premium-hero.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">${JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    name: `Lorenzo's Dog Training Team — ${market.market}`,
+    url: `https://www.lorenzosdogtrainingteam.com/${market.slug}`,
+    telephone: "+1-866-436-4959",
+    priceRange: "$1,250+",
+    address: { "@type": "PostalAddress", addressLocality: market.city, addressRegion: market.state, addressCountry: "US" },
+    areaServed: market.nearby,
+    description: metaDescription
+  })}</script>
   ${googleAdsHead()}
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2" data-market="${escapeHtml(market.market)}">
@@ -244,16 +271,18 @@ const page = market => {
             <strong>600+ Google reviews · ${escapeHtml(market.market)} request</strong>
           </a>
           <h1>${escapeHtml(market.h1)}</h1>
-            <p class="ad-lead">Request a free, no-obligation evaluation. Lorenzo's office reviews your ZIP code, service need, and dog goals so the right next step can move quickly.</p>
+          <p class="ad-lead"><strong>${escapeHtml(market.hook)}</strong></p>
+          <p class="ad-lead">Tell us what's going on with your dog. A certified ${escapeHtml(market.city)} dog trainer calls you back — usually the same day — and the evaluation is free.</p>
           <div class="ad-benefit-row">
             <span>Local market page</span>
             <span>Fast office intake</span>
             <span>Market-routed follow-up</span>
           </div>
           <ul class="ad-checks ad-checks-v2">
-            <li>Dogs of any age, size, breed, and temperament</li>
-            <li>Help for barking, jumping, leash pulling, house-soiling, anxiety, reactivity, and aggression concerns</li>
-            <li>Lead details are routed to Lorenzo's production office for clean follow-up and reporting</li>
+            <li>Dogs of any age, size, breed, and temperament — from new puppies to newly adopted rescue dogs</li>
+            <li>Behavior help: aggressive and reactive dogs, separation anxiety, biting, barking, jumping, and leash pulling</li>
+            <li>Puppy help: potty training, crate training, and socialization</li>
+            <li>In-home and private dog training available — plus board and train programs</li>
           </ul>
         </div>
 
@@ -355,7 +384,7 @@ const page = market => {
           <article>
             <span>01</span>
             <h3>Dog Obedience Training</h3>
-            <p>Practical obedience that helps your dog listen in the moments that matter: at home, on walks, around people, and around distractions.</p>
+            <p>Practical obedience that helps your dog listen in the moments that matter: at home, on walks, around people, and around distractions. In-home and private dog training options available. From $1,250.</p>
           </article>
           <article>
             <span>02</span>
@@ -364,9 +393,40 @@ const page = market => {
           </article>
           <article>
             <span>03</span>
-            <h3>Specialty Training</h3>
+            <h3>Specialty & Service Dog Training</h3>
             <p>Outcome-based support for protection, service and assistance needs, scent work, utility training, retrieval, and advanced control.</p>
           </article>
+          <article>
+            <span>04</span>
+            <h3>Board &amp; Train</h3>
+            <p>Your dog trains with a professional and comes home with real skills — with owner handoff lessons included. From $2,500. Fall and holiday slots fill 6–8 weeks ahead.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section market-pricing">
+      <div class="container">
+        <span class="eyebrow">Straight answers on price</span>
+        <h2>Transparent pricing. No mystery quotes.</h2>
+        <div class="ad-service-grid-v2 market-service-grid">
+          <article>
+            <span>$</span>
+            <h3>Training from $1,250</h3>
+            <p>Professional dog training with a certified ${escapeHtml(market.city)} dog trainer — obedience, behavior help, and puppy programs. Your free evaluation tells you exactly what your dog needs before you spend anything.</p>
+          </article>
+          <article>
+            <span>$$</span>
+            <h3>Training with Boarding from $2,500</h3>
+            <p>Board and train: your dog lives and trains with a professional, then we teach you how to keep the results. Fall and holiday spots book 6–8 weeks out — ask early.</p>
+          </article>
+        </div>
+        <div class="cta-band ad-cta-v2" style="margin-top:24px">
+          <div>
+            <h2>The LDTT Training Guarantee</h2>
+            <p>We stand behind our training. Every LDTT program includes a Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your program during your program's guarantee period — and you've followed the training and practice instructions — we provide corrective instruction or follow-up training at no additional training fee. Dog training is a partnership: we do our part, and we show you how to do yours.</p>
+          </div>
+          <a class="btn btn-red" href="#consultation">Start With a Free Evaluation</a>
         </div>
       </div>
     </section>
