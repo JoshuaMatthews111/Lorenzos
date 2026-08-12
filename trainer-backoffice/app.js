@@ -4079,7 +4079,6 @@ function filteredReportEventRows() {
 
 function leadSubmissionBucket(lead = {}) {
   const raw = lead.rawPayload || lead.raw_payload || {};
-  const sourcePage = String(raw.source_page || lead.sourcePageSlug || raw.page_path || raw.page_url || "").toLowerCase();
   const text = [
     raw.lead_type,
     raw.lead_magnet,
@@ -4090,13 +4089,39 @@ function leadSubmissionBucket(lead = {}) {
     raw.heard_about_us
   ].map(value => String(value || "").toLowerCase()).join(" ");
   if (/pdf|ebook|e-book|free guide|blueprint|download/.test(text)) return "Ebook requests";
-  if (
-    raw.landing_page_type === "Paid ads market page"
-    || raw.ad_market
-    || sourcePage.includes("dog-training-")
-    || /paid ad|paid advertising|market ad/.test(text)
-  ) return "Paid Ad Submitted Inquiries";
+  if (isPaidAdLandingPageLead(lead)) return "Paid Ad Submitted Inquiries";
   return "Contact Us forms";
+}
+
+function isPaidAdLandingPageLead(lead = {}) {
+  const raw = lead.rawPayload || lead.raw_payload || {};
+  const values = [
+    raw.source_page,
+    lead.sourcePageSlug,
+    raw.page_path,
+    raw.page_url,
+    raw.landing_url,
+    raw.landing_page,
+    raw.page
+  ].map(value => String(value || "").toLowerCase());
+  if (raw.landing_page_type === "Paid ads market page" || raw.ad_market) return true;
+  return adLandingPageConfigs()
+    .filter(page => page.slug.startsWith("dog-training-"))
+    .some(page => values.some(value => value.includes(page.slug.toLowerCase())));
+}
+
+function isEbookRequestLead(lead = {}) {
+  const raw = lead.rawPayload || lead.raw_payload || {};
+  const text = [
+    raw.lead_type,
+    raw.lead_magnet,
+    raw.service_interest,
+    raw.i_want_to,
+    lead.service,
+    raw.comments,
+    lead.comments
+  ].map(value => String(value || "").toLowerCase()).join(" ");
+  return /pdf|ebook|e-book|free guide|blueprint|download/.test(text);
 }
 
 function formSubmissionBucketRows() {
@@ -4114,21 +4139,33 @@ function dashboardLostLeadRows(leadRows = filteredReportLeadRows()) {
   return leadRows.filter(lead => boardStatus(lead.status) === "Lost");
 }
 
+function dashboardSubmittedLeadRows() {
+  return filteredReportLeadRows().filter(lead => lead.submitted !== false);
+}
+
+function dashboardPaidAdSubmittedInquiryRows(leadRows = dashboardSubmittedLeadRows()) {
+  return leadRows.filter(isPaidAdLandingPageLead);
+}
+
+function dashboardEbookRequestRows(leadRows = dashboardSubmittedLeadRows()) {
+  return leadRows.filter(lead => isPaidAdLandingPageLead(lead) && isEbookRequestLead(lead));
+}
+
+function dashboardContactFormRows(leadRows = dashboardSubmittedLeadRows()) {
+  return leadRows.filter(lead => !isPaidAdLandingPageLead(lead));
+}
+
 function dashboardBucketRows() {
-  const leadRows = filteredReportLeadRows().filter(lead => lead.submitted !== false);
+  const leadRows = dashboardSubmittedLeadRows();
   const appRows = filteredReportApplicationRows();
   const buckets = new Map([
-    ["Contact Us forms", 0],
-    ["Paid Ad Submitted Inquiries", 0],
-    ["Ebook requests", 0],
+    ["Contact Us forms", dashboardContactFormRows(leadRows).length],
+    ["Paid Ad Submitted Inquiries", dashboardPaidAdSubmittedInquiryRows(leadRows).length],
+    ["Ebook requests", dashboardEbookRequestRows(leadRows).length],
     ["Became a Client", leadRows.filter(lead => lead.status === "Became a Client").length],
     ["Lost", dashboardLostLeadRows(leadRows).length],
     ["New Trainer Applications", appRows.length]
   ]);
-  leadRows.forEach(lead => {
-    const bucket = leadSubmissionBucket(lead);
-    buckets.set(bucket, (buckets.get(bucket) || 0) + 1);
-  });
   return Array.from(buckets.entries());
 }
 
@@ -4146,7 +4183,7 @@ function getMetrics() {
   const count = type => new Set(lifecycle
     .filter(event => event.event_type === type)
     .map(event => `${event.entity_type || "event"}:${event.entity_id || event.event_key || event.id}`)).size;
-  const leadRows = filteredReportLeadRows().filter(lead => lead.submitted !== false);
+  const leadRows = dashboardSubmittedLeadRows();
   const appRows = filteredReportApplicationRows();
   const bucketCounts = Object.fromEntries(dashboardBucketRows());
   return {

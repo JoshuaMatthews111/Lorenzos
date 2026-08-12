@@ -15,6 +15,7 @@ const publicScript = read("script.js");
 const publicTrainerShell = read("trainer-backoffice/right-trainer-results.html");
 const vercel = JSON.parse(read("vercel.json"));
 const bios = JSON.parse(read("trainer_bios.json"));
+const paidAdLeadHelper = app.match(/function isPaidAdLandingPageLead[\s\S]*?\n}\n\nfunction isEbookRequestLead/)?.[0] || "";
 
 const checks = [
   ["staff identity replaces anonymous portal labels", /portalActorLabel/.test(app) && /first_name/.test(app) && /last_name/.test(app)],
@@ -24,6 +25,10 @@ const checks = [
   ["dashboard counts live lead and application rows", /filteredReportLeadRows/.test(app) && /filteredReportApplicationRows/.test(app) && /forms: leadRows\.length/.test(app)],
   ["dashboard shows only requested lead and application fields", /Contact Us Forms/.test(app) && /Paid Ad Submitted Inquiries/.test(app) && /Ebook Requests/.test(app) && /Became a Client/.test(app) && /New Trainer Applications/.test(app) && !/Site Visits\/Clicks/.test(app)],
   ["dashboard lost count matches the Leads lost grouping", /dashboardLostLeadRows/.test(app) && /boardStatus\(lead\.status\) === "Lost"/.test(app)],
+  ["dashboard paid and ebook counts use ad landing-page source flags", /dashboardPaidAdSubmittedInquiryRows/.test(app) && /dashboardEbookRequestRows/.test(app) && /isPaidAdLandingPageLead/.test(app) && /isEbookRequestLead/.test(app)],
+  ["dashboard contact count excludes paid-ad landing-page leads", /function dashboardContactFormRows[\s\S]*!isPaidAdLandingPageLead/.test(app)],
+  ["dashboard ebook count is limited to paid-ad guide requests", /function dashboardEbookRequestRows[\s\S]*isPaidAdLandingPageLead\(lead\) && isEbookRequestLead\(lead\)/.test(app)],
+  ["dashboard paid-ad count does not classify by market name alone", !/lead\.market/.test(paidAdLeadHelper) && !/raw\.trainer_market/.test(paidAdLeadHelper)],
   ["dashboard pie includes client, lost, and application buckets", /dashboardBucketRows/.test(app) && /Became a Client/.test(app) && /\["Lost", dashboardLostLeadRows/.test(app) && /New Trainer Applications/.test(app)],
   ["inaccurate ad-market conversion chart is removed from dashboard", !/panel\("Conversions By Ad Market"/.test(app)],
   ["shared office data uses realtime and polling", /subscribeOperationalChanges/.test(portal) && /refreshOperationalData\("poll"\)/.test(app)],
