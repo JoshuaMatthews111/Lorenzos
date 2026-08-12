@@ -68,6 +68,7 @@ const markets = [
     state: "TX",
     area: "San Antonio, Castroville, Bear Creek, and surrounding Texas communities",
     trainers: "Giovanni Gutierrez and Carolina Perez",
+    spanish: true,
     proof: "Texas dog owners can request a fast follow-up for obedience, behavior modification, and advanced training needs.",
     nearby: ["San Antonio", "Castroville", "Bear Creek", "Bexar County", "Medina County"],
     zipCodes: ["78245", "78009"]
@@ -244,6 +245,13 @@ const page = market => {
     description: metaDescription
   })}</script>
   ${googleAdsHead()}
+  <style>
+    .market-copy .ad-lead.market-hook{border-left:4px solid #c8102e;background:rgba(200,16,46,.07);padding:10px 14px;border-radius:0 10px 10px 0;font-size:1.02em}
+    .market-spanish{border-left:4px solid #152569;background:rgba(21,37,105,.06);padding:10px 14px;border-radius:0 10px 10px 0}
+    .market-pricing h2{margin-top:6px}
+    .market-pricing .market-service-grid article{border-top:4px solid #c8102e}
+    .market-pricing .market-service-grid article span{color:#c8102e;font-weight:800}
+  </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2" data-market="${escapeHtml(market.market)}">
   <header class="ad-header ad-header-v2 market-header">
@@ -271,8 +279,9 @@ const page = market => {
             <strong>600+ Google reviews · ${escapeHtml(market.market)} request</strong>
           </a>
           <h1>${escapeHtml(market.h1)}</h1>
-          <p class="ad-lead"><strong>${escapeHtml(market.hook)}</strong></p>
+          <p class="ad-lead market-hook"><strong>${escapeHtml(market.hook)}</strong></p>
           <p class="ad-lead">Tell us what's going on with your dog. A certified ${escapeHtml(market.city)} dog trainer calls you back — usually the same day — and the evaluation is free.</p>
+          ${market.spanish ? `<p class="ad-lead market-spanish" lang="es"><strong>Hablamos español.</strong> Entrenamiento profesional de perros en ${escapeHtml(market.city)} — puede enviar su solicitud en español y un entrenador que habla español le llamará.</p>` : ""}
           <div class="ad-benefit-row">
             <span>Local market page</span>
             <span>Fast office intake</span>
@@ -328,7 +337,7 @@ const page = market => {
               </select>
             </label>
             <label class="wide">What is happening with your dog?
-              <textarea name="comments" rows="3" placeholder="Example: pulling on leash, barking, jumping, potty training, aggression, anxiety..."></textarea>
+              <textarea name="comments" rows="3" placeholder="${market.spanish ? "English or español — example: pulling on leash, barking, jumping / jala la correa, ladridos, ansiedad..." : "Example: pulling on leash, barking, jumping, potty training, aggression, anxiety..."}"></textarea>
             </label>
             <label class="consent-row">
               <input type="checkbox" name="sms_consent" value="yes">
@@ -350,7 +359,8 @@ const page = market => {
             <input type="hidden" name="state" value="${escapeHtml(market.state)}">
             <input type="hidden" name="heard_about_us" value="Paid Advertising">
             <input type="hidden" name="vet_or_previous_client" value="Market ad landing page">
-            <input type="hidden" name="internal_route_note" value="Market ad landing page lead for ${escapeHtml(market.market)}. Office to confirm full address and evaluation preference during follow-up. Nearby trainer group: ${escapeHtml(market.trainers)}.">
+            <input type="hidden" name="internal_route_note" value="Market ad landing page lead for ${escapeHtml(market.market)}. Office to confirm full address and evaluation preference during follow-up. Nearby trainer group: ${escapeHtml(market.trainers)}.${market.spanish ? " SPANISH MARKET: lead may arrive in Spanish - Spanish-speaking trainer available in this market; office should translate before routing." : ""}">
+            ${market.spanish ? `<input type="hidden" name="spanish_market" value="yes">` : ""}
             <input type="hidden" name="source_page" value="${escapeHtml(market.slug)}">
             ${attributionInputs()}
             <input type="hidden" name="timestamp" value="">
@@ -424,7 +434,7 @@ const page = market => {
         <div class="cta-band ad-cta-v2" style="margin-top:24px">
           <div>
             <h2>The LDTT Training Guarantee</h2>
-            <p>We stand behind our training. Every LDTT program includes a Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your program during your program's guarantee period — and you've followed the training and practice instructions — we provide corrective instruction or follow-up training at no additional training fee. Dog training is a partnership: we do our part, and we show you how to do yours.</p>
+            <p>We stand behind our training. Every LDTT program includes a Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your program within 90 days of completing training — and you've followed the training and practice instructions — we provide corrective instruction or follow-up training at no additional training fee. Dog training is a partnership: we do our part, and we show you how to do yours.</p>
           </div>
           <a class="btn btn-red" href="#consultation">Start With a Free Evaluation</a>
         </div>
