@@ -228,6 +228,57 @@
     .arch-portrait .btn-red,.arch-portrait .price-cta,.arch-portrait .market-primary-cta{background:#152569 !important;color:#fff !important}
     .arch-portrait2 .btn-red,.arch-portrait2 .price-cta,.arch-portrait2 .market-primary-cta{background:#1E4D45 !important;color:#fff !important}
     .arch-mission .market-hook{color:#ffe9c4}
+
+    /* ═══ READABILITY FLOOR — wins over every other layer, including runtime CSS ═══ */
+    /* 1) The consultation form is sacred: always a white card with ink text,
+       whatever the page theme or injected styles say. */
+    .market-consult-panel{background:#fff !important;border-radius:14px;box-shadow:0 18px 48px rgba(10,16,40,.25)}
+    .market-consult-panel .ad-consult-header span{color:#c8102e !important}
+    .market-consult-panel .ad-consult-header h2{color:#131a33 !important}
+    .market-consult-panel .ad-consult-header p,
+    .market-consult-panel label,
+    .market-consult-panel .consent-row span,
+    .market-consult-panel .form-disclaimer,
+    .market-consult-panel form small{color:#3c4258 !important}
+    .market-consult-panel input,.market-consult-panel select,.market-consult-panel textarea{
+      background:#fff !important;color:#131a33 !important;border:1px solid #c9cede !important}
+    .market-consult-panel button[type="submit"]{color:#fff !important}
+
+    /* 2) Sections injected below the fold were designed for a dark page.
+       Give them that dark ground on every archetype — in the market's own navy. */
+    .market-care-section,.market-testimonial-section,.market-guide-section{
+      background:linear-gradient(170deg,var(--mk1) 0%,#10182e 100%) !important}
+    .market-care-section h2,.market-care-section h3,.market-care-section p,
+    .market-testimonial-section h2,.market-testimonial-section h3,.market-testimonial-section p,
+    .market-guide-section h2,.market-guide-section p{color:#fff}
+    .market-care-section p,.market-testimonial-section p,.market-guide-section p{color:#dfe4f5}
+    .market-guide-section .market-guide-form,.market-guide-form{background:#fff !important;border-radius:12px;padding:18px}
+    .market-guide-form label,.market-guide-form span{color:#3c4258 !important}
+    .market-guide-form input{background:#fff !important;color:#131a33 !important;border:1px solid #c9cede !important}
+
+    /* 3) The guarantee band must always be dark — solid color first, gradient second. */
+    .guarantee-band{background-color:var(--mk1) !important}
+    .guarantee-band h2,.guarantee-band p,.guarantee-band b{color:#fff !important}
+    .guarantee-band .price-quiet-line{color:#d9def2 !important}
+
+    /* 4) Responsive floors: nothing crushes on small screens. */
+    .arch-hq .market-service-grid{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+    .arch-campus .market-service-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    @media(max-width:700px){
+      .market-word{font-size:clamp(44px,15vw,80px);top:-8px}
+      .price-big{font-size:clamp(40px,12vw,56px)}
+      .guarantee-band{padding:20px 18px}
+      .g-badge{width:80px;height:80px;font-size:13px}
+    }
+
+    /* 5) The market word must be visible on light heroes too. */
+    .arch-portrait .market-word,.arch-heritage .market-word,.arch-coast .market-word,
+    .arch-campus .market-word,.arch-portrait2 .market-word{-webkit-text-stroke:2px rgba(19,26,51,.14)}
+
+    /* 6) Proof-band floor: strong numbers always readable on their band. */
+    .ad-proof-band-v2 strong{color:#fff}
+    .ad-proof-band-v2 span{color:#c9d2ec}
+    .arch-coast .ad-proof-grid-v2 span,.arch-resort .ad-proof-grid-v2 span{color:#e6f3f8}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2 arch-heritage" style="--mk1:#234D32;--mk2:#B08A57" data-market="Lexington / Harrodsburg, KY" data-hero-title="Farm Dogs, Rock-Solid Recall &amp; Manners Around Horses — Lexington Dog Training." data-issues="Farm recall|Livestock manners|Leash pulling|Puppy">
