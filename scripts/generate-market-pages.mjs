@@ -3,11 +3,12 @@ import { resolve } from "node:path";
 
 const markets = [
   {
-    slug: "dog-training-cleveland-oh", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
+    slug: "dog-training-cleveland-oh",
+    photo: "assets/facility-exterior-main.jpg", photoName: "The 17,000 sq ft headquarters", photoCaption: "Where every Lorenzo's trainer is certified", word: "THE HQ", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
     arch: "hq", mk1: "#152569", mk2: "#C8102E",
-    photo: "assets/facility-exterior-main.jpg",
-    photoName: "Our 17,000 sq ft Cleveland headquarters",
-    photoCaption: "Harley McGrew & Brady DeRemer — your Northeast Ohio trainers",
+    
+    
+      
     tint: "21,37,105",
     tint2: "200,16,46",
     hook: "See where it started: a free evaluation backed by our 17,000 sq ft Cleveland headquarters — the facility where every Lorenzo's trainer is certified.",
@@ -23,11 +24,12 @@ const markets = [
     zipCodes: ["44118", "44241"]
   },
   {
-    slug: "dog-training-columbus-oh", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
+    slug: "dog-training-columbus-oh",
+    photo: "assets/emilio-yoyo.jpg", photoName: "Aggression, handled", photoCaption: "This is the work we do every day — safely, professionally", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
-    photo: "assets/trainer-bio-photos/shannon-paskins.jpg",
-    photoName: "Shannon Paskins",
-    photoCaption: "Your Columbus dog trainer",
+    
+    
+      
     tint: "21,37,105",
     tint2: "120,20,60",
     hook: "Dogs fighting in the same house? Multi-dog conflict is exactly what we fix — ask about a same-week assessment.",
@@ -43,11 +45,12 @@ const markets = [
     zipCodes: ["43068"]
   },
   {
-    slug: "dog-training-atlanta-ga", issues: "Service dog training|Aggression|Task work|Obedience", proofValue: "3", proofLabel: "Certified Atlanta trainers", benefits: "Free suitability assessment|Service-dog specialists|90-day guarantee", priceMode: "quiet",
+    slug: "dog-training-atlanta-ga",
+    photo: "assets/utility-retrieval.png", photoName: "Dogs with jobs", photoCaption: "Service, task work and specialty training — Atlanta's open lane", word: "SERVICE", issues: "Service dog training|Aggression|Task work|Obedience", proofValue: "3", proofLabel: "Certified Atlanta trainers", benefits: "Free suitability assessment|Service-dog specialists|90-day guarantee", priceMode: "quiet",
     arch: "specialty", mk1: "#14101F", mk2: "#C9A227",
-    photo: "assets/trainer-bio-photos/aryson-whorley.jpg",
-    photoName: "Aryson Whorley",
-    photoCaption: "One of three Atlanta trainers — specialty & service dog focus",
+    
+    
+      
     tint: "30,25,90",
     tint2: "190,60,30",
     hook: "Specialty & service dog training few in Atlanta offer — ask about a free suitability assessment for your dog.",
@@ -63,11 +66,12 @@ const markets = [
     zipCodes: ["30052", "30324", "30157"]
   },
   {
-    slug: "dog-training-san-diego-ca", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|90-day guarantee", priceMode: "forward",
+    slug: "dog-training-san-diego-ca",
+    photo: "assets/facility-campus-aerial.jpg", photoName: "Nothing to hide", photoCaption: "Real campus, real programs, published prices", word: "HONEST", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|90-day guarantee", priceMode: "forward",
     arch: "coast", mk1: "#0E5E8A", mk2: "#EAF4F9",
-    photo: "assets/trainer-bio-photos/genevieve-twilla.jpg",
-    photoName: "Genevieve Twilla",
-    photoCaption: "One of three San Diego trainers",
+    
+    
+      
     tint: "15,60,110",
     tint2: "200,16,46",
     hook: "Transparent pricing: professional dog training from $1,250 — no mystery quotes.",
@@ -83,11 +87,12 @@ const markets = [
     zipCodes: ["92105", "92106"]
   },
   {
-    slug: "dog-training-san-antonio-tx", issues: "Aggression|Puppy training|Obedience|Se habla español", proofValue: "2", proofLabel: "Trainers — English & Spanish", benefits: "Free evaluation|Military families welcome|90-day guarantee", priceMode: "quiet",
+    slug: "dog-training-san-antonio-tx",
+    photo: "assets/trainer-bio-photos/trainers.jpg", photoName: "One team, two languages", photoCaption: "English & Spanish — su solicitud es bienvenida en español", word: "BILINGÜE", issues: "Aggression|Puppy training|Obedience|Se habla español", proofValue: "2", proofLabel: "Trainers — English & Spanish", benefits: "Free evaluation|Military families welcome|90-day guarantee", priceMode: "quiet",
     arch: "mission", mk1: "#7E1F1F", mk2: "#D9A441",
-    photo: "assets/trainer-bio-photos/carolina-perez.jpg",
-    photoName: "Carolina Perez",
-    photoCaption: "Your San Antonio trainer — hablamos español",
+    
+    
+      
     tint: "90,30,30",
     tint2: "200,120,30",
     hook: "Military family? Your training follows you — Lorenzo's has certified trainers in cities nationwide, so a PCS move never means starting over.",
@@ -104,11 +109,12 @@ const markets = [
     zipCodes: ["78245", "78009"]
   },
   {
-    slug: "dog-training-chicago-il", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
+    slug: "dog-training-chicago-il",
+    photo: "assets/ldtt-team-cover.jpg", photoName: "The team is ready now", photoCaption: "No waitlist — evaluations this week across Chicagoland", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
     arch: "metro", mk1: "#0B1B3F", mk2: "#D64545",
-    photo: "assets/trainer-bio-photos/jasmine-bland.jpg",
-    photoName: "Jasmine Bland",
-    photoCaption: "Your Chicago dog trainer — no waitlist",
+    
+    
+      
     tint: "10,30,80",
     tint2: "200,16,46",
     hook: "No waitlist. Evaluations available this week across Chicagoland.",
@@ -124,11 +130,12 @@ const markets = [
     zipCodes: ["46409"]
   },
   {
-    slug: "dog-training-tallahassee-fl", issues: "Won't listen|Reactivity|Sound sensitivity|Leash pulling", proofValue: "Reactive dogs", proofLabel: "Our specialty", benefits: "Free evaluation|Reactivity specialists|90-day guarantee", priceMode: "forward",
+    slug: "dog-training-tallahassee-fl",
+    photo: "assets/matthew-behavior-dog.jpg", photoName: "The tough cases", photoCaption: "Reactive and stubborn dogs are our specialty", word: "REACTIVE", issues: "Won't listen|Reactivity|Sound sensitivity|Leash pulling", proofValue: "Reactive dogs", proofLabel: "Our specialty", benefits: "Free evaluation|Reactivity specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait2", mk1: "#A63D2F", mk2: "#1E4D45",
-    photo: "assets/trainer-bio-photos/victoria-bayleigh-morris.jpg",
-    photoName: "Victoria Bayleigh Morris",
-    photoCaption: "Your Tallahassee dog trainer",
+    
+    
+      
     tint: "110,45,20",
     tint2: "21,37,105",
     hook: "He knows the commands — he just won't listen. Reactivity and reliability are what we fix.",
@@ -144,11 +151,12 @@ const markets = [
     zipCodes: ["32504"]
   },
   {
-    slug: "dog-training-miramar-beach-fl", issues: "Beach recall|Rental manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
+    slug: "dog-training-miramar-beach-fl",
+    photo: "assets/ad-testimonial-take-1-cover.png", photoName: "Vacation-ready", photoCaption: "Calm on the sand, welcome in the rental", word: "BEACH", issues: "Beach recall|Rental manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
     arch: "resort", mk1: "#0F8A9D", mk2: "#F2E9D8",
-    photo: "assets/trainer-bio-photos/trainers.jpg",
-    photoName: "The Lorenzo's team",
-    photoCaption: "Tabatha Shelley — your Emerald Coast trainer",
+    
+    
+      
     tint: "10,90,120",
     tint2: "21,37,105",
     hook: "Vacation-ready: beach recall, restaurant manners, and a dog your rental will welcome back.",
@@ -164,11 +172,12 @@ const markets = [
     zipCodes: ["32405"]
   },
   {
-    slug: "dog-training-lexington-ky", issues: "Farm recall|Livestock manners|Leash pulling|Puppy", proofValue: "Open acreage", proofLabel: "Recall that holds", benefits: "Free evaluation|Farm & property dogs|90-day guarantee", priceMode: "quiet",
+    slug: "dog-training-lexington-ky",
+    photo: "assets/facility-grounds-wide.jpg", photoName: "Room to run", photoCaption: "Recall that holds on open acreage", word: "FARM", issues: "Farm recall|Livestock manners|Leash pulling|Puppy", proofValue: "Open acreage", proofLabel: "Recall that holds", benefits: "Free evaluation|Farm & property dogs|90-day guarantee", priceMode: "quiet",
     arch: "heritage", mk1: "#234D32", mk2: "#B08A57",
-    photo: "assets/trainer-bio-photos/bailey-brown.jpg",
-    photoName: "Bailey Brown",
-    photoCaption: "Your Lexington trainer — raised with horses",
+    
+    
+      
     tint: "25,70,45",
     tint2: "21,37,105",
     hook: "Farm & property dogs: recall that holds on open acreage, and manners around horses and livestock.",
@@ -184,11 +193,12 @@ const markets = [
     zipCodes: ["40330"]
   },
   {
-    slug: "dog-training-ann-arbor-mi", issues: "Apartment barking|Potty training|Crate training|Leash skills", proofValue: "Apartment", proofLabel: "Friendly training plans", benefits: "Free evaluation|Small-space plans|90-day guarantee", priceMode: "forward",
+    slug: "dog-training-ann-arbor-mi",
+    photo: "assets/get-started-premium-hero.jpg", photoName: "Start them right", photoCaption: "New puppy, new rescue — the habits that last a lifetime", word: "PUPPY", issues: "Apartment barking|Potty training|Crate training|Leash skills", proofValue: "Apartment", proofLabel: "Friendly training plans", benefits: "Free evaluation|Small-space plans|90-day guarantee", priceMode: "forward",
     arch: "campus", mk1: "#1E3A8A", mk2: "#F0C93B",
-    photo: "assets/trainer-bio-photos/dylan-atkinson.jpg",
-    photoName: "Dylan Atkinson",
-    photoCaption: "Your Ann Arbor dog trainer",
+    
+    
+      
     tint: "40,40,100",
     tint2: "200,16,46",
     hook: "Apartment-friendly puppy training — built for small spaces, shared walls, and busy schedules.",
@@ -497,6 +507,19 @@ const page = market => {
     @media(min-width:960px){.arch-campus .market-consult-panel{order:-1}}
     .arch-campus .market-service-grid{grid-template-columns:1fr 1fr}
     .arch-campus .market-service-grid article{border:none;border-top:4px solid var(--mk2);background:#F7F9FF}
+
+    /* giant market word — personality, not decoration: names the page's mission */
+    .market-copy{position:relative}
+    .market-word{position:absolute;top:-18px;left:-6px;font-size:clamp(64px,11vw,150px);font-weight:900;
+      letter-spacing:-.04em;line-height:1;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.16);
+      pointer-events:none;user-select:none;white-space:nowrap;z-index:0}
+    .market-copy > *:not(.market-word){position:relative;z-index:1}
+
+    /* red-on-red repair: red-family markets get contrast CTAs */
+    .arch-mission .btn-red,.arch-mission .price-cta,.arch-mission .market-primary-cta{background:#D9A441 !important;color:#3a2408 !important}
+    .arch-portrait .btn-red,.arch-portrait .price-cta,.arch-portrait .market-primary-cta{background:#152569 !important;color:#fff !important}
+    .arch-portrait2 .btn-red,.arch-portrait2 .price-cta,.arch-portrait2 .market-primary-cta{background:#1E4D45 !important;color:#fff !important}
+    .arch-mission .market-hook{color:#ffe9c4}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2 arch-${market.arch}" style="--mk1:${market.mk1};--mk2:${market.mk2}" data-market="${escapeHtml(market.market)}" data-hero-title="${escapeHtml(market.h1)}" data-issues="${escapeHtml(market.issues)}">
@@ -521,6 +544,7 @@ const page = market => {
       <div class="market-side-rail market-side-rail-right" aria-hidden="true"><span>Service Area</span><span>Office Routed</span><span>Local Follow-Up</span></div>
       <div class="container market-hero-grid">
         <div class="market-copy">
+          <span class="market-word" aria-hidden="true">${escapeHtml(market.word)}</span>
           <a class="ad-rating-row" href="index.html#reviews" aria-label="See Lorenzo's Dog Training Team reviews">
             <span>★★★★★</span>
             <strong>600+ Google reviews · ${escapeHtml(market.market)} request</strong>

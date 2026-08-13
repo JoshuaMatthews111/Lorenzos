@@ -215,6 +215,19 @@
     @media(min-width:960px){.arch-campus .market-consult-panel{order:-1}}
     .arch-campus .market-service-grid{grid-template-columns:1fr 1fr}
     .arch-campus .market-service-grid article{border:none;border-top:4px solid var(--mk2);background:#F7F9FF}
+
+    /* giant market word — personality, not decoration: names the page's mission */
+    .market-copy{position:relative}
+    .market-word{position:absolute;top:-18px;left:-6px;font-size:clamp(64px,11vw,150px);font-weight:900;
+      letter-spacing:-.04em;line-height:1;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.16);
+      pointer-events:none;user-select:none;white-space:nowrap;z-index:0}
+    .market-copy > *:not(.market-word){position:relative;z-index:1}
+
+    /* red-on-red repair: red-family markets get contrast CTAs */
+    .arch-mission .btn-red,.arch-mission .price-cta,.arch-mission .market-primary-cta{background:#D9A441 !important;color:#3a2408 !important}
+    .arch-portrait .btn-red,.arch-portrait .price-cta,.arch-portrait .market-primary-cta{background:#152569 !important;color:#fff !important}
+    .arch-portrait2 .btn-red,.arch-portrait2 .price-cta,.arch-portrait2 .market-primary-cta{background:#1E4D45 !important;color:#fff !important}
+    .arch-mission .market-hook{color:#ffe9c4}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2 arch-resort" style="--mk1:#0F8A9D;--mk2:#F2E9D8" data-market="Miramar Beach, FL" data-hero-title="Beach Recall, Rental Manners &amp; Board and Train — Emerald Coast Dog Training." data-issues="Beach recall|Rental manners|Barking|Board &amp; train">
@@ -239,6 +252,7 @@
       <div class="market-side-rail market-side-rail-right" aria-hidden="true"><span>Service Area</span><span>Office Routed</span><span>Local Follow-Up</span></div>
       <div class="container market-hero-grid">
         <div class="market-copy">
+          <span class="market-word" aria-hidden="true">BEACH</span>
           <a class="ad-rating-row" href="index.html#reviews" aria-label="See Lorenzo's Dog Training Team reviews">
             <span>★★★★★</span>
             <strong>600+ Google reviews · Miramar Beach, FL request</strong>
@@ -261,10 +275,10 @@
         </div>
 
         <figure class="market-hero-media market-trainer-media">
-          <img src="assets/trainer-bio-photos/trainers.jpg" alt="The Lorenzo&#39;s team — dog trainer for Miramar Beach, FL" loading="lazy" decoding="async">
+          <img src="assets/ad-testimonial-take-1-cover.png" alt="Vacation-ready — dog trainer for Miramar Beach, FL" loading="lazy" decoding="async">
           <figcaption>
-            <strong>The Lorenzo&#39;s team</strong>
-            <span>Tabatha Shelley — your Emerald Coast trainer</span>
+            <strong>Vacation-ready</strong>
+            <span>Calm on the sand, welcome in the rental</span>
           </figcaption>
         </figure>
 
