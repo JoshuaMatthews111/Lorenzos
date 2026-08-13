@@ -165,9 +165,59 @@
       box-shadow:0 0 0 5px rgba(255,255,255,.25)}
     .price-cta{flex:none;font-size:16px;font-weight:800;padding:15px 26px;box-shadow:0 10px 24px rgba(0,0,0,.3)}
     .price-cta:hover{transform:translateY(-2px)}
+
+    /* ═══ per-archetype LAYOUT — composition differs, not just color ═══ */
+    /* HQ: facility banner on top, then copy | form; proof as 2x2 plaque grid */
+    .arch-hq .ad-proof-grid-v2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#c8102e}
+    .arch-hq .ad-proof-grid-v2 > div{background:var(--mk1);padding:22px}
+    .arch-hq .market-service-grid{grid-template-columns:repeat(4,1fr)}
+
+    /* PORTRAIT twins: services become a vertical numbered timeline */
+    .arch-portrait .market-service-grid,.arch-portrait2 .market-service-grid{display:block;border-left:3px solid var(--mk1);padding-left:22px}
+    .arch-portrait .market-service-grid article,.arch-portrait2 .market-service-grid article{
+      position:relative;margin:0 0 26px;background:transparent;border:none;box-shadow:none;padding:0}
+    .arch-portrait .market-service-grid article span,.arch-portrait2 .market-service-grid article span{
+      position:absolute;left:-38px;top:0;background:var(--mk1);color:#fff;width:30px;height:30px;
+      display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;font-weight:800}
+
+    /* METRO: form moves LEFT of the copy on desktop; proof is one dark ticker row */
+    @media(min-width:960px){.arch-metro .market-consult-panel{order:-1}}
+    .arch-metro .ad-proof-band-v2{background:#070f24}
+    .arch-metro .ad-proof-grid-v2{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    .arch-metro .ad-proof-grid-v2 > div{display:flex;align-items:baseline;gap:8px;padding:14px 8px}
+    .arch-metro .ad-proof-grid-v2 strong{font-size:30px}
+
+    /* SPECIALTY: editorial single-column services, centered, gold rules */
+    .arch-specialty .market-service-grid{display:block;max-width:640px;margin:0 auto}
+    .arch-specialty .market-service-grid article{background:transparent;border:none;border-bottom:1px solid var(--mk2);
+      border-radius:0;text-align:center;padding:26px 8px}
+    .arch-specialty .market-service-grid article span{color:var(--mk2);letter-spacing:.3em}
+    .arch-specialty .ad-proof-band-v2{background:#0d0a16;border-block:1px solid var(--mk2)}
+
+    /* COAST + RESORT: proof stats as floating pills, services rounded */
+    .arch-coast .ad-proof-band-v2,.arch-resort .ad-proof-band-v2{background:transparent}
+    .arch-coast .ad-proof-grid-v2 > div,.arch-resort .ad-proof-grid-v2 > div{
+      background:var(--mk1);color:#fff;border-radius:999px;padding:14px 22px;text-align:center}
+    .arch-coast .ad-proof-grid-v2,.arch-resort .ad-proof-grid-v2{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+    .arch-coast .ad-proof-grid-v2 strong,.arch-resort .ad-proof-grid-v2 strong{color:#fff}
+    .arch-coast .market-service-grid article,.arch-resort .market-service-grid article{border-radius:22px}
+
+    /* MISSION: proof plaque framed in gold; issue chips gold */
+    .arch-mission .ad-proof-band-v2{background:var(--mk1);border-block:3px double var(--mk2)}
+    .arch-mission .ad-issue-strip span{background:rgba(217,164,65,.18);border:1px solid var(--mk2)}
+
+    /* HERITAGE: services as a stable-plate list, tan rules */
+    .arch-heritage .market-service-grid{display:block}
+    .arch-heritage .market-service-grid article{background:#fff;border:none;border-left:6px solid var(--mk1);
+      border-bottom:1px solid var(--mk2);border-radius:0;margin-bottom:14px}
+
+    /* CAMPUS: form LEFT like metro, services 2-col checklist */
+    @media(min-width:960px){.arch-campus .market-consult-panel{order:-1}}
+    .arch-campus .market-service-grid{grid-template-columns:1fr 1fr}
+    .arch-campus .market-service-grid article{border:none;border-top:4px solid var(--mk2);background:#F7F9FF}
   </style>
 </head>
-<body id="top" class="market-landing ad-landing ad-landing-v2 arch-portrait2" style="--mk1:#A63D2F;--mk2:#1E4D45" data-market="Tallahassee, FL" data-hero-title="Knows the Commands but Won&#39;t Listen? Tallahassee Reactive Dog Training.">
+<body id="top" class="market-landing ad-landing ad-landing-v2 arch-portrait2" style="--mk1:#A63D2F;--mk2:#1E4D45" data-market="Tallahassee, FL" data-hero-title="Knows the Commands but Won&#39;t Listen? Tallahassee Reactive Dog Training." data-issues="Won&#39;t listen|Reactivity|Sound sensitivity|Leash pulling">
   <header class="ad-header ad-header-v2 market-header">
     <div class="container ad-nav ad-nav-v2">
       <a class="ad-brand-v2" href="index.html" aria-label="Lorenzo's Dog Training Team home">
@@ -198,9 +248,9 @@
           <p class="ad-lead">Tell us what's going on with your dog. A certified Tallahassee dog trainer calls you back — usually the same day — and the evaluation is free.</p>
           
           <div class="ad-benefit-row">
-            <span>Local market page</span>
-            <span>Fast office intake</span>
-            <span>Market-routed follow-up</span>
+            <span>Free evaluation</span>
+            <span>Reactivity specialists</span>
+            <span>90-day guarantee</span>
           </div>
           <ul class="ad-checks ad-checks-v2">
             <li>Dogs of any age, size, breed, and temperament — from new puppies to newly adopted rescue dogs</li>
@@ -287,7 +337,7 @@
             <input type="hidden" name="timestamp" value="">
             <div class="form-status" role="status" aria-live="polite"></div>
             <button class="btn btn-red" type="submit">Book My Consultation</button>
-            <small>Your request is logged for Lorenzo's production office with market and trainer attribution.</small>
+            <small>Goes straight to the Tallahassee team. Free, and no obligation.</small>
           </form>
         </aside>
       </div>
@@ -298,7 +348,7 @@
         <div><strong>39</strong><span>Years of experience</span></div>
         <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
         <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
-        <div><strong>FL</strong><span>Market routing active</span></div>
+        <div><strong>Reactive dogs</strong><span>Our specialty</span></div>
       </div>
     </section>
 

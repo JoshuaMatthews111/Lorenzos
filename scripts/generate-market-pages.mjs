@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 const markets = [
   {
-    slug: "dog-training-cleveland-oh", priceMode: "quiet",
+    slug: "dog-training-cleveland-oh", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
     arch: "hq", mk1: "#152569", mk2: "#C8102E",
     photo: "assets/facility-exterior-main.jpg",
     photoName: "Our 17,000 sq ft Cleveland headquarters",
@@ -23,7 +23,7 @@ const markets = [
     zipCodes: ["44118", "44241"]
   },
   {
-    slug: "dog-training-columbus-oh", priceMode: "forward",
+    slug: "dog-training-columbus-oh", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     photo: "assets/trainer-bio-photos/shannon-paskins.jpg",
     photoName: "Shannon Paskins",
@@ -43,7 +43,7 @@ const markets = [
     zipCodes: ["43068"]
   },
   {
-    slug: "dog-training-atlanta-ga", priceMode: "quiet",
+    slug: "dog-training-atlanta-ga", issues: "Service dog training|Aggression|Task work|Obedience", proofValue: "3", proofLabel: "Certified Atlanta trainers", benefits: "Free suitability assessment|Service-dog specialists|90-day guarantee", priceMode: "quiet",
     arch: "specialty", mk1: "#14101F", mk2: "#C9A227",
     photo: "assets/trainer-bio-photos/aryson-whorley.jpg",
     photoName: "Aryson Whorley",
@@ -63,7 +63,7 @@ const markets = [
     zipCodes: ["30052", "30324", "30157"]
   },
   {
-    slug: "dog-training-san-diego-ca", priceMode: "forward",
+    slug: "dog-training-san-diego-ca", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|90-day guarantee", priceMode: "forward",
     arch: "coast", mk1: "#0E5E8A", mk2: "#EAF4F9",
     photo: "assets/trainer-bio-photos/genevieve-twilla.jpg",
     photoName: "Genevieve Twilla",
@@ -83,7 +83,7 @@ const markets = [
     zipCodes: ["92105", "92106"]
   },
   {
-    slug: "dog-training-san-antonio-tx", priceMode: "quiet",
+    slug: "dog-training-san-antonio-tx", issues: "Aggression|Puppy training|Obedience|Se habla español", proofValue: "2", proofLabel: "Trainers — English & Spanish", benefits: "Free evaluation|Military families welcome|90-day guarantee", priceMode: "quiet",
     arch: "mission", mk1: "#7E1F1F", mk2: "#D9A441",
     photo: "assets/trainer-bio-photos/carolina-perez.jpg",
     photoName: "Carolina Perez",
@@ -104,7 +104,7 @@ const markets = [
     zipCodes: ["78245", "78009"]
   },
   {
-    slug: "dog-training-chicago-il", priceMode: "quiet",
+    slug: "dog-training-chicago-il", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
     arch: "metro", mk1: "#0B1B3F", mk2: "#D64545",
     photo: "assets/trainer-bio-photos/jasmine-bland.jpg",
     photoName: "Jasmine Bland",
@@ -124,7 +124,7 @@ const markets = [
     zipCodes: ["46409"]
   },
   {
-    slug: "dog-training-tallahassee-fl", priceMode: "forward",
+    slug: "dog-training-tallahassee-fl", issues: "Won't listen|Reactivity|Sound sensitivity|Leash pulling", proofValue: "Reactive dogs", proofLabel: "Our specialty", benefits: "Free evaluation|Reactivity specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait2", mk1: "#A63D2F", mk2: "#1E4D45",
     photo: "assets/trainer-bio-photos/victoria-bayleigh-morris.jpg",
     photoName: "Victoria Bayleigh Morris",
@@ -144,7 +144,7 @@ const markets = [
     zipCodes: ["32504"]
   },
   {
-    slug: "dog-training-miramar-beach-fl", priceMode: "quiet",
+    slug: "dog-training-miramar-beach-fl", issues: "Beach recall|Rental manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
     arch: "resort", mk1: "#0F8A9D", mk2: "#F2E9D8",
     photo: "assets/trainer-bio-photos/trainers.jpg",
     photoName: "The Lorenzo's team",
@@ -164,7 +164,7 @@ const markets = [
     zipCodes: ["32405"]
   },
   {
-    slug: "dog-training-lexington-ky", priceMode: "quiet",
+    slug: "dog-training-lexington-ky", issues: "Farm recall|Livestock manners|Leash pulling|Puppy", proofValue: "Open acreage", proofLabel: "Recall that holds", benefits: "Free evaluation|Farm & property dogs|90-day guarantee", priceMode: "quiet",
     arch: "heritage", mk1: "#234D32", mk2: "#B08A57",
     photo: "assets/trainer-bio-photos/bailey-brown.jpg",
     photoName: "Bailey Brown",
@@ -184,7 +184,7 @@ const markets = [
     zipCodes: ["40330"]
   },
   {
-    slug: "dog-training-ann-arbor-mi", priceMode: "forward",
+    slug: "dog-training-ann-arbor-mi", issues: "Apartment barking|Potty training|Crate training|Leash skills", proofValue: "Apartment", proofLabel: "Friendly training plans", benefits: "Free evaluation|Small-space plans|90-day guarantee", priceMode: "forward",
     arch: "campus", mk1: "#1E3A8A", mk2: "#F0C93B",
     photo: "assets/trainer-bio-photos/dylan-atkinson.jpg",
     photoName: "Dylan Atkinson",
@@ -447,9 +447,59 @@ const page = market => {
       box-shadow:0 0 0 5px rgba(255,255,255,.25)}
     .price-cta{flex:none;font-size:16px;font-weight:800;padding:15px 26px;box-shadow:0 10px 24px rgba(0,0,0,.3)}
     .price-cta:hover{transform:translateY(-2px)}
+
+    /* ═══ per-archetype LAYOUT — composition differs, not just color ═══ */
+    /* HQ: facility banner on top, then copy | form; proof as 2x2 plaque grid */
+    .arch-hq .ad-proof-grid-v2{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#c8102e}
+    .arch-hq .ad-proof-grid-v2 > div{background:var(--mk1);padding:22px}
+    .arch-hq .market-service-grid{grid-template-columns:repeat(4,1fr)}
+
+    /* PORTRAIT twins: services become a vertical numbered timeline */
+    .arch-portrait .market-service-grid,.arch-portrait2 .market-service-grid{display:block;border-left:3px solid var(--mk1);padding-left:22px}
+    .arch-portrait .market-service-grid article,.arch-portrait2 .market-service-grid article{
+      position:relative;margin:0 0 26px;background:transparent;border:none;box-shadow:none;padding:0}
+    .arch-portrait .market-service-grid article span,.arch-portrait2 .market-service-grid article span{
+      position:absolute;left:-38px;top:0;background:var(--mk1);color:#fff;width:30px;height:30px;
+      display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;font-weight:800}
+
+    /* METRO: form moves LEFT of the copy on desktop; proof is one dark ticker row */
+    @media(min-width:960px){.arch-metro .market-consult-panel{order:-1}}
+    .arch-metro .ad-proof-band-v2{background:#070f24}
+    .arch-metro .ad-proof-grid-v2{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    .arch-metro .ad-proof-grid-v2 > div{display:flex;align-items:baseline;gap:8px;padding:14px 8px}
+    .arch-metro .ad-proof-grid-v2 strong{font-size:30px}
+
+    /* SPECIALTY: editorial single-column services, centered, gold rules */
+    .arch-specialty .market-service-grid{display:block;max-width:640px;margin:0 auto}
+    .arch-specialty .market-service-grid article{background:transparent;border:none;border-bottom:1px solid var(--mk2);
+      border-radius:0;text-align:center;padding:26px 8px}
+    .arch-specialty .market-service-grid article span{color:var(--mk2);letter-spacing:.3em}
+    .arch-specialty .ad-proof-band-v2{background:#0d0a16;border-block:1px solid var(--mk2)}
+
+    /* COAST + RESORT: proof stats as floating pills, services rounded */
+    .arch-coast .ad-proof-band-v2,.arch-resort .ad-proof-band-v2{background:transparent}
+    .arch-coast .ad-proof-grid-v2 > div,.arch-resort .ad-proof-grid-v2 > div{
+      background:var(--mk1);color:#fff;border-radius:999px;padding:14px 22px;text-align:center}
+    .arch-coast .ad-proof-grid-v2,.arch-resort .ad-proof-grid-v2{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+    .arch-coast .ad-proof-grid-v2 strong,.arch-resort .ad-proof-grid-v2 strong{color:#fff}
+    .arch-coast .market-service-grid article,.arch-resort .market-service-grid article{border-radius:22px}
+
+    /* MISSION: proof plaque framed in gold; issue chips gold */
+    .arch-mission .ad-proof-band-v2{background:var(--mk1);border-block:3px double var(--mk2)}
+    .arch-mission .ad-issue-strip span{background:rgba(217,164,65,.18);border:1px solid var(--mk2)}
+
+    /* HERITAGE: services as a stable-plate list, tan rules */
+    .arch-heritage .market-service-grid{display:block}
+    .arch-heritage .market-service-grid article{background:#fff;border:none;border-left:6px solid var(--mk1);
+      border-bottom:1px solid var(--mk2);border-radius:0;margin-bottom:14px}
+
+    /* CAMPUS: form LEFT like metro, services 2-col checklist */
+    @media(min-width:960px){.arch-campus .market-consult-panel{order:-1}}
+    .arch-campus .market-service-grid{grid-template-columns:1fr 1fr}
+    .arch-campus .market-service-grid article{border:none;border-top:4px solid var(--mk2);background:#F7F9FF}
   </style>
 </head>
-<body id="top" class="market-landing ad-landing ad-landing-v2 arch-${market.arch}" style="--mk1:${market.mk1};--mk2:${market.mk2}" data-market="${escapeHtml(market.market)}" data-hero-title="${escapeHtml(market.h1)}">
+<body id="top" class="market-landing ad-landing ad-landing-v2 arch-${market.arch}" style="--mk1:${market.mk1};--mk2:${market.mk2}" data-market="${escapeHtml(market.market)}" data-hero-title="${escapeHtml(market.h1)}" data-issues="${escapeHtml(market.issues)}">
   <header class="ad-header ad-header-v2 market-header">
     <div class="container ad-nav ad-nav-v2">
       <a class="ad-brand-v2" href="index.html" aria-label="Lorenzo's Dog Training Team home">
@@ -480,9 +530,7 @@ const page = market => {
           <p class="ad-lead">Tell us what's going on with your dog. A certified ${escapeHtml(market.city)} dog trainer calls you back — usually the same day — and the evaluation is free.</p>
           ${market.spanish ? `<p class="ad-lead market-spanish" lang="es"><strong>Hablamos español.</strong> Entrenamiento profesional de perros en ${escapeHtml(market.city)} — puede enviar su solicitud en español y un entrenador que habla español le llamará.</p>` : ""}
           <div class="ad-benefit-row">
-            <span>Local market page</span>
-            <span>Fast office intake</span>
-            <span>Market-routed follow-up</span>
+            ${market.benefits.split("|").map(b => `<span>${escapeHtml(b)}</span>`).join("\n            ")}
           </div>
           <ul class="ad-checks ad-checks-v2">
             <li>Dogs of any age, size, breed, and temperament — from new puppies to newly adopted rescue dogs</li>
@@ -563,7 +611,7 @@ const page = market => {
             <input type="hidden" name="timestamp" value="">
             <div class="form-status" role="status" aria-live="polite"></div>
             <button class="btn btn-red" type="submit">Book My Consultation</button>
-            <small>Your request is logged for Lorenzo's production office with market and trainer attribution.</small>
+            <small>Goes straight to the ${escapeHtml(market.city)} team. Free, and no obligation.</small>
           </form>
         </aside>
       </div>
@@ -574,7 +622,7 @@ const page = market => {
         <div><strong>39</strong><span>Years of experience</span></div>
         <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
         <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
-        <div><strong>${escapeHtml(market.state)}</strong><span>Market routing active</span></div>
+        <div><strong>${escapeHtml(market.proofValue)}</strong><span>${escapeHtml(market.proofLabel)}</span></div>
       </div>
     </section>
 

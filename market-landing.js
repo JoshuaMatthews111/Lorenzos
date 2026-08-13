@@ -102,9 +102,16 @@
     heroMedia.className = "market-hero-media";
     heroGrid.insertBefore(heroMedia, consultation);
   }
-  if (heroMedia) {
-    heroMedia.classList.add("ad-hero-video-card");
-    heroMedia.innerHTML = `
+  // Keep each market's own photo (trainer / HQ facility). The results video
+  // gets its own card after it instead of overwriting it.
+  let videoCard = hero.querySelector(".ad-hero-video-card");
+  if (!videoCard && heroMedia) {
+    videoCard = document.createElement("figure");
+    videoCard.className = "market-hero-media ad-hero-video-card";
+    heroMedia.insertAdjacentElement("afterend", videoCard);
+  }
+  if (videoCard) {
+    videoCard.innerHTML = `
       <div class="ad-video-frame">
         <button class="ad-video-cover" type="button" data-video-cover aria-label="Play real client results video">
           <img src="assets/ad-testimonial-take-1-cover.png" alt="Real client results video cover" loading="eager" decoding="async">
@@ -137,20 +144,15 @@
     const issueStrip = document.createElement("div");
     issueStrip.className = "ad-issue-strip";
     issueStrip.setAttribute("aria-label", "Common dog training problems");
-    issueStrip.innerHTML = `
-      <span>Leash pulling</span>
-      <span>Barking</span>
-      <span>Jumping</span>
-      <span>House-soiling</span>
-      <span>Reactivity</span>
-    `;
+    const issues = (document.body.dataset.issues || "Leash pulling|Barking|Jumping|Reactivity").split("|");
+    issueStrip.innerHTML = issues.map((i) => `<span>${i}</span>`).join("");
     const benefits = marketCopy.querySelector(".ad-benefit-row");
     benefits?.insertAdjacentElement("afterend", issueStrip);
   }
 	  marketCopy?.querySelector(".challenge-guide-card")?.remove();
   const consultHeader = consultation.querySelector(".ad-consult-header p");
   if (consultHeader) {
-    consultHeader.textContent = "Tell us what is going on with your dog. The office routes the request and follows up with the next step.";
+    consultHeader.textContent = "Tell us what is going on with your dog. A local trainer calls you back — usually the same day.";
   }
 	  const consultTitle = consultation.querySelector(".ad-consult-header h2");
 	  if (consultTitle) {
@@ -162,7 +164,7 @@
 	  }
   const consultSmall = consultation.querySelector("form small");
   if (consultSmall) {
-    consultSmall.textContent = "Securely sent to Lorenzo's production office with market attribution. No full address required to start.";
+    consultSmall.textContent = "Free and no obligation. No full address needed to start.";
   }
 	  consultation.querySelector('input[name="lead_magnet"]')?.remove();
 
