@@ -12,6 +12,9 @@
   const marketCopy = document.querySelector(".market-copy");
   const pageSlug = window.location.pathname.split("/").pop()?.replace(/\.html$/i, "") || "get-started";
   const functionsBaseUrl = window.LDTT_SUPABASE?.functionsBaseUrl || "";
+  // Self-designed pages carry their full design statically; this script must
+  // not rewrite their DOM - it only does tracking and form logic there.
+  const selfDesigned = document.body.dataset.selfDesigned === "1";
   const isReleaseQaHost = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname) || /\.vercel\.app$/i.test(window.location.hostname);
   const visitorId = (() => {
     const key = "ldttAnonymousVisitorId";
@@ -86,10 +89,10 @@
   // back to the generic template when a page doesn't. Never overwrite the
   // per-market hook or Spanish strips — target the plain lead only.
   const heroLead = marketCopy?.querySelector(".ad-lead:not(.market-hook):not(.market-spanish)");
-  if (heroTitle) {
+  if (!selfDesigned && heroTitle) {
     heroTitle.textContent = document.body.dataset.heroTitle || `Dog problems in ${marketName}? Start here.`;
   }
-  if (heroLead) {
+  if (!selfDesigned && heroLead) {
     heroLead.textContent =
       "Watch a real client result, then request a free, no-obligation evaluation so the office can route the right next step for your dog.";
   }
@@ -97,7 +100,7 @@
   document.querySelectorAll(".market-side-rail").forEach((node) => node.remove());
   const heroGrid = hero.querySelector(".market-hero-grid");
   let heroMedia = hero.querySelector(".market-hero-media");
-  if (!heroMedia && heroGrid) {
+  if (!selfDesigned && !heroMedia && heroGrid) {
     heroMedia = document.createElement("figure");
     heroMedia.className = "market-hero-media";
     heroGrid.insertBefore(heroMedia, consultation);
@@ -105,12 +108,12 @@
   // Keep each market's own photo (trainer / HQ facility). The results video
   // gets its own card after it instead of overwriting it.
   let videoCard = hero.querySelector(".ad-hero-video-card");
-  if (!videoCard && heroMedia) {
+  if (!selfDesigned && !videoCard && heroMedia) {
     videoCard = document.createElement("figure");
     videoCard.className = "market-hero-media ad-hero-video-card";
     heroMedia.insertAdjacentElement("afterend", videoCard);
   }
-  if (videoCard) {
+  if (!selfDesigned && videoCard) {
     videoCard.innerHTML = `
       <div class="ad-video-frame">
         <button class="ad-video-cover" type="button" data-video-cover aria-label="Play real client results video">
@@ -151,19 +154,19 @@
   }
 	  marketCopy?.querySelector(".challenge-guide-card")?.remove();
   const consultHeader = consultation.querySelector(".ad-consult-header p");
-  if (consultHeader) {
+  if (!selfDesigned && consultHeader) {
     consultHeader.textContent = "Tell us what is going on with your dog. A local trainer calls you back — usually the same day.";
   }
 	  const consultTitle = consultation.querySelector(".ad-consult-header h2");
-	  if (consultTitle) {
+	  if (!selfDesigned && consultTitle) {
 	    consultTitle.textContent = "Book your free, no-obligation evaluation.";
 	  }
 	  const submitButton = consultation.querySelector('button[type="submit"]');
-	  if (submitButton) {
+	  if (!selfDesigned && submitButton) {
 	    submitButton.textContent = "Book My Consultation";
 	  }
   const consultSmall = consultation.querySelector("form small");
-  if (consultSmall) {
+  if (!selfDesigned && consultSmall) {
     consultSmall.textContent = "Free and no obligation. No full address needed to start.";
   }
 	  consultation.querySelector('input[name="lead_magnet"]')?.remove();
@@ -229,7 +232,7 @@
   `;
 
   const insertTarget = document.querySelector(".market-office-route") || document.querySelector(".section.tight");
-  if (insertTarget) {
+  if (!selfDesigned && insertTarget) {
     insertTarget.insertAdjacentElement("beforebegin", careSection);
     insertTarget.insertAdjacentElement("beforebegin", testimonialSection);
     insertTarget.insertAdjacentElement("beforebegin", guideSection);
@@ -265,7 +268,7 @@
     return result;
   };
 
-  const guideForm = guideSection.querySelector(".market-guide-form");
+  const guideForm = document.querySelector(".market-guide-form");
   if (guideForm) guideForm.dataset.adFunnelGuideBound = "true";
   guideForm?.addEventListener("submit", async event => {
     event.preventDefault();

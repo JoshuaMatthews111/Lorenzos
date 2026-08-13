@@ -53,13 +53,13 @@
     .arch-hq .market-hero-bg{opacity:.14}
     .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
     .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
-    .arch-hq .market-hero-media{grid-column:1/-1;order:-1;max-height:320px;overflow:hidden;border:8px solid #fff;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+    .arch-hq .market-trainer-media{grid-column:1/-1;order:-1;min-height:0;height:300px;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
     .arch-hq .ad-checks-v2 li{color:#dfe4f5}
 
     /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
     .arch-portrait .market-hero{background:linear-gradient(180deg,#FBF8F2,var(--mk2))}
     .arch-portrait .market-copy h1{color:var(--mk1);text-transform:none;letter-spacing:0}
-    .arch-portrait .market-hero-media{border:1px solid var(--mk1);border-radius:16px;overflow:hidden;box-shadow:12px 12px 0 var(--mk1)}
+    .arch-portrait .market-trainer-media{border:1px solid var(--mk1);border-radius:16px;overflow:hidden;box-shadow:12px 12px 0 var(--mk1)}
     .arch-portrait .market-hook{border-left-color:var(--mk1);background:#fff}
     .arch-portrait .ad-proof-band-v2{background:var(--mk1)}
 
@@ -69,7 +69,7 @@
     .arch-metro .market-copy h1{color:#fff;font-size:clamp(34px,5vw,54px);letter-spacing:-.03em}
     .arch-metro .market-copy .ad-lead{color:#c9d4ef}
     .arch-metro .market-copy .ad-lead.market-hook{background:var(--mk2);color:#fff;border-left-color:#fff}
-    .arch-metro .market-hero-media{transform:rotate(-2deg);border:10px solid #fff;box-shadow:0 22px 45px rgba(0,0,0,.45)}
+    .arch-metro .market-trainer-media{transform:rotate(-2deg);border:10px solid #fff;box-shadow:0 22px 45px rgba(0,0,0,.45)}
     .arch-metro .ad-checks-v2 li{color:#dfe6f8}
 
     /* SPECIALTY — Atlanta: near-black, gold detailing, premium quiet */
@@ -79,13 +79,13 @@
     .arch-specialty .market-copy .ad-lead{color:#cfc9de}
     .arch-specialty .market-copy .ad-lead.market-hook{background:transparent;border:1px solid var(--mk2);border-left:4px solid var(--mk2);color:var(--mk2)}
     .arch-specialty .ad-rating-row span{color:var(--mk2)}
-    .arch-specialty .market-hero-media{border:1px solid var(--mk2);padding:8px;background:var(--mk1)}
+    .arch-specialty .market-trainer-media{border:1px solid var(--mk2);padding:8px;background:var(--mk1)}
     .arch-specialty .ad-checks-v2 li{color:#d8d3e6}
 
     /* COAST — San Diego: white air, ocean blue, soft pill geometry */
     .arch-coast .market-hero{background:linear-gradient(180deg,#fff,var(--mk2))}
     .arch-coast .market-copy h1{color:var(--mk1);text-transform:none}
-    .arch-coast .market-hero-media{border-radius:28px;overflow:hidden;border:4px solid #fff;box-shadow:0 16px 36px rgba(14,94,138,.25)}
+    .arch-coast .market-trainer-media{border-radius:28px;overflow:hidden;border:4px solid #fff;box-shadow:0 16px 36px rgba(14,94,138,.25)}
     .arch-coast .market-hook{border-radius:999px;border-left:none;border:2px solid var(--mk1);background:#fff;padding:12px 20px}
     .arch-coast .ad-benefit-row span{border-radius:999px;background:var(--mk1);color:#fff;padding:4px 12px}
 
@@ -95,21 +95,21 @@
     .arch-mission .market-copy h1,.arch-mission .market-copy .ad-lead{color:#fff}
     .arch-mission .market-copy .ad-lead.market-hook{background:rgba(217,164,65,.15);border-left-color:var(--mk2);color:#ffe9c4}
     .arch-mission .market-spanish{background:var(--mk2);border-left-color:#fff;color:var(--mk1);font-weight:700}
-    .arch-mission .market-hero-media{border:6px double var(--mk2)}
+    .arch-mission .market-trainer-media{border:6px double var(--mk2)}
     .arch-mission .ad-checks-v2 li{color:#f4dfd0}
 
     /* HERITAGE — Lexington: hunter green + saddle tan, farm-plate frame */
     .arch-heritage .market-hero{background:linear-gradient(180deg,#F7F4EC,#EDE6D6)}
     .arch-heritage .market-copy h1{color:var(--mk1);text-transform:none;letter-spacing:0}
     .arch-heritage .market-hook{border-left-color:var(--mk1);background:#fff}
-    .arch-heritage .market-hero-media{border:4px solid var(--mk1);outline:2px solid var(--mk2);outline-offset:5px}
+    .arch-heritage .market-trainer-media{border:4px solid var(--mk1);outline:2px solid var(--mk2);outline-offset:5px}
     .arch-heritage .ad-proof-band-v2{background:var(--mk1)}
     .arch-heritage .visit,.arch-heritage .btn-red{background:var(--mk1)}
 
     /* PORTRAIT² — Tallahassee: coral + palm, mirrored composition */
     .arch-portrait2 .market-hero{background:linear-gradient(180deg,#FDF6F1,#F6E7DF)}
     .arch-portrait2 .market-copy{order:2}
-    .arch-portrait2 .market-hero-media{order:1;border-radius:0 60px 0 60px;overflow:hidden;border:3px solid var(--mk2)}
+    .arch-portrait2 .market-trainer-media{order:1;border-radius:0 60px 0 60px;overflow:hidden;border:3px solid var(--mk2)}
     .arch-portrait2 .market-copy h1{color:var(--mk2);text-transform:none}
     .arch-portrait2 .market-hook{border-left-color:var(--mk1);background:#fff}
 
@@ -119,27 +119,47 @@
     .arch-resort .market-copy h1{color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.25)}
     .arch-resort .market-copy .ad-lead{color:#eafcff}
     .arch-resort .market-copy .ad-lead.market-hook{background:#fff;color:var(--mk1);border-left-color:var(--mk1)}
-    .arch-resort .market-hero-media{border:8px solid #fff;border-bottom-width:30px;box-shadow:0 16px 34px rgba(0,0,0,.28);transform:rotate(1.5deg)}
+    .arch-resort .market-trainer-media{border:8px solid #fff;border-bottom-width:30px;box-shadow:0 16px 34px rgba(0,0,0,.28);transform:rotate(1.5deg)}
 
     /* CAMPUS — Ann Arbor: clean white, blue + maize underline energy */
     .arch-campus .market-hero{background:#fff}
     .arch-campus .market-copy h1{color:var(--mk1);text-transform:none}
     .arch-campus .market-copy h1::after{content:"";display:block;width:110px;height:8px;background:var(--mk2);margin-top:10px}
     .arch-campus .market-hook{border-left-color:var(--mk1);background:#F6F8FE}
-    .arch-campus .market-hero-media{border-radius:12px;overflow:hidden;border:3px solid var(--mk1)}
+    .arch-campus .market-trainer-media{border-radius:12px;overflow:hidden;border:3px solid var(--mk1)}
     .arch-campus .ad-proof-band-v2{background:var(--mk1)}
 
-    /* market-landing.js repaints the hero dark at runtime — headings must stay
-       readable on that ground, so light archetypes keep white type and express
-       their identity through hooks, frames, buttons and bands instead. */
-    .arch-portrait .market-copy h1,.arch-heritage .market-copy h1,.arch-coast .market-copy h1,
-    .arch-campus .market-copy h1,.arch-portrait2 .market-copy h1{color:#fff}
-    .arch-campus .market-copy h1::after{background:var(--mk2)}
+    /* Light archetypes are truly light now: no dark hero photo, no tint.
+       Ink floors for every element that styles.css designed for dark grounds. */
+    .arch-portrait .market-hero-bg,.arch-portrait .market-tint,
+    .arch-heritage .market-hero-bg,.arch-heritage .market-tint,
+    .arch-coast .market-hero-bg,.arch-coast .market-tint,
+    .arch-campus .market-hero-bg,.arch-campus .market-tint,
+    .arch-portrait2 .market-hero-bg,.arch-portrait2 .market-tint{display:none}
+    .arch-portrait .market-hero::before,.arch-portrait .market-hero::after,
+    .arch-heritage .market-hero::before,.arch-heritage .market-hero::after,
+    .arch-coast .market-hero::before,.arch-coast .market-hero::after,
+    .arch-campus .market-hero::before,.arch-campus .market-hero::after,
+    .arch-portrait2 .market-hero::before,.arch-portrait2 .market-hero::after{display:none !important}
     .arch-portrait .market-copy .ad-lead,.arch-heritage .market-copy .ad-lead,
     .arch-coast .market-copy .ad-lead,.arch-campus .market-copy .ad-lead,
-    .arch-portrait2 .market-copy .ad-lead{color:#dfe3ee}
-    .arch-portrait .market-hook,.arch-heritage .market-hook,.arch-coast .market-hook,
-    .arch-campus .market-hook,.arch-portrait2 .market-hook{background:#fff;color:var(--mk1)}
+    .arch-portrait2 .market-copy .ad-lead{color:#3c4258}
+    .arch-portrait .ad-checks-v2 li,.arch-heritage .ad-checks-v2 li,
+    .arch-coast .ad-checks-v2 li,.arch-campus .ad-checks-v2 li,
+    .arch-portrait2 .ad-checks-v2 li{color:#3c4258}
+    .arch-portrait .ad-rating-row,.arch-heritage .ad-rating-row,.arch-coast .ad-rating-row,
+    .arch-campus .ad-rating-row,.arch-portrait2 .ad-rating-row{
+      background:rgba(19,26,51,.06);border-color:rgba(19,26,51,.14);box-shadow:none}
+    .arch-portrait .ad-rating-row strong,.arch-heritage .ad-rating-row strong,
+    .arch-coast .ad-rating-row strong,.arch-campus .ad-rating-row strong,
+    .arch-portrait2 .ad-rating-row strong{color:#131a33}
+    .arch-portrait .ad-issue-strip span,.arch-heritage .ad-issue-strip span,
+    .arch-coast .ad-issue-strip span,.arch-campus .ad-issue-strip span,
+    .arch-portrait2 .ad-issue-strip span{
+      background:rgba(19,26,51,.05);border:1px solid rgba(19,26,51,.16);color:#131a33}
+    .arch-portrait .market-text-link,.arch-heritage .market-text-link,
+    .arch-coast .market-text-link,.arch-campus .market-text-link,
+    .arch-portrait2 .market-text-link{color:var(--mk1)}
 
     /* ═══ pricing + guarantee, premium treatment ═══ */
     .market-pricing{padding:64px 0 46px}
@@ -253,6 +273,7 @@
     /* 1) The consultation form is sacred: always a white card with ink text,
        whatever the page theme or injected styles say. */
     .market-consult-panel{background:#fff !important;border-radius:14px;box-shadow:0 18px 48px rgba(10,16,40,.25)}
+    .market-consult-panel .ad-consult-header{background:none !important;background-image:none !important}
     .market-consult-panel .ad-consult-header span{color:#c8102e !important}
     .market-consult-panel .ad-consult-header h2{color:#131a33 !important}
     .market-consult-panel .ad-consult-header p,
@@ -276,6 +297,11 @@
     .market-guide-form label,.market-guide-form span{color:#3c4258 !important}
     .market-guide-form input{background:#fff !important;color:#131a33 !important;border:1px solid #c9cede !important}
 
+    /* 3b) Closing CTA band: always the market navy, never washed out. */
+    .market-landing .cta-band{background:linear-gradient(135deg,var(--mk1),#0e1430) !important;border-radius:16px}
+    .market-landing .cta-band h2,.market-landing .cta-band p{color:#fff !important}
+    .market-landing .cta-band p{color:#d9def0 !important}
+
     /* 3) The guarantee band must always be dark — solid color first, gradient second. */
     .guarantee-band{background-color:var(--mk1) !important}
     .guarantee-band h2,.guarantee-band p,.guarantee-band b{color:#fff !important}
@@ -295,16 +321,42 @@
     .arch-portrait .market-word,.arch-heritage .market-word,.arch-coast .market-word,
     .arch-campus .market-word,.arch-portrait2 .market-word{-webkit-text-stroke:2px rgba(19,26,51,.14)}
 
+    /* ═══ hero video card — static, self-contained (styles.css only styles it
+       under funnel-redesign scopes that market pages never carry) ═══ */
+    .market-landing .ad-hero-video-card{min-height:0;border:0;border-radius:16px;background:#fff;
+      padding:10px 10px 14px;box-shadow:0 20px 50px rgba(10,16,40,.32);align-self:start}
+    .market-landing .ad-hero-video-card .ad-video-frame{position:relative;border-radius:10px;overflow:hidden;background:#071a34}
+    .market-landing .ad-hero-video-card video{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#000}
+    .market-landing .ad-hero-video-card .ad-video-cover{position:absolute;inset:0;z-index:2;display:block;width:100%;
+      border:0;padding:0;margin:0;background:none;cursor:pointer}
+    .market-landing .ad-hero-video-card .ad-video-cover img{width:100%;height:100%;object-fit:cover;display:block}
+    .market-landing .ad-hero-video-card .ad-video-frame.is-playing .ad-video-cover{display:none}
+    .market-landing .ad-hero-video-card .video-bubble{position:absolute;left:12px;top:12px;background:#c8102e;
+      color:#fff;font-weight:800;font-size:12.5px;padding:6px 12px;border-radius:999px;letter-spacing:.04em}
+    .market-landing .ad-hero-video-card .video-play-mark{position:absolute;left:50%;top:50%;
+      transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.94);
+      color:#131a33;display:flex;align-items:center;justify-content:center;font-size:20px;padding-left:4px;
+      box-shadow:0 12px 32px rgba(0,0,0,.35);transition:transform .18s ease}
+    .market-landing .ad-hero-video-card .ad-video-cover:hover .video-play-mark{transform:translate(-50%,-50%) scale(1.08)}
+    .market-landing .ad-hero-video-card figcaption{padding:10px 6px 0}
+    .market-landing .ad-hero-video-card figcaption strong{display:block;color:#131a33}
+    .market-landing .ad-hero-video-card figcaption span{color:#5c6275;font-size:13.5px}
+
+    /* ═══ Cleveland flagship (arch-hq): banner, display type, video under copy ═══ */
+    .arch-hq .market-copy h1{font-size:clamp(34px,4.6vw,56px);letter-spacing:-.03em;line-height:1.06}
+    .arch-hq .ad-hero-video-card{grid-column:1;max-width:560px}
+    .arch-hq .market-trainer-media img{object-position:center 70%}
+
     /* 6) Proof-band floor: strong numbers always readable on their band. */
     .ad-proof-band-v2 strong{color:#fff}
     .ad-proof-band-v2 span{color:#c9d2ec}
     .arch-coast .ad-proof-grid-v2 span,.arch-resort .ad-proof-grid-v2 span{color:#e6f3f8}
   </style>
 </head>
-<body id="top" class="market-landing ad-landing ad-landing-v2 arch-portrait2" style="--mk1:#A63D2F;--mk2:#1E4D45" data-market="Tallahassee, FL" data-hero-title="Knows the Commands but Won&#39;t Listen? Tallahassee Reactive Dog Training." data-issues="Won&#39;t listen|Reactivity|Sound sensitivity|Leash pulling">
+<body id="top" class="market-landing ad-landing ad-landing-v2 arch-portrait2" style="--mk1:#A63D2F;--mk2:#1E4D45" data-self-designed="1" data-market="Tallahassee, FL" data-hero-title="Knows the Commands but Won&#39;t Listen? Tallahassee Reactive Dog Training." data-issues="Won&#39;t listen|Reactivity|Sound sensitivity|Leash pulling">
   <header class="ad-header ad-header-v2 market-header">
     <div class="container ad-nav ad-nav-v2">
-      <a class="ad-brand-v2" href="index.html" aria-label="Lorenzo's Dog Training Team home">
+      <a class="ad-brand-v2" href="#top" aria-label="Back to top">
         <img class="logo" src="assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team">
         <span>Serious Training. Serious Results.</span>
       </a>
@@ -319,15 +371,12 @@
     <section class="market-hero">
       <img class="market-hero-bg" src="assets/get-started-premium-hero.jpg" alt="" width="1680" height="945" decoding="async" aria-hidden="true">
       <div class="market-tint" aria-hidden="true" style="background:linear-gradient(135deg, rgba(110,45,20,.55), rgba(21,37,105,.28))"></div>
-      <div class="market-side-rail market-side-rail-left" aria-hidden="true"><span>Obedience</span><span>Behavior Modification</span><span>Puppy Training</span></div>
-      <div class="market-side-rail market-side-rail-right" aria-hidden="true"><span>Service Area</span><span>Office Routed</span><span>Local Follow-Up</span></div>
       <div class="container market-hero-grid">
         <div class="market-copy">
           <span class="market-word" aria-hidden="true">REACTIVE</span>
-          <a class="ad-rating-row" href="index.html#reviews" aria-label="See Lorenzo's Dog Training Team reviews">
-            <span>★★★★★</span>
+          <span class="ad-rating-row"><span>★★★★★</span>
             <strong>600+ Google reviews · Tallahassee, FL request</strong>
-          </a>
+          </span>
           <h1>Knows the Commands but Won&#39;t Listen? Tallahassee Reactive Dog Training.</h1>
           <p class="ad-lead market-hook"><strong>He knows the commands — he just won&#39;t listen. Reactivity and reliability are what we fix.</strong></p>
           <p class="ad-lead">Tell us what's going on with your dog. A certified Tallahassee dog trainer calls you back — usually the same day — and the evaluation is free.</p>
@@ -337,12 +386,19 @@
             <span>Reactivity specialists</span>
             <span>90-day guarantee</span>
           </div>
+          <div class="ad-issue-strip" aria-label="Common dog training problems">
+            <span>Won&#39;t listen</span><span>Reactivity</span><span>Sound sensitivity</span><span>Leash pulling</span>
+          </div>
           <ul class="ad-checks ad-checks-v2">
             <li>Dogs of any age, size, breed, and temperament — from new puppies to newly adopted rescue dogs</li>
             <li>Behavior help: aggressive and reactive dogs, separation anxiety, biting, barking, jumping, and leash pulling</li>
             <li>Puppy help: potty training, crate training, and socialization</li>
             <li>In-home and private dog training available — plus board and train programs</li>
           </ul>
+          <div class="market-hero-actions">
+            <a class="btn market-primary-cta" href="#consultation">Book My Consultation</a>
+            <a class="market-text-link" href="#market-services">Explore training options <span aria-hidden="true">&darr;</span></a>
+          </div>
         </div>
 
         <figure class="market-hero-media market-trainer-media">
@@ -353,11 +409,28 @@
           </figcaption>
         </figure>
 
+        <figure class="market-hero-media ad-hero-video-card">
+          <div class="ad-video-frame">
+            <button class="ad-video-cover" type="button" data-video-cover aria-label="Play real client results video">
+              <img src="assets/ad-testimonial-take-1-cover.png" alt="Real client results video cover" loading="lazy" decoding="async">
+              <span class="video-bubble">Real Client Results</span>
+              <span class="video-play-mark" aria-hidden="true">&#9654;</span>
+            </button>
+            <video controls preload="metadata" poster="assets/ad-testimonial-take-1-cover.png" playsinline>
+              <source src="assets/ad-testimonial-take-1.mp4" type="video/mp4">
+            </video>
+          </div>
+          <figcaption>
+            <strong>See the result. Book the right next step.</strong>
+            <span>Real family. Real client results.</span>
+          </figcaption>
+        </figure>
+
         <aside id="consultation" class="ad-consult-panel market-consult-panel">
           <div class="ad-consult-header">
             <span>Tallahassee, FL</span>
             <h2>Book your free, no-obligation evaluation.</h2>
-            <p>Use the short form. The office reviews your ZIP code and training need for the fastest next step.</p>
+            <p>Tell us what is going on with your dog. A local trainer calls you back &mdash; usually the same day.</p>
           </div>
           <form class="ad-form-card ad-form-card-v2 contact-intake"
             action="https://formsubmit.co/production@lorenzosdogtrainingteam.com"
@@ -422,7 +495,7 @@
             <input type="hidden" name="timestamp" value="">
             <div class="form-status" role="status" aria-live="polite"></div>
             <button class="btn btn-red" type="submit">Book My Consultation</button>
-            <small>Goes straight to the Tallahassee team. Free, and no obligation.</small>
+            <small>Free and no obligation. No full address needed to start.</small>
           </form>
         </aside>
       </div>
@@ -437,7 +510,7 @@
       </div>
     </section>
 
-    <section class="section market-path-section">
+    <section id="market-services" class="section market-path-section">
       <div class="container market-section-grid">
         <div>
           <span class="eyebrow">Training built for real life</span>
@@ -501,6 +574,51 @@
       </div>
     </section>
 
+
+    <section class="market-care-section section">
+      <div class="container market-care-grid">
+        <div>
+          <span class="eyebrow">You and your dog matter</span>
+          <h2>Clear training. Real support. A better life together.</h2>
+        </div>
+        <div class="market-care-copy">
+          <p>There is no one-size-fits-all dog. We begin by understanding your household, your goals, and the behavior you are living with every day in Tallahassee.</p>
+          <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="market-testimonial-section section">
+      <div class="container">
+        <div class="market-section-heading">
+          <span class="eyebrow">Trusted by dog owners</span>
+          <h2>Training built for life beyond the lesson.</h2>
+        </div>
+        <div class="market-testimonial-grid">
+          <article><div class="market-proof-icon" aria-hidden="true">01</div><h3>Clear owner guidance</h3><p>Owners value trainers who explain the process, demonstrate the technique, and build confident leadership at home.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">02</div><h3>A plan that fits real life</h3><p>The evaluation considers the dog, the household, current behavior, and the goals that matter most to the family.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">03</div><h3>Results beyond the lesson</h3><p>Training focuses on dependable behavior at home, on walks, around distractions, and throughout everyday life.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="free-ebook" class="market-guide-section market-guide-strip section">
+      <div class="container market-guide-card market-guide-mini">
+        <div>
+          <span class="eyebrow">Free PDF Guide</span>
+          <h2>Not ready to talk yet? Get the free guide.</h2>
+          <p><strong>The 5-Step Calm Dog Blueprint</strong> gives owners a simple daily foundation for focus, obedience, and calmer behavior before problems get worse.</p>
+        </div>
+        <form class="market-guide-form pdf-optin" novalidate>
+          <label><span>First name</span><input name="first_name" autocomplete="given-name" placeholder="First name" required></label>
+          <label><span>Email address</span><input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
+          <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo&rsquo;s Dog Training Team about dog training tips, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
+          <a class="market-guide-download" href="assets/calm-dog-blueprint-final.pdf" download aria-hidden="true" tabindex="-1">Download the Free Guide</a>
+          <button class="btn" type="submit">Download the Free Guide</button>
+          <p class="market-guide-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
 
     <section class="section tight">
       <div class="container">
