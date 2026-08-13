@@ -562,7 +562,7 @@ const page = market => {
     .arch-hq .market-hero-bg{opacity:.14}
     .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
     .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
-    .arch-hq .market-trainer-media{grid-column:1/-1;order:-1;min-height:0;height:300px;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
+    .arch-hq .market-trainer-media{min-height:0;height:300px;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
     .arch-hq .ad-checks-v2 li{color:#dfe4f5}
 
     /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
@@ -617,8 +617,7 @@ const page = market => {
 
     /* PORTRAIT² — Tallahassee: coral + palm, mirrored composition */
     .arch-portrait2 .market-hero{background:linear-gradient(180deg,#FDF6F1,#F6E7DF)}
-    .arch-portrait2 .market-copy{order:2}
-    .arch-portrait2 .market-trainer-media{order:1;border-radius:0 60px 0 60px;overflow:hidden;border:3px solid var(--mk2)}
+    .arch-portrait2 .market-trainer-media{border-radius:0 60px 0 60px;overflow:hidden;border:3px solid var(--mk2)}
     .arch-portrait2 .market-copy h1{color:var(--mk2);text-transform:none}
     .arch-portrait2 .market-hook{border-left-color:var(--mk1);background:#fff}
 
@@ -730,7 +729,6 @@ const page = market => {
       display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;font-weight:800}
 
     /* METRO: form moves LEFT of the copy on desktop; proof is one dark ticker row */
-    @media(min-width:960px){.arch-metro .market-consult-panel{order:-1}}
     .arch-metro .ad-proof-band-v2{background:#070f24}
     .arch-metro .ad-proof-grid-v2{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
     .arch-metro .ad-proof-grid-v2 > div{display:flex;align-items:baseline;gap:8px;padding:14px 8px}
@@ -761,7 +759,6 @@ const page = market => {
       border-bottom:1px solid var(--mk2);border-radius:0;margin-bottom:14px}
 
     /* CAMPUS: form LEFT like metro, services 2-col checklist */
-    @media(min-width:960px){.arch-campus .market-consult-panel{order:-1}}
     .arch-campus .market-service-grid{grid-template-columns:1fr 1fr}
     .arch-campus .market-service-grid article{border:none;border-top:4px solid var(--mk2);background:#F7F9FF}
 
@@ -853,7 +850,7 @@ const page = market => {
 
     /* ═══ Cleveland flagship (arch-hq): banner, display type, video under copy ═══ */
     .arch-hq .market-copy h1{font-size:clamp(34px,4.6vw,56px);letter-spacing:-.03em;line-height:1.06}
-    .arch-hq .ad-hero-video-card{grid-column:1;max-width:560px}
+    .arch-hq .ad-hero-video-card{max-width:560px}
     .arch-hq .market-trainer-media img{object-position:center 70%}
 
     /* ═══ case panels — designed media for pages where a photo would mislead ═══ */
@@ -887,6 +884,33 @@ const page = market => {
     .market-care-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;align-items:center}
     .market-care-photo{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.35)}
     .market-care-photo img{width:100%;height:100%;min-height:220px;max-height:320px;object-fit:cover;display:block}
+
+    /* ═══ HERO GRID CONTRACT — explicit named areas. Legacy auto-placement put
+       the headline 2,000px down and floated the video first on desktop. ═══ */
+    .market-landing .market-hero-grid{display:grid;gap:26px;align-items:start;
+      grid-template-columns:minmax(0,1fr);grid-template-areas:"copy" "media" "video" "form";
+      grid-template-rows:auto}
+    .market-landing .market-copy{grid-area:copy}
+    .market-landing .market-trainer-media,.market-landing .market-case-panel{grid-area:media;transform:none}
+    .market-landing .ad-hero-video-card{grid-area:video}
+    .market-landing .market-consult-panel{grid-area:form;position:static !important;top:auto !important;margin:0}
+    .arch-hq .market-hero-grid{grid-template-areas:"media" "copy" "video" "form"}
+    @media(min-width:960px){
+      .market-landing .market-hero-grid{grid-template-columns:minmax(0,1.3fr) minmax(380px,470px);
+        gap:30px 48px;grid-template-areas:"copy form" "media form"}
+      .arch-hq .market-hero-grid{grid-template-areas:"media media" "copy form" "video form"}
+      .arch-metro .market-hero-grid,.arch-campus .market-hero-grid{
+        grid-template-columns:minmax(380px,470px) minmax(0,1.3fr);
+        grid-template-areas:"form copy" "form media"}
+      .arch-portrait2 .market-hero-grid{grid-template-areas:"media form" "copy form"}
+      .arch-metro .market-trainer-media{transform:rotate(-2deg)}
+    }
+    /* media never crops the subject into mystery meat */
+    .market-landing .market-trainer-media{min-height:0;align-self:start}
+    .market-landing .market-trainer-media img{aspect-ratio:4/3;width:100%;height:auto;
+      min-height:0;max-height:440px;object-fit:cover;object-position:center}
+    .arch-hq .market-trainer-media img{aspect-ratio:auto;height:100%;object-position:center 65%}
+    .market-landing .market-care-photo img{aspect-ratio:16/10;height:auto}
 
     /* 6) Proof-band floor: strong numbers always readable on their band. */
     .ad-proof-band-v2 strong{color:#fff}
