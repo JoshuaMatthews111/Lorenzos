@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 const markets = [
   {
     slug: "dog-training-cleveland-oh",
+    photoPos: "center 65%",
     photo2: "assets/facility-grounds-wide.jpg", photo2Alt: "Open training grounds at the Cleveland headquarters campus",
     photo: "assets/facility-exterior-main.jpg", photoName: "The 17,000 sq ft headquarters", photoCaption: "Where every Lorenzo's trainer is certified", word: "THE HQ", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
     arch: "hq", mk1: "#152569", mk2: "#C8102E",
@@ -29,7 +30,7 @@ const markets = [
   },
   {
     slug: "dog-training-columbus-oh",
-    photo2: "assets/emilio-yoyo.jpg", photo2Alt: "A professional safely handling a reactive dog during behavior work",
+    photo2Pos: "center 15%", photo2: "assets/emilio-yoyo.jpg", photo2Alt: "A professional safely handling a reactive dog during behavior work",
     photo: "assets/get-started-premium-hero.jpg", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     
@@ -129,6 +130,7 @@ const markets = [
   },
   {
     slug: "dog-training-chicago-il",
+    photoPos: "center 15%",
     photo2: "assets/get-started-premium-hero.jpg", photo2Alt: "Two dogs sitting calmly with their owner \u2014 the outcome of training",
     photo: "assets/emilio-yoyo.jpg", photoName: "Reactivity, handled safely", photoCaption: "Professional behavior work — this is the job", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
     arch: "metro", mk1: "#0B1B3F", mk2: "#D64545",
@@ -459,7 +461,7 @@ const page = market => {
           <p>${escapeHtml(market.care.p)}</p>
           <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
         </div>
-        ${market.photo2 ? `<figure class="market-care-photo"><img src="${escapeHtml(market.photo2)}" alt="${escapeHtml(market.photo2Alt)}" loading="lazy" decoding="async"></figure>` : ""}
+        ${market.photo2 ? `<figure class="market-care-photo"><img src="${escapeHtml(market.photo2)}" alt="${escapeHtml(market.photo2Alt)}" style="object-position:${market.photo2Pos || "center"}" loading="lazy" decoding="async"></figure>` : ""}
       </div>
     </section>`,
     testi: `    <section class="market-testimonial-section section">
@@ -962,7 +964,7 @@ const page = market => {
         </div>
 
         ${casePanels[market.slug] || `<figure class="market-hero-media market-trainer-media">
-          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — ${escapeHtml(market.market)}" loading="lazy" decoding="async">
+          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — ${escapeHtml(market.market)}" style="object-position:${market.photoPos || "center"}" loading="lazy" decoding="async">
           <figcaption>
             <strong>${escapeHtml(market.photoName)}</strong>
             <span>${escapeHtml(market.photoCaption)}</span>
