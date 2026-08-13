@@ -670,6 +670,9 @@ const page = market => {
     .arch-portrait .market-text-link,.arch-heritage .market-text-link,
     .arch-coast .market-text-link,.arch-campus .market-text-link,
     .arch-portrait2 .market-text-link{color:var(--mk1)}
+    .arch-portrait .ad-benefit-row span,.arch-heritage .ad-benefit-row span,
+    .arch-campus .ad-benefit-row span,.arch-portrait2 .ad-benefit-row span{
+      background:rgba(19,26,51,.07) !important;border:1px solid rgba(19,26,51,.18);color:#131a33 !important}
 
     /* ═══ pricing + guarantee, premium treatment ═══ */
     .market-pricing{padding:64px 0 46px}
