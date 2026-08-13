@@ -89,6 +89,7 @@ const requiredOutput = [
   "static/staff.html",
   "static/contact.html",
   "static/trainer-application.html",
+  "static/onboarding.html",
   "static/trainer-backoffice/app.js",
   "static/trainer-backoffice/supabase.js",
   "static/assets/trainer-bio-photos/karemela-sefferin-candid.jpg",
