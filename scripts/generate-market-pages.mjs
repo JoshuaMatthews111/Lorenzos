@@ -708,7 +708,6 @@ const page = market => {
           <h2>One request. A clearer path for your dog.</h2>
           <p>${escapeHtml(market.proof)}</p>
           <div class="market-nearby">${nearby}</div>
-          <div class="market-zip-coverage"><strong>Primary ZIP coverage</strong><div>${zipCodes}</div></div>
         </div>
         <div class="ad-service-grid-v2 market-service-grid">
           <article>
