@@ -30,7 +30,7 @@ const markets = [
   },
   {
     slug: "dog-training-columbus-oh",
-    photo2Pos: "center 15%", photo2: "assets/emilio-yoyo.jpg", photo2Alt: "A professional safely handling a reactive dog during behavior work",
+    photo2Pos: "72% 20%", photo2: "assets/emilio-yoyo.jpg", photo2Alt: "A professional safely handling a reactive dog during behavior work",
     photo: "assets/get-started-premium-hero.jpg", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     
@@ -915,7 +915,7 @@ const page = market => {
     .market-landing .market-trainer-media img{aspect-ratio:4/3;width:100%;height:auto;
       min-height:0;max-height:440px;object-fit:cover;object-position:center}
     .arch-hq .market-trainer-media img{aspect-ratio:auto;height:100%;object-position:center 65%}
-    .market-landing .market-care-photo img{aspect-ratio:16/10;height:auto}
+    .market-landing .market-care-photo img{aspect-ratio:4/3;height:auto}
 
     /* price pill — the price is part of the offer on forward markets */
     .market-landing .ad-benefit-row .price-pill{background:#C8102E !important;color:#fff !important;
