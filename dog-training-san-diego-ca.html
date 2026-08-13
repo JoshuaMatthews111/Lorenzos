@@ -347,6 +347,33 @@
     .arch-hq .ad-hero-video-card{grid-column:1;max-width:560px}
     .arch-hq .market-trainer-media img{object-position:center 70%}
 
+    /* ═══ case panels — designed media for pages where a photo would mislead ═══ */
+    .market-case-panel{min-height:0;border:0;border-radius:16px;background:#fff;
+      box-shadow:0 20px 50px rgba(10,16,40,.28);padding:26px;display:flex;flex-direction:column;gap:12px;align-self:start}
+    /* floor: styles.css styles spans/text inside hero-media figures pale+small — the panel must win */
+    .market-landing .market-case-panel span,.market-landing .market-case-panel p,
+    .market-landing .market-case-panel li,.market-landing .market-case-panel b{color:#131a33}
+    .market-landing .market-case-panel .case-kicker{font-size:12px !important;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mk1) !important}
+    .market-landing .market-case-panel .case-price-big{font-size:clamp(42px,6vw,62px) !important;color:#141826 !important}
+    .market-landing .market-case-panel .case-price-big sup{color:var(--mk1) !important;font-size:.5em !important}
+    .market-landing .market-case-panel .case-price-label{font-size:13px !important;color:#5c6275 !important}
+    .market-landing .market-case-panel .case-note{font-size:14px !important;color:#3c4258 !important}
+    .market-landing .market-case-panel .case-big{color:var(--mk1) !important}
+    .market-landing .market-case-panel .case-list li{font-size:14.5px !important;color:#131a33 !important}
+    .case-kicker{font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mk1)}
+    .case-price-row{display:flex;align-items:center;gap:16px}
+    .case-price-big{font-size:clamp(40px,6vw,62px);font-weight:900;letter-spacing:-.04em;color:#141826;line-height:1;font-variant-numeric:tabular-nums}
+    .case-price-big sup{font-size:.5em;color:var(--mk1);font-weight:800}
+    .case-price-label{font-size:13px;font-weight:700;color:#5c6275;line-height:1.35}
+    .case-note{margin:0;font-size:14px;color:#3c4258;line-height:1.55}
+    .case-big{margin:0;font-size:clamp(32px,4.6vw,46px);font-weight:900;letter-spacing:-.02em;line-height:1.05;color:var(--mk1)}
+    .case-divider{height:1px;background:#e3e6f0;margin:4px 0}
+    .case-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+    .case-list li{padding-left:26px;position:relative;font-size:14.5px;color:#131a33;font-weight:600;line-height:1.4}
+    .case-list li:before{content:"✓";position:absolute;left:0;top:0;color:var(--mk1);font-weight:900}
+    .case-bilingual{background:linear-gradient(160deg,#fff 55%,#fdf3e3)}
+    .market-case-panel .btn{align-self:flex-start}
+
     /* 6) Proof-band floor: strong numbers always readable on their band. */
     .ad-proof-band-v2 strong{color:#fff}
     .ad-proof-band-v2 span{color:#c9d2ec}
@@ -390,10 +417,10 @@
             <span>New puppy</span><span>Leash pulling</span><span>Barking</span><span>Recall</span>
           </div>
           <ul class="ad-checks ad-checks-v2">
-            <li>Dogs of any age, size, breed, and temperament — from new puppies to newly adopted rescue dogs</li>
-            <li>Behavior help: aggressive and reactive dogs, separation anxiety, biting, barking, jumping, and leash pulling</li>
-            <li>Puppy help: potty training, crate training, and socialization</li>
-            <li>In-home and private dog training available — plus board and train programs</li>
+            <li>Published prices: training from $1,250, board &amp; train from $2,500</li>
+            <li>Obedience, puppy, and behavior help across San Diego County</li>
+            <li>Free evaluation — not a sales appointment</li>
+            <li>The 90-day guarantee, in writing</li>
           </ul>
           <div class="market-hero-actions">
             <a class="btn market-primary-cta" href="#consultation">Book My Consultation</a>
@@ -401,13 +428,13 @@
           </div>
         </div>
 
-        <figure class="market-hero-media market-trainer-media">
-          <img src="assets/facility-purpose-aerial-clean.png" alt="Nothing to hide — dog trainer for San Diego, CA" loading="lazy" decoding="async">
-          <figcaption>
-            <strong>Nothing to hide</strong>
-            <span>Real campus, real programs, published prices</span>
-          </figcaption>
-        </figure>
+        <div class="market-hero-media market-case-panel case-price">
+          <span class="case-kicker">Published pricing</span>
+          <div class="case-price-row"><span class="case-price-big"><sup>$</sup>1,250</span><span class="case-price-label">Professional training<br>starting at</span></div>
+          <div class="case-price-row"><span class="case-price-big"><sup>$</sup>2,500</span><span class="case-price-label">Board &amp; train<br>starting at</span></div>
+          <p class="case-note">No mystery quotes. No sales appointment. A free evaluation and a price you already know.</p>
+          <a class="btn market-primary-cta" href="#consultation">Book the Free Evaluation</a>
+        </div>
 
         <figure class="market-hero-media ad-hero-video-card">
           <div class="ad-video-frame">
@@ -578,11 +605,11 @@
     <section class="market-care-section section">
       <div class="container market-care-grid">
         <div>
-          <span class="eyebrow">You and your dog matter</span>
-          <h2>Clear training. Real support. A better life together.</h2>
+          <span class="eyebrow">Straight answers</span>
+          <h2>You shouldn&#39;t need three phone calls to learn a price.</h2>
         </div>
         <div class="market-care-copy">
-          <p>There is no one-size-fits-all dog. We begin by understanding your household, your goals, and the behavior you are living with every day in San Diego.</p>
+          <p>In San Diego, many training companies quote thousands — but only after a consultation. Our prices are published: professional training from $1,250, board &amp; train from $2,500. The evaluation is free, and it&#39;s an evaluation, not a pitch.</p>
           <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
         </div>
       </div>
@@ -592,12 +619,12 @@
       <div class="container">
         <div class="market-section-heading">
           <span class="eyebrow">Trusted by dog owners</span>
-          <h2>Training built for life beyond the lesson.</h2>
+          <h2>Transparent from the first click.</h2>
         </div>
         <div class="market-testimonial-grid">
-          <article><div class="market-proof-icon" aria-hidden="true">01</div><h3>Clear owner guidance</h3><p>Owners value trainers who explain the process, demonstrate the technique, and build confident leadership at home.</p></article>
-          <article><div class="market-proof-icon" aria-hidden="true">02</div><h3>A plan that fits real life</h3><p>The evaluation considers the dog, the household, current behavior, and the goals that matter most to the family.</p></article>
-          <article><div class="market-proof-icon" aria-hidden="true">03</div><h3>Results beyond the lesson</h3><p>Training focuses on dependable behavior at home, on walks, around distractions, and throughout everyday life.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">01</div><h3>Published pricing</h3><p>From $1,250 — on the page, before you ever talk to anyone.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">02</div><h3>A real evaluation</h3><p>We assess your dog and tell you what it takes. If it&#39;s not a fit, we say so.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">03</div><h3>Guaranteed in writing</h3><p>The 90-day Limited Training Guarantee comes standard with every program.</p></article>
         </div>
       </div>
     </section>

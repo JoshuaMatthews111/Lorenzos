@@ -21,11 +21,14 @@ const markets = [
     trainers: "Harley McGrew and Brady DeRemer",
     proof: "Local Northeast Ohio support backed by Lorenzo's office-routed training system.",
     nearby: ["Cleveland Heights", "Garfield Heights", "Akron", "Streetsboro", "Northeast Ohio"],
+    checks: ["Aggression and reactivity help from trainers certified at our national HQ", "Board & train from $2,500 — your dog lives and learns at the facility", "New puppy? Potty, crate, and socialization handled early", "Free evaluation backed by the 17,000 sq ft Cleveland campus"],
+    care: {"eyebrow": "The home team", "h2": "Trained where every Lorenzo's trainer is certified.", "p": "Cleveland isn't just a market to us — it's headquarters. Your evaluation is backed by the 17,000 sq ft campus where every trainer in the network earns certification, and board & train dogs live and learn on-site.", "t": "Why Northeast Ohio starts here."},
+    testis: [{"h": "Evaluated at the source", "p": "Free evaluations backed by the national headquarters — not a satellite office."}, {"h": "39 years of dogs like yours", "p": "Aggression, reactivity, puppies, rescues — since 1988, Northeast Ohio families have started here."}, {"h": "Board & train advantage", "p": "From $2,500, your dog trains daily with professionals and comes home with real skills — owner handoff lessons included."}],
     zipCodes: ["44118", "44241"]
   },
   {
     slug: "dog-training-columbus-oh",
-    photo: "assets/emilio-yoyo.jpg", photoName: "Aggression, handled", photoCaption: "This is the work we do every day — safely, professionally", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
+    photo: "assets/get-started-premium-hero.jpg", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     
     
@@ -42,6 +45,9 @@ const markets = [
     trainers: "Shannon Paskins",
     proof: "Central Ohio dog owners can request obedience and behavior modification help through Lorenzo's office.",
     nearby: ["Columbus", "Reynoldsburg", "Central Ohio", "Franklin County", "Licking County"],
+    checks: ["Dogs fighting in the same house — assessment, safety plan, reintroduction", "Jumping, barking, and door-crashing brought under control", "Potty training and puppy foundations", "Owner coaching so the peace holds after we leave"],
+    care: {"eyebrow": "Multi-dog households", "h2": "Two dogs. One house. It can work again.", "p": "When dogs in the same home start fighting, waiting makes it worse. Columbus families bring us exactly this — we assess both dogs, make the household safe immediately, and rebuild the relationship step by step.", "t": "How we handle dogs in conflict."},
+    testis: [{"h": "Assess first", "p": "A professional reads both dogs — triggers, resource guarding, body language — before anyone talks plans."}, {"h": "Make home safe now", "p": "You get an immediate management plan so nobody gets hurt while training happens."}, {"h": "Reintroduce for keeps", "p": "Structured reintroduction with owner coaching, so calm is the new normal after we leave."}],
     zipCodes: ["43068"]
   },
   {
@@ -63,6 +69,9 @@ const markets = [
     trainers: "Aryson Whorley, Christopher Almonte, and Chloe Chisolm",
     proof: "Georgia dog owners can start with one office-routed request and be matched to the right next step.",
     nearby: ["Atlanta", "Loganville", "Dallas", "North Georgia", "Metro Atlanta"],
+    checks: ["Service dog training with an honest suitability assessment first", "Task work, scent work, retrieval, and advanced control", "Aggression and behavior modification handled professionally", "Real-world obedience for everyday Atlanta life"],
+    care: {"eyebrow": "Specialty programs", "h2": "The training few in Atlanta offer.", "p": "Service dog and specialty training take more than obedience classes. We start with an honest suitability assessment — not every dog is a service-dog candidate, and you deserve the truth before you invest.", "t": "What specialty training really involves."},
+    testis: [{"h": "Suitability first", "p": "A free assessment tells you honestly whether your dog is a candidate — before you spend anything."}, {"h": "Realistic timelines", "p": "Task training is measured in months of structured work. We map it out clearly up front."}, {"h": "Beyond service dogs", "p": "Protection, scent, utility, and retrieval work for owners who want a dog with a job."}],
     zipCodes: ["30052", "30324", "30157"]
   },
   {
@@ -84,6 +93,9 @@ const markets = [
     trainers: "Genevieve Twilla, Karemela Sefferin, and Fred Harris",
     proof: "San Diego families can request obedience, behavior modification, service, and specialty training support.",
     nearby: ["San Diego", "North Park", "Chula Vista", "Mission Valley", "San Diego County"],
+    checks: ["Published prices: training from $1,250, board & train from $2,500", "Obedience, puppy, and behavior help across San Diego County", "Free evaluation — not a sales appointment", "The 90-day guarantee, in writing"],
+    care: {"eyebrow": "Straight answers", "h2": "You shouldn't need three phone calls to learn a price.", "p": "In San Diego, many training companies quote thousands — but only after a consultation. Our prices are published: professional training from $1,250, board & train from $2,500. The evaluation is free, and it's an evaluation, not a pitch.", "t": "Transparent from the first click."},
+    testis: [{"h": "Published pricing", "p": "From $1,250 — on the page, before you ever talk to anyone."}, {"h": "A real evaluation", "p": "We assess your dog and tell you what it takes. If it's not a fit, we say so."}, {"h": "Guaranteed in writing", "p": "The 90-day Limited Training Guarantee comes standard with every program."}],
     zipCodes: ["92105", "92106"]
   },
   {
@@ -106,11 +118,14 @@ const markets = [
     spanish: true,
     proof: "Texas dog owners can request a fast follow-up for obedience, behavior modification, and advanced training needs.",
     nearby: ["San Antonio", "Castroville", "Bear Creek", "Bexar County", "Medina County"],
+    checks: ["Aggression, obedience, and puppy training — in English or Spanish", "Military families: your training follows you nationwide", "Se habla español — envíe su solicitud en español", "In-home and private options across the San Antonio area"],
+    care: {"eyebrow": "Military & bilingual", "h2": "PCS orders don't restart your dog's training.", "p": "San Antonio is a military town — and Lorenzo's has certified trainers in cities nationwide. If you're stationed somewhere new tomorrow, your dog's program continues. And your whole request can happen in Spanish, from first form to final lesson.", "t": "Built for San Antonio families."},
+    testis: [{"h": "Training that transfers", "p": "A nationwide trainer network means a military move never means starting over."}, {"h": "En español, de verdad", "p": "Envíe el formulario en español — un entrenador que habla español le da seguimiento."}, {"h": "One team, both languages", "p": "Same programs, same prices, same guarantee — in English or Spanish."}],
     zipCodes: ["78245", "78009"]
   },
   {
     slug: "dog-training-chicago-il",
-    photo: "assets/ldtt-team-cover.jpg", photoName: "The team is ready now", photoCaption: "No waitlist — evaluations this week across Chicagoland", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
+    photo: "assets/emilio-yoyo.jpg", photoName: "Reactivity, handled safely", photoCaption: "Professional behavior work — this is the job", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
     arch: "metro", mk1: "#0B1B3F", mk2: "#D64545",
     
     
@@ -127,6 +142,9 @@ const markets = [
     trainers: "Jasmine Bland",
     proof: "A Chicago-market page lets the office route leads from stronger ad territory while preserving trainer attribution.",
     nearby: ["Chicago", "Northwest Indiana", "Gary", "South Suburbs", "Chicagoland"],
+    checks: ["Reactivity on busy streets — lunging, barking, pulling toward dogs", "Evaluations available this week across Chicagoland", "New puppy foundations before bad habits set", "In-home and private training options"],
+    care: {"eyebrow": "No waitlist", "h2": "Why wait months to fix this week's problem?", "p": "Around Chicagoland, good trainers often book out for weeks. We keep evaluation slots open — tell us what's happening today and start this week, not next season.", "t": "Built for city dogs."},
+    testis: [{"h": "Start this week", "p": "No waitlist. Your evaluation gets scheduled now, while the problem is fresh."}, {"h": "Reactivity is our daily work", "p": "Lunging and barking at dogs, bikes, and strangers — trainable, with a clear plan."}, {"h": "Real-life proofing", "p": "Training that holds on crowded sidewalks and busy streets, not just a quiet backyard."}],
     zipCodes: ["46409"]
   },
   {
@@ -148,6 +166,9 @@ const markets = [
     trainers: "Victoria Bayleigh Morris",
     proof: "Tallahassee is Victoria's active ad market for dog owners who need a clearer next step now.",
     nearby: ["Tallahassee", "Leon County", "North Florida", "Capital Region", "Thomasville Area"],
+    checks: ["Knows the commands but won't listen? That's our specialty", "Reactivity, sound sensitivity, and leash pulling", "Obedience that holds around real distractions", "Free evaluation with a local trainer"],
+    care: {"eyebrow": "Follow-through", "h2": "Commands aren't the problem. Follow-through is.", "p": "“He knows it — he just won't do it.” That's the most common thing Tallahassee owners tell us. Knowing a command and obeying it around distractions are two different skills, and the second one is what we train.", "t": "From knowing to doing."},
+    testis: [{"h": "Proof it everywhere", "p": "Sit means sit in the yard, at the park, and with squirrels around — not just in the kitchen."}, {"h": "Reactivity work", "p": "Barking, lunging, and sound sensitivity addressed with a structured plan."}, {"h": "Reliability by design", "p": "Clear rules, consistent practice, owner coaching — reliability isn't luck."}],
     zipCodes: ["32504"]
   },
   {
@@ -169,6 +190,9 @@ const markets = [
     trainers: "Tabatha Shelley",
     proof: "Emerald Coast families can request obedience, behavior modification, puppy training, and specialty support through Lorenzo's office.",
     nearby: ["Miramar Beach", "Destin", "Santa Rosa Beach", "30A", "Walton County"],
+    checks: ["Recall you can trust off the porch and on the sand", "Rental manners: no barking complaints, no chewed furniture", "Holiday board & train from $2,500 — slots fill 6–8 weeks ahead", "Puppy and obedience foundations year-round"],
+    care: {"eyebrow": "Vacation-ready", "h2": "The beach is better with a dog who listens.", "p": "Emerald Coast life is patios, rentals, and open sand. We train the skills that make it easy — rock-solid recall, calm greetings, and manners your rental host will thank you for.", "t": "Trained for coast life."},
+    testis: [{"h": "Beach recall", "p": "Coming when called even with birds, waves, and other dogs in play."}, {"h": "Rental-proof manners", "p": "Quiet, calm, and welcome back next season."}, {"h": "Holiday board & train", "p": "Drop off before the holidays, come home to a transformed dog. Book 6–8 weeks ahead."}],
     zipCodes: ["32405"]
   },
   {
@@ -182,7 +206,7 @@ const markets = [
     tint2: "21,37,105",
     hook: "Farm & property dogs: recall that holds on open acreage, and manners around horses and livestock.",
     title: "Lexington Dog Training",
-    h1: "Farm Dogs, Rock-Solid Recall & Manners Around Horses — Lexington Dog Training.",
+    h1: "Recall That Fails in the Field? Chasing Horses? Lexington Farm & Property Dog Training.",
     market: "Lexington / Harrodsburg, KY",
     city: "Lexington",
     state: "KY",
@@ -190,6 +214,9 @@ const markets = [
     trainers: "Bailey Brown",
     proof: "Kentucky dog owners can start with a simple request and let Lorenzo's office guide the follow-up.",
     nearby: ["Lexington", "Harrodsburg", "Mercer County", "Central Kentucky", "Bluegrass Region"],
+    checks: ["Recall that holds across open acreage", "Calm, safe manners around horses and livestock", "Property boundaries without a fence line", "Puppy and obedience foundations for farm life"],
+    care: {"eyebrow": "Farm & property dogs", "h2": "Town manners. Field reliability.", "p": "A farm dog needs more than sit and stay — recall across acreage, indifference to horses and livestock, and boundaries without fences. Bailey grew up with horses; this is training built around how Central Kentucky actually lives.", "t": "What farm-dog training covers."},
+    testis: [{"h": "Distance recall", "p": "Reliable return from real distances, past real distractions."}, {"h": "Livestock neutrality", "p": "No chasing, no herding the horses, no drama at the barn."}, {"h": "Working boundaries", "p": "Your property line, respected — even when a rabbit crosses it."}],
     zipCodes: ["40330"]
   },
   {
@@ -203,7 +230,7 @@ const markets = [
     tint2: "200,16,46",
     hook: "Apartment-friendly puppy training — built for small spaces, shared walls, and busy schedules.",
     title: "Ann Arbor Dog Training",
-    h1: "Puppy Training for Apartment Life in Ann Arbor — Potty, Crate & Leash Skills.",
+    h1: "Puppy Peeing on the Floor? Barking Through the Walls? Ann Arbor Apartment Puppy Training.",
     market: "Ann Arbor, MI",
     city: "Ann Arbor",
     state: "MI",
@@ -211,6 +238,9 @@ const markets = [
     trainers: "Dylan Atkinson",
     proof: "Michigan dog owners can request obedience, behavior modification, and real-world training help through Lorenzo's office-routed system.",
     nearby: ["Ann Arbor", "Ypsilanti", "Washtenaw County", "Southeast Michigan", "Canton"],
+    checks: ["Accidents on the floor? Potty training on a schedule that works", "Barking through thin walls handled early", "Crate training without the crying", "Leash skills for busy sidewalks"],
+    care: {"eyebrow": "Small spaces, big results", "h2": "Apartment life with a puppy can be calm.", "p": "Shared walls, no yard, a busy schedule — apartment puppy raising is its own skill. We build the routines that matter: potty on schedule, crate peace, quiet greetings, and leash skills for sidewalk life.", "t": "The first months, done right."},
+    testis: [{"h": "Potty, solved", "p": "A schedule-based system that works without a backyard."}, {"h": "Neighbor-proof", "p": "Demand barking and door alarms quieted before they become habit."}, {"h": "Sidewalk skills", "p": "Loose-leash walking and calm greetings for a city full of people and dogs."}],
     zipCodes: ["48103", "48104", "48105", "48108", "48109"]
   }
 ];
@@ -281,6 +311,36 @@ const conversionAndAttributionScript = () => `<script>
       });
     })();
   </script>`;
+
+const casePanels = {
+  "dog-training-san-diego-ca": `<div class="market-hero-media market-case-panel case-price">
+          <span class="case-kicker">Published pricing</span>
+          <div class="case-price-row"><span class="case-price-big"><sup>$</sup>1,250</span><span class="case-price-label">Professional training<br>starting at</span></div>
+          <div class="case-price-row"><span class="case-price-big"><sup>$</sup>2,500</span><span class="case-price-label">Board &amp; train<br>starting at</span></div>
+          <p class="case-note">No mystery quotes. No sales appointment. A free evaluation and a price you already know.</p>
+          <a class="btn market-primary-cta" href="#consultation">Book the Free Evaluation</a>
+        </div>`,
+  "dog-training-san-antonio-tx": `<div class="market-hero-media market-case-panel case-bilingual">
+          <span class="case-kicker">Se habla español</span>
+          <p class="case-big" lang="es">Hablamos español.</p>
+          <p class="case-note" lang="es">Envíe su solicitud en español — un entrenador que habla español le da seguimiento.</p>
+          <p class="case-note">Same programs, same prices, same guarantee — in English or Spanish.</p>
+          <div class="case-divider" aria-hidden="true"></div>
+          <span class="case-kicker">Military families</span>
+          <p class="case-note"><b>PCS orders?</b> Lorenzo&rsquo;s has certified trainers in cities nationwide — your dog&rsquo;s training follows you.</p>
+        </div>`,
+  "dog-training-ann-arbor-mi": `<div class="market-hero-media market-case-panel case-puppy">
+          <span class="case-kicker">The apartment puppy plan</span>
+          <ul class="case-list">
+            <li>Potty on a schedule — no yard needed</li>
+            <li>Crate calm, without the crying</li>
+            <li>Quiet through shared walls</li>
+            <li>Loose leash on busy sidewalks</li>
+          </ul>
+          <p class="case-note">Built for small spaces and real schedules.</p>
+          <a class="btn market-primary-cta" href="#consultation">Start With a Free Evaluation</a>
+        </div>`
+};
 
 const page = market => {
   const metaDescription = `Request ${market.market} dog training from Lorenzo's Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with office-routed follow-up.`;
@@ -639,6 +699,33 @@ const page = market => {
     .arch-hq .ad-hero-video-card{grid-column:1;max-width:560px}
     .arch-hq .market-trainer-media img{object-position:center 70%}
 
+    /* ═══ case panels — designed media for pages where a photo would mislead ═══ */
+    .market-case-panel{min-height:0;border:0;border-radius:16px;background:#fff;
+      box-shadow:0 20px 50px rgba(10,16,40,.28);padding:26px;display:flex;flex-direction:column;gap:12px;align-self:start}
+    /* floor: styles.css styles spans/text inside hero-media figures pale+small — the panel must win */
+    .market-landing .market-case-panel span,.market-landing .market-case-panel p,
+    .market-landing .market-case-panel li,.market-landing .market-case-panel b{color:#131a33}
+    .market-landing .market-case-panel .case-kicker{font-size:12px !important;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mk1) !important}
+    .market-landing .market-case-panel .case-price-big{font-size:clamp(42px,6vw,62px) !important;color:#141826 !important}
+    .market-landing .market-case-panel .case-price-big sup{color:var(--mk1) !important;font-size:.5em !important}
+    .market-landing .market-case-panel .case-price-label{font-size:13px !important;color:#5c6275 !important}
+    .market-landing .market-case-panel .case-note{font-size:14px !important;color:#3c4258 !important}
+    .market-landing .market-case-panel .case-big{color:var(--mk1) !important}
+    .market-landing .market-case-panel .case-list li{font-size:14.5px !important;color:#131a33 !important}
+    .case-kicker{font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mk1)}
+    .case-price-row{display:flex;align-items:center;gap:16px}
+    .case-price-big{font-size:clamp(40px,6vw,62px);font-weight:900;letter-spacing:-.04em;color:#141826;line-height:1;font-variant-numeric:tabular-nums}
+    .case-price-big sup{font-size:.5em;color:var(--mk1);font-weight:800}
+    .case-price-label{font-size:13px;font-weight:700;color:#5c6275;line-height:1.35}
+    .case-note{margin:0;font-size:14px;color:#3c4258;line-height:1.55}
+    .case-big{margin:0;font-size:clamp(32px,4.6vw,46px);font-weight:900;letter-spacing:-.02em;line-height:1.05;color:var(--mk1)}
+    .case-divider{height:1px;background:#e3e6f0;margin:4px 0}
+    .case-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+    .case-list li{padding-left:26px;position:relative;font-size:14.5px;color:#131a33;font-weight:600;line-height:1.4}
+    .case-list li:before{content:"✓";position:absolute;left:0;top:0;color:var(--mk1);font-weight:900}
+    .case-bilingual{background:linear-gradient(160deg,#fff 55%,#fdf3e3)}
+    .market-case-panel .btn{align-self:flex-start}
+
     /* 6) Proof-band floor: strong numbers always readable on their band. */
     .ad-proof-band-v2 strong{color:#fff}
     .ad-proof-band-v2 span{color:#c9d2ec}
@@ -680,10 +767,7 @@ const page = market => {
             ${market.issues.split("|").map(i => `<span>${escapeHtml(i)}</span>`).join("")}
           </div>
           <ul class="ad-checks ad-checks-v2">
-            <li>Dogs of any age, size, breed, and temperament — from new puppies to newly adopted rescue dogs</li>
-            <li>Behavior help: aggressive and reactive dogs, separation anxiety, biting, barking, jumping, and leash pulling</li>
-            <li>Puppy help: potty training, crate training, and socialization</li>
-            <li>In-home and private dog training available — plus board and train programs</li>
+            ${market.checks.map(c => `<li>${escapeHtml(c)}</li>`).join("\n            ")}
           </ul>
           <div class="market-hero-actions">
             <a class="btn market-primary-cta" href="#consultation">Book My Consultation</a>
@@ -691,13 +775,13 @@ const page = market => {
           </div>
         </div>
 
-        <figure class="market-hero-media market-trainer-media">
-          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — dog trainer for ${escapeHtml(market.market)}" loading="lazy" decoding="async">
+        ${casePanels[market.slug] || `<figure class="market-hero-media market-trainer-media">
+          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — ${escapeHtml(market.market)}" loading="lazy" decoding="async">
           <figcaption>
             <strong>${escapeHtml(market.photoName)}</strong>
             <span>${escapeHtml(market.photoCaption)}</span>
           </figcaption>
-        </figure>
+        </figure>`}
 
         <figure class="market-hero-media ad-hero-video-card">
           <div class="ad-video-frame">
@@ -877,11 +961,11 @@ const page = market => {
     <section class="market-care-section section">
       <div class="container market-care-grid">
         <div>
-          <span class="eyebrow">You and your dog matter</span>
-          <h2>Clear training. Real support. A better life together.</h2>
+          <span class="eyebrow">${escapeHtml(market.care.eyebrow)}</span>
+          <h2>${escapeHtml(market.care.h2)}</h2>
         </div>
         <div class="market-care-copy">
-          <p>There is no one-size-fits-all dog. We begin by understanding your household, your goals, and the behavior you are living with every day in ${escapeHtml(market.city)}.</p>
+          <p>${escapeHtml(market.care.p)}</p>
           <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
         </div>
       </div>
@@ -891,12 +975,10 @@ const page = market => {
       <div class="container">
         <div class="market-section-heading">
           <span class="eyebrow">Trusted by dog owners</span>
-          <h2>Training built for life beyond the lesson.</h2>
+          <h2>${escapeHtml(market.care.t)}</h2>
         </div>
         <div class="market-testimonial-grid">
-          <article><div class="market-proof-icon" aria-hidden="true">01</div><h3>Clear owner guidance</h3><p>Owners value trainers who explain the process, demonstrate the technique, and build confident leadership at home.</p></article>
-          <article><div class="market-proof-icon" aria-hidden="true">02</div><h3>A plan that fits real life</h3><p>The evaluation considers the dog, the household, current behavior, and the goals that matter most to the family.</p></article>
-          <article><div class="market-proof-icon" aria-hidden="true">03</div><h3>Results beyond the lesson</h3><p>Training focuses on dependable behavior at home, on walks, around distractions, and throughout everyday life.</p></article>
+          ${market.testis.map((t, i) => `<article><div class="market-proof-icon" aria-hidden="true">0${i + 1}</div><h3>${escapeHtml(t.h)}</h3><p>${escapeHtml(t.p)}</p></article>`).join("\n          ")}
         </div>
       </div>
     </section>

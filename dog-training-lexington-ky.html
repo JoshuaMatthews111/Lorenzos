@@ -347,13 +347,40 @@
     .arch-hq .ad-hero-video-card{grid-column:1;max-width:560px}
     .arch-hq .market-trainer-media img{object-position:center 70%}
 
+    /* ═══ case panels — designed media for pages where a photo would mislead ═══ */
+    .market-case-panel{min-height:0;border:0;border-radius:16px;background:#fff;
+      box-shadow:0 20px 50px rgba(10,16,40,.28);padding:26px;display:flex;flex-direction:column;gap:12px;align-self:start}
+    /* floor: styles.css styles spans/text inside hero-media figures pale+small — the panel must win */
+    .market-landing .market-case-panel span,.market-landing .market-case-panel p,
+    .market-landing .market-case-panel li,.market-landing .market-case-panel b{color:#131a33}
+    .market-landing .market-case-panel .case-kicker{font-size:12px !important;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mk1) !important}
+    .market-landing .market-case-panel .case-price-big{font-size:clamp(42px,6vw,62px) !important;color:#141826 !important}
+    .market-landing .market-case-panel .case-price-big sup{color:var(--mk1) !important;font-size:.5em !important}
+    .market-landing .market-case-panel .case-price-label{font-size:13px !important;color:#5c6275 !important}
+    .market-landing .market-case-panel .case-note{font-size:14px !important;color:#3c4258 !important}
+    .market-landing .market-case-panel .case-big{color:var(--mk1) !important}
+    .market-landing .market-case-panel .case-list li{font-size:14.5px !important;color:#131a33 !important}
+    .case-kicker{font-size:12px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--mk1)}
+    .case-price-row{display:flex;align-items:center;gap:16px}
+    .case-price-big{font-size:clamp(40px,6vw,62px);font-weight:900;letter-spacing:-.04em;color:#141826;line-height:1;font-variant-numeric:tabular-nums}
+    .case-price-big sup{font-size:.5em;color:var(--mk1);font-weight:800}
+    .case-price-label{font-size:13px;font-weight:700;color:#5c6275;line-height:1.35}
+    .case-note{margin:0;font-size:14px;color:#3c4258;line-height:1.55}
+    .case-big{margin:0;font-size:clamp(32px,4.6vw,46px);font-weight:900;letter-spacing:-.02em;line-height:1.05;color:var(--mk1)}
+    .case-divider{height:1px;background:#e3e6f0;margin:4px 0}
+    .case-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+    .case-list li{padding-left:26px;position:relative;font-size:14.5px;color:#131a33;font-weight:600;line-height:1.4}
+    .case-list li:before{content:"✓";position:absolute;left:0;top:0;color:var(--mk1);font-weight:900}
+    .case-bilingual{background:linear-gradient(160deg,#fff 55%,#fdf3e3)}
+    .market-case-panel .btn{align-self:flex-start}
+
     /* 6) Proof-band floor: strong numbers always readable on their band. */
     .ad-proof-band-v2 strong{color:#fff}
     .ad-proof-band-v2 span{color:#c9d2ec}
     .arch-coast .ad-proof-grid-v2 span,.arch-resort .ad-proof-grid-v2 span{color:#e6f3f8}
   </style>
 </head>
-<body id="top" class="market-landing ad-landing ad-landing-v2 arch-heritage" style="--mk1:#234D32;--mk2:#B08A57" data-self-designed="1" data-market="Lexington / Harrodsburg, KY" data-hero-title="Farm Dogs, Rock-Solid Recall &amp; Manners Around Horses — Lexington Dog Training." data-issues="Farm recall|Livestock manners|Leash pulling|Puppy">
+<body id="top" class="market-landing ad-landing ad-landing-v2 arch-heritage" style="--mk1:#234D32;--mk2:#B08A57" data-self-designed="1" data-market="Lexington / Harrodsburg, KY" data-hero-title="Recall That Fails in the Field? Chasing Horses? Lexington Farm &amp; Property Dog Training." data-issues="Farm recall|Livestock manners|Leash pulling|Puppy">
   <header class="ad-header ad-header-v2 market-header">
     <div class="container ad-nav ad-nav-v2">
       <a class="ad-brand-v2" href="#top" aria-label="Back to top">
@@ -377,7 +404,7 @@
           <span class="ad-rating-row"><span>★★★★★</span>
             <strong>600+ Google reviews · Lexington / Harrodsburg, KY request</strong>
           </span>
-          <h1>Farm Dogs, Rock-Solid Recall &amp; Manners Around Horses — Lexington Dog Training.</h1>
+          <h1>Recall That Fails in the Field? Chasing Horses? Lexington Farm &amp; Property Dog Training.</h1>
           <p class="ad-lead market-hook"><strong>Farm &amp; property dogs: recall that holds on open acreage, and manners around horses and livestock.</strong></p>
           <p class="ad-lead">Tell us what's going on with your dog. A certified Lexington dog trainer calls you back — usually the same day — and the evaluation is free.</p>
           
@@ -390,10 +417,10 @@
             <span>Farm recall</span><span>Livestock manners</span><span>Leash pulling</span><span>Puppy</span>
           </div>
           <ul class="ad-checks ad-checks-v2">
-            <li>Dogs of any age, size, breed, and temperament — from new puppies to newly adopted rescue dogs</li>
-            <li>Behavior help: aggressive and reactive dogs, separation anxiety, biting, barking, jumping, and leash pulling</li>
-            <li>Puppy help: potty training, crate training, and socialization</li>
-            <li>In-home and private dog training available — plus board and train programs</li>
+            <li>Recall that holds across open acreage</li>
+            <li>Calm, safe manners around horses and livestock</li>
+            <li>Property boundaries without a fence line</li>
+            <li>Puppy and obedience foundations for farm life</li>
           </ul>
           <div class="market-hero-actions">
             <a class="btn market-primary-cta" href="#consultation">Book My Consultation</a>
@@ -402,7 +429,7 @@
         </div>
 
         <figure class="market-hero-media market-trainer-media">
-          <img src="assets/facility-grounds-wide.jpg" alt="Room to run — dog trainer for Lexington / Harrodsburg, KY" loading="lazy" decoding="async">
+          <img src="assets/facility-grounds-wide.jpg" alt="Room to run — Lexington / Harrodsburg, KY" loading="lazy" decoding="async">
           <figcaption>
             <strong>Room to run</strong>
             <span>Recall that holds on open acreage</span>
@@ -564,11 +591,11 @@
     <section class="market-care-section section">
       <div class="container market-care-grid">
         <div>
-          <span class="eyebrow">You and your dog matter</span>
-          <h2>Clear training. Real support. A better life together.</h2>
+          <span class="eyebrow">Farm &amp; property dogs</span>
+          <h2>Town manners. Field reliability.</h2>
         </div>
         <div class="market-care-copy">
-          <p>There is no one-size-fits-all dog. We begin by understanding your household, your goals, and the behavior you are living with every day in Lexington.</p>
+          <p>A farm dog needs more than sit and stay — recall across acreage, indifference to horses and livestock, and boundaries without fences. Bailey grew up with horses; this is training built around how Central Kentucky actually lives.</p>
           <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
         </div>
       </div>
@@ -578,12 +605,12 @@
       <div class="container">
         <div class="market-section-heading">
           <span class="eyebrow">Trusted by dog owners</span>
-          <h2>Training built for life beyond the lesson.</h2>
+          <h2>What farm-dog training covers.</h2>
         </div>
         <div class="market-testimonial-grid">
-          <article><div class="market-proof-icon" aria-hidden="true">01</div><h3>Clear owner guidance</h3><p>Owners value trainers who explain the process, demonstrate the technique, and build confident leadership at home.</p></article>
-          <article><div class="market-proof-icon" aria-hidden="true">02</div><h3>A plan that fits real life</h3><p>The evaluation considers the dog, the household, current behavior, and the goals that matter most to the family.</p></article>
-          <article><div class="market-proof-icon" aria-hidden="true">03</div><h3>Results beyond the lesson</h3><p>Training focuses on dependable behavior at home, on walks, around distractions, and throughout everyday life.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">01</div><h3>Distance recall</h3><p>Reliable return from real distances, past real distractions.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">02</div><h3>Livestock neutrality</h3><p>No chasing, no herding the horses, no drama at the barn.</p></article>
+          <article><div class="market-proof-icon" aria-hidden="true">03</div><h3>Working boundaries</h3><p>Your property line, respected — even when a rabbit crosses it.</p></article>
         </div>
       </div>
     </section>
