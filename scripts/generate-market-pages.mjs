@@ -67,7 +67,7 @@ const markets = [
   },
   {
     slug: "dog-training-san-diego-ca",
-    photo: "assets/facility-campus-aerial.jpg", photoName: "Nothing to hide", photoCaption: "Real campus, real programs, published prices", word: "HONEST", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|90-day guarantee", priceMode: "forward",
+    photo: "assets/facility-purpose-aerial-clean.png", photoName: "Nothing to hide", photoCaption: "Real campus, real programs, published prices", word: "HONEST", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|90-day guarantee", priceMode: "forward",
     arch: "coast", mk1: "#0E5E8A", mk2: "#EAF4F9",
     
     
@@ -461,6 +461,7 @@ const page = market => {
     .gpanel h2{margin:0 0 12px;color:#fff;font-size:clamp(24px,3.2vw,34px);font-weight:900;letter-spacing:-.02em;line-height:1.12;text-wrap:balance}
     .gpanel p{margin:0;color:#d9def0;font-size:15.5px;line-height:1.62;max-width:60ch}
     .gpanel p b{color:#fff}
+    .g-commit{margin-top:12px !important;font-style:italic;color:#c3cae6 !important;font-size:14px !important}
     .g-price-line{margin-top:14px !important;font-size:13.5px !important;color:#aab3d6 !important;
       border-top:1px solid rgba(255,255,255,.18);padding-top:14px}
     .gcta{flex:none;align-self:center;background:#fff;color:#141826;text-decoration:none;font-weight:800;
@@ -774,9 +775,10 @@ const page = market => {
         <div class="gpanel">
           <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
           <div class="gcopy">
-            <span class="g-eyebrow">The LDTT Training Guarantee</span>
-            <h2>If it isn&rsquo;t working, we come back &mdash; free.</h2>
-            <p>Every program is covered for 90 days after training completes. Do your part, and if your dog isn&rsquo;t showing the trained behaviors, corrective training costs you nothing.</p>
+            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
+            <h2>We stand behind our training.</h2>
+            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
+            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
           </div>
           <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
         </div>
@@ -787,9 +789,10 @@ const page = market => {
         <div class="gpanel gpanel-lead">
           <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
           <div class="gcopy">
-            <span class="g-eyebrow">The LDTT Training Guarantee</span>
-            <h2>We put it in writing. Most trainers won&rsquo;t.</h2>
-            <p>If your dog isn&rsquo;t demonstrating the trained behaviors within 90 days of completing training &mdash; and you&rsquo;ve done your part &mdash; corrective training costs you <b>nothing</b>. Your investment is protected for the next ten years of life with your dog.</p>
+            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
+            <h2>We stand behind our training &mdash; in writing.</h2>
+            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
+            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
             <p class="g-price-line">Programs begin at $1,250 &middot; training with boarding from $2,500 &middot; exact quote at your <b>free evaluation</b></p>
           </div>
           <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
