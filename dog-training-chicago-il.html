@@ -53,7 +53,7 @@
     .arch-hq .market-hero-bg{opacity:.14}
     .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
     .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
-    .arch-hq .market-trainer-media{min-height:0;height:300px;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
+    .arch-hq .market-trainer-media{min-height:0;height:clamp(240px,30vw,400px);overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
     .arch-hq .ad-checks-v2 li{color:#dfe4f5}
 
     /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
@@ -403,10 +403,10 @@
     .arch-hq .market-trainer-media img{aspect-ratio:auto;height:100%;object-position:center 65%}
     .market-landing .market-care-photo img{aspect-ratio:16/10;height:auto}
 
-    /* 6) Proof-band floor: strong numbers always readable on their band. */
-    .ad-proof-band-v2 strong{color:#fff}
-    .ad-proof-band-v2 span{color:#c9d2ec}
-    .arch-coast .ad-proof-grid-v2 span,.arch-resort .ad-proof-grid-v2 span{color:#e6f3f8}
+    /* 6) Proof-band floor: numbers and labels always readable on their band. */
+    .ad-proof-band-v2 strong,.ad-proof-grid-v2 strong{color:#fff !important}
+    .ad-proof-band-v2 span,.ad-proof-grid-v2 span{color:#c9d2ec !important}
+    .arch-coast .ad-proof-grid-v2 span,.arch-resort .ad-proof-grid-v2 span{color:#e6f3f8 !important}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2 arch-metro" style="--mk1:#0B1B3F;--mk2:#D64545" data-self-designed="1" data-market="Chicago, IL" data-hero-title="Reactive Dog? New Puppy? Chicago Dog Training With No Waitlist." data-issues="Reactivity|Leash pulling|New puppy|Barking">
@@ -430,9 +430,10 @@
       <div class="container market-hero-grid">
         <div class="market-copy">
           <span class="market-word" aria-hidden="true">THIS WEEK</span>
-          <span class="ad-rating-row"><span>★★★★★</span>
-            <strong>600+ Google reviews · Chicago, IL request</strong>
-          </span>
+          <a class="ad-rating-row" href="https://www.google.com/search?q=Lorenzo%27s+Dog+Training+Team+reviews" target="_blank" rel="noopener" aria-label="Read Lorenzo's Dog Training Team Google reviews">
+            <span>★★★★★</span>
+            <strong>600+ Google reviews · Chicago, IL</strong>
+          </a>
           <h1>Reactive Dog? New Puppy? Chicago Dog Training With No Waitlist.</h1>
           <p class="ad-lead market-hook"><strong>No waitlist. Evaluations available this week across Chicagoland.</strong></p>
           <p class="ad-lead">Tell us what's going on with your dog. A certified Chicago dog trainer calls you back — usually the same day — and the evaluation is free.</p>

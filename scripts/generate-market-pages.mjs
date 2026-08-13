@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const markets = [
   {
     slug: "dog-training-cleveland-oh",
-    photoPos: "center 65%",
+    photoPos: "center 58%",
     photo2: "assets/facility-grounds-wide.jpg", photo2Alt: "Open training grounds at the Cleveland headquarters campus",
     photo: "assets/facility-exterior-main.jpg", photoName: "The 17,000 sq ft headquarters", photoCaption: "Where every Lorenzo's trainer is certified", word: "THE HQ", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
     arch: "hq", mk1: "#152569", mk2: "#C8102E",
@@ -564,7 +564,7 @@ const page = market => {
     .arch-hq .market-hero-bg{opacity:.14}
     .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
     .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
-    .arch-hq .market-trainer-media{min-height:0;height:300px;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
+    .arch-hq .market-trainer-media{min-height:0;height:clamp(240px,30vw,400px);overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
     .arch-hq .ad-checks-v2 li{color:#dfe4f5}
 
     /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
@@ -914,10 +914,10 @@ const page = market => {
     .arch-hq .market-trainer-media img{aspect-ratio:auto;height:100%;object-position:center 65%}
     .market-landing .market-care-photo img{aspect-ratio:16/10;height:auto}
 
-    /* 6) Proof-band floor: strong numbers always readable on their band. */
-    .ad-proof-band-v2 strong{color:#fff}
-    .ad-proof-band-v2 span{color:#c9d2ec}
-    .arch-coast .ad-proof-grid-v2 span,.arch-resort .ad-proof-grid-v2 span{color:#e6f3f8}
+    /* 6) Proof-band floor: numbers and labels always readable on their band. */
+    .ad-proof-band-v2 strong,.ad-proof-grid-v2 strong{color:#fff !important}
+    .ad-proof-band-v2 span,.ad-proof-grid-v2 span{color:#c9d2ec !important}
+    .arch-coast .ad-proof-grid-v2 span,.arch-resort .ad-proof-grid-v2 span{color:#e6f3f8 !important}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2 arch-${market.arch}" style="--mk1:${market.mk1};--mk2:${market.mk2}" data-self-designed="1" data-market="${escapeHtml(market.market)}" data-hero-title="${escapeHtml(market.h1)}" data-issues="${escapeHtml(market.issues)}">
@@ -941,9 +941,10 @@ const page = market => {
       <div class="container market-hero-grid">
         <div class="market-copy">
           <span class="market-word" aria-hidden="true">${escapeHtml(market.word)}</span>
-          <span class="ad-rating-row"><span>★★★★★</span>
-            <strong>600+ Google reviews · ${escapeHtml(market.market)} request</strong>
-          </span>
+          <a class="ad-rating-row" href="https://www.google.com/search?q=Lorenzo%27s+Dog+Training+Team+reviews" target="_blank" rel="noopener" aria-label="Read Lorenzo's Dog Training Team Google reviews">
+            <span>★★★★★</span>
+            <strong>600+ Google reviews · ${escapeHtml(market.market)}</strong>
+          </a>
           <h1>${escapeHtml(market.h1)}</h1>
           <p class="ad-lead market-hook"><strong>${escapeHtml(market.hook)}</strong></p>
           <p class="ad-lead">Tell us what's going on with your dog. A certified ${escapeHtml(market.city)} dog trainer calls you back — usually the same day — and the evaluation is free.</p>
