@@ -323,12 +323,12 @@ const conversionAndAttributionScript = () => `<script>
 
 const FLOWS = {
   "dog-training-san-diego-ca": ["pricing", "proof", "path", "care", "testi", "guide", "cta"],
-  "dog-training-columbus-oh": ["care", "proof", "path", "pricing", "testi", "guide", "cta"],
+  "dog-training-columbus-oh": ["care", "pricing", "proof", "path", "testi", "guide", "cta"],
   "dog-training-chicago-il": ["care", "path", "proof", "pricing", "testi", "cta"],
-  "dog-training-tallahassee-fl": ["care", "proof", "path", "pricing", "testi", "guide", "cta"],
+  "dog-training-tallahassee-fl": ["care", "pricing", "proof", "path", "testi", "guide", "cta"],
   "dog-training-atlanta-ga": ["path", "care", "proof", "pricing", "testi", "guide", "cta"],
   "dog-training-miramar-beach-fl": ["care", "path", "pricing", "proof", "testi", "guide", "cta"],
-  "dog-training-ann-arbor-mi": ["care", "path", "proof", "pricing", "testi", "cta"],
+  "dog-training-ann-arbor-mi": ["care", "pricing", "path", "proof", "testi", "cta"],
   default: ["proof", "path", "pricing", "care", "testi", "guide", "cta"]
 };
 
@@ -917,6 +917,10 @@ const page = market => {
     .arch-hq .market-trainer-media img{aspect-ratio:auto;height:100%;object-position:center 65%}
     .market-landing .market-care-photo img{aspect-ratio:16/10;height:auto}
 
+    /* price pill — the price is part of the offer on forward markets */
+    .market-landing .ad-benefit-row .price-pill{background:#C8102E !important;color:#fff !important;
+      border:none !important;font-weight:800;letter-spacing:.02em}
+
     /* 6) Proof-band floor: numbers and labels always readable on their band. */
     .ad-proof-band-v2 strong,.ad-proof-grid-v2 strong{color:#fff !important}
     .ad-proof-band-v2 span,.ad-proof-grid-v2 span{color:#c9d2ec !important}
@@ -953,6 +957,7 @@ const page = market => {
           <p class="ad-lead">Tell us what's going on with your dog. A certified ${escapeHtml(market.city)} dog trainer calls you back — usually the same day — and the evaluation is free.</p>
           ${market.spanish ? `<p class="ad-lead market-spanish" lang="es"><strong>Hablamos español.</strong> Entrenamiento profesional de perros en ${escapeHtml(market.city)} — puede enviar su solicitud en español y un entrenador que habla español le llamará.</p>` : ""}
           <div class="ad-benefit-row">
+            ${market.priceMode === "forward" ? `<span class="price-pill">Training from $1,250</span>` : ""}
             ${market.benefits.split("|").map(b => `<span>${escapeHtml(b)}</span>`).join("\n            ")}
           </div>
           <div class="ad-issue-strip" aria-label="Common dog training problems">
