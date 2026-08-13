@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 const markets = [
   {
     slug: "dog-training-cleveland-oh",
+    photo2: "assets/facility-grounds-wide.jpg", photo2Alt: "Open training grounds at the Cleveland headquarters campus",
     photo: "assets/facility-exterior-main.jpg", photoName: "The 17,000 sq ft headquarters", photoCaption: "Where every Lorenzo's trainer is certified", word: "THE HQ", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
     arch: "hq", mk1: "#152569", mk2: "#C8102E",
     
@@ -21,13 +22,14 @@ const markets = [
     trainers: "Harley McGrew and Brady DeRemer",
     proof: "Local Northeast Ohio support backed by Lorenzo's office-routed training system.",
     nearby: ["Cleveland Heights", "Garfield Heights", "Akron", "Streetsboro", "Northeast Ohio"],
-    checks: ["Aggression and reactivity help from trainers certified at our national HQ", "Board & train from $2,500 — your dog lives and learns at the facility", "New puppy? Potty, crate, and socialization handled early", "Free evaluation backed by the 17,000 sq ft Cleveland campus"],
+    checks: ["Aggression and reactivity help from trainers certified at our national HQ", "Board & train at headquarters — your dog lives and learns on campus", "New puppy? Potty, crate, and socialization handled early", "Free evaluation backed by the 17,000 sq ft Cleveland campus"],
     care: {"eyebrow": "The home team", "h2": "Trained where every Lorenzo's trainer is certified.", "p": "Cleveland isn't just a market to us — it's headquarters. Your evaluation is backed by the 17,000 sq ft campus where every trainer in the network earns certification, and board & train dogs live and learn on-site.", "t": "Why Northeast Ohio starts here."},
-    testis: [{"h": "Evaluated at the source", "p": "Free evaluations backed by the national headquarters — not a satellite office."}, {"h": "39 years of dogs like yours", "p": "Aggression, reactivity, puppies, rescues — since 1988, Northeast Ohio families have started here."}, {"h": "Board & train advantage", "p": "From $2,500, your dog trains daily with professionals and comes home with real skills — owner handoff lessons included."}],
+    testis: [{"h": "Evaluated at the source", "p": "Free evaluations backed by the national headquarters — not a satellite office."}, {"h": "39 years of dogs like yours", "p": "Aggression, reactivity, puppies, rescues — since 1988, Northeast Ohio families have started here."}, {"h": "Board & train advantage", "p": "Your dog trains daily with professionals and comes home with real skills — owner handoff lessons included."}],
     zipCodes: ["44118", "44241"]
   },
   {
     slug: "dog-training-columbus-oh",
+    photo2: "assets/emilio-yoyo.jpg", photo2Alt: "A professional safely handling a reactive dog during behavior work",
     photo: "assets/get-started-premium-hero.jpg", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     
@@ -52,6 +54,7 @@ const markets = [
   },
   {
     slug: "dog-training-atlanta-ga",
+    photo2: "assets/matthew-behavior-dog.jpg", photo2Alt: "A behavior-case dog working calmly with a professional",
     photo: "assets/utility-retrieval.png", photoName: "Dogs with jobs", photoCaption: "Service, task work and specialty training — Atlanta's open lane", word: "SERVICE", issues: "Service dog training|Aggression|Task work|Obedience", proofValue: "3", proofLabel: "Certified Atlanta trainers", benefits: "Free suitability assessment|Service-dog specialists|90-day guarantee", priceMode: "quiet",
     arch: "specialty", mk1: "#14101F", mk2: "#C9A227",
     
@@ -76,6 +79,7 @@ const markets = [
   },
   {
     slug: "dog-training-san-diego-ca",
+    photo2: "assets/ad-testimonial-take-1-cover.png", photo2Alt: "Real Lorenzo's clients with their trained golden retriever",
     photo: "assets/facility-purpose-aerial-clean.png", photoName: "Nothing to hide", photoCaption: "Real campus, real programs, published prices", word: "HONEST", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|90-day guarantee", priceMode: "forward",
     arch: "coast", mk1: "#0E5E8A", mk2: "#EAF4F9",
     
@@ -125,6 +129,7 @@ const markets = [
   },
   {
     slug: "dog-training-chicago-il",
+    photo2: "assets/get-started-premium-hero.jpg", photo2Alt: "Two dogs sitting calmly with their owner \u2014 the outcome of training",
     photo: "assets/emilio-yoyo.jpg", photoName: "Reactivity, handled safely", photoCaption: "Professional behavior work — this is the job", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
     arch: "metro", mk1: "#0B1B3F", mk2: "#D64545",
     
@@ -149,6 +154,7 @@ const markets = [
   },
   {
     slug: "dog-training-tallahassee-fl",
+    photo2: "assets/utility-retrieval.png", photo2Alt: "A dog carrying out a trained retrieval task with focus",
     photo: "assets/matthew-behavior-dog.jpg", photoName: "The tough cases", photoCaption: "Reactive and stubborn dogs are our specialty", word: "REACTIVE", issues: "Won't listen|Reactivity|Sound sensitivity|Leash pulling", proofValue: "Reactive dogs", proofLabel: "Our specialty", benefits: "Free evaluation|Reactivity specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait2", mk1: "#A63D2F", mk2: "#1E4D45",
     
@@ -173,6 +179,7 @@ const markets = [
   },
   {
     slug: "dog-training-miramar-beach-fl",
+    photo2: "assets/get-started-premium-hero.jpg", photo2Alt: "Calm, trained dogs relaxing outside the house",
     photo: "assets/ad-testimonial-take-1-cover.png", photoName: "Vacation-ready", photoCaption: "Calm on the sand, welcome in the rental", word: "BEACH", issues: "Beach recall|Rental manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
     arch: "resort", mk1: "#0F8A9D", mk2: "#F2E9D8",
     
@@ -190,7 +197,7 @@ const markets = [
     trainers: "Tabatha Shelley",
     proof: "Emerald Coast families can request obedience, behavior modification, puppy training, and specialty support through Lorenzo's office.",
     nearby: ["Miramar Beach", "Destin", "Santa Rosa Beach", "30A", "Walton County"],
-    checks: ["Recall you can trust off the porch and on the sand", "Rental manners: no barking complaints, no chewed furniture", "Holiday board & train from $2,500 — slots fill 6–8 weeks ahead", "Puppy and obedience foundations year-round"],
+    checks: ["Recall you can trust off the porch and on the sand", "Rental manners: no barking complaints, no chewed furniture", "Holiday board & train — slots fill 6–8 weeks ahead", "Puppy and obedience foundations year-round"],
     care: {"eyebrow": "Vacation-ready", "h2": "The beach is better with a dog who listens.", "p": "Emerald Coast life is patios, rentals, and open sand. We train the skills that make it easy — rock-solid recall, calm greetings, and manners your rental host will thank you for.", "t": "Trained for coast life."},
     testis: [{"h": "Beach recall", "p": "Coming when called even with birds, waves, and other dogs in play."}, {"h": "Rental-proof manners", "p": "Quiet, calm, and welcome back next season."}, {"h": "Holiday board & train", "p": "Drop off before the holidays, come home to a transformed dog. Book 6–8 weeks ahead."}],
     zipCodes: ["32405"]
@@ -312,6 +319,17 @@ const conversionAndAttributionScript = () => `<script>
     })();
   </script>`;
 
+const FLOWS = {
+  "dog-training-san-diego-ca": ["pricing", "proof", "path", "care", "testi", "guide", "cta"],
+  "dog-training-columbus-oh": ["care", "proof", "path", "pricing", "testi", "guide", "cta"],
+  "dog-training-chicago-il": ["care", "path", "proof", "pricing", "testi", "guide", "cta"],
+  "dog-training-tallahassee-fl": ["care", "proof", "path", "pricing", "testi", "guide", "cta"],
+  "dog-training-atlanta-ga": ["path", "care", "proof", "pricing", "testi", "guide", "cta"],
+  "dog-training-miramar-beach-fl": ["care", "path", "pricing", "proof", "testi", "guide", "cta"],
+  "dog-training-ann-arbor-mi": ["care", "path", "proof", "pricing", "testi", "guide", "cta"],
+  default: ["proof", "path", "pricing", "care", "testi", "guide", "cta"]
+};
+
 const casePanels = {
   "dog-training-san-diego-ca": `<div class="market-hero-media market-case-panel case-price">
           <span class="case-kicker">Published pricing</span>
@@ -346,6 +364,145 @@ const page = market => {
   const metaDescription = `Request ${market.market} dog training from Lorenzo's Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with office-routed follow-up.`;
   const nearby = market.nearby.map(place => `<span>${escapeHtml(place)}</span>`).join("");
   const zipCodes = market.zipCodes.map(zip => `<span>${escapeHtml(zip)}</span>`).join("");
+  const SEC = {
+    proof: `    <section class="ad-proof-band-v2">
+      <div class="container ad-proof-grid-v2">
+        <div><strong>39</strong><span>Years of experience</span></div>
+        <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
+        <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
+        <div><strong>${escapeHtml(market.proofValue)}</strong><span>${escapeHtml(market.proofLabel)}</span></div>
+      </div>
+    </section>`,
+    path: `    <section id="market-services" class="section market-path-section">
+      <div class="container market-section-grid">
+        <div>
+          <span class="eyebrow">Training built for real life</span>
+          <h2>One request. A clearer path for your dog.</h2>
+          <p>${escapeHtml(market.proof)}</p>
+          <div class="market-nearby">${nearby}</div>
+        </div>
+        <div class="ad-service-grid-v2 market-service-grid">
+          <article>
+            <span>01</span>
+            <h3>Dog Obedience Training</h3>
+            <p>Practical obedience that helps your dog listen in the moments that matter: at home, on walks, around people, and around distractions. In-home and private dog training options available.${market.priceMode === "forward" ? " From $1,250." : ""}</p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Behavior Modification</h3>
+            <p>Balanced training support for aggression, reactivity, barking, pulling, jumping, anxiety, and house-soiling with owner guidance built in.</p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Specialty & Service Dog Training</h3>
+            <p>Outcome-based support for protection, service and assistance needs, scent work, utility training, retrieval, and advanced control.</p>
+          </article>
+          <article>
+            <span>04</span>
+            <h3>Board &amp; Train</h3>
+            <p>Your dog trains with a professional and comes home with real skills — with owner handoff lessons included.${market.priceMode === "forward" ? " From $2,500." : ""} Fall and holiday slots fill 6–8 weeks ahead.</p>
+          </article>
+        </div>
+      </div>
+    </section>`,
+    pricing: market.priceMode === "forward" ? `
+    <section class="section market-pricing price-forward">
+      <div class="container">
+        <p class="price-kicker">Most trainers make you call for a quote.</p>
+        <h2 class="price-punch">We&rsquo;ll just tell you.</h2>
+        <div class="price-row">
+          <div class="price-block">
+            <span class="price-label">Professional training</span>
+            <span class="price-big"><sup>$</sup>1,250</span>
+            <span class="price-sub">starting at &middot; obedience, behavior &amp; puppy programs</span>
+          </div>
+          <div class="price-divider" aria-hidden="true"></div>
+          <div class="price-block">
+            <span class="price-label">Training + boarding</span>
+            <span class="price-big"><sup>$</sup>2,500</span>
+            <span class="price-sub">starting at &middot; trains with a pro, comes home transformed</span>
+          </div>
+        </div>
+        <div class="gpanel">
+          <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
+          <div class="gcopy">
+            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
+            <h2>We stand behind our training.</h2>
+            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
+            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
+          </div>
+          <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </div>
+    </section>` : `
+    <section class="section market-pricing price-quiet">
+      <div class="container">
+        <div class="gpanel gpanel-lead">
+          <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
+          <div class="gcopy">
+            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
+            <h2>We stand behind our training &mdash; in writing.</h2>
+            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
+            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
+          </div>
+          <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
+        </div>
+      </div>
+    </section>`,
+    care: `    <section class="market-care-section section">
+      <div class="container market-care-grid">
+        <div>
+          <span class="eyebrow">${escapeHtml(market.care.eyebrow)}</span>
+          <h2>${escapeHtml(market.care.h2)}</h2>
+        </div>
+        <div class="market-care-copy">
+          <p>${escapeHtml(market.care.p)}</p>
+          <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
+        </div>
+        ${market.photo2 ? `<figure class="market-care-photo"><img src="${escapeHtml(market.photo2)}" alt="${escapeHtml(market.photo2Alt)}" loading="lazy" decoding="async"></figure>` : ""}
+      </div>
+    </section>`,
+    testi: `    <section class="market-testimonial-section section">
+      <div class="container">
+        <div class="market-section-heading">
+          <span class="eyebrow">Trusted by dog owners</span>
+          <h2>${escapeHtml(market.care.t)}</h2>
+        </div>
+        <div class="market-testimonial-grid">
+          ${market.testis.map((t, i) => `<article><div class="market-proof-icon" aria-hidden="true">0${i + 1}</div><h3>${escapeHtml(t.h)}</h3><p>${escapeHtml(t.p)}</p></article>`).join("\n          ")}
+        </div>
+      </div>
+    </section>`,
+    guide: `    <section id="free-ebook" class="market-guide-section market-guide-strip section">
+      <div class="container market-guide-card market-guide-mini">
+        <div>
+          <span class="eyebrow">Free PDF Guide</span>
+          <h2>Not ready to talk yet? Get the free guide.</h2>
+          <p><strong>The 5-Step Calm Dog Blueprint</strong> gives owners a simple daily foundation for focus, obedience, and calmer behavior before problems get worse.</p>
+        </div>
+        <form class="market-guide-form pdf-optin" novalidate>
+          <label><span>First name</span><input name="first_name" autocomplete="given-name" placeholder="First name" required></label>
+          <label><span>Email address</span><input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
+          <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo&rsquo;s Dog Training Team about dog training tips, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
+          <a class="market-guide-download" href="assets/calm-dog-blueprint-final.pdf" download aria-hidden="true" tabindex="-1">Download the Free Guide</a>
+          <button class="btn" type="submit">Download the Free Guide</button>
+          <p class="market-guide-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>`,
+    cta: `    <section class="section tight">
+      <div class="container">
+        <div class="cta-band ad-cta-v2">
+          <div>
+            <h2>Need dog training in ${escapeHtml(market.market)}?</h2>
+            <p>Submit the quick request and let Lorenzo's office help with the next step.</p>
+          </div>
+          <a class="btn btn-red" href="#consultation">Book My Consultation</a>
+        </div>
+      </div>
+    </section>`
+  };
+  const flow = FLOWS[market.slug] || FLOWS.default;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -726,6 +883,11 @@ const page = market => {
     .case-bilingual{background:linear-gradient(160deg,#fff 55%,#fdf3e3)}
     .market-case-panel .btn{align-self:flex-start}
 
+    /* below-fold market photo in the care section */
+    .market-care-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;align-items:center}
+    .market-care-photo{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.35)}
+    .market-care-photo img{width:100%;height:100%;min-height:220px;max-height:320px;object-fit:cover;display:block}
+
     /* 6) Proof-band floor: strong numbers always readable on their band. */
     .ad-proof-band-v2 strong{color:#fff}
     .ad-proof-band-v2 span{color:#c9d2ec}
@@ -783,7 +945,7 @@ const page = market => {
           </figcaption>
         </figure>`}
 
-        <figure class="market-hero-media ad-hero-video-card">
+        ${market.slug === "dog-training-cleveland-oh" ? `<figure class="market-hero-media ad-hero-video-card">
           <div class="ad-video-frame">
             <button class="ad-video-cover" type="button" data-video-cover aria-label="Play real client results video">
               <img src="assets/ad-testimonial-take-1-cover.png" alt="Real client results video cover" loading="lazy" decoding="async">
@@ -798,7 +960,7 @@ const page = market => {
             <strong>See the result. Book the right next step.</strong>
             <span>Real family. Real client results.</span>
           </figcaption>
-        </figure>
+        </figure>` : ""}
 
         <aside id="consultation" class="ad-consult-panel market-consult-panel">
           <div class="ad-consult-header">
@@ -869,149 +1031,7 @@ const page = market => {
       </div>
     </section>
 
-    <section class="ad-proof-band-v2">
-      <div class="container ad-proof-grid-v2">
-        <div><strong>39</strong><span>Years of experience</span></div>
-        <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
-        <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
-        <div><strong>${escapeHtml(market.proofValue)}</strong><span>${escapeHtml(market.proofLabel)}</span></div>
-      </div>
-    </section>
-
-    <section id="market-services" class="section market-path-section">
-      <div class="container market-section-grid">
-        <div>
-          <span class="eyebrow">Training built for real life</span>
-          <h2>One request. A clearer path for your dog.</h2>
-          <p>${escapeHtml(market.proof)}</p>
-          <div class="market-nearby">${nearby}</div>
-        </div>
-        <div class="ad-service-grid-v2 market-service-grid">
-          <article>
-            <span>01</span>
-            <h3>Dog Obedience Training</h3>
-            <p>Practical obedience that helps your dog listen in the moments that matter: at home, on walks, around people, and around distractions. In-home and private dog training options available. From $1,250.</p>
-          </article>
-          <article>
-            <span>02</span>
-            <h3>Behavior Modification</h3>
-            <p>Balanced training support for aggression, reactivity, barking, pulling, jumping, anxiety, and house-soiling with owner guidance built in.</p>
-          </article>
-          <article>
-            <span>03</span>
-            <h3>Specialty & Service Dog Training</h3>
-            <p>Outcome-based support for protection, service and assistance needs, scent work, utility training, retrieval, and advanced control.</p>
-          </article>
-          <article>
-            <span>04</span>
-            <h3>Board &amp; Train</h3>
-            <p>Your dog trains with a professional and comes home with real skills — with owner handoff lessons included. From $2,500. Fall and holiday slots fill 6–8 weeks ahead.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    ${market.priceMode === "forward" ? `
-    <section class="section market-pricing price-forward">
-      <div class="container">
-        <p class="price-kicker">Most trainers make you call for a quote.</p>
-        <h2 class="price-punch">We&rsquo;ll just tell you.</h2>
-        <div class="price-row">
-          <div class="price-block">
-            <span class="price-label">Professional training</span>
-            <span class="price-big"><sup>$</sup>1,250</span>
-            <span class="price-sub">starting at &middot; obedience, behavior &amp; puppy programs</span>
-          </div>
-          <div class="price-divider" aria-hidden="true"></div>
-          <div class="price-block">
-            <span class="price-label">Training + boarding</span>
-            <span class="price-big"><sup>$</sup>2,500</span>
-            <span class="price-sub">starting at &middot; trains with a pro, comes home transformed</span>
-          </div>
-        </div>
-        <div class="gpanel">
-          <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
-          <div class="gcopy">
-            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
-            <h2>We stand behind our training.</h2>
-            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
-            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
-          </div>
-          <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
-        </div>
-      </div>
-    </section>` : `
-    <section class="section market-pricing price-quiet">
-      <div class="container">
-        <div class="gpanel gpanel-lead">
-          <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
-          <div class="gcopy">
-            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
-            <h2>We stand behind our training &mdash; in writing.</h2>
-            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
-            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
-            <p class="g-price-line">Programs begin at $1,250 &middot; training with boarding from $2,500 &middot; exact quote at your <b>free evaluation</b></p>
-          </div>
-          <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
-        </div>
-      </div>
-    </section>`}
-
-
-    <section class="market-care-section section">
-      <div class="container market-care-grid">
-        <div>
-          <span class="eyebrow">${escapeHtml(market.care.eyebrow)}</span>
-          <h2>${escapeHtml(market.care.h2)}</h2>
-        </div>
-        <div class="market-care-copy">
-          <p>${escapeHtml(market.care.p)}</p>
-          <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
-        </div>
-      </div>
-    </section>
-
-    <section class="market-testimonial-section section">
-      <div class="container">
-        <div class="market-section-heading">
-          <span class="eyebrow">Trusted by dog owners</span>
-          <h2>${escapeHtml(market.care.t)}</h2>
-        </div>
-        <div class="market-testimonial-grid">
-          ${market.testis.map((t, i) => `<article><div class="market-proof-icon" aria-hidden="true">0${i + 1}</div><h3>${escapeHtml(t.h)}</h3><p>${escapeHtml(t.p)}</p></article>`).join("\n          ")}
-        </div>
-      </div>
-    </section>
-
-    <section id="free-ebook" class="market-guide-section market-guide-strip section">
-      <div class="container market-guide-card market-guide-mini">
-        <div>
-          <span class="eyebrow">Free PDF Guide</span>
-          <h2>Not ready to talk yet? Get the free guide.</h2>
-          <p><strong>The 5-Step Calm Dog Blueprint</strong> gives owners a simple daily foundation for focus, obedience, and calmer behavior before problems get worse.</p>
-        </div>
-        <form class="market-guide-form pdf-optin" novalidate>
-          <label><span>First name</span><input name="first_name" autocomplete="given-name" placeholder="First name" required></label>
-          <label><span>Email address</span><input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
-          <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo&rsquo;s Dog Training Team about dog training tips, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
-          <a class="market-guide-download" href="assets/calm-dog-blueprint-final.pdf" download aria-hidden="true" tabindex="-1">Download the Free Guide</a>
-          <button class="btn" type="submit">Download the Free Guide</button>
-          <p class="market-guide-status" role="status" aria-live="polite"></p>
-        </form>
-      </div>
-    </section>
-
-    <section class="section tight">
-      <div class="container">
-        <div class="cta-band ad-cta-v2">
-          <div>
-            <h2>Need dog training in ${escapeHtml(market.market)}?</h2>
-            <p>Submit the quick request and let Lorenzo's office help with the next step.</p>
-          </div>
-          <a class="btn btn-red" href="#consultation">Book My Consultation</a>
-        </div>
-      </div>
-    </section>
+    ${flow.map(k => SEC[k]).join("\n\n")}
   </main>
 
   <footer class="footer ad-footer">

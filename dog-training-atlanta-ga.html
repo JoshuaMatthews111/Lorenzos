@@ -374,6 +374,11 @@
     .case-bilingual{background:linear-gradient(160deg,#fff 55%,#fdf3e3)}
     .market-case-panel .btn{align-self:flex-start}
 
+    /* below-fold market photo in the care section */
+    .market-care-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;align-items:center}
+    .market-care-photo{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.35)}
+    .market-care-photo img{width:100%;height:100%;min-height:220px;max-height:320px;object-fit:cover;display:block}
+
     /* 6) Proof-band floor: strong numbers always readable on their band. */
     .ad-proof-band-v2 strong{color:#fff}
     .ad-proof-band-v2 span{color:#c9d2ec}
@@ -436,22 +441,7 @@
           </figcaption>
         </figure>
 
-        <figure class="market-hero-media ad-hero-video-card">
-          <div class="ad-video-frame">
-            <button class="ad-video-cover" type="button" data-video-cover aria-label="Play real client results video">
-              <img src="assets/ad-testimonial-take-1-cover.png" alt="Real client results video cover" loading="lazy" decoding="async">
-              <span class="video-bubble">Real Client Results</span>
-              <span class="video-play-mark" aria-hidden="true">&#9654;</span>
-            </button>
-            <video controls preload="metadata" poster="assets/ad-testimonial-take-1-cover.png" playsinline>
-              <source src="assets/ad-testimonial-take-1.mp4" type="video/mp4">
-            </video>
-          </div>
-          <figcaption>
-            <strong>See the result. Book the right next step.</strong>
-            <span>Real family. Real client results.</span>
-          </figcaption>
-        </figure>
+        
 
         <aside id="consultation" class="ad-consult-panel market-consult-panel">
           <div class="ad-consult-header">
@@ -528,16 +518,7 @@
       </div>
     </section>
 
-    <section class="ad-proof-band-v2">
-      <div class="container ad-proof-grid-v2">
-        <div><strong>39</strong><span>Years of experience</span></div>
-        <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
-        <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
-        <div><strong>3</strong><span>Certified Atlanta trainers</span></div>
-      </div>
-    </section>
-
-    <section id="market-services" class="section market-path-section">
+        <section id="market-services" class="section market-path-section">
       <div class="container market-section-grid">
         <div>
           <span class="eyebrow">Training built for real life</span>
@@ -549,7 +530,7 @@
           <article>
             <span>01</span>
             <h3>Dog Obedience Training</h3>
-            <p>Practical obedience that helps your dog listen in the moments that matter: at home, on walks, around people, and around distractions. In-home and private dog training options available. From $1,250.</p>
+            <p>Practical obedience that helps your dog listen in the moments that matter: at home, on walks, around people, and around distractions. In-home and private dog training options available.</p>
           </article>
           <article>
             <span>02</span>
@@ -564,29 +545,11 @@
           <article>
             <span>04</span>
             <h3>Board &amp; Train</h3>
-            <p>Your dog trains with a professional and comes home with real skills — with owner handoff lessons included. From $2,500. Fall and holiday slots fill 6–8 weeks ahead.</p>
+            <p>Your dog trains with a professional and comes home with real skills — with owner handoff lessons included. Fall and holiday slots fill 6–8 weeks ahead.</p>
           </article>
         </div>
       </div>
     </section>
-
-    
-    <section class="section market-pricing price-quiet">
-      <div class="container">
-        <div class="gpanel gpanel-lead">
-          <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
-          <div class="gcopy">
-            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
-            <h2>We stand behind our training &mdash; in writing.</h2>
-            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
-            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
-            <p class="g-price-line">Programs begin at $1,250 &middot; training with boarding from $2,500 &middot; exact quote at your <b>free evaluation</b></p>
-          </div>
-          <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
-        </div>
-      </div>
-    </section>
-
 
     <section class="market-care-section section">
       <div class="container market-care-grid">
@@ -597,6 +560,32 @@
         <div class="market-care-copy">
           <p>Service dog and specialty training take more than obedience classes. We start with an honest suitability assessment — not every dog is a service-dog candidate, and you deserve the truth before you invest.</p>
           <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
+        </div>
+        <figure class="market-care-photo"><img src="assets/matthew-behavior-dog.jpg" alt="A behavior-case dog working calmly with a professional" loading="lazy" decoding="async"></figure>
+      </div>
+    </section>
+
+    <section class="ad-proof-band-v2">
+      <div class="container ad-proof-grid-v2">
+        <div><strong>39</strong><span>Years of experience</span></div>
+        <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
+        <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
+        <div><strong>3</strong><span>Certified Atlanta trainers</span></div>
+      </div>
+    </section>
+
+
+    <section class="section market-pricing price-quiet">
+      <div class="container">
+        <div class="gpanel gpanel-lead">
+          <div class="g90" aria-hidden="true"><span class="g90-num">90</span><span class="g90-day">DAY</span></div>
+          <div class="gcopy">
+            <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
+            <h2>We stand behind our training &mdash; in writing.</h2>
+            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
+            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
+          </div>
+          <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
         </div>
       </div>
     </section>
