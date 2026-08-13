@@ -140,6 +140,31 @@
     .arch-portrait2 .market-copy .ad-lead{color:#dfe3ee}
     .arch-portrait .market-hook,.arch-heritage .market-hook,.arch-coast .market-hook,
     .arch-campus .market-hook,.arch-portrait2 .market-hook{background:#fff;color:var(--mk1)}
+
+    /* ═══ pricing that actually lands ═══ */
+    .market-pricing{padding:58px 0 40px}
+    .price-kicker{margin:0;font-size:15px;letter-spacing:.08em;text-transform:uppercase;color:#6b7186;font-weight:700}
+    .price-punch{margin:2px 0 26px;font-size:clamp(34px,5vw,54px);font-weight:900;letter-spacing:-.02em;color:var(--mk1)}
+    .price-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+    .price-card{position:relative;background:#fff;border:2px solid var(--mk1);padding:26px 24px 22px;overflow:hidden}
+    .price-card::before{content:"";position:absolute;top:0;left:0;right:0;height:6px;background:var(--mk1)}
+    .price-card-alt{background:var(--mk1)}
+    .price-card-alt .price-label,.price-card-alt .price-big,.price-card-alt .price-sub{color:#fff}
+    .price-label{display:block;font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--mk1)}
+    .price-big{display:block;font-size:clamp(46px,7vw,68px);font-weight:900;letter-spacing:-.03em;line-height:1.05;color:#141826}
+    .price-sub{display:block;font-size:13px;color:#5c6275;margin-top:2px}
+    .guarantee-band{display:flex;align-items:center;gap:22px;flex-wrap:wrap;margin-top:22px;
+      background:linear-gradient(120deg,var(--mk1),#20264a);padding:24px 26px;color:#fff}
+    .guarantee-band p{margin:0;color:#e8eaf6;font-size:15px;line-height:1.55;flex:1;min-width:260px}
+    .guarantee-band h2{margin:0 0 8px;color:#fff;font-size:clamp(22px,3.4vw,30px);font-weight:900}
+    .guarantee-lead{align-items:flex-start;padding:30px 28px}
+    .price-quiet-line{margin-top:12px !important;font-size:13.5px !important;color:#c7cdea !important}
+    .g-badge{flex:none;display:inline-block;background:#fff;color:var(--mk1);font-weight:900;font-size:15px;
+      line-height:1.15;text-align:center;padding:16px 14px;border-radius:50%;width:96px;height:96px;
+      display:flex;align-items:center;justify-content:center;letter-spacing:.04em;
+      box-shadow:0 0 0 5px rgba(255,255,255,.25)}
+    .price-cta{flex:none;font-size:16px;font-weight:800;padding:15px 26px;box-shadow:0 10px 24px rgba(0,0,0,.3)}
+    .price-cta:hover{transform:translateY(-2px)}
   </style>
 </head>
 <body id="top" class="market-landing ad-landing ad-landing-v2 arch-campus" style="--mk1:#1E3A8A;--mk2:#F0C93B" data-market="Ann Arbor, MI" data-hero-title="Puppy Training for Apartment Life in Ann Arbor — Potty, Crate &amp; Leash Skills.">
@@ -311,31 +336,31 @@
       </div>
     </section>
 
-    <section class="section market-pricing">
+    
+    <section class="section market-pricing price-forward">
       <div class="container">
-        <span class="eyebrow">Straight answers on price</span>
-        <h2>Transparent pricing. No mystery quotes.</h2>
-        <div class="ad-service-grid-v2 market-service-grid">
-          <article>
-            <span>$</span>
-            <h3>Training from $1,250</h3>
-            <p>Professional dog training with a certified Ann Arbor dog trainer — obedience, behavior help, and puppy programs. Your free evaluation tells you exactly what your dog needs before you spend anything.</p>
-          </article>
-          <article>
-            <span>$$</span>
-            <h3>Training with Boarding from $2,500</h3>
-            <p>Board and train: your dog lives and trains with a professional, then we teach you how to keep the results. Fall and holiday spots book 6–8 weeks out — ask early.</p>
-          </article>
-        </div>
-        <div class="cta-band ad-cta-v2" style="margin-top:24px">
-          <div>
-            <h2>The LDTT Training Guarantee</h2>
-            <p>We stand behind our training. Every LDTT program includes a Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your program within 90 days of completing training — and you've followed the training and practice instructions — we provide corrective instruction or follow-up training at no additional training fee. Dog training is a partnership: we do our part, and we show you how to do yours.</p>
+        <p class="price-kicker">Most trainers make you call for a quote.</p>
+        <h2 class="price-punch">We'll just tell you.</h2>
+        <div class="price-cards">
+          <div class="price-card">
+            <span class="price-label">Professional Training</span>
+            <span class="price-big">$1,250</span>
+            <span class="price-sub">starting at &middot; obedience, behavior &amp; puppy programs</span>
           </div>
-          <a class="btn btn-red" href="#consultation">Start With a Free Evaluation</a>
+          <div class="price-card price-card-alt">
+            <span class="price-label">Training + Boarding</span>
+            <span class="price-big">$2,500</span>
+            <span class="price-sub">starting at &middot; your dog trains with a pro, comes home transformed</span>
+          </div>
+        </div>
+        <div class="guarantee-band">
+          <span class="g-badge">90-DAY<br>GUARANTEE</span>
+          <p><b>If it isn't working, we come back — free.</b> Every program is covered for 90 days after training completes: do your part, and if your dog isn't showing the trained behaviors, corrective training costs you nothing.</p>
+          <a class="btn btn-red price-cta" href="#consultation">Get My Free Evaluation &rarr;</a>
         </div>
       </div>
     </section>
+
 
     <section class="section tight">
       <div class="container">
