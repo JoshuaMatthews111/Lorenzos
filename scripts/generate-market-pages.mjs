@@ -324,11 +324,11 @@ const conversionAndAttributionScript = () => `<script>
 const FLOWS = {
   "dog-training-san-diego-ca": ["pricing", "proof", "path", "care", "testi", "guide", "cta"],
   "dog-training-columbus-oh": ["care", "proof", "path", "pricing", "testi", "guide", "cta"],
-  "dog-training-chicago-il": ["care", "path", "proof", "pricing", "testi", "guide", "cta"],
+  "dog-training-chicago-il": ["care", "path", "proof", "pricing", "testi", "cta"],
   "dog-training-tallahassee-fl": ["care", "proof", "path", "pricing", "testi", "guide", "cta"],
   "dog-training-atlanta-ga": ["path", "care", "proof", "pricing", "testi", "guide", "cta"],
   "dog-training-miramar-beach-fl": ["care", "path", "pricing", "proof", "testi", "guide", "cta"],
-  "dog-training-ann-arbor-mi": ["care", "path", "proof", "pricing", "testi", "guide", "cta"],
+  "dog-training-ann-arbor-mi": ["care", "path", "proof", "pricing", "testi", "cta"],
   default: ["proof", "path", "pricing", "care", "testi", "guide", "cta"]
 };
 
