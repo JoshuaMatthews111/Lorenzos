@@ -5003,7 +5003,14 @@ button:disabled{cursor:not-allowed}
 .communications-list small,.communications-member-list span{margin-top:4px;color:var(--muted);font-size:.78rem;line-height:1.4}
 .communications-wizard-note{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 18px;padding:14px 16px;border:1px solid #d4e1ef;border-radius:14px;background:#f7fbff;color:#55718e;font-size:.82rem;font-weight:800}
 .communications-wizard-note strong{color:var(--navy)}
+.communications-filter-details{margin:0 0 14px}
+.communications-filter-details summary{cursor:pointer;color:var(--navy);font-size:.8rem;font-weight:900;padding:6px 0}
+.communications-filter-details[open] summary{margin-bottom:8px}
 .communications-filter-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin:0 0 18px;padding:14px;border:1px solid #dce7f2;border-radius:14px;background:#fff}
+.communications-advanced{grid-column:1/-1;border:1px solid #dce7f2;border-radius:12px;padding:10px 14px;background:#f8fbff}
+.communications-advanced summary{cursor:pointer;color:var(--navy);font-size:.78rem;font-weight:900;padding:2px 0}
+.communications-advanced[open] summary{margin-bottom:10px}
+.communications-advanced label{margin-bottom:10px}
 .communications-filter-bar label{display:grid;gap:5px;min-width:150px;color:var(--navy);font-size:.74rem;font-weight:900}
 .communications-filter-bar select{border:1px solid #c9d7e8;border-radius:9px;padding:9px;background:#fff;color:var(--ink)}
 .communications-status-table{min-width:1020px}
@@ -5017,3 +5024,15 @@ button:disabled{cursor:not-allowed}
 .communications-webhooks input{width:100%;border:1px solid #c9d7e8;border-radius:10px;padding:10px 11px;background:#f6f9fd;color:#516a85;font:inherit}
 .compact-form{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:900px){.communications-grid,.communications-form,.compact-form{grid-template-columns:1fr}.communications-tester-checks{grid-template-columns:1fr}.communications-form label.wide,.communications-form .wide{grid-column:auto}}
+@media(max-width:760px){
+  .horizontal-scroll-toolbar:has(+ .table-wrap .communications-status-table){display:none}
+  .communications-status-table{min-width:0}
+  .communications-status-table thead{display:none}
+  .communications-status-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;padding:13px 0;border-bottom:1px solid #e1e9f2}
+  .communications-status-table tr:last-child{border-bottom:0}
+  .communications-status-table td{display:block;border:0;padding:0}
+  .communications-status-table td::before{content:attr(data-th);display:block;margin-bottom:2px;color:var(--muted);font-size:.66rem;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+  .communications-status-table td[data-th="Action"],.communications-status-table td[colspan]{grid-column:1/-1}
+  .communications-status-table td[data-th="Action"]::before,.communications-status-table td[colspan]::before{display:none}
+  .communications-status-table td[data-th="Action"] .btn{min-height:44px}
+}

@@ -16,6 +16,10 @@ const publicTrainerShell = read("trainer-backoffice/right-trainer-results.html")
 const vercel = JSON.parse(read("vercel.json"));
 const bios = JSON.parse(read("trainer_bios.json"));
 const paidAdLeadHelper = app.match(/function isPaidAdLandingPageLead[\s\S]*?\n}\n\nfunction isEbookRequestLead/)?.[0] || "";
+const styles = read("trainer-backoffice/styles.css");
+const communicationsApi = read("api/communications.js");
+const communicationsHub = read("supabase/migrations/20260816015952_communications_hub.sql");
+const communicationsHardening = read("supabase/migrations/20260816020109_harden_communications_access.sql");
 
 const checks = [
   ["staff identity replaces anonymous portal labels", /portalActorLabel/.test(app) && /first_name/.test(app) && /last_name/.test(app)],
@@ -63,7 +67,15 @@ const checks = [
   ["trainer publishing exposes a clear live-page action", app.includes("Publish Landing Page") && app.includes("Open Live Landing Page")],
   ["trainer locations normalize full state names", /normalizeTrainerLocation/.test(app) && app.includes("Texas") && app.includes("California")],
   ["clean trainer URLs load root-absolute public assets", ["/trainer-backoffice/styles.css", "/supabase-config.js", "/trainer-roster.js", "/trainer-backoffice/app.js"].every(value => publicTrainerShell.includes(value))],
-  ["legacy spaced headshot URLs are normalized", /safeTrainerAssetUrl/.test(app)]
+  ["legacy spaced headshot URLs are normalized", /safeTrainerAssetUrl/.test(app)],
+  ["communications claiming stays one conditional database update", /rpc\/communications_claim_lead/.test(communicationsApi) && /and claimed_by is null/.test(communicationsHub)],
+  ["closed or lost leads are never assignable", /closedStatuses/.test(communicationsApi) && /status not in \('became_client'/.test(communicationsHub) && /communicationsLeadIsActive/.test(app)],
+  ["lead board uses Available and Assign to me wording", app.includes("Assign to me") && app.includes('return "Available"') && !/Needs an owner/i.test(app)],
+  ["communications tables stay browser-denied", /communications_deny_browser/.test(communicationsHardening)],
+  ["communications loading never mislabels an admin as a trainer", /if \(communicationsData\.loading\) return panel\("Communications"/.test(app) && /communicationsData\.canManage/.test(app)],
+  ["campaign preview and secrets require admin access on the server", /async function previewCampaign\(access[\s\S]{0,120}Admin access required/.test(communicationsApi) && /isSuperAdmin\(access\)/.test(communicationsApi)],
+  ["lead status board collapses to cards on phones", /communications-status-table td::before\{content:attr\(data-th\)/.test(styles) && /data-th="Action"/.test(app)],
+  ["alert list escalation settings stay secondary", /communications-advanced/.test(app) && app.includes("Advanced (optional)")]
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

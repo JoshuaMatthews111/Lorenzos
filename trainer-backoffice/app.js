@@ -3833,9 +3833,27 @@ function communicationsLeadRows() {
   return allLeadRows().filter(communicationsLeadIsActive).filter(lead => {
     if (filters.status && filters.status !== "All" && (lead.claimStatus || "new") !== filters.status) return false;
     if (filters.market && filters.market !== "All" && lead.market !== filters.market) return false;
-    if (filters.owner && filters.owner !== "All" && lead.claimedBy !== filters.owner) return false;
+    if (filters.owner === "available" && lead.claimedBy) return false;
+    if (filters.owner === "mine" && (!lead.claimedBy || String(lead.claimedBy) !== String(currentPortalUserId()))) return false;
     return true;
   });
+}
+
+function communicationsFiltersActive() {
+  const filters = state.communicationsFilters || {};
+  return (filters.status && filters.status !== "All") || (filters.market && filters.market !== "All") || (filters.owner && filters.owner !== "All");
+}
+
+function communicationsStatusFilterBar(allRows) {
+  const filters = state.communicationsFilters || {};
+  const markets = [...new Set(allRows.map(lead => lead.market).filter(Boolean))].sort();
+  const filtering = communicationsFiltersActive();
+  return `<details class="communications-filter-details"${filtering ? " open" : ""}><summary>Filter leads${filtering ? " · filters on" : ""}</summary><form class="communications-filter-bar" data-communications-filter-form>
+    <label>Status<select name="status">${[["All", "All statuses"], ["new", "New"], ["claimed", "Assigned"], ["contacted", "Contacted"]].map(([value, label]) => `<option value="${value}" ${filters.status === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+    <label>Market<select name="market"><option value="All">All markets</option>${markets.map(market => `<option value="${escapeHtml(market)}" ${filters.market === market ? "selected" : ""}>${escapeHtml(market)}</option>`).join("")}</select></label>
+    <label>Assigned<select name="owner">${[["All", "Everyone"], ["available", "Available only"], ["mine", "Assigned to me"]].map(([value, label]) => `<option value="${value}" ${filters.owner === value ? "selected" : ""}>${label}</option>`).join("")}</select></label>
+    <button class="btn btn-outline btn-small" type="submit">Apply</button>
+  </form></details>`;
 }
 
 function communicationsAge(value) {
@@ -3883,8 +3901,10 @@ function communicationsAlertLists() {
         <label class="check-row"><input type="checkbox" name="any_new_lead"> Alert for any new client lead</label>
         <label>Quiet hours start<input type="time" name="quiet_start"></label>
         <label>Quiet hours end<input type="time" name="quiet_end"></label>
-        <label>Escalate after minutes<input required type="number" min="1" max="1440" name="escalation_minutes" value="10"></label>
-        <label class="check-row"><input type="checkbox" name="urgent_override"> Urgent behavior cases can override quiet hours</label>
+        <details class="communications-advanced wide"><summary>Advanced (optional)</summary>
+          <label>Escalate after minutes<input type="number" min="1" max="1440" name="escalation_minutes" value="10"></label>
+          <label class="check-row"><input type="checkbox" name="urgent_override"> Urgent behavior cases can override quiet hours</label>
+        </details>
         <button class="btn btn-red" type="submit">Create Alert List</button>
       </form>`, "pad")}
     </div>
@@ -3914,7 +3934,15 @@ function communicationsStatusBoard() {
       ["calendar", "Assigned", all.filter(lead => lead.claimStatus === "claimed").length, "Awaiting contact", ""],
       ["trophy", "Contacted", all.filter(lead => lead.claimStatus === "contacted").length, "First response logged", "up"]
     ])}
-    ${panel("Active Lead Assignments", `<button class="btn btn-outline" type="button" data-communications-section="alerts">Create Alert List</button><button class="btn btn-outline" type="button" data-communications-refresh>Refresh</button>`, `<p class="panel-copy">Only active client leads appear here. Select <strong>Assign to me</strong> to take ownership, then log contact when the customer has been reached.</p><div class="table-wrap"><table class="data-table communications-status-table"><thead><tr><th>Code</th><th>Client</th><th>City</th><th>Need</th><th>Status</th><th>Assigned to</th><th>Age</th><th>Action</th></tr></thead><tbody>${rows.map(lead => `<tr><td><strong>#${escapeHtml(lead.communicationsCode || "New")}</strong></td><td>${escapeHtml((lead.owner || "Client").split(/\s+/)[0])}</td><td>${escapeHtml(lead.city || lead.market || "—")}</td><td>${escapeHtml(lead.service || "—")}</td><td>${communicationsClaimBadge(lead)}</td><td>${escapeHtml(communicationsOwnerLabel(lead.claimedBy))}</td><td>${escapeHtml(communicationsAge(lead.claimedAt || lead.createdAt))}</td><td><div class="communications-actions">${!lead.claimedBy ? `<button class="btn btn-red btn-small" type="button" data-communications-lead-action="claim_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Assign to me</button>` : ""}${lead.claimedBy ? `<button class="btn btn-outline btn-small" type="button" data-communications-lead-action="mark_contacted" data-lead-id="${escapeHtml(lead.remoteId)}">Log Contact</button><button class="btn btn-outline btn-small" type="button" data-communications-lead-action="release_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Release</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="8">There are no active client leads to assign.</td></tr>`}</tbody></table></div>`, "pad")}`;
+    ${panel("Active Lead Assignments", `<button class="btn btn-outline" type="button" data-communications-section="alerts">Create Alert List</button><button class="btn btn-outline" type="button" data-communications-refresh>Refresh</button>`, `<p class="panel-copy">Only active client leads appear here. Select <strong>Assign to me</strong> to take ownership, then log contact when the customer has been reached.</p>${communicationsStatusFilterBar(all)}<div class="table-wrap"><table class="data-table communications-status-table"><thead><tr><th>Code</th><th>Client</th><th>City</th><th>Need</th><th>Status</th><th>Assigned to</th><th>Age</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
+      const actionable = Boolean(lead.remoteId);
+      const actions = !actionable
+        ? "—"
+        : !lead.claimedBy
+          ? `<button class="btn btn-red btn-small" type="button" data-communications-lead-action="claim_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Assign to me</button>`
+          : `<button class="btn btn-outline btn-small" type="button" data-communications-lead-action="mark_contacted" data-lead-id="${escapeHtml(lead.remoteId)}">Log Contact</button><button class="btn btn-outline btn-small" type="button" data-communications-lead-action="release_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Release</button>`;
+      return `<tr><td data-th="Code"><strong>${lead.communicationsCode ? `#${escapeHtml(lead.communicationsCode)}` : "—"}</strong></td><td data-th="Client">${escapeHtml((lead.owner || "Client").split(/\s+/)[0])}</td><td data-th="City">${escapeHtml(lead.city || lead.market || "—")}</td><td data-th="Need">${escapeHtml(lead.service || "—")}</td><td data-th="Status">${communicationsClaimBadge(lead)}</td><td data-th="Assigned to">${escapeHtml(communicationsOwnerLabel(lead.claimedBy))}</td><td data-th="Age">${escapeHtml(communicationsAge(lead.claimedAt || lead.createdAt))}</td><td data-th="Action"><div class="communications-actions">${actions}</div></td></tr>`;
+    }).join("") || `<tr><td colspan="8">${communicationsFiltersActive() ? "No leads match these filters. Clear the filters to see every active lead." : "There are no active client leads to assign."}</td></tr>`}</tbody></table></div>`, "pad")}`;
 }
 
 function communicationsMessageCenter() {
@@ -9074,6 +9102,13 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
+  const communicationsFilterForm = event.target.closest("[data-communications-filter-form]");
+  if (communicationsFilterForm && event.target.matches("select")) {
+    const data = new FormData(communicationsFilterForm);
+    state.communicationsFilters = { status: data.get("status") || "All", market: data.get("market") || "All", owner: data.get("owner") || "All" };
+    saveState();
+    return;
+  }
   const communicationsAccount = event.target.closest("[data-communications-member-account]");
   if (communicationsAccount) {
     const option = communicationsAccount.options[communicationsAccount.selectedIndex];

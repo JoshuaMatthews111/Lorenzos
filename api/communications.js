@@ -340,7 +340,8 @@ async function sendEmail(email, subject, html, text, unsubscribe = "") {
   return { id: data?.id || "", provider: data };
 }
 
-async function previewCampaign(_access, body) {
+async function previewCampaign(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const sample = body.sample || {};
   const email = clean(sample.email || "preview@lorenzosdogtrainingteam.com", 254).toLowerCase();
   const unsubscribe = await unsubscribeUrl(email);
