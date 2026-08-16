@@ -45,6 +45,7 @@ const requiredApis = [
   "approved-homepage-reviews",
   "ensure-trainer-user",
   "form-delivery",
+  "communications",
   "manage-portal-user",
   "operational-data",
   "operational-mutation",

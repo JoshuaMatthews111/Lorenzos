@@ -235,6 +235,8 @@ const toDateInputValue = date => {
 const defaultState = {
   role: "",
   activeView: "dashboard",
+  communicationsSection: "alerts",
+  communicationsFilters: { status: "All", market: "All", owner: "All" },
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
   clientSearch: "",
@@ -358,6 +360,21 @@ let remoteLifecycleEvents = [];
 let remoteReviewPublications = [];
 let remoteDeliveryAttempts = [];
 let remoteSheets = { leads: [], applications: [], clients: [] };
+let communicationsData = {
+  loaded: false,
+  loading: false,
+  error: "",
+  lists: [],
+  members: [],
+  templates: [],
+  testers: [],
+  campaigns: [],
+  deliveries: [],
+  events: [],
+  config: null,
+  canManage: false,
+  isSuperAdmin: false
+};
 let remoteServerRevision = "";
 let remoteSyncedAt = "";
 let remoteSyncError = "";
@@ -681,7 +698,7 @@ const clientStatusToDb = {
   Archived: "archived"
 };
 const clientStatusFromDb = Object.fromEntries(Object.entries(clientStatusToDb).map(([label, value]) => [value, label]));
-const officeAdminViews = ["dashboard", "trainers", "leads", "applications", "clients", "reports", "settings"];
+const officeAdminViews = ["dashboard", "trainers", "leads", "applications", "clients", "communications", "reports", "settings"];
 
 function objectHas(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -909,6 +926,12 @@ function remoteLeadToUi(row) {
     zip: row.zip || "",
     market: derivedMarket.market,
     sourcePageSlug: derivedMarket.pageSlug,
+    communicationsCode: row.communications_code || "",
+    claimStatus: row.claim_status || "new",
+    claimedBy: row.claimed_by || "",
+    claimedAt: row.claimed_at || "",
+    firstResponseAt: row.first_response_at || "",
+    communicationsEscalatedAt: row.communications_escalated_at || "",
     status: leadStatusFromDb[row.status] || normalizeLeadStatus(row.status),
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || row.created_at || "",
@@ -3618,6 +3641,7 @@ function adminNav() {
     ["applications", "Applications", "message", applicationRows().filter(applicationNeedsAction).length],
     ["clients", "Clients", "users"],
     ["approvals", "Reviews", "star", pendingReviewSubmissions().length],
+    ["communications", "Communications", "message"],
     ["reports", "Reports", "report"],
     ["adLandingPages", "Ad Landing Pages", "monitor"],
     ["portalAccess", "Portal Access", "shield"],
@@ -3649,6 +3673,7 @@ function trainerNav() {
     ["performance", "Performance", "report"],
     ["submitMedia", "Submit Photos/Videos", "media", trainerMediaSubmissions().filter(s => s.status === "Pending").length],
     ["submitReviews", "Submit Reviews", "star", trainerReviewSubmissions().filter(s => s.status === "Pending").length],
+    ["communications", "Communications", "message"],
     ["settings", "Settings", "settings"]
   ];
 }
@@ -3705,6 +3730,7 @@ function renderTopbar() {
     clients: ["Client Database", "Central list for active, past, won, lost, bad lead, and do-not-contact records."],
     import: ["Client Import", "Prototype CSV import with preview, duplicate checks, and consent protection."],
     approvals: ["Trainer Reviews", "Read the complete review, inspect attached photos or videos, and publish or reject each submission."],
+    communications: ["Communications", "Lead alerts, ownership, and client messaging are managed here."],
     reports: ["Conversion Reports", "Conversions use confirmed lifecycle events and never browser-only counters."],
     adLandingPages: ["Ad Landing Pages", "Super Admin tracking for paid-ad market pages, traffic, form submissions, time on page, and conversion."],
     portalAccess: ["Portal Access", "Super Admin controls for staff, office admin, and trainer login access."],
@@ -3716,6 +3742,7 @@ function renderTopbar() {
     performance: ["Performance", "Basic lead and conversion numbers from office-managed tracking."],
     submitMedia: ["Submit Photos/Videos", "Send training photos and videos to the office for approval."],
     submitReviews: ["Submit Reviews", "Send reviews and testimonials to the office for approval."],
+    communications: ["Communications", "See your communication-owned leads and active alert memberships."],
     settings: ["Settings", "Trainer portal access and account security."]
   };
   const [title, sub] = passwordSetupRequired
@@ -3748,7 +3775,205 @@ function renderView() {
     state.activeView = "settings";
   }
   if (session.role === "admin" && !canAccessAdminView(state.activeView)) state.activeView = "dashboard";
+  if (state.activeView === "communications" && session.loggedIn && !communicationsData.loaded && !communicationsData.loading) {
+    loadCommunicationsData();
+  }
   target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
+}
+
+async function communicationsRequest(payload = {}, method = "POST") {
+  const token = window.LDTT_PORTAL?.accessToken?.() || "";
+  const url = method === "GET" ? `/api/communications?operation=${encodeURIComponent(payload.operation || "load")}` : "/api/communications";
+  const response = await fetch(url, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, ...(method === "GET" ? {} : { "Content-Type": "application/json" }) },
+    ...(method === "GET" ? {} : { body: JSON.stringify(payload) })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.message || "Communications could not be updated.");
+  return data;
+}
+
+async function loadCommunicationsData(renderAfter = true) {
+  if (communicationsData.loading) return;
+  communicationsData.loading = true;
+  communicationsData.error = "";
+  if (renderAfter && state.activeView === "communications") render();
+  try {
+    const data = await communicationsRequest({ operation: "load" }, "GET");
+    communicationsData = { ...communicationsData, ...data, loaded: true, loading: false, error: "" };
+  } catch (error) {
+    communicationsData = { ...communicationsData, loading: false, error: error.message || "Communications could not load." };
+  }
+  if (renderAfter && state.activeView === "communications") render();
+}
+
+async function refreshCommunicationsLeads() {
+  if (!remoteReady || !window.LDTT_PORTAL?.loadOperationalData) return;
+  const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+  mergeRemoteOperationalData(data);
+}
+
+function communicationsOwnerLabel(userId) {
+  if (!userId) return "Unclaimed";
+  return portalActorLabel(userId) || "Assigned staff";
+}
+
+function communicationsLeadRows() {
+  const filters = state.communicationsFilters || {};
+  return allLeadRows().filter(lead => {
+    if (filters.status && filters.status !== "All" && (lead.claimStatus || "new") !== filters.status) return false;
+    if (filters.market && filters.market !== "All" && lead.market !== filters.market) return false;
+    if (filters.owner && filters.owner !== "All" && lead.claimedBy !== filters.owner) return false;
+    return true;
+  });
+}
+
+function communicationsAge(value) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return "Just now";
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours} hr ago` : `${Math.floor(hours / 24)} days ago`;
+}
+
+function communicationsClaimBadge(lead) {
+  const status = lead.claimStatus || "new";
+  const ageMinutes = Math.max(0, Math.floor((Date.now() - new Date(lead.createdAt || Date.now()).getTime()) / 60000));
+  const urgent = (status === "new" && ageMinutes > 10) || (status === "claimed" && lead.claimedAt && Math.floor((Date.now() - new Date(lead.claimedAt).getTime()) / 60000) > 30);
+  const label = { new: "New", claimed: "Claimed", contacted: "Contacted", appointment_set: "Appointment Set", won: "Won", lost: "Lost" }[status] || "New";
+  return `<span class="status ${urgent ? "lost" : status === "contacted" || status === "won" ? "live" : "draft"}">${escapeHtml(label)}</span>`;
+}
+
+function communicationsTabs() {
+  const tabs = communicationsData.canManage
+    ? [["alerts", "Lead Alerts"], ["status", "Lead Status"], ["messages", "Message Center"], ["settings", "Settings"]]
+    : [["status", "Lead Status"]];
+  return `<div class="communications-tabs">${tabs.filter(([id]) => id !== "settings" || communicationsData.isSuperAdmin).map(([id, label]) => `<button type="button" class="${state.communicationsSection === id ? "active" : ""}" data-communications-section="${id}">${label}</button>`).join("")}</div>`;
+}
+
+function communicationsAlertLists() {
+  const lists = communicationsData.lists || [];
+  const members = communicationsData.members || [];
+  const staff = remotePortalUsers.filter(user => user.active !== false && user.access_status !== "disabled" && user.access_status !== "revoked");
+  return `
+    <div class="communications-grid">
+      ${panel("Alert Lists", "", lists.length ? `<div class="communications-list">${lists.map(list => {
+        const count = members.filter(member => member.alert_list_id === list.id && member.active && !member.stopped_at).length;
+        const rules = list.rules || {};
+        const matching = rules.any_new_lead ? "Any new lead" : [rules.markets?.join(", "), rules.cities?.join(", "), rules.service_interests?.join(", ")].filter(Boolean).join(" · ") || "No trigger selected";
+        return `<article><div><strong>${escapeHtml(list.name)}</strong><small>${escapeHtml(matching)}</small></div><div>${list.active ? `<span class="status live">Active</span>` : `<span class="status draft">Off</span>`}<small>${count} active member${count === 1 ? "" : "s"} · escalation ${list.escalation_minutes} min</small></div></article>`;
+      }).join("")}</div>` : `<p class="panel-copy">No alert lists yet. Create one for a market, service type, or all new leads.</p>`, "pad")}
+      ${panel("Create Alert List", "", `<form class="communications-form" data-communications-alert-form>
+        <label>List name<input required name="name" placeholder="Cleveland Trainers"></label>
+        <label>Trigger market(s)<input name="markets" placeholder="Cleveland, Columbus"></label>
+        <label>Service type(s)<input name="services" placeholder="Aggression, Puppy Training"></label>
+        <label class="check-row"><input type="checkbox" name="any_new_lead"> Alert for any new client lead</label>
+        <label>Quiet hours start<input type="time" name="quiet_start"></label>
+        <label>Quiet hours end<input type="time" name="quiet_end"></label>
+        <label>Escalate after minutes<input required type="number" min="1" max="1440" name="escalation_minutes" value="10"></label>
+        <label class="check-row"><input type="checkbox" name="urgent_override"> Urgent behavior cases can override quiet hours</label>
+        <button class="btn btn-red" type="submit">Save Alert List</button>
+      </form>`, "pad")}
+    </div>
+    ${panel("Alert List Members", "", `<div class="communications-grid">
+      <form class="communications-form" data-communications-member-form>
+        <label>Alert list<select required name="alert_list_id"><option value="">Select list</option>${lists.map(list => `<option value="${escapeHtml(list.id)}">${escapeHtml(list.name)}</option>`).join("")}</select></label>
+        <label>Existing staff account<select name="account" data-communications-member-account><option value="">Or enter a person below</option>${staff.map(user => `<option value="${escapeHtml(user.user_id)}" data-name="${escapeHtml(portalDisplayName(user))}">${escapeHtml(portalDisplayName(user))}</option>`).join("")}</select></label>
+        <label>Staff name<input required name="display_name" placeholder="Jasmine Smith"></label>
+        <label>Mobile number<input required name="phone" inputmode="tel" placeholder="(216) 555-0100"></label>
+        <label class="check-row"><input type="checkbox" name="consented"> Written work-text consent received</label>
+        <button class="btn btn-red" type="submit">Add Member</button>
+      </form>
+      <div class="communications-member-list">${members.length ? members.map(member => `<article><strong>${escapeHtml(member.display_name)}</strong><span>${escapeHtml(member.phone)} · ${member.stopped_at ? "STOP requested" : member.consented_at ? "consented" : "consent needed"}</span></article>`).join("") : `<p class="panel-copy">Add the people who should receive each alert.</p>`}</div>
+    </div>`, "pad")}`;
+}
+
+function communicationsStatusBoard() {
+  const rows = communicationsLeadRows();
+  const all = allLeadRows();
+  const today = new Date().toDateString();
+  const newToday = all.filter(lead => new Date(lead.createdAt || "").toDateString() === today).length;
+  const unclaimed = all.filter(lead => (lead.claimStatus || "new") === "new").length;
+  const markets = [...new Set(all.map(lead => lead.market).filter(Boolean))].sort();
+  const owners = [...new Set(all.map(lead => lead.claimedBy).filter(Boolean))];
+  return `
+    ${metricGrid([
+      ["lead", "New Today", newToday, "Client lead rows", ""],
+      ["message", "Unclaimed Now", unclaimed, "Needs an owner", unclaimed ? "down" : "up"],
+      ["calendar", "Claimed", all.filter(lead => lead.claimStatus === "claimed").length, "Awaiting contact", ""],
+      ["trophy", "Contacted", all.filter(lead => lead.claimStatus === "contacted").length, "First response logged", "up"]
+    ])}
+    <form class="communications-filter-bar" data-communications-filter-form>
+      <label>Claim status<select name="status"><option>All</option>${["new","claimed","contacted","appointment_set","won","lost"].map(status => `<option value="${status}" ${state.communicationsFilters.status === status ? "selected" : ""}>${escapeHtml(status.replaceAll("_", " "))}</option>`).join("")}</select></label>
+      <label>Market<select name="market"><option>All</option>${markets.map(market => `<option ${state.communicationsFilters.market === market ? "selected" : ""}>${escapeHtml(market)}</option>`).join("")}</select></label>
+      <label>Owner<select name="owner"><option value="All">All</option>${owners.map(owner => `<option value="${escapeHtml(owner)}" ${state.communicationsFilters.owner === owner ? "selected" : ""}>${escapeHtml(communicationsOwnerLabel(owner))}</option>`).join("")}</select></label>
+      <button class="btn btn-outline" type="submit">Apply</button>
+    </form>
+    ${panel("Lead Status", `<button class="btn btn-outline" type="button" data-communications-refresh>Refresh live data</button>`, `<div class="table-wrap"><table class="data-table communications-status-table"><thead><tr><th>Code</th><th>Client</th><th>City</th><th>Need</th><th>Status</th><th>Owner</th><th>Age</th><th>Action</th></tr></thead><tbody>${rows.map(lead => `<tr><td><strong>#${escapeHtml(lead.communicationsCode || "----")}</strong></td><td>${escapeHtml((lead.owner || "Client").split(/\s+/)[0])}</td><td>${escapeHtml(lead.city || lead.market || "—")}</td><td>${escapeHtml(lead.service || "—")}</td><td>${communicationsClaimBadge(lead)}</td><td>${escapeHtml(communicationsOwnerLabel(lead.claimedBy))}</td><td>${escapeHtml(communicationsAge(lead.claimedAt || lead.createdAt))}</td><td><div class="communications-actions">${!lead.claimedBy ? `<button class="btn btn-red btn-small" type="button" data-communications-lead-action="claim_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Claim</button>` : ""}${lead.claimedBy ? `<button class="btn btn-outline btn-small" type="button" data-communications-lead-action="mark_contacted" data-lead-id="${escapeHtml(lead.remoteId)}">Log Contact</button><button class="btn btn-outline btn-small" type="button" data-communications-lead-action="release_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Release</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="8">No leads match these Communications filters.</td></tr>`}</tbody></table></div>`, "pad")}`;
+}
+
+function communicationsMessageCenter() {
+  const templates = communicationsData.templates || [];
+  const testers = communicationsData.testers || [];
+  return `
+    <section class="communications-wizard-note"><strong>1. Channel</strong><span>2. Template</span><span>3. Edit & Preview</span><span>4. Recipients</span><span>5. Send</span></section>
+    <div class="communications-grid">
+      ${panel("Saved Templates", "", templates.length ? `<div class="communications-list">${templates.map(template => `<article><div><strong>${escapeHtml(template.name)}</strong><small>${escapeHtml(template.channel)} · ${escapeHtml(template.subject || "No subject")}</small></div><span class="status ${template.active ? "live" : "draft"}">${template.active ? "Active" : "Off"}</span></article>`).join("")}</div>` : `<p class="panel-copy">Save email, text, or HTML templates here. The portal fills approved merge fields on the server for every recipient.</p>`, "pad")}
+      ${panel("Create Template", "", `<form class="communications-form" data-communications-template-form>
+        <label>Template name<input required name="name" placeholder="New client follow-up"></label>
+        <label>Channel<select name="channel"><option value="email">Email</option><option value="sms">Text message</option></select></label>
+        <label>Email subject<input name="subject" placeholder="A note from Lorenzo's Dog Training Team"></label>
+        <label>Plain-text message<textarea required name="body_text" placeholder="Hi {{first_name}}, ..."></textarea></label>
+        <label>Optional custom HTML email<textarea name="body_html" placeholder="<table role=\"presentation\">...</table>"></textarea><small class="field-help">Custom HTML is saved as a template. Email always has a plain-text version for accessibility.</small></label>
+        <button class="btn btn-red" type="submit">Save Template</button>
+      </form>`, "pad")}
+    </div>
+    ${panel("Preview & Test", "", `<form class="communications-form communications-test-form" data-communications-test-form>
+      <label>Saved template<select required name="template_id"><option value="">Select template</option>${templates.map(template => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)} (${escapeHtml(template.channel)})</option>`).join("")}</select></label>
+      <label>Preview first name<input name="first_name" value="Mary Ann"></label>
+      <label>Preview city<input name="city" value="Cleveland"></label>
+      <label class="wide">Send test to saved testers<div class="communications-tester-checks">${testers.filter(tester => tester.active).map(tester => `<label class="check-row"><input type="checkbox" name="tester" value="${escapeHtml(tester.id)}"> ${escapeHtml(tester.display_name)}${tester.email ? ` · ${escapeHtml(tester.email)}` : ""}${tester.phone ? ` · ${escapeHtml(tester.phone)}` : ""}</label>`).join("") || "No saved testers yet."}</div></label>
+      <button class="btn btn-outline" type="button" data-communications-preview>Preview</button><button class="btn btn-red" type="submit">Send Test</button>
+      <output class="communications-preview" data-communications-preview-output>Choose a template, then preview before sending.</output>
+    </form>`, "pad")}
+    ${panel("Saved Testers", "", `<form class="communications-form compact-form" data-communications-tester-form><label>Name<input required name="display_name" placeholder="Office test recipient"></label><label>Email<input type="email" name="email" placeholder="test@example.com"></label><label>Mobile<input name="phone" placeholder="(216) 555-0100"></label><button class="btn btn-outline" type="submit">Save Tester</button></form>`, "pad")}`;
+}
+
+function communicationsSettings() {
+  if (!communicationsData.isSuperAdmin) return panel("Communications Settings", "", `<p class="panel-copy">Only a Super Admin can see or update provider settings.</p>`, "pad");
+  const config = communicationsData.config || { values: {}, simpletextingReady: false, resendReady: false };
+  const value = key => config.values?.[key]?.value || "";
+  const configured = key => config.values?.[key]?.configured ? "Configured" : "Not configured";
+  return `${panel("Secure Provider Settings", "", `<p class="panel-copy">Keys are encrypted in Supabase Vault and are never sent back to this browser. Leave a key field blank to keep the saved value unchanged.</p>
+    <form class="communications-form" data-communications-settings-form>
+      <div class="communications-settings-state"><span class="status ${config.simpletextingReady ? "live" : "draft"}">SimpleTexting: ${config.simpletextingReady ? "Ready" : "Not ready"}</span><span class="status ${config.resendReady ? "live" : "draft"}">Resend: ${config.resendReady ? "Ready" : "Not ready"}</span></div>
+      <label>SimpleTexting API key <small>${configured("simpletexting_api_key")}</small><input type="password" name="simpletexting_api_key" autocomplete="new-password" placeholder="Paste once; it will not be shown again"></label>
+      <label>SimpleTexting sending number<input name="simpletexting_sending_number" value="${escapeHtml(value("simpletexting_sending_number"))}" placeholder="+12165550100"></label>
+      <label>SimpleTexting webhook signing secret <small>${configured("simpletexting_signing_secret")}</small><input type="password" name="simpletexting_signing_secret" autocomplete="new-password"></label>
+      <label>Resend API key <small>${configured("resend_api_key")}</small><input type="password" name="resend_api_key" autocomplete="new-password" placeholder="Paste once; it will not be shown again"></label>
+      <label>Verified from-address<input name="resend_from_address" value="${escapeHtml(value("resend_from_address"))}" placeholder="Lorenzo's Dog Training Team <office@lorenzosdogtrainingteam.com>"></label>
+      <label>Resend webhook signing secret <small>${configured("resend_signing_secret")}</small><input type="password" name="resend_signing_secret" autocomplete="new-password"></label>
+      <label>Unsubscribe signing secret <small>${configured("unsubscribe_secret")}</small><input type="password" name="unsubscribe_secret" autocomplete="new-password" placeholder="Long random value"></label>
+      <button class="btn btn-red" type="submit">Save Secure Settings</button>
+    </form>`, "pad")}
+    ${panel("Webhook URLs", "", `<div class="communications-webhooks"><label>Inbound staff texts<input readonly value="https://www.lorenzosdogtrainingteam.com/api/webhooks/sms-inbound"></label><label>Text delivery status<input readonly value="https://www.lorenzosdogtrainingteam.com/api/webhooks/sms-status"></label><label>Resend delivery events<input readonly value="https://www.lorenzosdogtrainingteam.com/api/webhooks/email"></label></div><p class="panel-copy">Webhook receiving will stay disabled until the provider signing secrets are saved and the provider is configured to send signed events.</p>`, "pad")}`;
+}
+
+function communicationsScreen() {
+  if (!communicationsData.canManage && state.communicationsSection !== "status") state.communicationsSection = "status";
+  if (communicationsData.loading) return panel("Communications", "", `<p class="panel-copy">Loading live Communications records…</p>`, "pad");
+  if (communicationsData.error) return panel("Communications", `<button class="btn btn-outline" type="button" data-communications-refresh>Try Again</button>`, `<p class="panel-copy">${escapeHtml(communicationsData.error)}</p>`, "pad");
+  const content = state.communicationsSection === "status"
+    ? communicationsStatusBoard()
+    : state.communicationsSection === "messages"
+      ? communicationsMessageCenter()
+      : state.communicationsSection === "settings"
+        ? communicationsSettings()
+        : communicationsAlertLists();
+  return `${communicationsTabs()}${content}`;
 }
 
 const adminScreens = {
@@ -3806,6 +4031,9 @@ const adminScreens = {
   },
   approvals() {
     return panel("Trainer Review Inbox", "", submissionsTable(true, "review"), "pad");
+  },
+  communications() {
+    return communicationsScreen();
   },
   reports() {
     const metrics = getMetrics();
@@ -3885,6 +4113,9 @@ const trainerScreens = {
   },
   submitReviews() {
     return `<div class="dashboard-grid">${panel("Submit Review / Testimonial", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="review">Submit For Approval</button>`, submissionForm("review"), "pad")}${panel("My Review Status", "", submissionsTable(false, "review"), "pad")}</div>`;
+  },
+  communications() {
+    return communicationsScreen();
   },
   settings() {
     const trainer = trainerById(currentTrainerId());
@@ -7558,6 +7789,53 @@ document.addEventListener("click", async event => {
     showToast("This action requires Super Admin access.");
     return;
   }
+  const communicationsSection = event.target.closest("[data-communications-section]");
+  if (communicationsSection) {
+    state.communicationsSection = communicationsSection.dataset.communicationsSection || "alerts";
+    saveState();
+    return;
+  }
+  if (event.target.closest("[data-communications-refresh]")) {
+    await Promise.all([loadCommunicationsData(false), refreshCommunicationsLeads().catch(() => {})]);
+    render();
+    showToast("Communications refreshed from the live records.");
+    return;
+  }
+  const communicationsLeadAction = event.target.closest("[data-communications-lead-action]");
+  if (communicationsLeadAction) {
+    const action = communicationsLeadAction.dataset.communicationsLeadAction;
+    communicationsLeadAction.setAttribute("disabled", "disabled");
+    try {
+      const result = await communicationsRequest({ operation: action, lead_id: communicationsLeadAction.dataset.leadId });
+      await Promise.all([refreshCommunicationsLeads(), loadCommunicationsData(false)]);
+      render();
+      showToast(result.message || "Lead updated.");
+    } catch (error) {
+      communicationsLeadAction.removeAttribute("disabled");
+      showToast(error.message || "The lead could not be updated.");
+    }
+    return;
+  }
+  const communicationsPreview = event.target.closest("[data-communications-preview]");
+  if (communicationsPreview) {
+    const form = communicationsPreview.closest("form");
+    const template = (communicationsData.templates || []).find(item => item.id === form?.elements?.template_id?.value);
+    const output = form?.querySelector("[data-communications-preview-output]");
+    if (!template || !output) { showToast("Choose a saved template first."); return; }
+    try {
+      const result = await communicationsRequest({
+        operation: "preview_campaign",
+        subject: template.subject || "",
+        body_text: template.body_text || "",
+        body_html: template.body_html || "",
+        sample: { first_name: form.elements.first_name?.value, city: form.elements.city?.value }
+      });
+      output.innerHTML = `<strong>${escapeHtml(result.subject || "Message preview")}</strong><span>${escapeHtml(result.text || "")}</span>`;
+    } catch (error) {
+      showToast(error.message || "Preview could not be generated.");
+    }
+    return;
+  }
   const publicReviewMedia = event.target.closest("[data-open-public-review-media]");
   if (publicReviewMedia) {
     openPublicReviewMedia(publicReviewMedia);
@@ -8794,6 +9072,15 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
+  const communicationsAccount = event.target.closest("[data-communications-member-account]");
+  if (communicationsAccount) {
+    const option = communicationsAccount.options[communicationsAccount.selectedIndex];
+    const form = communicationsAccount.closest("form");
+    if (option?.dataset?.name && form?.elements?.display_name && !form.elements.display_name.value.trim()) {
+      form.elements.display_name.value = option.dataset.name;
+    }
+    return;
+  }
   if (event.target.id === "clientImportFile" && event.target.files?.[0]) {
     const file = event.target.files[0];
     const status = document.getElementById("importFileStatus");
@@ -9389,6 +9676,119 @@ document.addEventListener("drop", event => {
 
 document.addEventListener("submit", async event => {
   event.preventDefault();
+  if (event.target.matches("[data-communications-alert-form]")) {
+    const data = new FormData(event.target);
+    try {
+      await communicationsRequest({
+        operation: "save_alert_list",
+        list: {
+          name: data.get("name"),
+          quiet_hours_start: data.get("quiet_start"),
+          quiet_hours_end: data.get("quiet_end"),
+          escalation_minutes: Number(data.get("escalation_minutes") || 10),
+          urgent_overrides_quiet_hours: data.get("urgent_override") === "on",
+          rules: {
+            any_new_lead: data.get("any_new_lead") === "on",
+            markets: String(data.get("markets") || "").split(",").map(value => value.trim()).filter(Boolean),
+            service_interests: String(data.get("services") || "").split(",").map(value => value.trim()).filter(Boolean)
+          }
+        }
+      });
+      event.target.reset();
+      await loadCommunicationsData(false);
+      render();
+      showToast("Alert list saved.");
+    } catch (error) { showToast(error.message || "Alert list could not be saved."); }
+    return;
+  }
+  if (event.target.matches("[data-communications-member-form]")) {
+    const data = new FormData(event.target);
+    try {
+      await communicationsRequest({
+        operation: "save_member",
+        member: {
+          alert_list_id: data.get("alert_list_id"),
+          portal_user_id: data.get("account") || null,
+          display_name: data.get("display_name"),
+          phone: data.get("phone"),
+          consented_at: data.get("consented") === "on" ? new Date().toISOString() : null
+        }
+      });
+      event.target.reset();
+      await loadCommunicationsData(false);
+      render();
+      showToast("Alert-list member saved.");
+    } catch (error) { showToast(error.message || "Member could not be saved."); }
+    return;
+  }
+  if (event.target.matches("[data-communications-template-form]")) {
+    const data = new FormData(event.target);
+    try {
+      await communicationsRequest({ operation: "save_template", template: {
+        name: data.get("name"), channel: data.get("channel"), subject: data.get("subject"), body_text: data.get("body_text"), body_html: data.get("body_html")
+      } });
+      event.target.reset();
+      await loadCommunicationsData(false);
+      render();
+      showToast("Template saved for future use.");
+    } catch (error) { showToast(error.message || "Template could not be saved."); }
+    return;
+  }
+  if (event.target.matches("[data-communications-tester-form]")) {
+    const data = new FormData(event.target);
+    try {
+      await communicationsRequest({ operation: "save_tester", tester: { display_name: data.get("display_name"), email: data.get("email"), phone: data.get("phone") } });
+      event.target.reset();
+      await loadCommunicationsData(false);
+      render();
+      showToast("Tester saved.");
+    } catch (error) { showToast(error.message || "Tester could not be saved."); }
+    return;
+  }
+  if (event.target.matches("[data-communications-settings-form]")) {
+    const data = new FormData(event.target);
+    const settings = {};
+    ["simpletexting_api_key", "simpletexting_signing_secret", "resend_api_key", "resend_signing_secret", "unsubscribe_secret"].forEach(key => {
+      if (String(data.get(key) || "").trim()) settings[key] = { secret: data.get(key) };
+    });
+    ["simpletexting_sending_number", "resend_from_address"].forEach(key => {
+      if (String(data.get(key) || "").trim()) settings[key] = { value: data.get(key) };
+    });
+    try {
+      await communicationsRequest({ operation: "save_settings", settings });
+      event.target.querySelectorAll('input[type="password"]').forEach(input => { input.value = ""; });
+      await loadCommunicationsData(false);
+      render();
+      showToast("Secure provider settings saved.");
+    } catch (error) { showToast(error.message || "Secure settings could not be saved."); }
+    return;
+  }
+  if (event.target.matches("[data-communications-filter-form]")) {
+    const data = new FormData(event.target);
+    state.communicationsFilters = { status: data.get("status") || "All", market: data.get("market") || "All", owner: data.get("owner") || "All" };
+    saveState();
+    return;
+  }
+  if (event.target.matches("[data-communications-test-form]")) {
+    const data = new FormData(event.target);
+    const template = (communicationsData.templates || []).find(item => item.id === data.get("template_id"));
+    const testerIds = data.getAll("tester");
+    const recipients = (communicationsData.testers || []).filter(tester => testerIds.includes(tester.id));
+    if (!template) { showToast("Choose a saved template first."); return; }
+    try {
+      const result = await communicationsRequest({
+        operation: "send_test",
+        channel: template.channel === "email" ? "email" : "sms",
+        subject: template.subject || "",
+        body_text: template.body_text || "",
+        body_html: template.body_html || "",
+        recipients
+      });
+      const delivered = result.outcomes?.filter(item => item.status === "sent").length || 0;
+      showToast(`Test sent to ${delivered} recipient${delivered === 1 ? "" : "s"}.`);
+    } catch (error) { showToast(error.message || "Test could not be sent."); }
+    return;
+  }
   if (event.target.classList.contains("office-lead-form")) {
     if (event.target.dataset.submitting === "true" || !event.target.reportValidity()) return;
     const submitButton = event.target.querySelector('button[type="submit"]');
