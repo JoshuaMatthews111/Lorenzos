@@ -932,6 +932,7 @@ function remoteLeadToUi(row) {
     claimedAt: row.claimed_at || "",
     firstResponseAt: row.first_response_at || "",
     communicationsEscalatedAt: row.communications_escalated_at || "",
+    dbStatus: row.status || "",
     status: leadStatusFromDb[row.status] || normalizeLeadStatus(row.status),
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || row.created_at || "",
@@ -3815,13 +3816,21 @@ async function refreshCommunicationsLeads() {
 }
 
 function communicationsOwnerLabel(userId) {
-  if (!userId) return "Unclaimed";
+  if (!userId) return "Available";
   return portalActorLabel(userId) || "Assigned staff";
+}
+
+function communicationsLeadIsActive(lead) {
+  return !new Set([
+    "archived", "do_not_contact", "bad_lead", "became_client", "first_session_payment",
+    "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
+    "lost_client_complaint", "lost_no_trainer_area"
+  ]).has(lead.dbStatus || "");
 }
 
 function communicationsLeadRows() {
   const filters = state.communicationsFilters || {};
-  return allLeadRows().filter(lead => {
+  return allLeadRows().filter(communicationsLeadIsActive).filter(lead => {
     if (filters.status && filters.status !== "All" && (lead.claimStatus || "new") !== filters.status) return false;
     if (filters.market && filters.market !== "All" && lead.market !== filters.market) return false;
     if (filters.owner && filters.owner !== "All" && lead.claimedBy !== filters.owner) return false;
@@ -3859,14 +3868,15 @@ function communicationsAlertLists() {
   const members = communicationsData.members || [];
   const staff = remotePortalUsers.filter(user => user.active !== false && user.access_status !== "disabled" && user.access_status !== "revoked");
   return `
+    ${panel("Lead Alerts Setup", "", `<p class="panel-copy"><strong>1. Create a list.</strong> Choose the market or service it covers. <strong>2. Add the people.</strong> Use their staff account and mobile number. <strong>3. Turn it on.</strong> The office stays in control.</p>`, "pad")}
     <div class="communications-grid">
-      ${panel("Alert Lists", "", lists.length ? `<div class="communications-list">${lists.map(list => {
+      ${panel(lists.length ? "Your Alert Lists" : "1. Create Your First Alert List", "", lists.length ? `<div class="communications-list">${lists.map(list => {
         const count = members.filter(member => member.alert_list_id === list.id && member.active && !member.stopped_at).length;
         const rules = list.rules || {};
         const matching = rules.any_new_lead ? "Any new lead" : [rules.markets?.join(", "), rules.cities?.join(", "), rules.service_interests?.join(", ")].filter(Boolean).join(" · ") || "No trigger selected";
         return `<article><div><strong>${escapeHtml(list.name)}</strong><small>${escapeHtml(matching)}</small></div><div>${list.active ? `<span class="status live">Active</span>` : `<span class="status draft">Off</span>`}<small>${count} active member${count === 1 ? "" : "s"} · escalation ${list.escalation_minutes} min</small></div></article>`;
       }).join("")}</div>` : `<p class="panel-copy">No alert lists yet. Create one for a market, service type, or all new leads.</p>`, "pad")}
-      ${panel("Create Alert List", "", `<form class="communications-form" data-communications-alert-form>
+      ${panel("+ Create New Alert List", "", `<form class="communications-form" data-communications-alert-form>
         <label>List name<input required name="name" placeholder="Cleveland Trainers"></label>
         <label>Trigger market(s)<input name="markets" placeholder="Cleveland, Columbus"></label>
         <label>Service type(s)<input name="services" placeholder="Aggression, Puppy Training"></label>
@@ -3875,10 +3885,10 @@ function communicationsAlertLists() {
         <label>Quiet hours end<input type="time" name="quiet_end"></label>
         <label>Escalate after minutes<input required type="number" min="1" max="1440" name="escalation_minutes" value="10"></label>
         <label class="check-row"><input type="checkbox" name="urgent_override"> Urgent behavior cases can override quiet hours</label>
-        <button class="btn btn-red" type="submit">Save Alert List</button>
+        <button class="btn btn-red" type="submit">Create Alert List</button>
       </form>`, "pad")}
     </div>
-    ${panel("Alert List Members", "", `<div class="communications-grid">
+    ${panel("2. Add People to a List", "", lists.length ? `<div class="communications-grid">
       <form class="communications-form" data-communications-member-form>
         <label>Alert list<select required name="alert_list_id"><option value="">Select list</option>${lists.map(list => `<option value="${escapeHtml(list.id)}">${escapeHtml(list.name)}</option>`).join("")}</select></label>
         <label>Existing staff account<select name="account" data-communications-member-account><option value="">Or enter a person below</option>${staff.map(user => `<option value="${escapeHtml(user.user_id)}" data-name="${escapeHtml(portalDisplayName(user))}">${escapeHtml(portalDisplayName(user))}</option>`).join("")}</select></label>
@@ -3888,31 +3898,23 @@ function communicationsAlertLists() {
         <button class="btn btn-red" type="submit">Add Member</button>
       </form>
       <div class="communications-member-list">${members.length ? members.map(member => `<article><strong>${escapeHtml(member.display_name)}</strong><span>${escapeHtml(member.phone)} · ${member.stopped_at ? "STOP requested" : member.consented_at ? "consented" : "consent needed"}</span></article>`).join("") : `<p class="panel-copy">Add the people who should receive each alert.</p>`}</div>
-    </div>`, "pad")}`;
+    </div>` : `<p class="panel-copy">Create a list first. Then this screen will let you add the staff who should receive those alerts.</p>`, "pad")}`;
 }
 
 function communicationsStatusBoard() {
   const rows = communicationsLeadRows();
-  const all = allLeadRows();
+  const all = allLeadRows().filter(communicationsLeadIsActive);
   const today = new Date().toDateString();
   const newToday = all.filter(lead => new Date(lead.createdAt || "").toDateString() === today).length;
   const unclaimed = all.filter(lead => (lead.claimStatus || "new") === "new").length;
-  const markets = [...new Set(all.map(lead => lead.market).filter(Boolean))].sort();
-  const owners = [...new Set(all.map(lead => lead.claimedBy).filter(Boolean))];
   return `
     ${metricGrid([
       ["lead", "New Today", newToday, "Client lead rows", ""],
-      ["message", "Unclaimed Now", unclaimed, "Needs an owner", unclaimed ? "down" : "up"],
-      ["calendar", "Claimed", all.filter(lead => lead.claimStatus === "claimed").length, "Awaiting contact", ""],
+      ["message", "Available Leads", unclaimed, "Ready to assign", unclaimed ? "down" : "up"],
+      ["calendar", "Assigned", all.filter(lead => lead.claimStatus === "claimed").length, "Awaiting contact", ""],
       ["trophy", "Contacted", all.filter(lead => lead.claimStatus === "contacted").length, "First response logged", "up"]
     ])}
-    <form class="communications-filter-bar" data-communications-filter-form>
-      <label>Claim status<select name="status"><option>All</option>${["new","claimed","contacted","appointment_set","won","lost"].map(status => `<option value="${status}" ${state.communicationsFilters.status === status ? "selected" : ""}>${escapeHtml(status.replaceAll("_", " "))}</option>`).join("")}</select></label>
-      <label>Market<select name="market"><option>All</option>${markets.map(market => `<option ${state.communicationsFilters.market === market ? "selected" : ""}>${escapeHtml(market)}</option>`).join("")}</select></label>
-      <label>Owner<select name="owner"><option value="All">All</option>${owners.map(owner => `<option value="${escapeHtml(owner)}" ${state.communicationsFilters.owner === owner ? "selected" : ""}>${escapeHtml(communicationsOwnerLabel(owner))}</option>`).join("")}</select></label>
-      <button class="btn btn-outline" type="submit">Apply</button>
-    </form>
-    ${panel("Lead Status", `<button class="btn btn-outline" type="button" data-communications-refresh>Refresh live data</button>`, `<div class="table-wrap"><table class="data-table communications-status-table"><thead><tr><th>Code</th><th>Client</th><th>City</th><th>Need</th><th>Status</th><th>Owner</th><th>Age</th><th>Action</th></tr></thead><tbody>${rows.map(lead => `<tr><td><strong>#${escapeHtml(lead.communicationsCode || "----")}</strong></td><td>${escapeHtml((lead.owner || "Client").split(/\s+/)[0])}</td><td>${escapeHtml(lead.city || lead.market || "—")}</td><td>${escapeHtml(lead.service || "—")}</td><td>${communicationsClaimBadge(lead)}</td><td>${escapeHtml(communicationsOwnerLabel(lead.claimedBy))}</td><td>${escapeHtml(communicationsAge(lead.claimedAt || lead.createdAt))}</td><td><div class="communications-actions">${!lead.claimedBy ? `<button class="btn btn-red btn-small" type="button" data-communications-lead-action="claim_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Claim</button>` : ""}${lead.claimedBy ? `<button class="btn btn-outline btn-small" type="button" data-communications-lead-action="mark_contacted" data-lead-id="${escapeHtml(lead.remoteId)}">Log Contact</button><button class="btn btn-outline btn-small" type="button" data-communications-lead-action="release_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Release</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="8">No leads match these Communications filters.</td></tr>`}</tbody></table></div>`, "pad")}`;
+    ${panel("Active Lead Assignments", `<button class="btn btn-outline" type="button" data-communications-section="alerts">Create Alert List</button><button class="btn btn-outline" type="button" data-communications-refresh>Refresh</button>`, `<p class="panel-copy">Only active client leads appear here. Select <strong>Assign to me</strong> to take ownership, then log contact when the customer has been reached.</p><div class="table-wrap"><table class="data-table communications-status-table"><thead><tr><th>Code</th><th>Client</th><th>City</th><th>Need</th><th>Status</th><th>Assigned to</th><th>Age</th><th>Action</th></tr></thead><tbody>${rows.map(lead => `<tr><td><strong>#${escapeHtml(lead.communicationsCode || "New")}</strong></td><td>${escapeHtml((lead.owner || "Client").split(/\s+/)[0])}</td><td>${escapeHtml(lead.city || lead.market || "—")}</td><td>${escapeHtml(lead.service || "—")}</td><td>${communicationsClaimBadge(lead)}</td><td>${escapeHtml(communicationsOwnerLabel(lead.claimedBy))}</td><td>${escapeHtml(communicationsAge(lead.claimedAt || lead.createdAt))}</td><td><div class="communications-actions">${!lead.claimedBy ? `<button class="btn btn-red btn-small" type="button" data-communications-lead-action="claim_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Assign to me</button>` : ""}${lead.claimedBy ? `<button class="btn btn-outline btn-small" type="button" data-communications-lead-action="mark_contacted" data-lead-id="${escapeHtml(lead.remoteId)}">Log Contact</button><button class="btn btn-outline btn-small" type="button" data-communications-lead-action="release_lead" data-lead-id="${escapeHtml(lead.remoteId)}">Release</button>` : ""}</div></td></tr>`).join("") || `<tr><td colspan="8">There are no active client leads to assign.</td></tr>`}</tbody></table></div>`, "pad")}`;
 }
 
 function communicationsMessageCenter() {
@@ -3963,7 +3965,7 @@ function communicationsSettings() {
 }
 
 function communicationsScreen() {
-  if (!communicationsData.canManage && state.communicationsSection !== "status") state.communicationsSection = "status";
+  if (communicationsData.loaded && !communicationsData.canManage && state.communicationsSection !== "status") state.communicationsSection = "status";
   if (communicationsData.loading) return panel("Communications", "", `<p class="panel-copy">Loading live Communications records…</p>`, "pad");
   if (communicationsData.error) return panel("Communications", `<button class="btn btn-outline" type="button" data-communications-refresh>Try Again</button>`, `<p class="panel-copy">${escapeHtml(communicationsData.error)}</p>`, "pad");
   const content = state.communicationsSection === "status"

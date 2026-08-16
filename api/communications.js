@@ -389,11 +389,26 @@ async function leadAction(access, body) {
   if (!leadId) throw Object.assign(new Error("Lead is required."), { status: 400 });
   const operation = clean(body.operation, 40);
   const isManager = isAdmin(access);
+  const rows = await supabaseFetch(`/rest/v1/leads?select=id,status,claimed_by&id=eq.${encodeURIComponent(leadId)}&limit=1`);
+  const lead = rows?.[0];
+  if (!lead) throw Object.assign(new Error("This lead is no longer available."), { status: 404 });
+  const closedStatuses = new Set([
+    "archived", "do_not_contact", "bad_lead", "became_client", "first_session_payment",
+    "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
+    "lost_client_complaint", "lost_no_trainer_area"
+  ]);
+  if (operation === "claim_lead" && closedStatuses.has(lead.status)) {
+    throw Object.assign(new Error("This lead is closed and cannot be assigned."), { status: 409 });
+  }
+  if (operation === "claim_lead" && lead.claimed_by) {
+    throw Object.assign(new Error("This lead is already assigned to another staff member."), { status: 409 });
+  }
   let result;
   if (operation === "claim_lead") {
     result = await supabaseFetch("/rest/v1/rpc/communications_claim_lead", { method: "POST", body: JSON.stringify({ p_lead_id: leadId, p_staff_id: access.user.id }) });
     const response = Array.isArray(result) ? result[0] : result;
-    return { result: response, message: response?.claimed ? "Lead claimed." : `${response?.owner_name || "Another staff member"} already claimed this lead.` };
+    if (!response?.claimed) throw Object.assign(new Error("This lead could not be assigned. Refresh and try again."), { status: 409 });
+    return { result: response, message: "Lead assigned to you." };
   }
   if (operation === "release_lead") {
     result = await supabaseFetch("/rest/v1/rpc/communications_release_lead", { method: "POST", body: JSON.stringify({ p_lead_id: leadId, p_staff_id: isManager ? null : access.user.id, p_reason: clean(body.reason, 200) || "passed" }) });
