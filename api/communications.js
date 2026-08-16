@@ -318,7 +318,7 @@ async function unsubscribeUrl(email) {
   return `https://www.lorenzosdogtrainingteam.com/api/unsubscribe?email=${encodeURIComponent(normalized)}&sig=${signature}`;
 }
 
-async function sendEmail(email, subject, html, text) {
+async function sendEmail(email, subject, html, text, unsubscribe = "") {
   const [{ secret: apiKey }, { setting: sender }] = await Promise.all([
     getSetting("resend_api_key", true), getSetting("resend_from_address", false)
   ]);
@@ -332,7 +332,7 @@ async function sendEmail(email, subject, html, text) {
       subject,
       html,
       text,
-      headers: { "List-Unsubscribe": `<${(html.match(/https?:\/\/[^"'\s]+unsubscribe[^"'\s]*/i) || [""])[0]}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" }
+      headers: unsubscribe ? { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined
     })
   });
   const data = await response.json().catch(() => ({}));
@@ -354,15 +354,25 @@ async function previewCampaign(_access, body) {
 async function sendTest(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const channel = ["email", "sms"].includes(body.channel) ? body.channel : "email";
-  const recipients = Array.isArray(body.recipients) ? body.recipients.slice(0, 20) : [];
-  if (!recipients.length) throw Object.assign(new Error("Choose at least one saved tester."), { status: 400 });
+  const requestedIds = Array.isArray(body.recipients)
+    ? body.recipients.map(item => clean(item?.id, 80)).filter(id => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 20)
+    : [];
+  if (!requestedIds.length) throw Object.assign(new Error("Choose at least one saved tester."), { status: 400 });
+  const savedTesters = await supabaseFetch("/rest/v1/communications_testers?select=id,display_name,email,phone&active=eq.true");
+  const wanted = new Set(requestedIds);
+  const recipients = savedTesters.filter(tester => wanted.has(tester.id));
+  if (!recipients.length) throw Object.assign(new Error("Choose at least one active saved tester."), { status: 400 });
   const outcomes = [];
   for (const tester of recipients) {
     const data = { client_name: tester.display_name, email: tester.email, phone: tester.phone, city: "Cleveland" };
     const unsubscribe = tester.email ? await unsubscribeUrl(tester.email) : "";
     if (channel === "email") {
       if (!tester.email) { outcomes.push({ name: tester.display_name, status: "skipped", message: "No email" }); continue; }
-      const result = await sendEmail(tester.email, mergeTemplate(body.subject, data, unsubscribe) || "Lorenzo's Dog Training Team test", mergeTemplate(body.body_html || body.body_text, data, unsubscribe), mergeTemplate(body.body_text, data, unsubscribe));
+      let html = mergeTemplate(body.body_html || body.body_text, data, unsubscribe);
+      let text = mergeTemplate(body.body_text, data, unsubscribe);
+      if (unsubscribe && !html.includes(unsubscribe)) html += `<p style="font-size:12px;color:#52657e">Unsubscribe: <a href="${unsubscribe}">${unsubscribe}</a></p>`;
+      if (unsubscribe && !text.includes(unsubscribe)) text += `\n\nUnsubscribe: ${unsubscribe}`;
+      const result = await sendEmail(tester.email, mergeTemplate(body.subject, data, unsubscribe) || "Lorenzo's Dog Training Team test", html, text, unsubscribe);
       outcomes.push({ name: tester.display_name, status: "sent", id: result.id });
     } else {
       if (!tester.phone) { outcomes.push({ name: tester.display_name, status: "skipped", message: "No mobile number" }); continue; }
@@ -411,7 +421,7 @@ async function removeRecord(access, body) {
   return { removed: true };
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Secure portal server configuration is unavailable." });
@@ -437,4 +447,15 @@ module.exports = async function handler(req, res) {
     console.error("Communications API error", error);
     return res.status(error.status || 500).json({ ok: false, message: error.message || "Communications action could not be completed." });
   }
+}
+
+module.exports = handler;
+module.exports.internal = {
+  SUPABASE_URL,
+  SERVICE_ROLE_KEY,
+  clean,
+  cleanPhone,
+  getSetting,
+  supabaseFetch,
+  sendSms
 };
