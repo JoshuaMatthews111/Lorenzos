@@ -232,19 +232,89 @@ async function saveMember(access, body) {
   return { record };
 }
 
+const TEMPLATE_FORMATS = new Set(["visual", "html", "text"]);
+const BLOCK_TYPES = new Set(["logo", "bar", "heading", "text", "button", "image", "spacer"]);
+const BLOCK_ALIGNMENTS = new Set(["left", "center", "right"]);
+
+function safeColor(value, fallback = "") {
+  const input = clean(value, 40);
+  return /^#[0-9a-f]{3,8}$/i.test(input) || /^rgba?\([\d\s.,%]+\)$/i.test(input) ? input : fallback;
+}
+
+function safeFont(value) {
+  // Email-safe stacks only. Anything else falls back to Arial so a saved design
+  // can never inject arbitrary CSS into a sent message.
+  const input = clean(value, 120);
+  return /^[a-z0-9 '",\-]+$/i.test(input) ? input : "Arial, Helvetica, sans-serif";
+}
+
+function safeMediaUrl(value) {
+  const input = clean(value, 2000);
+  return /^https:\/\//i.test(input) ? input : "";
+}
+
+function safeNumber(value, min, max, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(min, Math.min(max, Math.round(number))) : fallback;
+}
+
+function designPayload(input) {
+  if (!input || typeof input !== "object" || !Array.isArray(input.blocks)) return null;
+  const blocks = input.blocks
+    .filter(block => block && BLOCK_TYPES.has(block.type))
+    .slice(0, 60)
+    .map(block => ({
+      type: block.type,
+      text: clean(block.text, 5000),
+      url: safeMediaUrl(block.url),
+      href: safeMediaUrl(block.href),
+      alt: clean(block.alt, 200),
+      font: safeFont(block.font),
+      size: safeNumber(block.size, 8, 72, 16),
+      lineHeight: safeNumber(block.lineHeight, 100, 250, 150),
+      color: safeColor(block.color, "#1f2d3d"),
+      background: safeColor(block.background, ""),
+      align: BLOCK_ALIGNMENTS.has(block.align) ? block.align : "left",
+      bold: block.bold === true,
+      italic: block.italic === true,
+      width: safeNumber(block.width, 20, 600, 180),
+      height: safeNumber(block.height, 1, 200, 8),
+      radius: safeNumber(block.radius, 0, 40, 6),
+      padding: safeNumber(block.padding, 0, 80, 16)
+    }));
+  if (!blocks.length) return null;
+  return {
+    blocks,
+    width: safeNumber(input.width, 320, 800, 600),
+    background: safeColor(input.background, "#f4f7fb"),
+    contentBackground: safeColor(input.contentBackground, "#ffffff")
+  };
+}
+
 async function saveTemplate(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const template = body.template || {};
+  const channel = ["email", "sms", "mms"].includes(template.channel) ? template.channel : "email";
+  const design = designPayload(template.design);
+  const requestedFormat = clean(template.format, 20);
+  const format = TEMPLATE_FORMATS.has(requestedFormat)
+    ? requestedFormat
+    : (channel === "email" ? (design ? "visual" : "html") : "text");
   const payload = {
     name: clean(template.name, 120),
-    channel: ["email", "sms", "mms"].includes(template.channel) ? template.channel : "email",
+    channel,
     subject: clean(template.subject, 250) || null,
-    body_html: clean(template.body_html, 100000) || null,
+    body_html: clean(template.body_html, 200000) || null,
     body_text: clean(template.body_text, 20000),
     media_url: clean(template.media_url, 2000) || null,
     active: template.active !== false,
+    format,
+    design: format === "visual" ? design : null,
     updated_by: access.user.id
   };
+  if (format === "visual" && !design) {
+    throw Object.assign(new Error("Add at least one block to the design before saving."), { status: 400 });
+  }
   if (!payload.name || !payload.body_text) throw Object.assign(new Error("Template name and message are required."), { status: 400 });
   const id = clean(template.id, 80);
   const rows = await supabaseFetch(id ? `/rest/v1/communications_templates?id=eq.${encodeURIComponent(id)}` : "/rest/v1/communications_templates", {

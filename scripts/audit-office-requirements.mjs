@@ -20,7 +20,9 @@ const styles = read("trainer-backoffice/styles.css");
 const communicationsApi = read("api/communications.js");
 const communicationsHub = read("supabase/migrations/20260816015952_communications_hub.sql");
 const communicationsHardening = read("supabase/migrations/20260816020109_harden_communications_access.sql");
-const evaluationCancelledMigration = read("supabase/migrations/20260817170000_add_evaluation_cancelled_lead_status.sql");
+const evaluationCancelledMigration = read("supabase/migrations/20260817170535_add_evaluation_cancelled_lead_status.sql");
+const templateDesignMigration = read("supabase/migrations/20260817172642_communications_template_design.sql");
+const sendVerificationDropped = read("supabase/migrations/20260817173440_drop_temp_provider_send_verification.sql");
 
 const checks = [
   ["staff identity replaces anonymous portal labels", /portalActorLabel/.test(app) && /first_name/.test(app) && /last_name/.test(app)],
@@ -79,7 +81,17 @@ const checks = [
   ["alert list escalation settings stay secondary", /communications-advanced/.test(app) && app.includes("Advanced (optional)")],
   ["Evaluation Cancelled is a selectable lead status end to end", app.includes('"Evaluation Cancelled"') && /"Evaluation Cancelled": "evaluation_cancelled"/.test(app) && /'evaluation_cancelled'/.test(evaluationCancelledMigration)],
   ["Evaluation Cancelled stays an open, assignable lead", !/closedStatuses[\s\S]{0,400}evaluation_cancelled/.test(communicationsApi) && !/communicationsLeadIsActive[\s\S]{0,400}evaluation_cancelled/.test(app)],
-  ["Evaluation Cancelled never wears the booked pill", /status === "Evaluation Cancelled"\) return "follow"[\s\S]{0,200}status\.includes\("Evaluation"\)\) return "booked"/.test(app)]
+  ["Evaluation Cancelled never wears the booked pill", /status === "Evaluation Cancelled"\) return "follow"[\s\S]{0,200}status\.includes\("Evaluation"\)\) return "booked"/.test(app)],
+  ["email designer offers colour, font, logo and placement controls", /EMAIL_FONTS/.test(app) && /data-design-field="align"/.test(app) && /type="color"/.test(app) && /DESIGN_BLOCK_LABELS = \{ logo:/.test(app) && /data-design-add="\$\{type\}"/.test(app)],
+  ["designed emails render as inline-styled tables mail clients accept", /role="presentation"/.test(app) && /function renderDesignHtml/.test(app) && /max-width:100%/.test(app)],
+  ["templates can be saved by name, reopened, duplicated and deleted", /data-template-edit/.test(app) && /data-template-duplicate/.test(app) && /data-template-delete/.test(app) && /function templateDraftFromRecord/.test(app)],
+  ["a saved template is confirmed against the server before reporting success", /function saveTemplateDraft[\s\S]*loadCommunicationsData\(false\)[\s\S]*did not save/.test(app)],
+  ["saved designs persist because the design itself is stored", /design: format === "visual" \? design : null/.test(communicationsApi) && /add column if not exists design jsonb/.test(templateDesignMigration)],
+  ["designs are sanitised on the server before they can reach a mailbox", /function designPayload/.test(communicationsApi) && /function safeColor/.test(communicationsApi) && /function safeFont/.test(communicationsApi) && /function safeMediaUrl/.test(communicationsApi)],
+  ["staff can upload an HTML email file or a logo image", /data-design-html-upload/.test(app) && /data-design-upload/.test(app) && /trainer-page-assets/.test(app)],
+  ["every message personalises to the client before sending", /MERGE_TOKENS/.test(app) && /data-design-token/.test(app) && /function mergeTemplate/.test(communicationsApi) && /first_name/.test(communicationsApi)],
+  ["the email preview cannot run scripts from a pasted template", /data-design-preview sandbox=""/.test(app)],
+  ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)]
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

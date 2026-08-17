@@ -238,6 +238,7 @@ const defaultState = {
   activeView: "dashboard",
   communicationsSection: "alerts",
   communicationsFilters: { status: "All", market: "All", owner: "All" },
+  templateDraft: null,
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
   clientSearch: "",
@@ -3470,6 +3471,7 @@ function render() {
   renderTopbar();
   renderView();
   requestAnimationFrame(enhanceHorizontalScrollers);
+  requestAnimationFrame(refreshTemplatePreview);
   window.setTimeout(() => {
     const frame = document.getElementById("pageEditorPreview");
     if (frame) {
@@ -3950,22 +3952,203 @@ function communicationsStatusBoard() {
     }).join("") || `<tr><td colspan="8">${communicationsFiltersActive() ? "No leads match these filters. Clear the filters to see every active lead." : "There are no active client leads to assign."}</td></tr>`}</tbody></table></div>`, "pad")}`;
 }
 
+const EMAIL_FONTS = [
+  ["Arial, Helvetica, sans-serif", "Arial"],
+  ["'Helvetica Neue', Helvetica, Arial, sans-serif", "Helvetica Neue"],
+  ["Georgia, 'Times New Roman', serif", "Georgia"],
+  ["'Times New Roman', Times, serif", "Times New Roman"],
+  ["Tahoma, Geneva, sans-serif", "Tahoma"],
+  ["'Trebuchet MS', Helvetica, sans-serif", "Trebuchet MS"],
+  ["Verdana, Geneva, sans-serif", "Verdana"],
+  ["'Courier New', Courier, monospace", "Courier New"]
+];
+const MERGE_TOKENS = [["first_name", "First name"], ["last_name", "Last name"], ["city", "City"]];
+const DESIGN_BLOCK_LABELS = { logo: "Logo", bar: "Colour bar", heading: "Heading", text: "Paragraph", button: "Button", image: "Image", spacer: "Spacer" };
+
+function designBlockDefault(type) {
+  const base = {
+    type, text: "", url: "", href: "", alt: "",
+    font: EMAIL_FONTS[0][0], size: 16, lineHeight: 150, color: "#1f2d3d", background: "",
+    align: "left", bold: false, italic: false, padding: 16, width: 200, height: 10, radius: 6
+  };
+  if (type === "heading") return { ...base, text: "Serious Training. Serious Results.", size: 26, bold: true, align: "center", color: "#0b2545", padding: 20 };
+  if (type === "text") return { ...base, text: "Hi {{first_name}}, thank you for reaching out to Lorenzo's Dog Training Team. We would love to help you and your dog in {{city}}." };
+  if (type === "button") return { ...base, text: "Book my evaluation", href: "https://www.lorenzosdogtrainingteam.com/contact", background: "#c8102e", color: "#ffffff", align: "center", bold: true, padding: 20 };
+  if (type === "bar") return { ...base, background: "#0b2545", height: 10, padding: 0 };
+  if (type === "logo") return { ...base, width: 200, align: "center", padding: 20, alt: "Lorenzo's Dog Training Team" };
+  if (type === "image") return { ...base, width: 560, align: "center", padding: 12 };
+  if (type === "spacer") return { ...base, height: 24, padding: 0 };
+  return base;
+}
+
+function templateDraftDefault(channel = "email") {
+  return {
+    id: "", name: "", channel, subject: "", format: channel === "email" ? "visual" : "text",
+    body_text: channel === "email" ? "" : "Hi {{first_name}}, this is Lorenzo's Dog Training Team following up about your dog.",
+    body_html: "",
+    design: {
+      width: 600, background: "#f4f7fb", contentBackground: "#ffffff",
+      blocks: [designBlockDefault("bar"), designBlockDefault("logo"), designBlockDefault("heading"), designBlockDefault("text"), designBlockDefault("button")]
+    }
+  };
+}
+
+function currentTemplateDraft() {
+  if (!state.templateDraft) state.templateDraft = templateDraftDefault("email");
+  return state.templateDraft;
+}
+
+function designTextToHtml(value) {
+  return escapeHtml(String(value || "")).replace(/\r?\n/g, "<br>");
+}
+
+function renderDesignBlockHtml(block) {
+  const pad = `${block.padding}px`;
+  const bg = block.background ? `background-color:${block.background};` : "";
+  const font = `font-family:${block.font};font-size:${block.size}px;line-height:${block.lineHeight}%;color:${block.color};${block.bold ? "font-weight:bold;" : ""}${block.italic ? "font-style:italic;" : ""}`;
+  if (block.type === "bar") return `<tr><td style="${bg}height:${block.height}px;line-height:${block.height}px;font-size:0;">&nbsp;</td></tr>`;
+  if (block.type === "spacer") return `<tr><td style="${bg}height:${block.height}px;line-height:${block.height}px;font-size:0;">&nbsp;</td></tr>`;
+  if (block.type === "logo" || block.type === "image") {
+    if (!block.url) return "";
+    return `<tr><td align="${block.align}" style="${bg}padding:${pad};"><img src="${escapeHtml(block.url)}" alt="${escapeHtml(block.alt)}" width="${block.width}" style="display:block;width:${block.width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;"></td></tr>`;
+  }
+  if (block.type === "button") {
+    return `<tr><td align="${block.align}" style="${bg}padding:${pad};"><a href="${escapeHtml(block.href || "#")}" style="display:inline-block;${font}background-color:${block.background || "#c8102e"};color:${block.color};text-decoration:none;padding:14px 28px;border-radius:${block.radius}px;">${escapeHtml(block.text)}</a></td></tr>`;
+  }
+  const tag = block.type === "heading" ? "h1" : "p";
+  return `<tr><td align="${block.align}" style="${bg}padding:${pad};text-align:${block.align};"><${tag} style="margin:0;${font}">${designTextToHtml(block.text)}</${tag}></td></tr>`;
+}
+
+function renderDesignHtml(design) {
+  const rows = (design?.blocks || []).map(renderDesignBlockHtml).join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>`
+    + `<body style="margin:0;padding:0;background-color:${design.background};">`
+    + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${design.background};margin:0;padding:0;">`
+    + `<tr><td align="center" style="padding:24px 12px;">`
+    + `<table role="presentation" width="${design.width}" cellpadding="0" cellspacing="0" border="0" style="width:${design.width}px;max-width:100%;background-color:${design.contentBackground};border-radius:10px;overflow:hidden;">`
+    + `${rows}</table></td></tr></table></body></html>`;
+}
+
+function renderDesignText(design) {
+  return (design?.blocks || []).map(block => {
+    if (block.type === "button") return `${block.text}: ${block.href}`;
+    if (["heading", "text"].includes(block.type)) return block.text;
+    return "";
+  }).filter(Boolean).join("\n\n");
+}
+
+function templateDraftBodies(draft) {
+  if (draft.channel !== "email") return { body_text: draft.body_text, body_html: "" };
+  if (draft.format === "visual") return { body_text: renderDesignText(draft.design), body_html: renderDesignHtml(draft.design) };
+  if (draft.format === "html") return { body_text: draft.body_text || String(draft.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s{2,}/g, " ").trim(), body_html: draft.body_html };
+  return { body_text: draft.body_text, body_html: "" };
+}
+
+function templatePreviewHtml(draft) {
+  const bodies = templateDraftBodies(draft);
+  if (draft.channel !== "email" || draft.format === "text") {
+    return `<!doctype html><html><body style="margin:0;padding:18px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1f2d3d;background:#f4f7fb;">`
+      + `<div style="max-width:340px;margin:0 auto;background:#fff;border-radius:14px;padding:16px;">${designTextToHtml(bodies.body_text) || "<em>Write the message to see it here.</em>"}</div></body></html>`;
+  }
+  return bodies.body_html || "<!doctype html><html><body style=\"font-family:Arial\"><p>Nothing to preview yet.</p></body></html>";
+}
+
+function designFieldRow(index, block) {
+  const field = (name, label, value, attrs = "") => `<label>${label}<input data-design-field="${name}" data-design-index="${index}" value="${escapeHtml(String(value))}" ${attrs}></label>`;
+  const numberField = (name, label, value, min, max) => `<label>${label}<input type="number" min="${min}" max="${max}" data-design-field="${name}" data-design-index="${index}" value="${escapeHtml(String(value))}"></label>`;
+  const colorField = (name, label, value) => `<label>${label}<input type="color" data-design-field="${name}" data-design-index="${index}" value="${escapeHtml(value || "#ffffff")}"></label>`;
+  const alignField = `<label>Position<select data-design-field="align" data-design-index="${index}">${["left", "center", "right"].map(value => `<option value="${value}" ${block.align === value ? "selected" : ""}>${value[0].toUpperCase()}${value.slice(1)}</option>`).join("")}</select></label>`;
+  const fontField = `<label>Font<select data-design-field="font" data-design-index="${index}">${EMAIL_FONTS.map(([stack, label]) => `<option value="${escapeHtml(stack)}" ${block.font === stack ? "selected" : ""}>${label}</option>`).join("")}</select></label>`;
+  const styleField = `<label class="check-row"><input type="checkbox" data-design-field="bold" data-design-index="${index}" ${block.bold ? "checked" : ""}> Bold</label><label class="check-row"><input type="checkbox" data-design-field="italic" data-design-index="${index}" ${block.italic ? "checked" : ""}> Italic</label>`;
+
+  if (block.type === "bar" || block.type === "spacer") {
+    return `${colorField("background", "Colour", block.background || "#0b2545")}${numberField("height", "Thickness (px)", block.height, 1, 200)}`;
+  }
+  if (block.type === "logo" || block.type === "image") {
+    return `<label class="wide">Image URL${field("url", "", block.url, 'placeholder="https://…"')}</label>
+      <label class="wide">Upload ${block.type === "logo" ? "logo" : "image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-design-upload="${index}"><small class="field-help">PNG, JPG, WebP or GIF up to 12 MB. Stored on the site, then linked in the email.</small></label>
+      ${field("alt", "Description for screen readers", block.alt)}
+      ${numberField("width", "Width (px)", block.width, 20, 600)}
+      ${alignField}
+      ${numberField("padding", "Space around (px)", block.padding, 0, 80)}
+      ${colorField("background", "Background", block.background || "#ffffff")}`;
+  }
+  if (block.type === "button") {
+    return `<label class="wide">Button text<input data-design-field="text" data-design-index="${index}" value="${escapeHtml(block.text)}"></label>
+      <label class="wide">Link${field("href", "", block.href, 'placeholder="https://…"')}</label>
+      ${fontField}${numberField("size", "Text size (px)", block.size, 8, 40)}
+      ${colorField("background", "Button colour", block.background || "#c8102e")}${colorField("color", "Text colour", block.color)}
+      ${alignField}${numberField("radius", "Corner round (px)", block.radius, 0, 40)}${numberField("padding", "Space around (px)", block.padding, 0, 80)}`;
+  }
+  return `<label class="wide">${block.type === "heading" ? "Heading" : "Paragraph"}<textarea data-design-field="text" data-design-index="${index}" rows="${block.type === "heading" ? 2 : 4}">${escapeHtml(block.text)}</textarea></label>
+    ${fontField}${numberField("size", "Text size (px)", block.size, 8, 72)}
+    ${colorField("color", "Text colour", block.color)}${colorField("background", "Background", block.background || "#ffffff")}
+    ${alignField}${numberField("lineHeight", "Line spacing (%)", block.lineHeight, 100, 250)}
+    ${numberField("padding", "Space around (px)", block.padding, 0, 80)}
+    ${styleField}`;
+}
+
+function communicationsDesigner() {
+  const draft = currentTemplateDraft();
+  const isEmail = draft.channel === "email";
+  const tokenRow = `<div class="communications-token-row"><span>Add client details:</span>${MERGE_TOKENS.map(([token, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-token="${token}">${label}</button>`).join("")}<small>Each message fills these in per client before it sends.</small></div>`;
+  const formatTabs = isEmail ? `<div class="communications-format-tabs">${[["visual", "Design it"], ["html", "Paste / upload HTML"], ["text", "Plain text only"]].map(([id, label]) => `<button type="button" class="${draft.format === id ? "active" : ""}" data-design-format="${id}">${label}</button>`).join("")}</div>` : "";
+
+  let editor = "";
+  if (!isEmail || draft.format === "text") {
+    const count = String(draft.body_text || "").length;
+    editor = `<label class="wide">Message<textarea data-design-body-text rows="6" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.body_text || "")}</textarea></label>
+      ${isEmail ? "" : `<small class="field-help">${count} characters · about ${Math.max(1, Math.ceil(count / 160))} text segment${count > 160 ? "s" : ""} per person.</small>`}`;
+  } else if (draft.format === "html") {
+    editor = `<label class="wide">Upload an HTML email file<input type="file" accept=".html,.htm,text/html" data-design-html-upload><small class="field-help">The file's HTML is loaded below, and you can still edit it before saving.</small></label>
+      <label class="wide">HTML<textarea data-design-body-html rows="12" spellcheck="false" placeholder="&lt;table role=&quot;presentation&quot;&gt;…&lt;/table&gt;">${escapeHtml(draft.body_html || "")}</textarea></label>
+      <label class="wide">Plain-text version (for phones and accessibility)<textarea data-design-body-text rows="4">${escapeHtml(draft.body_text || "")}</textarea></label>`;
+  } else {
+    const design = draft.design;
+    editor = `<div class="communications-page-settings">
+        <label>Page background<input type="color" data-design-page="background" value="${escapeHtml(design.background)}"></label>
+        <label>Email background<input type="color" data-design-page="contentBackground" value="${escapeHtml(design.contentBackground)}"></label>
+        <label>Email width (px)<input type="number" min="320" max="800" data-design-page="width" value="${design.width}"></label>
+      </div>
+      <div class="communications-add-blocks"><span>Add:</span>${Object.entries(DESIGN_BLOCK_LABELS).map(([type, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-add="${type}">+ ${label}</button>`).join("")}</div>
+      <div class="communications-blocks">${design.blocks.map((block, index) => `<article class="communications-block">
+        <header><strong>${DESIGN_BLOCK_LABELS[block.type] || block.type}</strong><div class="communications-block-actions">
+          <button class="btn btn-outline btn-small" type="button" data-design-move="up" data-design-index="${index}" ${index === 0 ? "disabled" : ""} aria-label="Move up">↑</button>
+          <button class="btn btn-outline btn-small" type="button" data-design-move="down" data-design-index="${index}" ${index === design.blocks.length - 1 ? "disabled" : ""} aria-label="Move down">↓</button>
+          <button class="btn btn-outline btn-small danger" type="button" data-design-remove="${index}" aria-label="Remove">Remove</button>
+        </div></header>
+        <div class="communications-block-fields">${designFieldRow(index, block)}</div>
+      </article>`).join("") || `<p class="panel-copy">Add a block above to start the design.</p>`}</div>`;
+  }
+
+  return `${panel(draft.id ? `Editing: ${escapeHtml(draft.name || "Untitled template")}` : "Build a Template",
+    `${draft.id ? `<button class="btn btn-outline" type="button" data-design-new>Start New</button>` : ""}<button class="btn btn-red" type="button" data-design-save>${draft.id ? "Save Changes" : "Save Template"}</button>`,
+    `<div class="communications-designer">
+      <div class="communications-designer-form">
+        <div class="communications-form">
+          <label>Template name<input data-design-meta="name" value="${escapeHtml(draft.name)}" placeholder="New client follow-up"></label>
+          <label>Send as<select data-design-meta="channel"><option value="email" ${isEmail ? "selected" : ""}>Email</option><option value="sms" ${!isEmail ? "selected" : ""}>Text message</option></select></label>
+          ${isEmail ? `<label class="wide">Subject line<input data-design-meta="subject" value="${escapeHtml(draft.subject)}" placeholder="A note from Lorenzo's Dog Training Team"></label>` : ""}
+        </div>
+        ${formatTabs}
+        ${tokenRow}
+        <div class="communications-form">${editor}</div>
+      </div>
+      <div class="communications-designer-preview">
+        <strong>Live preview</strong>
+        <iframe title="Email preview" data-design-preview sandbox=""></iframe>
+        <small class="field-help">Preview shows sample details. Every send fills in the real client's name and city.</small>
+      </div>
+    </div>`, "pad")}`;
+}
+
 function communicationsMessageCenter() {
   const templates = communicationsData.templates || [];
   const testers = communicationsData.testers || [];
   return `
-    <section class="communications-wizard-note"><strong>1. Channel</strong><span>2. Template</span><span>3. Edit & Preview</span><span>4. Recipients</span><span>5. Send</span></section>
+    ${communicationsDesigner()}
     <div class="communications-grid">
-      ${panel("Saved Templates", "", templates.length ? `<div class="communications-list">${templates.map(template => `<article><div><strong>${escapeHtml(template.name)}</strong><small>${escapeHtml(template.channel)} · ${escapeHtml(template.subject || "No subject")}</small></div><span class="status ${template.active ? "live" : "draft"}">${template.active ? "Active" : "Off"}</span></article>`).join("")}</div>` : `<p class="panel-copy">Save email, text, or HTML templates here. The portal fills approved merge fields on the server for every recipient.</p>`, "pad")}
-      ${panel("Create Template", "", `<form class="communications-form" data-communications-template-form>
-        <label>Template name<input required name="name" placeholder="New client follow-up"></label>
-        <label>Channel<select name="channel"><option value="email">Email</option><option value="sms">Text message</option></select></label>
-        <label>Email subject<input name="subject" placeholder="A note from Lorenzo's Dog Training Team"></label>
-        <label>Plain-text message<textarea required name="body_text" placeholder="Hi {{first_name}}, ..."></textarea></label>
-        <label>Optional custom HTML email<textarea name="body_html" placeholder="<table role=\"presentation\">...</table>"></textarea><small class="field-help">Custom HTML is saved as a template. Email always has a plain-text version for accessibility.</small></label>
-        <button class="btn btn-red" type="submit">Save Template</button>
-      </form>`, "pad")}
-    </div>
+      ${panel("Saved Templates", "", templates.length ? `<div class="communications-list">${templates.map(template => `<article><div><strong>${escapeHtml(template.name)}</strong><small>${escapeHtml(template.channel === "email" ? "Email" : "Text")} · ${escapeHtml(template.format === "visual" ? "Designed" : template.format === "html" ? "Custom HTML" : "Plain text")} · ${escapeHtml(template.subject || "No subject")}</small></div><div class="communications-block-actions"><button class="btn btn-outline btn-small" type="button" data-template-edit="${escapeHtml(template.id)}">Edit</button><button class="btn btn-outline btn-small" type="button" data-template-duplicate="${escapeHtml(template.id)}">Duplicate</button><button class="btn btn-outline btn-small danger" type="button" data-template-delete="${escapeHtml(template.id)}">Delete</button></div></article>`).join("")}</div>` : `<p class="panel-copy">No saved templates yet. Build one above and press Save Template — it is stored on the office server and reopens exactly as you designed it.</p>`, "pad")}
     ${panel("Preview & Test", "", `<form class="communications-form communications-test-form" data-communications-test-form>
       <label>Saved template<select required name="template_id"><option value="">Select template</option>${templates.map(template => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)} (${escapeHtml(template.channel)})</option>`).join("")}</select></label>
       <label>Preview first name<input name="first_name" value="Mary Ann"></label>
@@ -3974,7 +4157,69 @@ function communicationsMessageCenter() {
       <button class="btn btn-outline" type="button" data-communications-preview>Preview</button><button class="btn btn-red" type="submit">Send Test</button>
       <output class="communications-preview" data-communications-preview-output>Choose a template, then preview before sending.</output>
     </form>`, "pad")}
+    </div>
     ${panel("Saved Testers", "", `<form class="communications-form compact-form" data-communications-tester-form><label>Name<input required name="display_name" placeholder="Office test recipient"></label><label>Email<input type="email" name="email" placeholder="test@example.com"></label><label>Mobile<input name="phone" placeholder="(216) 555-0100"></label><button class="btn btn-outline" type="submit">Save Tester</button></form>`, "pad")}`;
+}
+
+function refreshTemplatePreview() {
+  const frame = document.querySelector("[data-design-preview]");
+  if (!frame) return;
+  frame.setAttribute("srcdoc", templatePreviewHtml(currentTemplateDraft()));
+}
+
+function templateDraftFromRecord(record) {
+  const draft = templateDraftDefault(record.channel === "email" ? "email" : "sms");
+  draft.id = record.id || "";
+  draft.name = record.name || "";
+  draft.channel = record.channel === "email" ? "email" : "sms";
+  draft.subject = record.subject || "";
+  draft.body_text = record.body_text || "";
+  draft.body_html = record.body_html || "";
+  draft.format = ["visual", "html", "text"].includes(record.format)
+    ? record.format
+    : (draft.channel === "email" ? (record.body_html ? "html" : "text") : "text");
+  if (record.design && Array.isArray(record.design.blocks) && record.design.blocks.length) {
+    draft.design = {
+      width: Number(record.design.width) || 600,
+      background: record.design.background || "#f4f7fb",
+      contentBackground: record.design.contentBackground || "#ffffff",
+      blocks: record.design.blocks.map(block => ({ ...designBlockDefault(block.type || "text"), ...block }))
+    };
+  }
+  return draft;
+}
+
+async function saveTemplateDraft() {
+  const draft = currentTemplateDraft();
+  if (!String(draft.name || "").trim()) { showToast("Give the template a name before saving."); return; }
+  const bodies = templateDraftBodies(draft);
+  if (!String(bodies.body_text || "").trim()) { showToast("Add some wording before saving."); return; }
+  try {
+    const result = await communicationsRequest({
+      operation: "save_template",
+      template: {
+        id: draft.id || "",
+        name: draft.name,
+        channel: draft.channel,
+        subject: draft.subject,
+        format: draft.channel === "email" ? draft.format : "text",
+        design: draft.channel === "email" && draft.format === "visual" ? draft.design : null,
+        body_text: bodies.body_text,
+        body_html: bodies.body_html
+      }
+    });
+    // Reload from the server and confirm the saved row really came back, so a
+    // template is never reported as saved when the write did not land.
+    await loadCommunicationsData(false);
+    const savedId = result.record?.id || draft.id;
+    const stored = (communicationsData.templates || []).find(item => item.id === savedId);
+    if (!stored) { showToast("The template did not save. Nothing was changed — please try again."); render(); return; }
+    state.templateDraft = templateDraftFromRecord(stored);
+    render();
+    showToast(`Saved "${stored.name}" and confirmed it reloaded from the office server.`);
+  } catch (error) {
+    showToast(error.message || "The template could not be saved.");
+  }
 }
 
 function communicationsSettings() {
@@ -7854,6 +8099,86 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  const designFormat = event.target.closest("[data-design-format]");
+  if (designFormat) {
+    currentTemplateDraft().format = designFormat.dataset.designFormat;
+    render();
+    return;
+  }
+  const designAdd = event.target.closest("[data-design-add]");
+  if (designAdd) {
+    currentTemplateDraft().design.blocks.push(designBlockDefault(designAdd.dataset.designAdd));
+    render();
+    return;
+  }
+  const designMove = event.target.closest("[data-design-move]");
+  if (designMove) {
+    const blocks = currentTemplateDraft().design.blocks;
+    const index = Number(designMove.dataset.designIndex);
+    const target = designMove.dataset.designMove === "up" ? index - 1 : index + 1;
+    if (target >= 0 && target < blocks.length) {
+      [blocks[index], blocks[target]] = [blocks[target], blocks[index]];
+      render();
+    }
+    return;
+  }
+  const designRemove = event.target.closest("[data-design-remove]");
+  if (designRemove) {
+    currentTemplateDraft().design.blocks.splice(Number(designRemove.dataset.designRemove), 1);
+    render();
+    return;
+  }
+  const designToken = event.target.closest("[data-design-token]");
+  if (designToken) {
+    const token = `{{${designToken.dataset.designToken}}}`;
+    const field = lastDesignField && document.contains(lastDesignField) ? lastDesignField : null;
+    if (!field) { showToast("Tap into the text you want the client detail added to, then choose it."); return; }
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? field.value.length;
+    field.value = `${field.value.slice(0, start)}${token}${field.value.slice(end)}`;
+    field.focus();
+    field.setSelectionRange(start + token.length, start + token.length);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    return;
+  }
+  if (event.target.closest("[data-design-save]")) { await saveTemplateDraft(); return; }
+  if (event.target.closest("[data-design-new]")) {
+    state.templateDraft = templateDraftDefault("email");
+    render();
+    return;
+  }
+  const templateEdit = event.target.closest("[data-template-edit]");
+  if (templateEdit) {
+    const record = (communicationsData.templates || []).find(item => item.id === templateEdit.dataset.templateEdit);
+    if (record) { state.templateDraft = templateDraftFromRecord(record); render(); }
+    return;
+  }
+  const templateDuplicate = event.target.closest("[data-template-duplicate]");
+  if (templateDuplicate) {
+    const record = (communicationsData.templates || []).find(item => item.id === templateDuplicate.dataset.templateDuplicate);
+    if (record) {
+      const draft = templateDraftFromRecord(record);
+      draft.id = "";
+      draft.name = `${record.name} copy`;
+      state.templateDraft = draft;
+      render();
+      showToast("Copy opened. Save it to keep the copy.");
+    }
+    return;
+  }
+  const templateDelete = event.target.closest("[data-template-delete]");
+  if (templateDelete) {
+    const record = (communicationsData.templates || []).find(item => item.id === templateDelete.dataset.templateDelete);
+    if (!record || !window.confirm(`Delete the template "${record.name}"? This cannot be undone.`)) return;
+    try {
+      await communicationsRequest({ operation: "remove", entity: "template", id: record.id });
+      if (state.templateDraft?.id === record.id) state.templateDraft = templateDraftDefault("email");
+      await loadCommunicationsData(false);
+      render();
+      showToast("Template deleted.");
+    } catch (error) { showToast(error.message || "The template could not be deleted."); }
+    return;
+  }
   const communicationsPreview = event.target.closest("[data-communications-preview]");
   if (communicationsPreview) {
     const form = communicationsPreview.closest("form");
@@ -9109,7 +9434,87 @@ document.addEventListener("input", event => {
   }
 });
 
+let lastDesignField = null;
+document.addEventListener("focusin", event => {
+  if (event.target.matches("[data-design-field='text'], [data-design-body-text], [data-design-meta='subject']")) lastDesignField = event.target;
+});
+
+// Field edits update the draft and preview in place: a full re-render here would
+// steal focus mid-typing.
+document.addEventListener("input", event => {
+  const field = event.target;
+  const draft = state.templateDraft;
+  if (!draft) return;
+  let touched = false;
+  if (field.matches("[data-design-meta]")) {
+    const key = field.dataset.designMeta;
+    if (key !== "channel") { draft[key] = field.value; touched = true; }
+  } else if (field.matches("[data-design-body-text]")) { draft.body_text = field.value; touched = true; }
+  else if (field.matches("[data-design-body-html]")) { draft.body_html = field.value; touched = true; }
+  else if (field.matches("[data-design-page]")) {
+    const key = field.dataset.designPage;
+    draft.design[key] = key === "width" ? Number(field.value) || 600 : field.value;
+    touched = true;
+  } else if (field.matches("[data-design-field]")) {
+    const block = draft.design.blocks[Number(field.dataset.designIndex)];
+    if (block) {
+      const key = field.dataset.designField;
+      block[key] = field.type === "checkbox" ? field.checked : (field.type === "number" ? Number(field.value) : field.value);
+      touched = true;
+    }
+  }
+  if (touched) refreshTemplatePreview();
+});
+
 document.addEventListener("change", async event => {
+  if (event.target.matches("[data-design-meta='channel']")) {
+    const draft = currentTemplateDraft();
+    draft.channel = event.target.value === "email" ? "email" : "sms";
+    if (draft.channel !== "email") {
+      // Carry the wording across so switching to text does not start from a blank box.
+      if (!String(draft.body_text || "").trim()) draft.body_text = renderDesignText(draft.design).slice(0, 900);
+      draft.format = "text";
+    } else if (draft.format === "text" && !draft.body_text) draft.format = "visual";
+    render();
+    return;
+  }
+  const designUpload = event.target.closest("[data-design-upload]");
+  if (designUpload?.files?.length) {
+    const file = designUpload.files[0];
+    const block = currentTemplateDraft().design.blocks[Number(designUpload.dataset.designUpload)];
+    if (!block) return;
+    if (file.size > 12 * 1024 * 1024) { showToast("Images must be under 12 MB."); designUpload.value = ""; return; }
+    try {
+      showToast("Uploading image…");
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "image.png";
+      const path = `communications/${Date.now()}-${safeName}`;
+      const result = await window.LDTT_PORTAL.upload("trainer-page-assets", path, file, { onProgress: () => {} });
+      const url = result?.publicUrl || window.LDTT_PORTAL.publicStorageUrl("trainer-page-assets", result?.path || path);
+      if (!url) throw new Error("The image uploaded but no address came back.");
+      block.url = url;
+      render();
+      showToast("Image added to the design.");
+    } catch (error) {
+      showToast(error.message || "The image could not be uploaded.");
+    }
+    designUpload.value = "";
+    return;
+  }
+  const htmlUpload = event.target.closest("[data-design-html-upload]");
+  if (htmlUpload?.files?.length) {
+    const file = htmlUpload.files[0];
+    if (file.size > 2 * 1024 * 1024) { showToast("HTML files must be under 2 MB."); htmlUpload.value = ""; return; }
+    try {
+      const draft = currentTemplateDraft();
+      draft.body_html = await file.text();
+      draft.format = "html";
+      if (!draft.name) draft.name = file.name.replace(/\.html?$/i, "");
+      render();
+      showToast("HTML email loaded. Check the preview, then save it.");
+    } catch (error) { showToast(error.message || "That HTML file could not be read."); }
+    htmlUpload.value = "";
+    return;
+  }
   const communicationsFilterForm = event.target.closest("[data-communications-filter-form]");
   if (communicationsFilterForm && event.target.matches("select")) {
     const data = new FormData(communicationsFilterForm);

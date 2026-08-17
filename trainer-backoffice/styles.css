@@ -5019,11 +5019,39 @@ button:disabled{cursor:not-allowed}
 .communications-preview{display:grid;gap:6px;min-height:82px;padding:13px;border:1px dashed #9bb3cf;border-radius:12px;background:#fbfdff;color:var(--muted);line-height:1.45}
 .communications-preview strong{color:var(--navy)}
 .communications-settings-state{display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1}
+.communications-designer{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start}
+.communications-designer-form{min-width:0}
+.communications-designer-preview{position:sticky;top:16px;display:grid;gap:8px;min-width:0}
+.communications-designer-preview strong{color:var(--navy);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
+.communications-designer-preview iframe{width:100%;height:560px;border:1px solid #d4e1ef;border-radius:12px;background:#fff}
+.communications-format-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.communications-format-tabs button{min-height:40px;padding:9px 14px;border:1px solid #cbd9e9;border-radius:9px;background:#fff;color:var(--navy);font-weight:800;cursor:pointer}
+.communications-format-tabs button.active{border-color:var(--navy);background:var(--navy);color:#fff}
+.communications-token-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 14px;padding:11px 13px;border:1px solid #dce7f2;border-radius:11px;background:#f7fbff;font-size:.78rem;font-weight:800;color:var(--navy)}
+.communications-token-row small{flex-basis:100%;color:var(--muted);font-weight:600}
+.communications-page-settings,.communications-add-blocks{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:14px}
+.communications-add-blocks{align-items:center;font-size:.78rem;font-weight:800;color:var(--navy)}
+.communications-page-settings label{display:grid;gap:5px;font-size:.74rem;font-weight:900;color:var(--navy)}
+.communications-page-settings input{border:1px solid #c9d7e8;border-radius:9px;padding:7px;background:#fff}
+.communications-page-settings input[type=color]{width:56px;height:38px;padding:2px}
+.communications-blocks{display:grid;gap:12px}
+.communications-block{border:1px solid #dce7f2;border-radius:12px;background:#fff;overflow:hidden}
+.communications-block header{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 13px;background:#f4f8fd;border-bottom:1px solid #e4ecf5}
+.communications-block header strong{color:var(--navy);font-size:.8rem}
+.communications-block-actions{display:flex;gap:6px;flex-wrap:wrap}
+.communications-block-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:13px}
+.communications-block-fields label{display:grid;gap:5px;color:var(--navy);font-size:.74rem;font-weight:900}
+.communications-block-fields label.wide{grid-column:1/-1}
+.communications-block-fields input,.communications-block-fields select,.communications-block-fields textarea{width:100%;border:1px solid #c9d7e8;border-radius:9px;padding:9px;background:#fff;color:var(--ink);font:inherit}
+.communications-block-fields input[type=color]{height:40px;padding:2px}
+.communications-block-fields textarea{resize:vertical;line-height:1.45}
+.communications-block-fields .check-row{display:flex;align-items:center;gap:7px;font-weight:750}
+.communications-block-fields .check-row input{width:auto}
 .communications-webhooks{display:grid;gap:12px}
 .communications-webhooks label{display:grid;gap:6px;color:var(--navy);font-size:.78rem;font-weight:900}
 .communications-webhooks input{width:100%;border:1px solid #c9d7e8;border-radius:10px;padding:10px 11px;background:#f6f9fd;color:#516a85;font:inherit}
 .compact-form{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media(max-width:900px){.communications-grid,.communications-form,.compact-form{grid-template-columns:1fr}.communications-tester-checks{grid-template-columns:1fr}.communications-form label.wide,.communications-form .wide{grid-column:auto}}
+@media(max-width:900px){.communications-designer,.communications-block-fields{grid-template-columns:1fr}.communications-designer-preview{position:static}.communications-designer-preview iframe{height:440px}.communications-grid,.communications-form,.compact-form{grid-template-columns:1fr}.communications-tester-checks{grid-template-columns:1fr}.communications-form label.wide,.communications-form .wide{grid-column:auto}}
 @media(max-width:760px){
   .horizontal-scroll-toolbar:has(+ .table-wrap .communications-status-table){display:none}
   .communications-status-table{min-width:0}
