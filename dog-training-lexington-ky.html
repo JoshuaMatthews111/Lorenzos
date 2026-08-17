@@ -53,7 +53,7 @@
     .arch-hq .market-hero-bg{opacity:.14}
     .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
     .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
-    .arch-hq .market-trainer-media{min-height:0;height:clamp(240px,30vw,400px);overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
+    .arch-hq .market-trainer-media{min-height:0;height:auto;aspect-ratio:16/9;width:100%;max-width:860px;margin-inline:auto;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
     .arch-hq .ad-checks-v2 li{color:#dfe4f5}
 
     /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
@@ -345,7 +345,6 @@
     /* ═══ Cleveland flagship (arch-hq): banner, display type, video under copy ═══ */
     .arch-hq .market-copy h1{font-size:clamp(34px,4.6vw,56px);letter-spacing:-.03em;line-height:1.06}
     .arch-hq .ad-hero-video-card{max-width:560px}
-    .arch-hq .market-trainer-media img{object-position:center 70%}
 
     /* ═══ case panels — designed media for pages where a photo would mislead ═══ */
     .market-case-panel{min-height:0;border:0;border-radius:16px;background:#fff;
@@ -403,7 +402,7 @@
     .market-landing .market-trainer-media{min-height:0;align-self:start}
     .market-landing .market-trainer-media img{aspect-ratio:4/3;width:100%;height:auto;
       min-height:0;max-height:440px;object-fit:cover;object-position:center}
-    .arch-hq .market-trainer-media img{aspect-ratio:auto;height:100%;object-position:center 65%}
+    .arch-hq .market-trainer-media img{aspect-ratio:16/9;width:100%;height:100%;max-height:none;object-fit:cover;object-position:center}
     .market-landing .market-care-photo img{aspect-ratio:4/3;height:auto}
 
     /* price pill — the price is part of the offer on forward markets */
