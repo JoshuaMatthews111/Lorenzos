@@ -206,6 +206,7 @@ const leadStatuses = [
   "Office Contacted",
   "Engaged Lead: No Outcome",
   "Evaluation Scheduled",
+  "Evaluation Cancelled",
   "Evaluation Complete",
   "Became a Client",
   "Lost / No Response",
@@ -655,6 +656,7 @@ const leadStatusToDb = {
   "Office Contacted": "office_contacted",
   "Engaged Lead: No Outcome": "engaged_no_outcome",
   "Evaluation Scheduled": "evaluation_scheduled",
+  "Evaluation Cancelled": "evaluation_cancelled",
   "Evaluation Complete": "evaluation_complete",
   "Became a Client": "became_client",
   "Lost / No Response": "lost_no_response",
@@ -3439,6 +3441,9 @@ function normalizeLeadStatus(status) {
     "Follow Up Call Needed": "Office Contacted",
     "Evaluation Completed": "Evaluation Complete",
     "Evaluation Booked": "Evaluation Scheduled",
+    "Evaluation Canceled": "Evaluation Cancelled",
+    "Evaluation Cancelled by Client": "Evaluation Cancelled",
+    "Eval Cancelled": "Evaluation Cancelled",
     "Client Won": "Became a Client"
   };
   return map[status] || status || "New Inquiry";
@@ -5377,7 +5382,7 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
   return `<div class="lead-workspace-controls"><button class="btn ${myAssignedActive ? "btn-red" : "btn-outline"} lead-owner-toggle" type="button" data-lead-owner-quick="toggle">My Assigned Leads <span>${myAssignedCount}</span></button><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
-const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client", "Lost"];
+const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"];
 function boardStatus(status) { return /^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status; }
 function leadKanban(rows) {
   return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
@@ -5402,7 +5407,7 @@ function statusSelect(lead) {
 }
 
 function leadStatusCounts(rows) {
-  return ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Complete", "Became a Client"].map(status => [status, rows.filter(lead => lead.status === status).length]);
+  return ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client"].map(status => [status, rows.filter(lead => lead.status === status).length]);
 }
 
 function leadSummary() {
@@ -7593,6 +7598,9 @@ function statusClass(status) {
   if (status.startsWith("Lost") || status === "Bad Lead" || status === "Do Not Contact") return "lost";
   if (status === "Engaged Lead: No Outcome") return "offered";
   if (status.includes("Follow")) return "follow";
+  // A cancelled evaluation is still an open lead that needs a call back, so it
+  // must not wear the blue "booked" pill that means a visit is on the calendar.
+  if (status === "Evaluation Cancelled") return "follow";
   if (status.includes("Evaluation")) return "booked";
   if (status === "New Inquiry") return "new";
   return "connected";

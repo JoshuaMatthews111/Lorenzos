@@ -20,6 +20,7 @@ const styles = read("trainer-backoffice/styles.css");
 const communicationsApi = read("api/communications.js");
 const communicationsHub = read("supabase/migrations/20260816015952_communications_hub.sql");
 const communicationsHardening = read("supabase/migrations/20260816020109_harden_communications_access.sql");
+const evaluationCancelledMigration = read("supabase/migrations/20260817170000_add_evaluation_cancelled_lead_status.sql");
 
 const checks = [
   ["staff identity replaces anonymous portal labels", /portalActorLabel/.test(app) && /first_name/.test(app) && /last_name/.test(app)],
@@ -75,7 +76,10 @@ const checks = [
   ["communications loading never mislabels an admin as a trainer", /if \(communicationsData\.loading\) return panel\("Communications"/.test(app) && /communicationsData\.canManage/.test(app)],
   ["campaign preview and secrets require admin access on the server", /async function previewCampaign\(access[\s\S]{0,120}Admin access required/.test(communicationsApi) && /isSuperAdmin\(access\)/.test(communicationsApi)],
   ["lead status board collapses to cards on phones", /communications-status-table td::before\{content:attr\(data-th\)/.test(styles) && /data-th="Action"/.test(app)],
-  ["alert list escalation settings stay secondary", /communications-advanced/.test(app) && app.includes("Advanced (optional)")]
+  ["alert list escalation settings stay secondary", /communications-advanced/.test(app) && app.includes("Advanced (optional)")],
+  ["Evaluation Cancelled is a selectable lead status end to end", app.includes('"Evaluation Cancelled"') && /"Evaluation Cancelled": "evaluation_cancelled"/.test(app) && /'evaluation_cancelled'/.test(evaluationCancelledMigration)],
+  ["Evaluation Cancelled stays an open, assignable lead", !/closedStatuses[\s\S]{0,400}evaluation_cancelled/.test(communicationsApi) && !/communicationsLeadIsActive[\s\S]{0,400}evaluation_cancelled/.test(app)],
+  ["Evaluation Cancelled never wears the booked pill", /status === "Evaluation Cancelled"\) return "follow"[\s\S]{0,200}status\.includes\("Evaluation"\)\) return "booked"/.test(app)]
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);
