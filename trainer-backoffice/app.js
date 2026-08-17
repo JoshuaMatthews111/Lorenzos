@@ -239,6 +239,7 @@ const defaultState = {
   communicationsSection: "alerts",
   communicationsFilters: { status: "All", market: "All", owner: "All" },
   templateDraft: null,
+  designPreviewOpen: false,
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
   clientSearch: "",
@@ -3822,9 +3823,23 @@ async function refreshCommunicationsLeads() {
   mergeRemoteOperationalData(data);
 }
 
+// Staff are named the way the office says them out loud: first and last name.
+function staffFullName(userId) {
+  const user = portalUserById(userId);
+  if (!user) return "Assigned staff";
+  const full = [user.first_name, user.last_name].filter(Boolean).join(" ").trim();
+  return full || portalDisplayName(user) || portalUserEmail(user) || "Assigned staff";
+}
+
 function communicationsOwnerLabel(userId) {
   if (!userId) return "Available";
-  return portalActorLabel(userId) || "Assigned staff";
+  return staffFullName(userId);
+}
+
+// A lead claimed in Communications is the same lead the office works in the
+// pipeline, so the pipeline has to show who owns it too.
+function leadAssignmentLine(lead) {
+  return lead.claimedBy ? `<small class="lead-assignee">Assigned to ${escapeHtml(staffFullName(lead.claimedBy))}</small>` : "";
 }
 
 function communicationsLeadIsActive(lead) {
@@ -3963,7 +3978,7 @@ const EMAIL_FONTS = [
   ["'Courier New', Courier, monospace", "Courier New"]
 ];
 const MERGE_TOKENS = [["first_name", "First name"], ["last_name", "Last name"], ["city", "City"]];
-const DESIGN_BLOCK_LABELS = { logo: "Logo", bar: "Colour bar", heading: "Heading", text: "Paragraph", button: "Button", image: "Image", spacer: "Spacer" };
+const DESIGN_BLOCK_LABELS = { logo: "Logo", bar: "Colour bar", heading: "Heading", text: "Paragraph", list: "Bullet list", button: "Button", image: "Photo", spacer: "Spacer" };
 
 function designBlockDefault(type) {
   const base = {
@@ -3973,6 +3988,7 @@ function designBlockDefault(type) {
   };
   if (type === "heading") return { ...base, text: "Serious Training. Serious Results.", size: 26, bold: true, align: "center", color: "#0b2545", padding: 20 };
   if (type === "text") return { ...base, text: "Hi {{first_name}}, thank you for reaching out to Lorenzo's Dog Training Team. We would love to help you and your dog in {{city}}." };
+  if (type === "list") return { ...base, text: "Veterinary care\nFood and housing\nProfessional evaluations\nPlacement and ongoing support" };
   if (type === "button") return { ...base, text: "Book my evaluation", href: "https://www.lorenzosdogtrainingteam.com/contact", background: "#c8102e", color: "#ffffff", align: "center", bold: true, padding: 20 };
   if (type === "bar") return { ...base, background: "#0b2545", height: 10, padding: 0 };
   if (type === "logo") return { ...base, width: 200, align: "center", padding: 20, alt: "Lorenzo's Dog Training Team" };
@@ -4015,8 +4031,19 @@ function renderDesignBlockHtml(block) {
   if (block.type === "button") {
     return `<tr><td align="${block.align}" style="${bg}padding:${pad};"><a href="${escapeHtml(block.href || "#")}" style="display:inline-block;${font}background-color:${block.background || "#c8102e"};color:${block.color};text-decoration:none;padding:14px 28px;border-radius:${block.radius}px;">${escapeHtml(block.text)}</a></td></tr>`;
   }
-  const tag = block.type === "heading" ? "h1" : "p";
-  return `<tr><td align="${block.align}" style="${bg}padding:${pad};text-align:${block.align};"><${tag} style="margin:0;${font}">${designTextToHtml(block.text)}</${tag}></td></tr>`;
+  if (block.type === "list") {
+    const items = String(block.text || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+      .map(line => `<li style="margin:0 0 8px 0;">${escapeHtml(line)}</li>`).join("");
+    return `<tr><td align="${block.align}" style="${bg}padding:${pad};"><ul style="margin:0;padding-left:22px;${font}">${items}</ul></td></tr>`;
+  }
+  if (block.type === "heading") {
+    return `<tr><td align="${block.align}" style="${bg}padding:${pad};text-align:${block.align};"><h1 style="margin:0;${font}">${designTextToHtml(block.text)}</h1></td></tr>`;
+  }
+  // Blank lines between paragraphs become real paragraph spacing, not a run-on block.
+  const paragraphs = String(block.text || "").split(/\n{2,}/).map(part => part.trim()).filter(Boolean);
+  const body = (paragraphs.length ? paragraphs : [""])
+    .map((part, index) => `<p style="margin:${index ? "16px" : "0"} 0 0 0;${font}">${designTextToHtml(part)}</p>`).join("");
+  return `<tr><td align="${block.align}" style="${bg}padding:${pad};text-align:${block.align};">${body}</td></tr>`;
 }
 
 function renderDesignHtml(design) {
@@ -4032,15 +4059,95 @@ function renderDesignHtml(design) {
 function renderDesignText(design) {
   return (design?.blocks || []).map(block => {
     if (block.type === "button") return `${block.text}: ${block.href}`;
+    if (block.type === "list") return String(block.text || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean).map(line => `• ${line}`).join("\n");
     if (["heading", "text"].includes(block.type)) return block.text;
     return "";
   }).filter(Boolean).join("\n\n");
 }
 
+// Designers hand over templates with placeholders like "Dear [First Name],".
+// Left alone those go out literally, so every uploaded or pasted template is
+// normalised to the merge tokens the server actually fills in.
+const PLACEHOLDER_PATTERNS = [
+  [/[\[{%]\s*first[\s_-]*name\s*[\]}%]/gi, "{{first_name}}"],
+  [/[\[{%]\s*last[\s_-]*name\s*[\]}%]/gi, "{{last_name}}"],
+  [/[\[{%]\s*(full[\s_-]*name|client[\s_-]*name|customer[\s_-]*name)\s*[\]}%]/gi, "{{first_name}} {{last_name}}"],
+  [/[\[{%]\s*(city|town)\s*[\]}%]/gi, "{{city}}"],
+  [/[\[{%]\s*dog[\s_-]*name\s*[\]}%]/gi, "{{dog_name}}"],
+  [/[\[{%]\s*(opt[\s_-]*out[\s_-]*url|unsubscribe[\s_-]*url|unsubscribe)\s*[\]}%]/gi, "{{unsubscribe}}"]
+];
+
+function normalizeMergePlaceholders(value) {
+  return PLACEHOLDER_PATTERNS.reduce((text, [pattern, token]) => text.replace(pattern, token), String(value || ""));
+}
+
+function countMergeTokens(value) {
+  return (String(value || "").match(/{{\s*[a-z_]+\s*}}/gi) || []).length;
+}
+
+function dataUrlToFile(dataUrl, name) {
+  const match = /^data:(image\/[a-z+]+);base64,(.*)$/i.exec(String(dataUrl).trim());
+  if (!match) return null;
+  const binary = atob(match[2]);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  const extension = match[1].split("/")[1].replace("jpeg", "jpg").replace("+xml", "");
+  return new File([bytes], `${name}.${extension}`, { type: match[1] });
+}
+
+// Designers embed pictures straight into the HTML as base64. Gmail refuses to show
+// those, and they bloat the template past what can be stored, so each one is lifted
+// out to a hosted image the moment the file is uploaded.
+async function hostEmbeddedImages(html, onProgress) {
+  const matches = [...String(html).matchAll(/src\s*=\s*"(data:image\/[a-z+]+;base64,[^"]+)"/gi)];
+  if (!matches.length) return { html, hosted: 0, failed: 0 };
+  let output = html;
+  let hosted = 0;
+  let failed = 0;
+  for (const [index, match] of matches.entries()) {
+    onProgress?.(index + 1, matches.length);
+    const file = dataUrlToFile(match[1], `email-image-${Date.now()}-${index}`);
+    if (!file) { failed += 1; continue; }
+    try {
+      const path = `communications/${file.name}`;
+      const result = await window.LDTT_PORTAL.upload("trainer-page-assets", path, file, { onProgress: () => {} });
+      const url = result?.publicUrl || window.LDTT_PORTAL.publicStorageUrl("trainer-page-assets", result?.path || path);
+      if (!url) throw new Error("no url");
+      output = output.split(match[1]).join(url);
+      hosted += 1;
+    } catch { failed += 1; }
+  }
+  return { html: output, hosted, failed };
+}
+
+// Turns a full HTML email into a readable plain-text version: styling and scripts
+// are dropped entirely (they are not words), bullets keep their dots, and
+// paragraphs keep their blank lines instead of collapsing into one run-on line.
+function htmlToPlainText(html) {
+  return String(html || "")
+    .replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<li[^>]*>/gi, "\n• ")
+    .replace(/<\/(li|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h[1-6]|ul|ol|table)>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .split("\n").map(line => line.trim()).join("\n")
+    .trim();
+}
+
 function templateDraftBodies(draft) {
   if (draft.channel !== "email") return { body_text: draft.body_text, body_html: "" };
   if (draft.format === "visual") return { body_text: renderDesignText(draft.design), body_html: renderDesignHtml(draft.design) };
-  if (draft.format === "html") return { body_text: draft.body_text || String(draft.body_html || "").replace(/<[^>]+>/g, " ").replace(/\s{2,}/g, " ").trim(), body_html: draft.body_html };
+  if (draft.format === "html") return { body_text: draft.body_text || htmlToPlainText(draft.body_html), body_html: draft.body_html };
   return { body_text: draft.body_text, body_html: "" };
 }
 
@@ -4080,7 +4187,8 @@ function designFieldRow(index, block) {
       ${colorField("background", "Button colour", block.background || "#c8102e")}${colorField("color", "Text colour", block.color)}
       ${alignField}${numberField("radius", "Corner round (px)", block.radius, 0, 40)}${numberField("padding", "Space around (px)", block.padding, 0, 80)}`;
   }
-  return `<label class="wide">${block.type === "heading" ? "Heading" : "Paragraph"}<textarea data-design-field="text" data-design-index="${index}" rows="${block.type === "heading" ? 2 : 4}">${escapeHtml(block.text)}</textarea></label>
+  const writingLabel = block.type === "heading" ? "Heading" : block.type === "list" ? "Bullet points — one per line" : "Paragraph";
+  return `<label class="wide">${writingLabel}<textarea class="communications-writing-box" data-design-field="text" data-design-index="${index}" rows="${block.type === "heading" ? 2 : 8}">${escapeHtml(block.text)}</textarea>${block.type === "text" ? `<small class="field-help">Leave a blank line between paragraphs to space them out.</small>` : ""}</label>
     ${fontField}${numberField("size", "Text size (px)", block.size, 8, 72)}
     ${colorField("color", "Text colour", block.color)}${colorField("background", "Background", block.background || "#ffffff")}
     ${alignField}${numberField("lineHeight", "Line spacing (%)", block.lineHeight, 100, 250)}
@@ -4121,9 +4229,10 @@ function communicationsDesigner() {
       </article>`).join("") || `<p class="panel-copy">Add a block above to start the design.</p>`}</div>`;
   }
 
+  const previewOpen = state.designPreviewOpen === true;
   return `${panel(draft.id ? `Editing: ${escapeHtml(draft.name || "Untitled template")}` : "Build a Template",
-    `${draft.id ? `<button class="btn btn-outline" type="button" data-design-new>Start New</button>` : ""}<button class="btn btn-red" type="button" data-design-save>${draft.id ? "Save Changes" : "Save Template"}</button>`,
-    `<div class="communications-designer">
+    `${draft.id ? `<button class="btn btn-outline" type="button" data-design-new>Start New</button>` : ""}<button class="btn btn-outline" type="button" data-design-preview-toggle>${previewOpen ? "Close preview" : "Preview your email"}</button><button class="btn btn-red" type="button" data-design-save>${draft.id ? "Save Changes" : "Save Template"}</button>`,
+    `<div class="communications-designer ${previewOpen ? "is-preview-open" : "is-preview-closed"}">
       <div class="communications-designer-form">
         <div class="communications-form">
           <label>Template name<input data-design-meta="name" value="${escapeHtml(draft.name)}" placeholder="New client follow-up"></label>
@@ -4134,11 +4243,11 @@ function communicationsDesigner() {
         ${tokenRow}
         <div class="communications-form">${editor}</div>
       </div>
-      <div class="communications-designer-preview">
-        <strong>Live preview</strong>
+      ${previewOpen ? `<div class="communications-designer-preview">
+        <strong>Preview<button class="btn btn-outline btn-small" type="button" data-design-preview-toggle>Close</button></strong>
         <iframe title="Email preview" data-design-preview sandbox=""></iframe>
         <small class="field-help">Preview shows sample details. Every send fills in the real client's name and city.</small>
-      </div>
+      </div>` : ""}
     </div>`, "pad")}`;
 }
 
@@ -5593,7 +5702,7 @@ function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const filterOptions = { useWorkspaceFilters: admin };
   const rows = filteredLeadRows(baseRows, filterOptions);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? escapeHtml(trainerName(lead.trainerId)) : escapeHtml(lead.next)}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
   return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
 }
@@ -5630,7 +5739,7 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
 const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"];
 function boardStatus(status) { return /^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status; }
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small>${leadAssignmentLine(lead)}</article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -8099,6 +8208,11 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  if (event.target.closest("[data-design-preview-toggle]")) {
+    state.designPreviewOpen = state.designPreviewOpen !== true;
+    saveState();
+    return;
+  }
   const designFormat = event.target.closest("[data-design-format]");
   if (designFormat) {
     currentTemplateDraft().format = designFormat.dataset.designFormat;
@@ -9506,11 +9620,23 @@ document.addEventListener("change", async event => {
     if (file.size > 2 * 1024 * 1024) { showToast("HTML files must be under 2 MB."); htmlUpload.value = ""; return; }
     try {
       const draft = currentTemplateDraft();
-      draft.body_html = await file.text();
+      const raw = await file.text();
+      let working = normalizeMergePlaceholders(raw);
+      const converted = countMergeTokens(working) - countMergeTokens(raw);
+      showToast("Reading the email…");
+      const images = await hostEmbeddedImages(working, (done, total) => showToast(`Publishing image ${done} of ${total}…`));
+      working = images.html;
+      draft.body_html = working;
+      draft.body_text = htmlToPlainText(working);
       draft.format = "html";
-      if (!draft.name) draft.name = file.name.replace(/\.html?$/i, "");
+      draft.channel = "email";
+      if (!draft.name) draft.name = file.name.replace(/\.html?$/i, "").replace(/[_-]+/g, " ").trim();
       render();
-      showToast("HTML email loaded. Check the preview, then save it.");
+      const notes = [];
+      if (converted > 0) notes.push(`${converted} placeholder${converted === 1 ? "" : "s"} now fill in each client's own name`);
+      if (images.hosted) notes.push(`${images.hosted} embedded image${images.hosted === 1 ? "" : "s"} published so they show in Gmail`);
+      if (images.failed) notes.push(`${images.failed} image${images.failed === 1 ? "" : "s"} could not be published — re-add ${images.failed === 1 ? "it" : "them"} with the photo block`);
+      showToast(notes.length ? `HTML email loaded. ${notes.join("; ")}.` : "HTML email loaded. Check the preview, then save it.");
     } catch (error) { showToast(error.message || "That HTML file could not be read."); }
     htmlUpload.value = "";
     return;

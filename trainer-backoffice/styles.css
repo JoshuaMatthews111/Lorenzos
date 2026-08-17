@@ -5019,7 +5019,13 @@ button:disabled{cursor:not-allowed}
 .communications-preview{display:grid;gap:6px;min-height:82px;padding:13px;border:1px dashed #9bb3cf;border-radius:12px;background:#fbfdff;color:var(--muted);line-height:1.45}
 .communications-preview strong{color:var(--navy)}
 .communications-settings-state{display:flex;gap:8px;flex-wrap:wrap;grid-column:1/-1}
-.communications-designer{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:22px;align-items:start}
+.communications-designer{display:grid;gap:22px;align-items:start}
+.communications-designer.is-preview-open{grid-template-columns:minmax(0,1.25fr) minmax(0,.85fr)}
+.communications-designer.is-preview-closed{grid-template-columns:minmax(0,1fr)}
+.communications-designer.is-preview-closed .communications-block-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+.communications-designer-preview strong{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.communications-writing-box{min-height:150px;font-size:.95rem;line-height:1.55}
+.communications-designer.is-preview-closed .communications-writing-box{min-height:190px}
 .communications-designer-form{min-width:0}
 .communications-designer-preview{position:sticky;top:16px;display:grid;gap:8px;min-width:0}
 .communications-designer-preview strong{color:var(--navy);font-size:.8rem;text-transform:uppercase;letter-spacing:.05em}
@@ -5047,6 +5053,7 @@ button:disabled{cursor:not-allowed}
 .communications-block-fields textarea{resize:vertical;line-height:1.45}
 .communications-block-fields .check-row{display:flex;align-items:center;gap:7px;font-weight:750}
 .communications-block-fields .check-row input{width:auto}
+.lead-assignee{display:block;margin-top:4px;color:#0b6b3a;font-size:.72rem;font-weight:800}
 .communications-webhooks{display:grid;gap:12px}
 .communications-webhooks label{display:grid;gap:6px;color:var(--navy);font-size:.78rem;font-weight:900}
 .communications-webhooks input{width:100%;border:1px solid #c9d7e8;border-radius:10px;padding:10px 11px;background:#f6f9fd;color:#516a85;font:inherit}

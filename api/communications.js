@@ -57,9 +57,16 @@ function mergeTemplate(value, recipient = {}, unsubscribeUrl = "") {
     first_name: prettyName(recipient.first_name || recipient.client_name?.split(/\s+/)[0]),
     last_name: prettyName(recipient.last_name || recipient.client_name?.split(/\s+/).slice(1).join(" ")),
     city: clean(recipient.city || recipient.service_area || "your area", 80),
-    unsubscribe: unsubscribeUrl
+    dog_name: prettyName(recipient.dog_name),
+    unsubscribe: unsubscribeUrl,
+    // Designers hand over templates using several names for the same opt-out link.
+    opt_out_url: unsubscribeUrl,
+    unsubscribe_url: unsubscribeUrl
   };
-  return noMergeTokens(String(value || "").replace(/{{\s*(first_name|last_name|city|unsubscribe)\s*}}/gi, (_all, key) => replacements[String(key).toLowerCase()] || ""));
+  return noMergeTokens(String(value || "").replace(
+    /{{\s*(first_name|last_name|city|dog_name|unsubscribe|opt_out_url|unsubscribe_url)\s*}}/gi,
+    (_all, key) => replacements[String(key).toLowerCase()] || ""
+  ));
 }
 
 async function supabaseFetch(path, options = {}) {
@@ -304,7 +311,7 @@ async function saveTemplate(access, body) {
     name: clean(template.name, 120),
     channel,
     subject: clean(template.subject, 250) || null,
-    body_html: clean(template.body_html, 200000) || null,
+    body_html: clean(template.body_html, 400000) || null,
     body_text: clean(template.body_text, 20000),
     media_url: clean(template.media_url, 2000) || null,
     active: template.active !== false,
