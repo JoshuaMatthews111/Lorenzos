@@ -998,7 +998,7 @@ const page = market => {
         </div>
 
         ${casePanels[market.slug] || `<figure class="market-hero-media market-trainer-media">
-          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — ${escapeHtml(market.market)}" style="object-position:${market.photoPos || "center"}" loading="lazy" decoding="async">
+          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — ${escapeHtml(market.market)}" style="object-position:${market.photoPos || "center"}" loading="eager" fetchpriority="high" decoding="async">
           <figcaption>
             <strong>${escapeHtml(market.photoName)}</strong>
             <span>${escapeHtml(market.photoCaption)}</span>
