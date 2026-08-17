@@ -32,13 +32,40 @@ module.exports = async function handler(req, res) {
       return json(res, 200, { ok: true });
     }
     const members = await supabaseFetch(`/rest/v1/communications_alert_members?select=*&phone=eq.${encodeURIComponent(phone)}&active=eq.true&stopped_at=is.null`);
-    if (/\bSTOP\b/.test(text)) {
+    const isStop = /\b(STOP|UNSUBSCRIBE|CANCEL|QUIT|END|OPTOUT|OPT OUT)\b/.test(text);
+    const isOptIn = /\b(YES|START|UNSTOP|SUBSCRIBE|OPTIN|OPT IN)\b/.test(text);
+    // A reply from a client number is a consent decision, and it is recorded against
+    // the client record so no future campaign can contact someone who said STOP.
+    async function recordClientConsent(consented) {
+      const clients = await supabaseFetch(`/rest/v1/clients?select=id&phone=eq.${encodeURIComponent(phone)}`).catch(() => []);
+      if (!clients?.length) return 0;
+      await supabaseFetch(`/rest/v1/clients?id=in.(${clients.map(client => client.id).join(",")})`, {
+        method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          sms_consent: consented,
+          sms_consent_at: new Date().toISOString(),
+          consent_source: consented ? "Client texted YES" : "Client texted STOP",
+          consent_note: `Reply received ${new Date().toISOString()}`
+        })
+      }).catch(() => {});
+      return clients.length;
+    }
+    if (isStop) {
       await supabaseFetch(`/rest/v1/communications_alert_members?phone=eq.${encodeURIComponent(phone)}&stopped_at=is.null`, {
         method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ active: false, stopped_at: new Date().toISOString() })
       });
-      await setWebhookOutcome("simpletexting", webhook.eventId, "staff_opted_out");
-      await sms(phone, "Lorenzo's Dog Training Team alerts are stopped for this number. Reply HELP for office contact information.");
+      const clientCount = await recordClientConsent(false);
+      await setWebhookOutcome("simpletexting", webhook.eventId, clientCount ? "client_opted_out" : "staff_opted_out");
+      await sms(phone, "You are unsubscribed from Lorenzo's Dog Training Team messages. No further texts will be sent. Reply HELP for office contact information.");
       return json(res, 200, { ok: true });
+    }
+    if (isOptIn && !members.length) {
+      const clientCount = await recordClientConsent(true);
+      if (clientCount) {
+        await setWebhookOutcome("simpletexting", webhook.eventId, "client_opted_in");
+        await sms(phone, "Thank you — you are signed up for Lorenzo's Dog Training Team updates. Msg & data rates may apply. Reply STOP any time to stop.");
+        return json(res, 200, { ok: true });
+      }
     }
     if (!members.length) {
       await setWebhookOutcome("simpletexting", webhook.eventId, "unknown_staff_number");

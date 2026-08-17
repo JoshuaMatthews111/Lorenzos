@@ -23,6 +23,7 @@ const communicationsHardening = read("supabase/migrations/20260816020109_harden_
 const evaluationCancelledMigration = read("supabase/migrations/20260817170535_add_evaluation_cancelled_lead_status.sql");
 const templateDesignMigration = read("supabase/migrations/20260817172642_communications_template_design.sql");
 const sendVerificationDropped = read("supabase/migrations/20260817173440_drop_temp_provider_send_verification.sql");
+const smsInbound = read("api/webhooks/sms-inbound.js");
 
 const checks = [
   ["staff identity replaces anonymous portal labels", /portalActorLabel/.test(app) && /first_name/.test(app) && /last_name/.test(app)],
@@ -91,6 +92,15 @@ const checks = [
   ["staff can upload an HTML email file or a logo image", /data-design-html-upload/.test(app) && /data-design-upload/.test(app) && /trainer-page-assets/.test(app)],
   ["every message personalises to the client before sending", /MERGE_TOKENS/.test(app) && /data-design-token/.test(app) && /function mergeTemplate/.test(communicationsApi) && /first_name/.test(communicationsApi)],
   ["the email preview cannot run scripts from a pasted template", /data-design-preview sandbox=""/.test(app)],
+  ["a bulk send never reaches Do Not Contact, opted-out, or archived clients", /BLOCKED_CLIENT_STATUSES/.test(communicationsApi) && /consent === false/.test(communicationsApi) && /archived_at/.test(communicationsApi)],
+  ["consent is re-checked at the moment each message sends", /Re-check consent at the moment of sending/.test(communicationsApi)],
+  ["a client can only ever be queued once per campaign", /uq_campaign_recipient_once/.test(read("supabase/migrations/20260817200000_client_consent_and_campaign_idempotency.sql")) && /resolution=ignore-duplicates/.test(communicationsApi)],
+  ["bulk sending is batched and resumable rather than one giant request", /CAMPAIGN_BATCH_SIZE/.test(communicationsApi) && /send_campaign_batch/.test(communicationsApi) && /function runCampaignBatches/.test(app)],
+  ["a bulk send requires an explicit typed confirmation", /Type SEND to go ahead/.test(app) && /!== "SEND"/.test(app)],
+  ["staff can stop a send that is already running", /data-campaign-stop/.test(app) && /cancel_campaign/.test(communicationsApi)],
+  ["texting STOP and YES from a client updates that client's consent", /function recordClientConsent/.test(smsInbound) && /sms_consent: consented/.test(smsInbound) && /client_opted_out/.test(smsInbound)],
+  ["recorded consent keeps its paperwork trail", /consent_source/.test(communicationsApi) && /Describe the consent paperwork/.test(communicationsApi) && /communications_consent_recorded/.test(communicationsApi)],
+  ["staff are offered a compliant opt-in text to gather consent", /OPT_IN_SMS_TEXT/.test(app) && /Reply YES to join/.test(app) && /Reply STOP to stop/.test(app)],
   ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)]
 ];
 

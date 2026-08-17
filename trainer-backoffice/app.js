@@ -240,6 +240,11 @@ const defaultState = {
   communicationsFilters: { status: "All", market: "All", owner: "All" },
   templateDraft: null,
   designPreviewOpen: false,
+  campaignAudience: null,
+  campaignProgress: null,
+  campaignTemplateId: "",
+  campaignRequireConsent: true,
+  campaignId: "",
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
   clientSearch: "",
@@ -4251,6 +4256,50 @@ function communicationsDesigner() {
     </div>`, "pad")}`;
 }
 
+const OPT_IN_SMS_TEXT = "Lorenzo's Dog Training Team: Hi {{first_name}}, would you like training tips, class dates and offers by text? Reply YES to join. Msg & data rates may apply, about 2-4 msgs/month. Reply STOP to stop.";
+
+function communicationsCampaignPanel() {
+  const templates = (communicationsData.templates || []).filter(template => template.active !== false);
+  const campaigns = (communicationsData.campaigns || []).slice(0, 6);
+  const audience = state.campaignAudience;
+  const progress = state.campaignProgress;
+  const statusLabel = { queued: "Ready to send", sending: "Sending", sent: "Finished", cancelled: "Stopped" };
+  return `${panel("Send To The Client List",
+    `<button class="btn btn-outline" type="button" data-campaign-check>Check who will receive it</button>`,
+    `<p class="panel-copy">This sends to the client database. Anyone marked Do Not Contact, anyone who replied STOP, and anyone without a working email or mobile number is left out automatically. <strong>Send a test to yourself first.</strong></p>
+    <form class="communications-form" data-campaign-form>
+      <label class="wide">Template<select required name="template_id">${templates.length ? `<option value="">Choose a saved template</option>${templates.map(template => `<option value="${escapeHtml(template.id)}" ${state.campaignTemplateId === template.id ? "selected" : ""}>${escapeHtml(template.name)} — ${template.channel === "email" ? "Email" : "Text"}</option>`).join("")}` : `<option value="">Save a template first</option>`}</select></label>
+      <label class="wide">Who should receive it<select name="require_consent">
+        <option value="true" ${state.campaignRequireConsent !== false ? "selected" : ""}>Only clients who have opted in (safest)</option>
+        <option value="false" ${state.campaignRequireConsent === false ? "selected" : ""}>All active clients we have not heard STOP from</option>
+      </select><small class="field-help">Use the safest option unless the office holds signed consent for the whole list.</small></label>
+      <label class="wide">Name this send<input name="name" placeholder="TTRG invitation — August"></label>
+      <button class="btn btn-red" type="submit">Review and send…</button>
+    </form>
+    ${audience ? `<div class="campaign-audience"><strong>${audience.eligible.toLocaleString()} ${audience.channel === "email" ? "people will get this email" : "people will get this text"}</strong>
+      <ul><li>${audience.totalClients.toLocaleString()} clients on file</li>
+      ${audience.skipped.noConsent ? `<li>${audience.skipped.noConsent.toLocaleString()} skipped — have not opted in</li>` : ""}
+      ${audience.skipped.optedOut ? `<li>${audience.skipped.optedOut.toLocaleString()} skipped — asked to stop</li>` : ""}
+      ${audience.skipped.blocked ? `<li>${audience.skipped.blocked.toLocaleString()} skipped — Do Not Contact or archived</li>` : ""}
+      ${audience.skipped.noContact ? `<li>${audience.skipped.noContact.toLocaleString()} skipped — no working ${audience.channel === "email" ? "email address" : "mobile number"}</li>` : ""}
+      ${audience.skipped.duplicate ? `<li>${audience.skipped.duplicate.toLocaleString()} skipped — duplicate contact</li>` : ""}
+      </ul></div>` : ""}
+    ${progress ? `<div class="campaign-progress"><strong>${escapeHtml(progress.label)}</strong><div class="campaign-bar"><i style="width:${Math.min(100, Math.round((progress.done / Math.max(1, progress.total)) * 100))}%"></i></div><span>${progress.done.toLocaleString()} of ${progress.total.toLocaleString()} · ${progress.failed} problem${progress.failed === 1 ? "" : "s"}</span>${progress.running ? `<button class="btn btn-outline btn-small" type="button" data-campaign-stop>Stop sending</button>` : ""}</div>` : ""}`, "pad")}
+  ${panel("Getting Permission To Text", "", `<p class="panel-copy">Texting works best when the client has said yes. Two ways to record that:</p>
+    <div class="communications-grid">
+      <div><strong>Ask them by text</strong><p class="panel-copy">Save this as a text template and send it as a campaign. Anyone who replies YES is recorded as opted in automatically, and STOP is honoured for good.</p>
+      <textarea class="communications-writing-box" readonly rows="4">${escapeHtml(OPT_IN_SMS_TEXT)}</textarea>
+      <button class="btn btn-outline" type="button" data-campaign-optin-template>Create this opt-in text template</button></div>
+      <div><strong>Record consent you already hold</strong><p class="panel-copy">If the office has signed consent forms, record that here. It marks every client whose consent is currently unknown, and saves what the paperwork was and who recorded it.</p>
+      <form class="communications-form compact-form" data-consent-form>
+        <label>Channel<select name="channel"><option value="sms">Text messages</option><option value="email">Email</option></select></label>
+        <label class="wide">What is the paperwork?<input required name="note" placeholder="Signed client agreement incl. contact consent, on file at the office"></label>
+        <button class="btn btn-outline" type="submit">Record consent on file</button>
+      </form></div>
+    </div>`, "pad")}
+  ${campaigns.length ? panel("Recent Sends", "", `<div class="communications-list">${campaigns.map(campaign => `<article><div><strong>${escapeHtml(campaign.name)}</strong><small>${escapeHtml(campaign.channel === "email" ? "Email" : "Text")} · ${Number(campaign.sent_recipients || 0).toLocaleString()} sent${Number(campaign.failed_recipients || 0) ? ` · ${Number(campaign.failed_recipients).toLocaleString()} failed` : ""} of ${Number(campaign.total_recipients || 0).toLocaleString()}</small></div><span class="status ${campaign.status === "sent" ? "live" : campaign.status === "cancelled" ? "lost" : "draft"}">${escapeHtml(statusLabel[campaign.status] || campaign.status)}</span></article>`).join("")}</div>`, "pad") : ""}`;
+}
+
 function communicationsMessageCenter() {
   const templates = communicationsData.templates || [];
   const testers = communicationsData.testers || [];
@@ -4267,7 +4316,45 @@ function communicationsMessageCenter() {
       <output class="communications-preview" data-communications-preview-output>Choose a template, then preview before sending.</output>
     </form>`, "pad")}
     </div>
+    ${communicationsCampaignPanel()}
     ${panel("Saved Testers", "", `<form class="communications-form compact-form" data-communications-tester-form><label>Name<input required name="display_name" placeholder="Office test recipient"></label><label>Email<input type="email" name="email" placeholder="test@example.com"></label><label>Mobile<input name="phone" placeholder="(216) 555-0100"></label><button class="btn btn-outline" type="submit">Save Tester</button></form>`, "pad")}`;
+}
+
+function campaignFormValues() {
+  const form = document.querySelector("[data-campaign-form]");
+  if (!form) return null;
+  return {
+    template_id: form.elements.template_id?.value || "",
+    require_consent: form.elements.require_consent?.value !== "false",
+    name: form.elements.name?.value || ""
+  };
+}
+
+async function runCampaignBatches(campaignId, total, label) {
+  state.campaignProgress = { label, done: 0, total, failed: 0, running: true };
+  render();
+  let guard = 0;
+  while (state.campaignProgress?.running && guard < 5000) {
+    guard += 1;
+    let result;
+    try {
+      result = await communicationsRequest({ operation: "send_campaign_batch", campaign_id: campaignId });
+    } catch (error) {
+      state.campaignProgress = { ...state.campaignProgress, running: false, label: `Sending stopped: ${error.message}` };
+      render();
+      showToast(error.message || "Sending stopped.");
+      return;
+    }
+    if (result.done) {
+      state.campaignProgress = { label: "Finished", done: total, total, failed: result.failed || 0, running: false };
+      await loadCommunicationsData(false);
+      render();
+      showToast(`Finished. ${Number(result.sent || 0).toLocaleString()} sent${result.failed ? `, ${result.failed} could not be delivered` : ""}.`);
+      return;
+    }
+    state.campaignProgress = { label, done: Number(result.sent || 0) + Number(result.failed || 0), total, failed: Number(result.failed || 0), running: true };
+    render();
+  }
 }
 
 function refreshTemplatePreview() {
@@ -8211,6 +8298,37 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  if (event.target.closest("[data-campaign-check]")) {
+    const values = campaignFormValues();
+    const template = (communicationsData.templates || []).find(item => item.id === values?.template_id);
+    if (!template) { showToast("Choose a template first so we know whether this is an email or a text."); return; }
+    try {
+      state.campaignTemplateId = template.id;
+      state.campaignRequireConsent = values.require_consent;
+      const result = await communicationsRequest({ operation: "campaign_audience", channel: template.channel === "email" ? "email" : "sms", require_consent: values.require_consent });
+      state.campaignAudience = result;
+      render();
+    } catch (error) { showToast(error.message || "That check could not be run."); }
+    return;
+  }
+  if (event.target.closest("[data-campaign-stop]")) {
+    if (state.campaignProgress) state.campaignProgress = { ...state.campaignProgress, running: false, label: "Stopped by the office" };
+    const id = state.campaignId;
+    if (id) await communicationsRequest({ operation: "cancel_campaign", campaign_id: id }).catch(() => {});
+    render();
+    showToast("Sending stopped. Nobody else will be contacted.");
+    return;
+  }
+  if (event.target.closest("[data-campaign-optin-template]")) {
+    const draft = templateDraftDefault("sms");
+    draft.name = "Text opt-in request";
+    draft.body_text = OPT_IN_SMS_TEXT;
+    state.templateDraft = draft;
+    state.communicationsSection = "messages";
+    render();
+    showToast("Opt-in text ready in the builder above. Press Save Template, then send it as a campaign.");
+    return;
+  }
   if (event.target.closest("[data-design-preview-toggle]")) {
     state.designPreviewOpen = state.designPreviewOpen !== true;
     saveState();
@@ -10346,6 +10464,47 @@ document.addEventListener("submit", async event => {
     const data = new FormData(event.target);
     state.communicationsFilters = { status: data.get("status") || "All", market: data.get("market") || "All", owner: data.get("owner") || "All" };
     saveState();
+    return;
+  }
+  if (event.target.matches("[data-campaign-form]")) {
+    const values = campaignFormValues();
+    const template = (communicationsData.templates || []).find(item => item.id === values?.template_id);
+    if (!template) { showToast("Choose a saved template first."); return; }
+    try {
+      const channel = template.channel === "email" ? "email" : "sms";
+      const audience = await communicationsRequest({ operation: "campaign_audience", channel, require_consent: values.require_consent });
+      state.campaignAudience = audience;
+      render();
+      if (!audience.eligible) { showToast("Nobody on the client list can receive this yet. Check the reasons listed above."); return; }
+      const word = channel === "email" ? "emails" : "text messages";
+      const confirmation = window.prompt(
+        `This will send ${audience.eligible.toLocaleString()} real ${word} to Lorenzo's clients using "${template.name}".\n\n`
+        + `This cannot be undone once it starts.\n\n`
+        + `Type SEND to go ahead.`);
+      if (String(confirmation || "").trim().toUpperCase() !== "SEND") { showToast("Nothing was sent."); return; }
+      const created = await communicationsRequest({
+        operation: "create_campaign",
+        template_id: template.id,
+        require_consent: values.require_consent,
+        name: values.name
+      });
+      state.campaignId = created.campaign.id;
+      await runCampaignBatches(created.campaign.id, created.eligible, `Sending ${created.eligible.toLocaleString()} ${word}`);
+    } catch (error) { showToast(error.message || "The send could not be started."); }
+    return;
+  }
+  if (event.target.matches("[data-consent-form]")) {
+    const data = new FormData(event.target);
+    const channel = data.get("channel") === "email" ? "email" : "sms";
+    const note = String(data.get("note") || "").trim();
+    if (!note) { showToast("Describe the consent paperwork first."); return; }
+    if (!window.confirm(`Record ${channel === "email" ? "email" : "text"} consent for every client whose consent is currently unknown?\n\nBasis: ${note}\n\nThis is written to each client record with your name and today's date.`)) return;
+    try {
+      const result = await communicationsRequest({ operation: "record_consent", channel, note });
+      showToast(`Consent recorded for ${Number(result.updated || 0).toLocaleString()} client${result.updated === 1 ? "" : "s"}.`);
+      state.campaignAudience = null;
+      render();
+    } catch (error) { showToast(error.message || "Consent could not be recorded."); }
     return;
   }
   if (event.target.matches("[data-communications-test-form]")) {

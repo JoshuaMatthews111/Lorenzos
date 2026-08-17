@@ -511,6 +511,241 @@ async function leadAction(access, body) {
   throw Object.assign(new Error("Unsupported lead action."), { status: 400 });
 }
 
+const BLOCKED_CLIENT_STATUSES = new Set(["do_not_contact", "bad_lead", "archived", "inactive_do_not_contact"]);
+const EMAIL_SHAPE = /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/i;
+const CAMPAIGN_BATCH_SIZE = 25;
+
+function clientFirstLast(client) {
+  const payload = client.raw_payload || {};
+  const parts = String(client.client_name || "").trim().split(/\s+/);
+  return {
+    first_name: clean(payload.first_name || parts[0] || "", 80),
+    last_name: clean(payload.last_name || parts.slice(1).join(" ") || "", 80),
+    city: clean(client.service_area || payload.city || "", 80)
+  };
+}
+
+// One place decides who may be contacted, so the count shown to staff and the list
+// actually sent are produced by the same rules.
+function eligibleRecipients(clients, channel, requireConsent) {
+  const seen = new Set();
+  const eligible = [];
+  const skipped = { blocked: 0, noContact: 0, optedOut: 0, noConsent: 0, duplicate: 0 };
+  for (const client of clients) {
+    if (client.archived_at) { skipped.blocked += 1; continue; }
+    if (BLOCKED_CLIENT_STATUSES.has(String(client.status || "").toLowerCase())) { skipped.blocked += 1; continue; }
+    const consent = channel === "email" ? client.email_consent : client.sms_consent;
+    if (consent === false) { skipped.optedOut += 1; continue; }
+    if (requireConsent && consent !== true) { skipped.noConsent += 1; continue; }
+    const address = channel === "email" ? clean(client.email, 254).toLowerCase() : cleanPhone(client.phone);
+    if (!address || (channel === "email" && !EMAIL_SHAPE.test(address))) { skipped.noContact += 1; continue; }
+    if (seen.has(address)) { skipped.duplicate += 1; continue; }
+    seen.add(address);
+    eligible.push({ client, address });
+  }
+  return { eligible, skipped };
+}
+
+async function loadSendableClients() {
+  const rows = [];
+  const pageSize = 1000;
+  for (let offset = 0; offset < 20000; offset += pageSize) {
+    const page = await supabaseFetch(
+      `/rest/v1/clients?select=id,client_name,email,phone,status,service_area,sms_consent,email_consent,archived_at,raw_payload&order=created_at.asc&offset=${offset}&limit=${pageSize}`
+    );
+    rows.push(...(page || []));
+    if (!page || page.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function campaignAudience(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const channel = body.channel === "sms" ? "sms" : "email";
+  const requireConsent = body.require_consent !== false;
+  const clients = await loadSendableClients();
+  const { eligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
+  return { channel, requireConsent, totalClients: clients.length, eligible: eligible.length, skipped };
+}
+
+async function createCampaign(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const templateId = clean(body.template_id, 80);
+  const rows = await supabaseFetch(`/rest/v1/communications_templates?select=*&id=eq.${encodeURIComponent(templateId)}&limit=1`);
+  const template = rows?.[0];
+  if (!template) throw Object.assign(new Error("Choose a saved template first."), { status: 400 });
+  const channel = template.channel === "email" ? "email" : "sms";
+  const requireConsent = body.require_consent !== false;
+  const ready = await configurationStatus();
+  if (channel === "email" && !ready.resendReady) throw Object.assign(new Error("Email is not configured yet. Add the Resend key and from-address in Settings."), { status: 412 });
+  if (channel === "sms" && !ready.simpletextingReady) throw Object.assign(new Error("Texting is not configured yet. Add the SimpleTexting key and sending number in Settings."), { status: 412 });
+
+  const clients = await loadSendableClients();
+  const { eligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
+  if (!eligible.length) throw Object.assign(new Error("Nobody on the client list can receive this message yet."), { status: 400 });
+
+  const campaignRows = await supabaseFetch("/rest/v1/communications_campaigns", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      name: clean(body.name, 160) || `${template.name} — ${new Date().toISOString().slice(0, 10)}`,
+      template_id: template.id,
+      channel,
+      subject: template.subject,
+      body_html: template.body_html,
+      body_text: template.body_text,
+      audience_filter: { require_consent: requireConsent, skipped, source: "clients" },
+      status: "queued",
+      total_recipients: eligible.length,
+      created_by: access.user.id
+    })
+  });
+  const campaign = campaignRows?.[0];
+
+  // Snapshot the audience now so the send cannot drift while it runs.
+  for (let index = 0; index < eligible.length; index += 500) {
+    await supabaseFetch("/rest/v1/communications_campaign_recipients?on_conflict=campaign_id,client_id", {
+      method: "POST",
+      headers: { Prefer: "return=minimal,resolution=ignore-duplicates" },
+      body: JSON.stringify(eligible.slice(index, index + 500).map(item => ({
+        campaign_id: campaign.id,
+        client_id: item.client.id,
+        recipient_email: channel === "email" ? item.address : null,
+        recipient_phone: channel === "sms" ? item.address : null,
+        status: "queued"
+      })))
+    });
+  }
+  await audit(access, "communications_campaign_created", "communications_campaign", campaign.id,
+    `Campaign "${campaign.name}" queued for ${eligible.length} ${channel} recipient(s).`, null, { skipped });
+  return { campaign, eligible: eligible.length, skipped };
+}
+
+async function sendCampaignBatch(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const campaignId = clean(body.campaign_id, 80);
+  const campaigns = await supabaseFetch(`/rest/v1/communications_campaigns?select=*&id=eq.${encodeURIComponent(campaignId)}&limit=1`);
+  const campaign = campaigns?.[0];
+  if (!campaign) throw Object.assign(new Error("That campaign no longer exists."), { status: 404 });
+  if (campaign.status === "cancelled") throw Object.assign(new Error("This campaign was stopped."), { status: 409 });
+
+  const queued = await supabaseFetch(
+    `/rest/v1/communications_campaign_recipients?select=*&campaign_id=eq.${encodeURIComponent(campaignId)}&status=eq.queued&order=created_at.asc&limit=${CAMPAIGN_BATCH_SIZE}`
+  );
+  if (!queued?.length) {
+    await supabaseFetch(`/rest/v1/communications_campaigns?id=eq.${encodeURIComponent(campaignId)}`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ status: "sent", sent_by: access.user.id })
+    });
+    return { done: true, campaign_id: campaignId, sent: campaign.sent_recipients, failed: campaign.failed_recipients };
+  }
+
+  const clientIds = queued.map(row => row.client_id);
+  const clients = await supabaseFetch(
+    `/rest/v1/clients?select=id,client_name,email,phone,service_area,raw_payload,sms_consent,email_consent,status,archived_at&id=in.(${clientIds.join(",")})`
+  );
+  const clientById = new Map((clients || []).map(client => [client.id, client]));
+
+  let sent = 0;
+  let failed = 0;
+  for (const recipient of queued) {
+    const client = clientById.get(recipient.client_id);
+    let outcome = { status: "failed", error: "Client record is no longer available." };
+    // Re-check consent at the moment of sending: someone may have opted out while
+    // the campaign was queued.
+    const consent = client ? (campaign.channel === "email" ? client.email_consent : client.sms_consent) : null;
+    if (client && (consent === false || BLOCKED_CLIENT_STATUSES.has(String(client.status || "").toLowerCase()) || client.archived_at)) {
+      outcome = { status: "skipped", error: "Opted out or blocked before this batch ran." };
+    } else if (client) {
+      const details = clientFirstLast(client);
+      try {
+        if (campaign.channel === "email") {
+          const unsubscribe = await unsubscribeUrl(recipient.recipient_email);
+          const subject = mergeTemplate(campaign.subject || "A note from Lorenzo's Dog Training Team", details, unsubscribe);
+          const html = mergeTemplate(campaign.body_html || campaign.body_text, details, unsubscribe);
+          const text = mergeTemplate(campaign.body_text, details, unsubscribe);
+          const result = await sendEmail(recipient.recipient_email, subject, html, text, unsubscribe);
+          outcome = { status: "sent", id: result.id, subject, body: text };
+        } else {
+          const text = mergeTemplate(campaign.body_text, details, "");
+          const result = await sendSms(recipient.recipient_phone, text);
+          outcome = { status: "sent", id: result.id, body: text };
+        }
+      } catch (error) {
+        outcome = { status: "failed", error: clean(error.message, 400) };
+      }
+    }
+    if (outcome.status === "sent") sent += 1;
+    else if (outcome.status === "failed") failed += 1;
+    await supabaseFetch(`/rest/v1/communications_campaign_recipients?id=eq.${encodeURIComponent(recipient.id)}`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({
+        status: outcome.status,
+        provider_message_id: outcome.id || null,
+        rendered_subject: outcome.subject || null,
+        rendered_body: outcome.body || null,
+        error_summary: outcome.error || null,
+        sent_at: outcome.status === "sent" ? new Date().toISOString() : null
+      })
+    });
+  }
+
+  const totals = {
+    sent_recipients: Number(campaign.sent_recipients || 0) + sent,
+    failed_recipients: Number(campaign.failed_recipients || 0) + failed,
+    next_offset: Number(campaign.next_offset || 0) + queued.length,
+    status: "sending",
+    sent_by: access.user.id
+  };
+  await supabaseFetch(`/rest/v1/communications_campaigns?id=eq.${encodeURIComponent(campaignId)}`, {
+    method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify(totals)
+  });
+  const remaining = Math.max(0, Number(campaign.total_recipients || 0) - totals.next_offset);
+  return { done: false, campaign_id: campaignId, batch: queued.length, sent: totals.sent_recipients, failed: totals.failed_recipients, remaining };
+}
+
+async function cancelCampaign(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const campaignId = clean(body.campaign_id, 80);
+  await supabaseFetch(`/rest/v1/communications_campaigns?id=eq.${encodeURIComponent(campaignId)}`, {
+    method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ status: "cancelled" })
+  });
+  await audit(access, "communications_campaign_cancelled", "communications_campaign", campaignId, "Campaign stopped by the office.");
+  return { cancelled: true };
+}
+
+// The office has signed consent forms on file. This records that fact against the
+// client rows, with who did it and what the paperwork was, instead of anyone
+// quietly assuming consent at send time.
+async function recordConsent(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const channel = body.channel === "sms" ? "sms" : "email";
+  const note = clean(body.note, 400);
+  const source = clean(body.source, 120) || "Signed client consent form on file";
+  if (!note) throw Object.assign(new Error("Describe the consent paperwork before recording it."), { status: 400 });
+  const clients = await loadSendableClients();
+  const targets = clients.filter(client => {
+    if (client.archived_at || BLOCKED_CLIENT_STATUSES.has(String(client.status || "").toLowerCase())) return false;
+    const consent = channel === "email" ? client.email_consent : client.sms_consent;
+    if (consent !== null && consent !== undefined) return false;
+    const address = channel === "email" ? clean(client.email, 254) : cleanPhone(client.phone);
+    return Boolean(address);
+  });
+  const stamp = new Date().toISOString();
+  for (let index = 0; index < targets.length; index += 200) {
+    const chunk = targets.slice(index, index + 200);
+    await supabaseFetch(`/rest/v1/clients?id=in.(${chunk.map(client => client.id).join(",")})`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify(channel === "email"
+        ? { email_consent: true, email_consent_at: stamp, consent_source: source, consent_note: note }
+        : { sms_consent: true, sms_consent_at: stamp, consent_source: source, consent_note: note })
+    });
+  }
+  await audit(access, "communications_consent_recorded", "clients", channel,
+    `${actorName(access)} recorded ${channel} consent for ${targets.length} client(s). Basis: ${note}`);
+  return { updated: targets.length, channel };
+}
+
 async function removeRecord(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const table = {
@@ -545,6 +780,11 @@ async function handler(req, res) {
     else if (operation === "preview_campaign") data = await previewCampaign(access, req.body || {});
     else if (operation === "send_test") data = await sendTest(access, req.body || {});
     else if (["claim_lead", "release_lead", "mark_contacted"].includes(operation)) data = await leadAction(access, req.body || {});
+    else if (operation === "campaign_audience") data = await campaignAudience(access, req.body || {});
+    else if (operation === "create_campaign") data = await createCampaign(access, req.body || {});
+    else if (operation === "send_campaign_batch") data = await sendCampaignBatch(access, req.body || {});
+    else if (operation === "cancel_campaign") data = await cancelCampaign(access, req.body || {});
+    else if (operation === "record_consent") data = await recordConsent(access, req.body || {});
     else if (operation === "remove") data = await removeRecord(access, req.body || {});
     else return res.status(400).json({ ok: false, message: "Unsupported communications action." });
     return res.status(200).json({ ok: true, ...data });
