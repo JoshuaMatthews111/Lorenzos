@@ -4287,7 +4287,7 @@ function communicationsDesigner() {
 
   const previewOpen = state.designPreviewOpen === true;
   return `${panel(draft.id ? `Editing: ${escapeHtml(draft.name || "Untitled template")}` : "Build a Template",
-    `${draft.id ? `<button class="btn btn-outline" type="button" data-design-new>Start New</button>` : ""}<button class="btn btn-outline" type="button" data-design-preview-toggle>${previewOpen ? "Close preview" : "Preview your email"}</button><button class="btn btn-red" type="button" data-design-save>${draft.id ? "Save Changes" : "Save Template"}</button>`,
+    `${draft.id ? `<button class="btn btn-outline" type="button" data-design-new>Start New</button>` : ""}<button class="btn btn-outline" type="button" data-design-preview-toggle>${previewOpen ? "Close preview" : `Preview your ${isEmail ? "email" : "text"}`}</button><button class="btn btn-red" type="button" data-design-save>${draft.id ? "Save Changes" : "Save Template"}</button>`,
     `<div class="communications-designer ${previewOpen ? "is-preview-open" : "is-preview-closed"}">
       <div class="communications-designer-form">
         <div class="communications-form">
@@ -4301,7 +4301,7 @@ function communicationsDesigner() {
       </div>
       ${previewOpen ? `<div class="communications-designer-preview">
         <strong>Preview<button class="btn btn-outline btn-small" type="button" data-design-preview-toggle>Close</button></strong>
-        <iframe title="Email preview" data-design-preview sandbox=""></iframe>
+        <iframe title="${isEmail ? "Email" : "Text message"} preview" data-design-preview sandbox=""></iframe>
         <small class="field-help">Preview shows sample details. Every send fills in the real client's name and city.</small>
       </div>` : ""}
     </div>`, "pad")}`;
