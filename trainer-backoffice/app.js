@@ -4345,7 +4345,7 @@ function communicationsSettings() {
       <label>Resend API key <small>${configured("resend_api_key")}</small><input type="password" name="resend_api_key" autocomplete="new-password" placeholder="Paste once; it will not be shown again"></label>
       <label>Verified from-address<input name="resend_from_address" value="${escapeHtml(value("resend_from_address"))}" placeholder="Lorenzo's Dog Training Team <office@lorenzosdogtrainingteam.com>"></label>
       <label>Resend webhook signing secret <small>${configured("resend_signing_secret")}</small><input type="password" name="resend_signing_secret" autocomplete="new-password"></label>
-      <label>Unsubscribe signing secret <small>${configured("unsubscribe_secret")}</small><input type="password" name="unsubscribe_secret" autocomplete="new-password" placeholder="Long random value"></label>
+      <label>Unsubscribe signing secret <small>Optional · ${configured("unsubscribe_secret")}</small><input type="password" name="unsubscribe_secret" autocomplete="new-password" placeholder="Optional — only for a Lorenzo's-hosted opt-out page"><small class="field-help">Not required. Texts opt out through SimpleTexting when someone replies STOP, and emails carry Resend's one-click unsubscribe, which Resend records and suppresses. Add a secret here only if you also want an opt-out page on the Lorenzo's site.</small></label>
       <button class="btn btn-red" type="submit">Save Secure Settings</button>
     </form>`, "pad")}
     ${panel("Webhook URLs", "", `<div class="communications-webhooks"><label>Inbound staff texts<input readonly value="https://www.lorenzosdogtrainingteam.com/api/webhooks/sms-inbound"></label><label>Text delivery status<input readonly value="https://www.lorenzosdogtrainingteam.com/api/webhooks/sms-status"></label><label>Resend delivery events<input readonly value="https://www.lorenzosdogtrainingteam.com/api/webhooks/email"></label></div><p class="panel-copy">Webhook receiving will stay disabled until the provider signing secrets are saved and the provider is configured to send signed events.</p>`, "pad")}`;
@@ -7381,7 +7381,7 @@ function parseCsv(text) {
       dog: get("dog name", "dog"),
       breed: get("dog breed", "breed"),
       trainerId: trainerIdFromName(get("trainer assigned", "trainer")),
-      serviceArea: get("service area", "location"),
+      serviceArea: get("service area", "location", "city", "town"),
       zip: get("zip code", "zip", "postal code"),
       status,
       smsConsent,
@@ -7397,9 +7397,12 @@ function parseCsv(text) {
 }
 
 function trainerIdFromName(name) {
-  if (!name) return currentTrainerId();
+  // An office import with no trainer column must not silently hand every client to
+  // whichever trainer happens to be selected — bulk client lists arrive unassigned.
+  const fallback = session.role === "trainer" ? currentTrainerId() : "";
+  if (!name) return fallback;
   const found = state.trainers.find(t => t.name.toLowerCase() === name.toLowerCase());
-  return found?.id || currentTrainerId();
+  return found?.id || fallback;
 }
 
 function normalizeClientStatus(value) {

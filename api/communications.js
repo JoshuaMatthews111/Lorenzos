@@ -152,7 +152,10 @@ async function configurationStatus() {
   const settings = new Map(rows.map(item => [item.setting_key, item]));
   return {
     simpletextingReady: Boolean(settings.get("simpletexting_api_key")?.secret_id && settings.get("simpletexting_sending_number")?.value?.value),
-    resendReady: Boolean(settings.get("resend_api_key")?.secret_id && settings.get("resend_from_address")?.value?.value && settings.get("unsubscribe_secret")?.secret_id),
+    // Opt-out is handled by the providers themselves: SimpleTexting processes STOP at
+    // the carrier level, and Resend suppresses anyone who uses the List-Unsubscribe
+    // link it adds. A local unsubscribe secret is therefore optional, not required.
+    resendReady: Boolean(settings.get("resend_api_key")?.secret_id && settings.get("resend_from_address")?.value?.value),
     values: Object.fromEntries(rows.map(item => [item.setting_key, {
       configured: Boolean(item.secret_id),
       value: SECRET_SETTING_KEYS.has(item.setting_key) ? "" : item.value?.value || "",
@@ -395,6 +398,15 @@ async function unsubscribeUrl(email) {
   return `https://www.lorenzosdogtrainingteam.com/api/unsubscribe?email=${encodeURIComponent(normalized)}&sig=${signature}`;
 }
 
+// Resend adds and hosts the opt-out link when the message carries these headers, and
+// records the opt-out on their side. Our own signed link is used as well when a local
+// unsubscribe secret happens to be configured, but it is no longer required.
+function unsubscribeHeaders(unsubscribe) {
+  const mailto = "unsubscribe@lorenzosdogtrainingteam.com";
+  const targets = [unsubscribe ? `<${unsubscribe}>` : "", `<mailto:${mailto}?subject=unsubscribe>`].filter(Boolean).join(", ");
+  return { "List-Unsubscribe": targets, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" };
+}
+
 async function sendEmail(email, subject, html, text, unsubscribe = "") {
   const [{ secret: apiKey }, { setting: sender }] = await Promise.all([
     getSetting("resend_api_key", true), getSetting("resend_from_address", false)
@@ -409,7 +421,7 @@ async function sendEmail(email, subject, html, text, unsubscribe = "") {
       subject,
       html,
       text,
-      headers: unsubscribe ? { "List-Unsubscribe": `<${unsubscribe}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } : undefined
+      headers: unsubscribeHeaders(unsubscribe)
     })
   });
   const data = await response.json().catch(() => ({}));
