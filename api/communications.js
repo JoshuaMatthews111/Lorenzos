@@ -561,11 +561,23 @@ async function loadSendableClients() {
 
 async function campaignAudience(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
-  const channel = body.channel === "sms" ? "sms" : "email";
   const requireConsent = body.require_consent !== false;
-  const clients = await loadSendableClients();
-  const { eligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
-  return { channel, requireConsent, totalClients: clients.length, eligible: eligible.length, skipped };
+  const chosenIds = Array.isArray(body.client_ids)
+    ? new Set(body.client_ids.map(id => clean(id, 80)).filter(Boolean).slice(0, 500))
+    : null;
+  const allClients = await loadSendableClients();
+  const clients = chosenIds ? allClients.filter(client => chosenIds.has(client.id)) : allClients;
+  // Both channels are counted in one pass so the office sees the text audience and
+  // the email audience side by side rather than one number for "everyone".
+  const channels = Array.isArray(body.channels) && body.channels.length
+    ? body.channels.filter(value => ["sms", "email"].includes(value))
+    : [body.channel === "sms" ? "sms" : "email"];
+  const byChannel = {};
+  for (const channel of channels) {
+    const { eligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
+    byChannel[channel] = { eligible: eligible.length, skipped };
+  }
+  return { requireConsent, totalClients: clients.length, byChannel };
 }
 
 async function createCampaign(access, body) {
@@ -580,9 +592,13 @@ async function createCampaign(access, body) {
   if (channel === "email" && !ready.resendReady) throw Object.assign(new Error("Email is not configured yet. Add the Resend key and from-address in Settings."), { status: 412 });
   if (channel === "sms" && !ready.simpletextingReady) throw Object.assign(new Error("Texting is not configured yet. Add the SimpleTexting key and sending number in Settings."), { status: 412 });
 
-  const clients = await loadSendableClients();
+  const chosenIds = Array.isArray(body.client_ids)
+    ? new Set(body.client_ids.map(id => clean(id, 80)).filter(Boolean).slice(0, 500))
+    : null;
+  const allClients = await loadSendableClients();
+  const clients = chosenIds ? allClients.filter(client => chosenIds.has(client.id)) : allClients;
   const { eligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
-  if (!eligible.length) throw Object.assign(new Error("Nobody on the client list can receive this message yet."), { status: 400 });
+  if (!eligible.length) throw Object.assign(new Error("Nobody in this selection can receive this message yet."), { status: 400 });
 
   const campaignRows = await supabaseFetch("/rest/v1/communications_campaigns", {
     method: "POST",

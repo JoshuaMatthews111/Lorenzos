@@ -245,6 +245,8 @@ const defaultState = {
   campaignTemplateId: "",
   campaignRequireConsent: true,
   campaignId: "",
+  messageFlow: null,
+  consentAudience: null,
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
   clientSearch: "",
@@ -3903,7 +3905,7 @@ function communicationsClaimBadge(lead) {
 
 function communicationsTabs() {
   const tabs = communicationsData.canManage
-    ? [["alerts", "Lead Alerts"], ["status", "Lead Status"], ["messages", "Message Center"], ["settings", "Settings"]]
+    ? [["alerts", "Lead Alerts"], ["status", "Lead Status"], ["messages", "Send a Message"], ["templates", "Templates"], ["consent", "Permission"], ["settings", "Settings"]]
     : [["status", "Lead Status"]];
   return `<div class="communications-tabs">${tabs.filter(([id]) => id !== "settings" || communicationsData.isSuperAdmin).map(([id, label]) => `<button type="button" class="${state.communicationsSection === id ? "active" : ""}" data-communications-section="${id}">${label}</button>`).join("")}</div>`;
 }
@@ -3983,7 +3985,15 @@ const EMAIL_FONTS = [
   ["'Courier New', Courier, monospace", "Courier New"]
 ];
 const MERGE_TOKENS = [["first_name", "First name"], ["last_name", "Last name"], ["city", "City"]];
-const DESIGN_BLOCK_LABELS = { logo: "Logo", bar: "Colour bar", heading: "Heading", text: "Paragraph", list: "Bullet list", button: "Button", image: "Photo", spacer: "Spacer" };
+const DESIGN_BLOCK_LABELS = { logo: "Logo", bar: "Colour bar", heading: "Heading", text: "Paragraph", list: "Bullet list", button: "Button", image: "Photo", video: "Video link", spacer: "Spacer" };
+
+// Mail apps do not play video, so a video block becomes a clickable picture that
+// opens the video. YouTube and Vimeo thumbnails are found automatically.
+function videoThumbnail(url) {
+  const youtube = /(?:youtube\.com\/(?:watch\?v=|embed\/|live\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/.exec(String(url || ""));
+  if (youtube) return `https://i.ytimg.com/vi/${youtube[1]}/hqdefault.jpg`;
+  return "";
+}
 
 function designBlockDefault(type) {
   const base = {
@@ -3998,6 +4008,7 @@ function designBlockDefault(type) {
   if (type === "bar") return { ...base, background: "#0b2545", height: 10, padding: 0 };
   if (type === "logo") return { ...base, width: 200, align: "center", padding: 20, alt: "Lorenzo's Dog Training Team" };
   if (type === "image") return { ...base, width: 560, align: "center", padding: 12 };
+  if (type === "video") return { ...base, width: 560, align: "center", padding: 12, text: "Watch the video", alt: "Watch the video" };
   if (type === "spacer") return { ...base, height: 24, padding: 0 };
   return base;
 }
@@ -4032,6 +4043,15 @@ function renderDesignBlockHtml(block) {
   if (block.type === "logo" || block.type === "image") {
     if (!block.url) return "";
     return `<tr><td align="${block.align}" style="${bg}padding:${pad};"><img src="${escapeHtml(block.url)}" alt="${escapeHtml(block.alt)}" width="${block.width}" style="display:block;width:${block.width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;"></td></tr>`;
+  }
+  if (block.type === "video") {
+    if (!block.href) return "";
+    const poster = block.url || videoThumbnail(block.href);
+    const picture = poster
+      ? `<img src="${escapeHtml(poster)}" alt="${escapeHtml(block.alt || "Watch the video")}" width="${block.width}" style="display:block;width:${block.width}px;max-width:100%;height:auto;border:0;">`
+      : `<span style="display:inline-block;${font}">${escapeHtml(block.text || "Watch the video")}</span>`;
+    return `<tr><td align="${block.align}" style="${bg}padding:${pad};"><a href="${escapeHtml(block.href)}" style="text-decoration:none;">${picture}</a>`
+      + `<div style="margin-top:8px;${font}"><a href="${escapeHtml(block.href)}" style="color:${block.color};">${escapeHtml(block.text || "Watch the video")}</a></div></td></tr>`;
   }
   if (block.type === "button") {
     return `<tr><td align="${block.align}" style="${bg}padding:${pad};"><a href="${escapeHtml(block.href || "#")}" style="display:inline-block;${font}background-color:${block.background || "#c8102e"};color:${block.color};text-decoration:none;padding:14px 28px;border-radius:${block.radius}px;">${escapeHtml(block.text)}</a></td></tr>`;
@@ -4166,7 +4186,9 @@ function templatePreviewHtml(draft) {
 }
 
 function designFieldRow(index, block) {
-  const field = (name, label, value, attrs = "") => `<label>${label}<input data-design-field="${name}" data-design-index="${index}" value="${escapeHtml(String(value))}" ${attrs}></label>`;
+  // Every field renders exactly one <label>. Nesting one label inside another stops
+  // clicks and typing reaching the input, which is what broke these controls before.
+  const field = (name, label, value, attrs = "", cls = "") => `<label class="${cls}">${label}<input data-design-field="${name}" data-design-index="${index}" value="${escapeHtml(String(value))}" ${attrs}></label>`;
   const numberField = (name, label, value, min, max) => `<label>${label}<input type="number" min="${min}" max="${max}" data-design-field="${name}" data-design-index="${index}" value="${escapeHtml(String(value))}"></label>`;
   const colorField = (name, label, value) => `<label>${label}<input type="color" data-design-field="${name}" data-design-index="${index}" value="${escapeHtml(value || "#ffffff")}"></label>`;
   const alignField = `<label>Position<select data-design-field="align" data-design-index="${index}">${["left", "center", "right"].map(value => `<option value="${value}" ${block.align === value ? "selected" : ""}>${value[0].toUpperCase()}${value.slice(1)}</option>`).join("")}</select></label>`;
@@ -4177,17 +4199,26 @@ function designFieldRow(index, block) {
     return `${colorField("background", "Colour", block.background || "#0b2545")}${numberField("height", "Thickness (px)", block.height, 1, 200)}`;
   }
   if (block.type === "logo" || block.type === "image") {
-    return `<label class="wide">Image URL${field("url", "", block.url, 'placeholder="https://…"')}</label>
-      <label class="wide">Upload ${block.type === "logo" ? "logo" : "image"}<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-design-upload="${index}"><small class="field-help">PNG, JPG, WebP or GIF up to 12 MB. Stored on the site, then linked in the email.</small></label>
+    return `<label class="wide upload-field">Choose a ${block.type === "logo" ? "logo" : "photo"} from this computer<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-design-upload="${index}"><small class="field-help">PNG, JPG, WebP or GIF up to 12 MB. It is published to the site so it shows in everyone's inbox.</small></label>
+      ${block.url ? `<div class="wide design-current-image"><img src="${escapeHtml(block.url)}" alt=""><span>Picture added</span><button class="btn btn-outline btn-small" type="button" data-design-clear-image="${index}">Remove picture</button></div>` : ""}
+      ${field("url", "…or paste a picture web address", block.url, 'placeholder="https://…"', "wide")}
       ${field("alt", "Description for screen readers", block.alt)}
       ${numberField("width", "Width (px)", block.width, 20, 600)}
       ${alignField}
       ${numberField("padding", "Space around (px)", block.padding, 0, 80)}
       ${colorField("background", "Background", block.background || "#ffffff")}`;
   }
+  if (block.type === "video") {
+    return `${field("href", "Video link (YouTube, Vimeo or any web address)", block.href, 'placeholder="https://youtu.be/…"', "wide")}
+      ${field("text", "Wording under the picture", block.text, "", "wide")}
+      <label class="wide upload-field">Optional: choose your own cover picture<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-design-upload="${index}"><small class="field-help">Leave this empty and the YouTube cover picture is used automatically. Mail apps cannot play video, so the picture opens the video when clicked.</small></label>
+      ${block.href && (block.url || videoThumbnail(block.href)) ? `<div class="wide design-current-image"><img src="${escapeHtml(block.url || videoThumbnail(block.href))}" alt=""><span>Cover picture ready</span></div>` : ""}
+      ${numberField("width", "Width (px)", block.width, 20, 600)}
+      ${alignField}${numberField("padding", "Space around (px)", block.padding, 0, 80)}`;
+  }
   if (block.type === "button") {
     return `<label class="wide">Button text<input data-design-field="text" data-design-index="${index}" value="${escapeHtml(block.text)}"></label>
-      <label class="wide">Link${field("href", "", block.href, 'placeholder="https://…"')}</label>
+      ${field("href", "Where the button takes them", block.href, 'placeholder="https://www.lorenzosdogtrainingteam.com/contact"', "wide")}
       ${fontField}${numberField("size", "Text size (px)", block.size, 8, 40)}
       ${colorField("background", "Button colour", block.background || "#c8102e")}${colorField("color", "Text colour", block.color)}
       ${alignField}${numberField("radius", "Corner round (px)", block.radius, 0, 40)}${numberField("padding", "Space around (px)", block.padding, 0, 80)}`;
@@ -4258,6 +4289,29 @@ function communicationsDesigner() {
 
 const OPT_IN_SMS_TEXT = "Lorenzo's Dog Training Team: Hi {{first_name}}, would you like training tips, class dates and offers by text? Reply YES to join. Msg & data rates may apply, about 2-4 msgs/month. Reply STOP to stop.";
 
+function communicationsConsentPage() {
+  const audience = state.consentAudience;
+  return `${panel("Permission To Contact", `<button class="btn btn-outline" type="button" data-consent-count>Check current numbers</button>`, `
+    <p class="panel-copy">Lorenzo's holds signed consent from the Alpha portal for the clients already on file. Record that here so every send can prove it. Anything gathered from here on can be collected by message instead.</p>
+    ${audience ? `<div class="consent-tiles">
+      <article><span>${audience.sms.optedIn.toLocaleString()}</span><small>opted in to texts</small></article>
+      <article><span>${audience.email.optedIn.toLocaleString()}</span><small>opted in to email</small></article>
+      <article><span>${audience.unknown.toLocaleString()}</span><small>no permission recorded yet</small></article>
+      <article><span>${audience.optedOut.toLocaleString()}</span><small>asked to stop</small></article>
+    </div>` : ""}`, "pad")}
+  ${panel("Record the consent you already hold", "", `
+    <p class="panel-copy">Use this for the client list that came across from Alpha. It marks everyone whose permission is currently blank, and stores what the paperwork was, who recorded it and the date — so it can be shown later if anyone asks.</p>
+    <form class="communications-form" data-consent-form>
+      <label>Which channel<select name="channel"><option value="sms">Text messages</option><option value="email">Email</option></select></label>
+      <label class="wide">What is the paperwork?<input required name="note" value="Signed client consent gathered in the Alpha portal" placeholder="Signed client agreement including contact consent"></label>
+      <button class="btn btn-red" type="submit">Record this consent</button>
+    </form>`, "pad")}
+  ${panel("Collect permission by text (for new people)", "", `
+    <p class="panel-copy">For lists gathered from here on. Send this as a text campaign — anyone who replies YES is recorded as opted in automatically, and STOP is honoured for good, without anyone in the office typing anything.</p>
+    <textarea class="communications-writing-box" readonly rows="4">${escapeHtml(OPT_IN_SMS_TEXT)}</textarea>
+    <div class="flow-actions"><button class="btn btn-outline" type="button" data-campaign-optin-template>Save this as a text template</button></div>`, "pad")}`;
+}
+
 function communicationsCampaignPanel() {
   const templates = (communicationsData.templates || []).filter(template => template.active !== false);
   const campaigns = (communicationsData.campaigns || []).slice(0, 6);
@@ -4300,24 +4354,207 @@ function communicationsCampaignPanel() {
   ${campaigns.length ? panel("Recent Sends", "", `<div class="communications-list">${campaigns.map(campaign => `<article><div><strong>${escapeHtml(campaign.name)}</strong><small>${escapeHtml(campaign.channel === "email" ? "Email" : "Text")} · ${Number(campaign.sent_recipients || 0).toLocaleString()} sent${Number(campaign.failed_recipients || 0) ? ` · ${Number(campaign.failed_recipients).toLocaleString()} failed` : ""} of ${Number(campaign.total_recipients || 0).toLocaleString()}</small></div><span class="status ${campaign.status === "sent" ? "live" : campaign.status === "cancelled" ? "lost" : "draft"}">${escapeHtml(statusLabel[campaign.status] || campaign.status)}</span></article>`).join("")}</div>`, "pad") : ""}`;
 }
 
+function messageFlow() {
+  if (!state.messageFlow) {
+    state.messageFlow = {
+      step: "who", channels: { sms: false, email: false }, mode: "bulk",
+      recipientIds: [], recipientSearch: "",
+      textApproved: false, emailApproved: false, name: ""
+    };
+  }
+  return state.messageFlow;
+}
+
+// The steps a given send actually has. Choosing "text only" must not leave the
+// office walking past empty email screens.
+function messageFlowSteps() {
+  const flow = messageFlow();
+  const steps = [["who", "Who and how"]];
+  if (flow.channels.sms) steps.push(["text", "Write the text"], ["text-check", "Check the text"]);
+  if (flow.channels.email) steps.push(["email", "Build the email"], ["email-check", "Check the email"]);
+  steps.push(["send", "Send"]);
+  return steps;
+}
+
+function messageFlowStepper() {
+  const flow = messageFlow();
+  const steps = messageFlowSteps();
+  const current = steps.findIndex(([id]) => id === flow.step);
+  return `<ol class="flow-steps">${steps.map(([id, label], index) => `<li class="${index === current ? "current" : index < current ? "done" : ""}"><button type="button" data-flow-step="${id}" ${index > current ? "disabled" : ""}><span>${index + 1}</span>${escapeHtml(label)}</button></li>`).join("")}</ol>`;
+}
+
+function templateCards(channel, selectedId, action) {
+  const templates = (communicationsData.templates || []).filter(template =>
+    template.active !== false && (channel === "email" ? template.channel === "email" : template.channel !== "email"));
+  if (!templates.length) {
+    return `<p class="panel-copy">No saved ${channel === "email" ? "email" : "text"} templates yet. Build one below and save it — it will appear here next time.</p>`;
+  }
+  return `<div class="template-cards">${templates.map(template => `<article class="template-card ${selectedId === template.id ? "selected" : ""}" data-${action}="${escapeHtml(template.id)}" role="button" tabindex="0">
+    <div class="template-card-body">
+      <strong>${escapeHtml(template.name)}</strong>
+      <p>${escapeHtml((template.channel === "email" ? (template.subject || "No subject line") : String(template.body_text || "")).slice(0, 110))}</p>
+    </div>
+    <div class="template-card-foot"><span class="status ${template.channel === "email" ? "live" : "draft"}">${template.channel === "email" ? (template.format === "visual" ? "Designed email" : template.format === "html" ? "Custom HTML" : "Plain email") : "Text message"}</span>${selectedId === template.id ? `<span class="template-chosen">Chosen</span>` : ""}</div>
+  </article>`).join("")}</div>`;
+}
+
+function flowStepWho() {
+  const flow = messageFlow();
+  const both = flow.channels.sms && flow.channels.email;
+  const chosen = flow.channels.sms || flow.channels.email;
+  return panel("Step 1 — Who are you contacting, and how?", "", `
+    <h3 class="flow-heading">How should it reach them?</h3>
+    <div class="choice-cards">
+      ${[["sms", "Text message", "Lands on their phone in seconds. Best for short, timely notes."],
+         ["email", "Email", "Room for pictures, video and a proper letter."]].map(([id, title, copy]) => `
+        <button type="button" class="choice-card ${flow.channels[id] ? "selected" : ""}" data-flow-channel="${id}">
+          <strong>${title}</strong><span>${copy}</span>
+          <em>${flow.channels[id] ? "Selected" : "Tap to select"}</em>
+        </button>`).join("")}
+    </div>
+    ${both ? `<p class="flow-note">You have chosen both. You will write the text first, check it, then build the email and check that — each one separately.</p>` : ""}
+    <h3 class="flow-heading">Who receives it?</h3>
+    <div class="choice-cards">
+      <button type="button" class="choice-card ${flow.mode === "bulk" ? "selected" : ""}" data-flow-mode="bulk">
+        <strong>Everyone on the client list</strong><span>All active clients who can be contacted.</span><em>${flow.mode === "bulk" ? "Selected" : "Tap to select"}</em>
+      </button>
+      <button type="button" class="choice-card ${flow.mode === "individual" ? "selected" : ""}" data-flow-mode="individual">
+        <strong>Just certain people</strong><span>Search and pick names one at a time.</span><em>${flow.mode === "individual" ? "Selected" : "Tap to select"}</em>
+      </button>
+    </div>
+    ${flow.mode === "individual" ? flowRecipientPicker() : ""}
+    <div class="flow-actions"><button class="btn btn-red" type="button" data-flow-next ${chosen && (flow.mode === "bulk" || flow.recipientIds.length) ? "" : "disabled"}>Next</button>
+    ${!chosen ? `<span class="flow-hint">Choose text, email, or both to continue.</span>` : flow.mode === "individual" && !flow.recipientIds.length ? `<span class="flow-hint">Pick at least one person to continue.</span>` : ""}</div>`, "pad");
+}
+
+function flowRecipientPicker() {
+  const flow = messageFlow();
+  const term = String(flow.recipientSearch || "").trim().toLowerCase();
+  const all = state.clients || [];
+  const matches = term
+    ? all.filter(client => `${client.name || ""} ${client.email || ""} ${client.phone || ""}`.toLowerCase().includes(term)).slice(0, 20)
+    : [];
+  const chosen = all.filter(client => flow.recipientIds.includes(client.remoteId || client.id));
+  return `<div class="recipient-picker">
+    <label class="wide">Search your clients by name, email or number<input data-flow-search value="${escapeHtml(flow.recipientSearch || "")}" placeholder="Start typing a name…"></label>
+    ${term ? `<div class="recipient-results">${matches.length ? matches.map(client => {
+      const id = client.remoteId || client.id;
+      const picked = flow.recipientIds.includes(id);
+      return `<button type="button" class="recipient-row ${picked ? "picked" : ""}" data-flow-pick="${escapeHtml(id)}"><span><strong>${escapeHtml(client.name || "Client")}</strong><small>${escapeHtml(client.email || "no email")} · ${escapeHtml(formatPhoneNumber(client.phone) || "no mobile")}</small></span><em>${picked ? "Remove" : "Add"}</em></button>`;
+    }).join("") : `<p class="panel-copy">Nobody matches "${escapeHtml(flow.recipientSearch)}".</p>`}</div>` : ""}
+    ${chosen.length ? `<div class="recipient-chosen"><strong>${chosen.length} chosen</strong>${chosen.map(client => `<span class="chip">${escapeHtml(client.name || "Client")}<button type="button" data-flow-pick="${escapeHtml(client.remoteId || client.id)}" aria-label="Remove">×</button></span>`).join("")}</div>` : ""}
+  </div>`;
+}
+
+function flowStepText() {
+  const flow = messageFlow();
+  const draft = currentTemplateDraft();
+  const count = String(draft.body_text || "").length;
+  return panel("Write the text message", `<button class="btn btn-outline" type="button" data-design-save>Save as template</button>`, `
+    <h3 class="flow-heading">Start from a saved text</h3>
+    ${templateCards("sms", flow.textTemplateId, "flow-text-template")}
+    <h3 class="flow-heading">Your wording</h3>
+    <div class="communications-token-row"><span>Add client details:</span>${MERGE_TOKENS.map(([token, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-token="${token}">${label}</button>`).join("")}<small>Each person sees their own name and city here.</small></div>
+    <label class="wide">Message<textarea class="communications-writing-box" data-design-body-text rows="7" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.body_text || "")}</textarea></label>
+    <p class="flow-hint">${count} characters · about ${Math.max(1, Math.ceil(count / 160))} message${count > 160 ? "s" : ""} per person.</p>
+    <div class="flow-actions"><button class="btn btn-outline" type="button" data-flow-back>Back</button><button class="btn btn-red" type="button" data-flow-next ${String(draft.body_text || "").trim() ? "" : "disabled"}>See how it looks</button></div>`, "pad");
+}
+
+function flowStepEmail() {
+  const flow = messageFlow();
+  return `${panel("Start from a saved email", "", templateCards("email", flow.emailTemplateId, "flow-email-template"), "pad")}
+    ${communicationsDesigner()}
+    ${panel("", "", `<div class="flow-actions"><button class="btn btn-outline" type="button" data-flow-back>Back</button><button class="btn btn-red" type="button" data-flow-next>See how it looks</button></div>`, "pad")}`;
+}
+
+function flowSampleClient() {
+  const flow = messageFlow();
+  const all = state.clients || [];
+  const chosen = flow.mode === "individual" ? all.find(client => flow.recipientIds.includes(client.remoteId || client.id)) : null;
+  const sample = chosen || all.find(client => client.name && client.email) || {};
+  const parts = String(sample.name || "Mary Ann Sample").split(/\s+/);
+  return { first_name: parts[0], last_name: parts.slice(1).join(" "), city: sample.serviceArea || sample.city || "Cleveland", name: sample.name || "Mary Ann Sample" };
+}
+
+function flowStepCheck(channel) {
+  const flow = messageFlow();
+  const draft = currentTemplateDraft();
+  const sample = flowSampleClient();
+  const approved = channel === "sms" ? flow.textApproved : flow.emailApproved;
+  const filled = value => String(value || "")
+    .replace(/{{\s*first_name\s*}}/gi, sample.first_name)
+    .replace(/{{\s*last_name\s*}}/gi, sample.last_name)
+    .replace(/{{\s*city\s*}}/gi, sample.city);
+  const body = channel === "sms"
+    ? `<div class="phone-preview"><div class="phone-bubble">${designTextToHtml(filled(draft.body_text))}</div><small>Shown as ${escapeHtml(sample.name)} would receive it.</small></div>`
+    : `<div class="email-check-frame"><iframe title="Email preview" data-flow-preview sandbox=""></iframe><small>Shown as ${escapeHtml(sample.name)} would receive it. Subject: <strong>${escapeHtml(filled(draft.subject) || "(no subject)")}</strong></small></div>`;
+  return panel(channel === "sms" ? "Check the text before it goes out" : "Check the email before it goes out", "", `
+    <p class="panel-copy">This is exactly what one of your clients will see, with their real details filled in.</p>
+    ${body}
+    ${approved ? `<div class="flow-approved">Approved. You can still go back and change it.</div>` : ""}
+    <div class="flow-actions">
+      <button class="btn btn-outline" type="button" data-flow-back>Go back and change it</button>
+      <button class="btn btn-red" type="button" data-flow-approve="${channel}">${approved ? "Approved — continue" : "Looks good — approve"}</button>
+    </div>`, "pad");
+}
+
+function flowStepSend() {
+  const flow = messageFlow();
+  const audience = state.campaignAudience;
+  const progress = state.campaignProgress;
+  const testers = (communicationsData.testers || []).filter(tester => tester.active);
+  const card = (channel, label) => {
+    if (!flow.channels[channel]) return "";
+    const data = audience?.byChannel?.[channel];
+    return `<article class="send-card">
+      <header><strong>${label}</strong>${flow.channels[channel] ? `<span class="status ${channel === "sms" ? "draft" : "live"}">${(channel === "sms" ? flow.textApproved : flow.emailApproved) ? "Approved" : "Not approved yet"}</span>` : ""}</header>
+      ${data ? `<div class="send-count">${data.eligible.toLocaleString()}</div><span class="send-count-label">${channel === "sms" ? "phone numbers will receive it" : "email addresses will receive it"}</span>
+      <ul class="send-skips">
+        ${data.skipped.noConsent ? `<li>${data.skipped.noConsent.toLocaleString()} not opted in</li>` : ""}
+        ${data.skipped.optedOut ? `<li>${data.skipped.optedOut.toLocaleString()} asked to stop</li>` : ""}
+        ${data.skipped.blocked ? `<li>${data.skipped.blocked.toLocaleString()} Do Not Contact</li>` : ""}
+        ${data.skipped.noContact ? `<li>${data.skipped.noContact.toLocaleString()} no ${channel === "sms" ? "mobile number" : "email address"}</li>` : ""}
+        ${data.skipped.duplicate ? `<li>${data.skipped.duplicate.toLocaleString()} duplicates</li>` : ""}
+      </ul>` : `<p class="panel-copy">Press "Count who will receive it" to see the numbers.</p>`}
+      ${data?.eligible ? `<button class="btn btn-red" type="button" data-flow-send="${channel}">Send the ${channel === "sms" ? "text" : "email"} to ${data.eligible.toLocaleString()} ${data.eligible === 1 ? "person" : "people"}</button>` : ""}
+    </article>`;
+  };
+  return panel("Send", `<button class="btn btn-outline" type="button" data-flow-count>Count who will receive it</button>`, `
+    <p class="panel-copy">Text and email are counted and sent separately, so you can see exactly who gets what.</p>
+    <label class="wide">Name this send (for your records)<input data-flow-name value="${escapeHtml(flow.name || "")}" placeholder="TTRG invitation — August"></label>
+    <label class="wide">Who counts as reachable<select data-flow-consent>
+      <option value="true" ${state.campaignRequireConsent !== false ? "selected" : ""}>Only clients recorded as opted in</option>
+      <option value="false" ${state.campaignRequireConsent === false ? "selected" : ""}>All active clients we have not heard STOP from</option>
+    </select></label>
+    <div class="send-cards">${card("sms", "Text message")}${card("email", "Email")}</div>
+    ${testers.length ? `<div class="send-test-row"><strong>Send yourself a test first</strong><div>${testers.map(tester => `<button class="btn btn-outline btn-small" type="button" data-flow-test="${escapeHtml(tester.id)}">Test to ${escapeHtml(tester.display_name)}</button>`).join("")}</div></div>` : `<p class="flow-hint">Add a tester under Templates to send yourself a test first.</p>`}
+    ${progress ? `<div class="campaign-progress"><strong>${escapeHtml(progress.label)}</strong><div class="campaign-bar"><i style="width:${Math.min(100, Math.round((progress.done / Math.max(1, progress.total)) * 100))}%"></i></div><span>${progress.done.toLocaleString()} of ${progress.total.toLocaleString()} · ${progress.failed} problem${progress.failed === 1 ? "" : "s"}</span>${progress.running ? `<button class="btn btn-outline btn-small" type="button" data-campaign-stop>Stop sending</button>` : ""}</div>` : ""}
+    <div class="flow-actions"><button class="btn btn-outline" type="button" data-flow-back>Back</button><button class="btn btn-outline" type="button" data-flow-restart>Start a new message</button></div>`, "pad");
+}
+
 function communicationsMessageCenter() {
+  const flow = messageFlow();
+  const step = flow.step;
+  let body = "";
+  if (step === "who") body = flowStepWho();
+  else if (step === "text") body = flowStepText();
+  else if (step === "text-check") body = flowStepCheck("sms");
+  else if (step === "email") body = flowStepEmail();
+  else if (step === "email-check") body = flowStepCheck("email");
+  else body = flowStepSend();
+  return `${messageFlowStepper()}${body}`;
+}
+
+function communicationsTemplateLibrary() {
   const templates = communicationsData.templates || [];
   const testers = communicationsData.testers || [];
-  return `
+  return `${panel("Saved Templates", `<button class="btn btn-red" type="button" data-design-new>Build a new one</button>`, templates.length
+      ? `<div class="communications-list">${templates.map(template => `<article><div><strong>${escapeHtml(template.name)}</strong><small>${escapeHtml(template.channel === "email" ? "Email" : "Text")} · ${escapeHtml(template.format === "visual" ? "Designed" : template.format === "html" ? "Custom HTML" : "Plain text")}${template.subject ? ` · ${escapeHtml(template.subject)}` : ""}</small></div><div class="communications-block-actions"><button class="btn btn-outline btn-small" type="button" data-template-edit="${escapeHtml(template.id)}">Edit</button><button class="btn btn-outline btn-small" type="button" data-template-duplicate="${escapeHtml(template.id)}">Duplicate</button><button class="btn btn-outline btn-small danger" type="button" data-template-delete="${escapeHtml(template.id)}">Delete</button></div></article>`).join("")}</div>`
+      : `<p class="panel-copy">No saved templates yet. Build one below and press Save Template.</p>`, "pad")}
     ${communicationsDesigner()}
-    <div class="communications-grid">
-      ${panel("Saved Templates", "", templates.length ? `<div class="communications-list">${templates.map(template => `<article><div><strong>${escapeHtml(template.name)}</strong><small>${escapeHtml(template.channel === "email" ? "Email" : "Text")} · ${escapeHtml(template.format === "visual" ? "Designed" : template.format === "html" ? "Custom HTML" : "Plain text")} · ${escapeHtml(template.subject || "No subject")}</small></div><div class="communications-block-actions"><button class="btn btn-outline btn-small" type="button" data-template-edit="${escapeHtml(template.id)}">Edit</button><button class="btn btn-outline btn-small" type="button" data-template-duplicate="${escapeHtml(template.id)}">Duplicate</button><button class="btn btn-outline btn-small danger" type="button" data-template-delete="${escapeHtml(template.id)}">Delete</button></div></article>`).join("")}</div>` : `<p class="panel-copy">No saved templates yet. Build one above and press Save Template — it is stored on the office server and reopens exactly as you designed it.</p>`, "pad")}
-    ${panel("Preview & Test", "", `<form class="communications-form communications-test-form" data-communications-test-form>
-      <label>Saved template<select required name="template_id"><option value="">Select template</option>${templates.map(template => `<option value="${escapeHtml(template.id)}">${escapeHtml(template.name)} (${escapeHtml(template.channel)})</option>`).join("")}</select></label>
-      <label>Preview first name<input name="first_name" value="Mary Ann"></label>
-      <label>Preview city<input name="city" value="Cleveland"></label>
-      <label class="wide">Send test to saved testers<div class="communications-tester-checks">${testers.filter(tester => tester.active).map(tester => `<label class="check-row"><input type="checkbox" name="tester" value="${escapeHtml(tester.id)}"> ${escapeHtml(tester.display_name)}${tester.email ? ` · ${escapeHtml(tester.email)}` : ""}${tester.phone ? ` · ${escapeHtml(tester.phone)}` : ""}</label>`).join("") || "No saved testers yet."}</div></label>
-      <button class="btn btn-outline" type="button" data-communications-preview>Preview</button><button class="btn btn-red" type="submit">Send Test</button>
-      <output class="communications-preview" data-communications-preview-output>Choose a template, then preview before sending.</output>
-    </form>`, "pad")}
-    </div>
-    ${communicationsCampaignPanel()}
-    ${panel("Saved Testers", "", `<form class="communications-form compact-form" data-communications-tester-form><label>Name<input required name="display_name" placeholder="Office test recipient"></label><label>Email<input type="email" name="email" placeholder="test@example.com"></label><label>Mobile<input name="phone" placeholder="(216) 555-0100"></label><button class="btn btn-outline" type="submit">Save Tester</button></form>`, "pad")}`;
+    ${panel("Test Recipients", "", `<p class="panel-copy">Save yourself and anyone else who should receive test messages before a real send.</p>
+      ${testers.length ? `<div class="communications-list">${testers.map(tester => `<article><div><strong>${escapeHtml(tester.display_name)}</strong><small>${escapeHtml(tester.email || "no email")} · ${escapeHtml(tester.phone || "no mobile")}</small></div></article>`).join("")}</div>` : ""}
+      <form class="communications-form compact-form" data-communications-tester-form><label>Name<input required name="display_name" placeholder="Office test recipient"></label><label>Email<input type="email" name="email" placeholder="test@example.com"></label><label>Mobile<input name="phone" placeholder="(216) 555-0100"></label><button class="btn btn-outline" type="submit">Save Tester</button></form>`, "pad")}`;
 }
 
 function campaignFormValues() {
@@ -4359,8 +4596,16 @@ async function runCampaignBatches(campaignId, total, label) {
 
 function refreshTemplatePreview() {
   const frame = document.querySelector("[data-design-preview]");
-  if (!frame) return;
-  frame.setAttribute("srcdoc", templatePreviewHtml(currentTemplateDraft()));
+  if (frame) frame.setAttribute("srcdoc", templatePreviewHtml(currentTemplateDraft()));
+  const checkFrame = document.querySelector("[data-flow-preview]");
+  if (checkFrame) {
+    const sample = flowSampleClient();
+    const html = templatePreviewHtml(currentTemplateDraft())
+      .replace(/{{\s*first_name\s*}}/gi, escapeHtml(sample.first_name))
+      .replace(/{{\s*last_name\s*}}/gi, escapeHtml(sample.last_name))
+      .replace(/{{\s*city\s*}}/gi, escapeHtml(sample.city));
+    checkFrame.setAttribute("srcdoc", html);
+  }
 }
 
 function templateDraftFromRecord(record) {
@@ -4446,9 +4691,13 @@ function communicationsScreen() {
     ? communicationsStatusBoard()
     : state.communicationsSection === "messages"
       ? communicationsMessageCenter()
-      : state.communicationsSection === "settings"
-        ? communicationsSettings()
-        : communicationsAlertLists();
+      : state.communicationsSection === "templates"
+        ? communicationsTemplateLibrary()
+        : state.communicationsSection === "consent"
+          ? communicationsConsentPage()
+          : state.communicationsSection === "settings"
+            ? communicationsSettings()
+            : communicationsAlertLists();
   return `${communicationsTabs()}${content}`;
 }
 
@@ -8298,6 +8547,164 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  const flowChannel = event.target.closest("[data-flow-channel]");
+  if (flowChannel) {
+    const flow = messageFlow();
+    const key = flowChannel.dataset.flowChannel;
+    flow.channels[key] = !flow.channels[key];
+    if (key === "sms" && !flow.channels.sms) flow.textApproved = false;
+    if (key === "email" && !flow.channels.email) flow.emailApproved = false;
+    saveState();
+    return;
+  }
+  const flowMode = event.target.closest("[data-flow-mode]");
+  if (flowMode) {
+    messageFlow().mode = flowMode.dataset.flowMode;
+    saveState();
+    return;
+  }
+  const flowPick = event.target.closest("[data-flow-pick]");
+  if (flowPick) {
+    const flow = messageFlow();
+    const id = flowPick.dataset.flowPick;
+    flow.recipientIds = flow.recipientIds.includes(id) ? flow.recipientIds.filter(value => value !== id) : [...flow.recipientIds, id];
+    saveState();
+    return;
+  }
+  const flowStep = event.target.closest("[data-flow-step]");
+  if (flowStep) {
+    messageFlow().step = flowStep.dataset.flowStep;
+    saveState();
+    return;
+  }
+  if (event.target.closest("[data-flow-next]") || event.target.closest("[data-flow-back]")) {
+    const flow = messageFlow();
+    const steps = messageFlowSteps().map(([id]) => id);
+    const at = steps.indexOf(flow.step);
+    const forward = Boolean(event.target.closest("[data-flow-next]"));
+    // Leaving the writing step carries the wording into the draft the preview reads.
+    flow.step = steps[Math.max(0, Math.min(steps.length - 1, at + (forward ? 1 : -1)))] || "who";
+    saveState();
+    return;
+  }
+  const flowApprove = event.target.closest("[data-flow-approve]");
+  if (flowApprove) {
+    const flow = messageFlow();
+    if (flowApprove.dataset.flowApprove === "sms") flow.textApproved = true; else flow.emailApproved = true;
+    const steps = messageFlowSteps().map(([id]) => id);
+    flow.step = steps[Math.min(steps.length - 1, steps.indexOf(flow.step) + 1)];
+    saveState();
+    showToast("Approved.");
+    return;
+  }
+  if (event.target.closest("[data-flow-restart]")) {
+    state.messageFlow = null;
+    state.campaignAudience = null;
+    state.campaignProgress = null;
+    state.templateDraft = null;
+    saveState();
+    return;
+  }
+  const flowTextTemplate = event.target.closest("[data-flow-text-template]");
+  if (flowTextTemplate) {
+    const record = (communicationsData.templates || []).find(item => item.id === flowTextTemplate.dataset.flowTextTemplate);
+    if (record) {
+      messageFlow().textTemplateId = record.id;
+      state.templateDraft = templateDraftFromRecord(record);
+      render();
+    }
+    return;
+  }
+  const flowEmailTemplate = event.target.closest("[data-flow-email-template]");
+  if (flowEmailTemplate) {
+    const record = (communicationsData.templates || []).find(item => item.id === flowEmailTemplate.dataset.flowEmailTemplate);
+    if (record) {
+      messageFlow().emailTemplateId = record.id;
+      state.templateDraft = templateDraftFromRecord(record);
+      render();
+    }
+    return;
+  }
+  const clearImage = event.target.closest("[data-design-clear-image]");
+  if (clearImage) {
+    const block = currentTemplateDraft().design.blocks[Number(clearImage.dataset.designClearImage)];
+    if (block) { block.url = ""; render(); }
+    return;
+  }
+  if (event.target.closest("[data-flow-count]")) {
+    const flow = messageFlow();
+    const channels = Object.entries(flow.channels).filter(([, on]) => on).map(([key]) => key);
+    if (!channels.length) { showToast("Choose text or email first."); return; }
+    try {
+      const payload = { operation: "campaign_audience", channels, require_consent: state.campaignRequireConsent !== false };
+      if (flow.mode === "individual") payload.client_ids = flow.recipientIds;
+      state.campaignAudience = await communicationsRequest(payload);
+      render();
+    } catch (error) { showToast(error.message || "The count could not be run."); }
+    return;
+  }
+  if (event.target.closest("[data-consent-count]")) {
+    try {
+      const [sms, email] = await Promise.all([
+        communicationsRequest({ operation: "campaign_audience", channels: ["sms"], require_consent: true }),
+        communicationsRequest({ operation: "campaign_audience", channels: ["email"], require_consent: true })
+      ]);
+      const smsData = sms.byChannel.sms;
+      const emailData = email.byChannel.email;
+      state.consentAudience = {
+        sms: { optedIn: smsData.eligible },
+        email: { optedIn: emailData.eligible },
+        unknown: smsData.skipped.noConsent,
+        optedOut: smsData.skipped.optedOut + emailData.skipped.optedOut
+      };
+      render();
+    } catch (error) { showToast(error.message || "The numbers could not be loaded."); }
+    return;
+  }
+  const flowSend = event.target.closest("[data-flow-send]");
+  if (flowSend) {
+    const flow = messageFlow();
+    const channel = flowSend.dataset.flowSend;
+    const approved = channel === "sms" ? flow.textApproved : flow.emailApproved;
+    if (!approved) { showToast(`Approve the ${channel === "sms" ? "text" : "email"} on its check page first.`); return; }
+    const count = state.campaignAudience?.byChannel?.[channel]?.eligible || 0;
+    if (!count) { showToast("Nobody is reachable for this yet."); return; }
+    const draft = currentTemplateDraft();
+    if (!draft.id) { showToast("Save this message as a template first, on the Templates tab."); return; }
+    const word = channel === "sms" ? "text messages" : "emails";
+    const typed = window.prompt(`This sends ${count.toLocaleString()} real ${word} to Lorenzo's clients.\n\nIt cannot be undone once it starts.\n\nType SEND to go ahead.`);
+    if (String(typed || "").trim().toUpperCase() !== "SEND") { showToast("Nothing was sent."); return; }
+    try {
+      const payload = {
+        operation: "create_campaign", template_id: draft.id,
+        require_consent: state.campaignRequireConsent !== false,
+        name: flow.name || draft.name
+      };
+      if (flow.mode === "individual") payload.client_ids = flow.recipientIds;
+      const created = await communicationsRequest(payload);
+      state.campaignId = created.campaign.id;
+      await runCampaignBatches(created.campaign.id, created.eligible, `Sending ${created.eligible.toLocaleString()} ${word}`);
+    } catch (error) { showToast(error.message || "The send could not be started."); }
+    return;
+  }
+  const flowTest = event.target.closest("[data-flow-test]");
+  if (flowTest) {
+    const draft = currentTemplateDraft();
+    const bodies = templateDraftBodies(draft);
+    try {
+      const result = await communicationsRequest({
+        operation: "send_test",
+        channel: draft.channel === "email" ? "email" : "sms",
+        subject: draft.subject || "",
+        body_text: bodies.body_text,
+        body_html: bodies.body_html,
+        recipients: [{ id: flowTest.dataset.flowTest }]
+      });
+      const delivered = result.outcomes?.filter(item => item.status === "sent").length || 0;
+      showToast(delivered ? "Test sent — check it before sending to everyone." : "The test could not be delivered.");
+    } catch (error) { showToast(error.message || "The test could not be sent."); }
+    return;
+  }
   if (event.target.closest("[data-campaign-check]")) {
     const values = campaignFormValues();
     const template = (communicationsData.templates || []).find(item => item.id === values?.template_id);
@@ -9698,10 +10105,27 @@ document.addEventListener("input", event => {
       touched = true;
     }
   }
+  if (field.matches("[data-flow-name]")) { messageFlow().name = field.value; return; }
   if (touched) refreshTemplatePreview();
 });
 
+// Recipient search re-renders, so it keeps focus and caret where the typist left them.
+document.addEventListener("input", event => {
+  if (!event.target.matches("[data-flow-search]")) return;
+  const caret = event.target.selectionStart;
+  messageFlow().recipientSearch = event.target.value;
+  render();
+  const field = document.querySelector("[data-flow-search]");
+  if (field) { field.focus(); field.setSelectionRange(caret, caret); }
+});
+
 document.addEventListener("change", async event => {
+  if (event.target.matches("[data-flow-consent]")) {
+    state.campaignRequireConsent = event.target.value !== "false";
+    state.campaignAudience = null;
+    render();
+    return;
+  }
   if (event.target.matches("[data-design-meta='channel']")) {
     const draft = currentTemplateDraft();
     draft.channel = event.target.value === "email" ? "email" : "sms";
