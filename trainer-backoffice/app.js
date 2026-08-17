@@ -4005,7 +4005,7 @@ function designBlockDefault(type) {
     align: "left", bold: false, italic: false, padding: 16, width: 200, height: 10, radius: 6
   };
   if (type === "heading") return { ...base, text: "Serious Training. Serious Results.", size: 26, bold: true, align: "center", color: "#0b2545", padding: 20 };
-  if (type === "text") return { ...base, text: "Hi {{first_name}}, thank you for reaching out to Lorenzo's Dog Training Team. We would love to help you and your dog in {{city}}." };
+  if (type === "text") return { ...base, text: "Hi {{first_name}}, thank you for reaching out to Lorenzo's Dog Training Team. We would love to help you and your dog." };
   if (type === "list") return { ...base, text: "Veterinary care\nFood and housing\nProfessional evaluations\nPlacement and ongoing support" };
   if (type === "button") return { ...base, text: "Book my evaluation", href: "https://www.lorenzosdogtrainingteam.com/contact", background: "#c8102e", color: "#ffffff", align: "center", bold: true, padding: 20 };
   if (type === "bar") return { ...base, background: "#0b2545", height: 10, padding: 0 };
@@ -4028,7 +4028,24 @@ function templateDraftDefault(channel = "email") {
   };
 }
 
+// Sending text AND email means two messages being written, so each keeps its own
+// draft. The Templates tab edits its own separate draft.
 function currentTemplateDraft() {
+  const step = state.communicationsSection === "messages" ? state.messageFlow?.step : null;
+  if (step === "text" || step === "text-check") {
+    if (!state.flowTextDraft) state.flowTextDraft = templateDraftDefault("sms");
+    return state.flowTextDraft;
+  }
+  if (step === "email" || step === "email-check") {
+    if (!state.flowEmailDraft) state.flowEmailDraft = templateDraftDefault("email");
+    return state.flowEmailDraft;
+  }
+  if (step === "send") {
+    // On the send screen each channel is sent from its own draft.
+    if (state.flowSendChannel === "sms" && state.flowTextDraft) return state.flowTextDraft;
+    if (state.flowEmailDraft) return state.flowEmailDraft;
+    if (state.flowTextDraft) return state.flowTextDraft;
+  }
   if (!state.templateDraft) state.templateDraft = templateDraftDefault("email");
   return state.templateDraft;
 }
@@ -4471,10 +4488,20 @@ function flowStepWho() {
     ${!chosen ? `<span class="flow-hint">Choose text, email, or both to continue.</span>` : flow.mode === "individual" && !flow.recipientIds.length ? `<span class="flow-hint">Pick at least one person to continue.</span>` : ""}</div>`, "pad");
 }
 
+// Only real, synced client records may be messaged. The app ships sample rows for
+// the logged-out demo, and a real person must never be picked from those.
+function realClientRows() {
+  if (!remoteReady) return [];
+  return (state.clients || []).filter(client => client.remoteId && !/@example\.com$/i.test(client.email || ""));
+}
+
 function flowRecipientPicker() {
   const flow = messageFlow();
   const term = String(flow.recipientSearch || "").trim().toLowerCase();
-  const all = state.clients || [];
+  const all = realClientRows();
+  if (!remoteReady) {
+    return `<div class="recipient-picker"><p class="panel-copy warning-copy">The live client list is not loaded right now, so nobody can be picked. Reload the portal until the top of the screen says <strong>Synced</strong>.</p></div>`;
+  }
   const matches = term
     ? all.filter(client => `${client.name || ""} ${client.email || ""} ${client.phone || ""}`.toLowerCase().includes(term)).slice(0, 20)
     : [];
@@ -4493,7 +4520,7 @@ function flowRecipientPicker() {
         <label>Their name<input required name="name" placeholder="Andrea Aaby"></label>
         <label>Mobile number<input name="phone" inputmode="tel" placeholder="(440) 555-0100"></label>
         <label>Email address<input type="email" name="email" placeholder="name@example.com"></label>
-        <label>City<input name="city" placeholder="Mentor"></label>
+        <label>City <small>(optional)</small><input name="city" placeholder="Mentor"></label>
         <button class="btn btn-outline" type="submit">Add to this message</button>
         <small class="field-help wide">A mobile number or an email address is needed. They are saved to the client list so this send is recorded against them.</small>
       </form>
@@ -4524,11 +4551,12 @@ function flowStepEmail() {
 
 function flowSampleClient() {
   const flow = messageFlow();
-  const all = state.clients || [];
+  const all = realClientRows();
   const chosen = flow.mode === "individual" ? all.find(client => flow.recipientIds.includes(client.remoteId || client.id)) : null;
   const sample = chosen || all.find(client => client.name && client.email) || {};
-  const parts = String(sample.name || "Mary Ann Sample").split(/\s+/);
-  return { first_name: parts[0], last_name: parts.slice(1).join(" "), city: sample.serviceArea || sample.city || "Cleveland", name: sample.name || "Mary Ann Sample" };
+  if (!sample.name) return { first_name: "Sample", last_name: "Client", city: "your area", name: "a sample client", isSample: true };
+  const parts = String(sample.name).split(/\s+/);
+  return { first_name: parts[0], last_name: parts.slice(1).join(" "), city: sample.serviceArea || sample.city || "your area", name: sample.name, isSample: false };
 }
 
 function flowStepCheck(channel) {
@@ -4540,11 +4568,14 @@ function flowStepCheck(channel) {
     .replace(/{{\s*first_name\s*}}/gi, sample.first_name)
     .replace(/{{\s*last_name\s*}}/gi, sample.last_name)
     .replace(/{{\s*city\s*}}/gi, sample.city);
+  const who = sample.isSample
+    ? "using placeholder details — the live client list is not loaded"
+    : `as <strong>${escapeHtml(sample.name)}</strong> will receive it`;
   const body = channel === "sms"
-    ? `<div class="phone-preview"><div class="phone-bubble">${designTextToHtml(filled(draft.body_text))}</div><small>Shown as ${escapeHtml(sample.name)} would receive it.</small></div>`
-    : `<div class="email-check-frame"><iframe title="Email preview" data-flow-preview sandbox=""></iframe><small>Shown as ${escapeHtml(sample.name)} would receive it. Subject: <strong>${escapeHtml(filled(draft.subject) || "(no subject)")}</strong></small></div>`;
+    ? `<div class="phone-preview"><div class="phone-bubble">${designTextToHtml(filled(draft.body_text))}</div><small>Shown ${who}.</small></div>`
+    : `<div class="email-check-frame"><iframe title="Email preview" data-flow-preview sandbox=""></iframe><small>Shown ${who}. Subject: <strong>${escapeHtml(filled(draft.subject) || "(no subject)")}</strong></small></div>`;
   return panel(channel === "sms" ? "Check the text before it goes out" : "Check the email before it goes out", "", `
-    <p class="panel-copy">This is exactly what one of your clients will see, with their real details filled in.</p>
+    <p class="panel-copy">${sample.isSample ? "The live client list is not loaded, so this uses placeholder details rather than a real client." : "This is a real client from your list, with their own details filled in — exactly what they will receive."}</p>
     ${body}
     ${approved ? `<div class="flow-approved">Approved. You can still go back and change it.</div>` : ""}
     <div class="flow-actions">
@@ -4685,11 +4716,12 @@ function templateDraftFromRecord(record) {
   return draft;
 }
 
-async function saveTemplateDraft() {
-  const draft = currentTemplateDraft();
-  if (!String(draft.name || "").trim()) { showToast("Give the template a name before saving."); return; }
+async function saveTemplateDraft(options = {}) {
+  const draft = options.draft || currentTemplateDraft();
+  const silent = options.silent === true;
+  if (!String(draft.name || "").trim()) { showToast("Give the template a name before saving."); return null; }
   const bodies = templateDraftBodies(draft);
-  if (!String(bodies.body_text || "").trim()) { showToast("Add some wording before saving."); return; }
+  if (!String(bodies.body_text || "").trim()) { showToast("Add some wording before saving."); return null; }
   try {
     const result = await communicationsRequest({
       operation: "save_template",
@@ -4709,12 +4741,18 @@ async function saveTemplateDraft() {
     await loadCommunicationsData(false);
     const savedId = result.record?.id || draft.id;
     const stored = (communicationsData.templates || []).find(item => item.id === savedId);
-    if (!stored) { showToast("The template did not save. Nothing was changed — please try again."); render(); return; }
+    if (!stored) { showToast("The template did not save. Nothing was changed — please try again."); render(); return null; }
+    if (silent) {
+      draft.id = stored.id;
+      return stored;
+    }
     state.templateDraft = templateDraftFromRecord(stored);
     render();
     showToast(`Saved "${stored.name}" and confirmed it reloaded from the office server.`);
+    return stored;
   } catch (error) {
     showToast(error.message || "The template could not be saved.");
+    return null;
   }
 }
 
@@ -8761,8 +8799,16 @@ document.addEventListener("click", async event => {
     if (!approved) { showToast(`Approve the ${channel === "sms" ? "text" : "email"} on its check page first.`); return; }
     const count = state.campaignAudience?.byChannel?.[channel]?.eligible || 0;
     if (!count) { showToast("Nobody is reachable for this yet."); return; }
-    const draft = currentTemplateDraft();
-    if (!draft.id) { showToast("Save this message as a template first, on the Templates tab."); return; }
+    state.flowSendChannel = channel;
+    const draft = channel === "sms" ? state.flowTextDraft : state.flowEmailDraft;
+    if (!draft) { showToast("Write the message first."); return; }
+    // Saving happens automatically so nobody has to detour to the Templates tab.
+    if (!draft.id) {
+      if (!String(draft.name || "").trim()) draft.name = `${flow.name || "Message"} — ${channel === "sms" ? "text" : "email"}`;
+      const saved = await saveTemplateDraft({ silent: true, draft });
+      if (!saved) { showToast("The message could not be saved, so nothing was sent."); return; }
+      draft.id = saved.id;
+    }
     const word = channel === "sms" ? "text messages" : "emails";
     const typed = window.prompt(`This sends ${count.toLocaleString()} real ${word} to Lorenzo's clients.\n\nIt cannot be undone once it starts.\n\nType SEND to go ahead.`);
     if (String(typed || "").trim().toUpperCase() !== "SEND") { showToast("Nothing was sent."); return; }
@@ -10177,7 +10223,10 @@ document.addEventListener("focusin", event => {
 // steal focus mid-typing.
 document.addEventListener("input", event => {
   const field = event.target;
-  const draft = state.templateDraft;
+  if (!field.matches("[data-design-meta],[data-design-body-text],[data-design-body-html],[data-design-page],[data-design-field],[data-flow-name]")) return;
+  // Route to whichever draft the current screen is editing: the text, the email,
+  // or the one open on the Templates tab.
+  const draft = currentTemplateDraft();
   if (!draft) return;
   let touched = false;
   if (field.matches("[data-design-meta]")) {
@@ -10198,7 +10247,13 @@ document.addEventListener("input", event => {
     }
   }
   if (field.matches("[data-flow-name]")) { messageFlow().name = field.value; return; }
-  if (touched) refreshTemplatePreview();
+  if (touched) {
+    refreshTemplatePreview();
+    // The "next" button must come alive as soon as there is something to send,
+    // without a re-render that would throw the typist out of the box.
+    const next = document.querySelector("[data-flow-next]");
+    if (next && field.matches("[data-design-body-text]")) next.disabled = !String(field.value || "").trim();
+  }
 });
 
 // Recipient search re-renders, so it keeps focus and caret where the typist left them.
