@@ -5117,6 +5117,21 @@ button:disabled{cursor:not-allowed}
 .consent-tiles article{padding:16px;border:1px solid #d5e2f0;border-radius:13px;background:#fff;text-align:center}
 .consent-tiles span{display:block;font-size:1.9rem;font-weight:900;color:var(--navy);line-height:1.1}
 .consent-tiles small{display:block;margin-top:5px;color:var(--muted);font-size:.78rem;font-weight:700}
+.flow-hint.warning{color:var(--red)}
+.recipient-added-note{display:grid;gap:3px;margin-bottom:14px;padding:11px 13px;border-radius:10px;background:#eef8f1;border:1px solid #bcd8c7}
+.recipient-added-note strong{color:#0b6b3a;font-size:.86rem}
+.recipient-added-note span{color:#4a7a5e;font-size:.78rem}
+.send-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin:16px 0}
+.send-summary>div{padding:14px 16px;border:1px solid #d5e2f0;border-radius:12px;background:#f8fbff}
+.send-summary strong{display:block;color:var(--navy);font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.send-summary p{margin:0;color:var(--ink);font-size:.86rem;line-height:1.5}
+.final-preview{margin:12px 0;border:1px solid #dce7f2;border-radius:12px;padding:11px 14px;background:#fff}
+.final-preview summary{cursor:pointer;color:var(--navy);font-weight:900;font-size:.84rem}
+.send-complete{display:grid;gap:5px;margin-bottom:18px;padding:16px 18px;border-radius:12px;background:#eef8f1;border:1px solid #bcd8c7}
+.send-complete strong{color:#0b6b3a;font-size:1rem}
+.send-complete span{color:#4a7a5e;font-size:.84rem;line-height:1.5}
+.link-button{border:0;background:none;padding:0;color:#0b6b3a;font:inherit;font-weight:900;text-decoration:underline;cursor:pointer}
+.both-section{padding:14px 16px;border:1px solid #dce7f2;border-radius:12px;background:#f8fbff;margin-bottom:6px}
 .recipient-add{border:1px dashed #b9cde2;border-radius:12px;padding:12px 14px;background:#f8fbff}
 .recipient-add summary{cursor:pointer;color:var(--navy);font-size:.84rem;font-weight:900;padding:2px 0}
 .recipient-add[open] summary{margin-bottom:12px}

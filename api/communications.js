@@ -48,6 +48,23 @@ function prettyName(value) {
     }).join("-")).join(" ");
 }
 
+// A "both" template keeps the short text wording in body_text, so the email's own
+// plain-text part is taken from the email HTML rather than from the text message.
+function htmlToText(html) {
+  return String(html || "")
+    .replace(/<(style|script|head)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<li[^>]*>/gi, "\n• ")
+    .replace(/<\/(li|tr)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h[1-6]|ul|ol|table)>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">").replace(/&quot;/gi, '"').replace(/&#39;/gi, "'")
+    .replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n")
+    .split("\n").map(line => line.trim()).join("\n").trim();
+}
+
 function noMergeTokens(value) {
   return String(value || "").replace(/{{\s*[^}]+\s*}}/g, "").replace(/\s{2,}/g, " ").trim();
 }
@@ -304,12 +321,13 @@ function designPayload(input) {
 async function saveTemplate(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const template = body.template || {};
-  const channel = ["email", "sms", "mms"].includes(template.channel) ? template.channel : "email";
+  const channel = ["email", "sms", "mms", "both"].includes(template.channel) ? template.channel : "email";
+  const carriesEmail = channel === "email" || channel === "both";
   const design = designPayload(template.design);
   const requestedFormat = clean(template.format, 20);
   const format = TEMPLATE_FORMATS.has(requestedFormat)
     ? requestedFormat
-    : (channel === "email" ? (design ? "visual" : "html") : "text");
+    : (carriesEmail ? (design ? "visual" : "html") : "text");
   const payload = {
     name: clean(template.name, 120),
     channel,
@@ -324,6 +342,9 @@ async function saveTemplate(access, body) {
   };
   if (format === "visual" && !design) {
     throw Object.assign(new Error("Add at least one block to the design before saving."), { status: 400 });
+  }
+  if (channel === "both" && !payload.body_html) {
+    throw Object.assign(new Error("A template for both needs the email version as well as the text version."), { status: 400 });
   }
   if (!payload.name || !payload.body_text) throw Object.assign(new Error("Template name and message are required."), { status: 400 });
   const id = clean(template.id, 80);
@@ -586,7 +607,13 @@ async function createCampaign(access, body) {
   const rows = await supabaseFetch(`/rest/v1/communications_templates?select=*&id=eq.${encodeURIComponent(templateId)}&limit=1`);
   const template = rows?.[0];
   if (!template) throw Object.assign(new Error("Choose a saved template first."), { status: 400 });
-  const channel = template.channel === "email" ? "email" : "sms";
+  // A template written for both channels is told which version to send.
+  const requested = body.channel === "sms" || body.channel === "email" ? body.channel : "";
+  const channel = template.channel === "both"
+    ? (requested || "email")
+    : (template.channel === "email" ? "email" : "sms");
+  if (template.channel === "email" && channel === "sms") throw Object.assign(new Error("That template is an email, so it cannot be sent as a text."), { status: 400 });
+  if ((template.channel === "sms" || template.channel === "mms") && channel === "email") throw Object.assign(new Error("That template is a text message, so it cannot be sent as an email."), { status: 400 });
   const requireConsent = body.require_consent !== false;
   const ready = await configurationStatus();
   if (channel === "email" && !ready.resendReady) throw Object.assign(new Error("Email is not configured yet. Add the Resend key and from-address in Settings."), { status: 412 });
@@ -607,9 +634,13 @@ async function createCampaign(access, body) {
       name: clean(body.name, 160) || `${template.name} — ${new Date().toISOString().slice(0, 10)}`,
       template_id: template.id,
       channel,
-      subject: template.subject,
-      body_html: template.body_html,
-      body_text: template.body_text,
+      subject: channel === "email" ? template.subject : null,
+      body_html: channel === "email" ? template.body_html : null,
+      // Email sends carry the email's own plain-text part; text sends carry the
+      // short wording written for a phone.
+      body_text: channel === "email" && template.channel === "both"
+        ? (htmlToText(template.body_html) || template.body_text)
+        : template.body_text,
       audience_filter: { require_consent: requireConsent, skipped, source: "clients" },
       status: "queued",
       total_recipients: eligible.length,

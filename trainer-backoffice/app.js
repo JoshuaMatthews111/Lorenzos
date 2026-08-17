@@ -245,6 +245,10 @@ const defaultState = {
   campaignTemplateId: "",
   campaignRequireConsent: true,
   campaignId: "",
+  campaignDone: null,
+  flowTextDraft: null,
+  flowEmailDraft: null,
+  flowSendChannel: "",
   messageFlow: null,
   consentAudience: null,
   sendHistory: null,
@@ -4018,8 +4022,9 @@ function designBlockDefault(type) {
 
 function templateDraftDefault(channel = "email") {
   return {
-    id: "", name: "", channel, subject: "", format: channel === "email" ? "visual" : "text",
-    body_text: channel === "email" ? "" : "Hi {{first_name}}, this is Lorenzo's Dog Training Team following up about your dog.",
+    id: "", name: "", channel, subject: "", format: channel === "sms" ? "text" : "visual",
+    body_text: channel === "sms" ? "Hi {{first_name}}, this is Lorenzo's Dog Training Team following up about your dog." : "",
+    sms_text: channel === "both" ? "Hi {{first_name}}, a quick note from Lorenzo's Dog Training Team." : "",
     body_html: "",
     design: {
       width: 600, background: "#f4f7fb", contentBackground: "#ffffff",
@@ -4190,6 +4195,11 @@ function htmlToPlainText(html) {
 }
 
 function templateDraftBodies(draft) {
+  if (draft.channel === "both") {
+    // The text version is what sends to phones; the email version sends to inboxes.
+    const email = draft.format === "html" ? draft.body_html : renderDesignHtml(draft.design);
+    return { body_text: draft.sms_text, body_html: email };
+  }
   if (draft.channel !== "email") return { body_text: draft.body_text, body_html: "" };
   if (draft.format === "visual") return { body_text: renderDesignText(draft.design), body_html: renderDesignHtml(draft.design) };
   if (draft.format === "html") return { body_text: draft.body_text || htmlToPlainText(draft.body_html), body_html: draft.body_html };
@@ -4254,9 +4264,20 @@ function designFieldRow(index, block) {
 
 function communicationsDesigner() {
   const draft = currentTemplateDraft();
-  const isEmail = draft.channel === "email";
+  const isBoth = draft.channel === "both";
+  const isEmail = draft.channel === "email" || isBoth;
   const tokenRow = `<div class="communications-token-row"><span>Add client details:</span>${MERGE_TOKENS.map(([token, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-token="${token}">${label}</button>`).join("")}<small>Each message fills these in per client before it sends.</small></div>`;
   const formatTabs = isEmail ? `<div class="communications-format-tabs">${[["visual", "Design it"], ["html", "Paste / upload HTML"], ["text", "Plain text only"]].map(([id, label]) => `<button type="button" class="${draft.format === id ? "active" : ""}" data-design-format="${id}">${label}</button>`).join("")}</div>` : "";
+
+  // A "both" template holds two versions of the same announcement: the short text
+  // for a phone, and the full email. Each is written in its own box.
+  const smsCount = String(draft.sms_text || "").length;
+  const bothTextEditor = isBoth ? `<section class="both-section">
+      <h3 class="flow-heading">1. The text message version</h3>
+      <label class="wide">Text wording<textarea class="communications-writing-box" data-design-sms-text rows="5" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.sms_text || "")}</textarea></label>
+      <small class="field-help">${smsCount} characters · about ${Math.max(1, Math.ceil(smsCount / 160))} message${smsCount > 160 ? "s" : ""} per person. Keep it short — phones show only a line or two.</small>
+    </section>
+    <h3 class="flow-heading">2. The email version</h3>` : "";
 
   let editor = "";
   if (!isEmail || draft.format === "text") {
@@ -4292,12 +4313,12 @@ function communicationsDesigner() {
       <div class="communications-designer-form">
         <div class="communications-form">
           <label>Template name<input data-design-meta="name" value="${escapeHtml(draft.name)}" placeholder="New client follow-up"></label>
-          <label>Send as<select data-design-meta="channel"><option value="email" ${isEmail ? "selected" : ""}>Email</option><option value="sms" ${!isEmail ? "selected" : ""}>Text message</option></select></label>
+          <label>Send as<select data-design-meta="channel"><option value="email" ${draft.channel === "email" ? "selected" : ""}>Email only</option><option value="sms" ${draft.channel === "sms" ? "selected" : ""}>Text message only</option><option value="both" ${isBoth ? "selected" : ""}>Both text and email</option></select></label>
           ${isEmail ? `<label class="wide">Subject line<input data-design-meta="subject" value="${escapeHtml(draft.subject)}" placeholder="A note from Lorenzo's Dog Training Team"></label>` : ""}
         </div>
         ${formatTabs}
         ${tokenRow}
-        <div class="communications-form">${editor}</div>
+        ${bothTextEditor}<div class="communications-form">${editor}</div>
       </div>
       ${previewOpen ? `<div class="communications-designer-preview">
         <strong>Preview<button class="btn btn-outline btn-small" type="button" data-design-preview-toggle>Close</button></strong>
@@ -4446,16 +4467,17 @@ function messageFlowStepper() {
 
 function templateCards(channel, selectedId, action) {
   const templates = (communicationsData.templates || []).filter(template =>
-    template.active !== false && (channel === "email" ? template.channel === "email" : template.channel !== "email"));
+    template.active !== false && (template.channel === "both"
+      || (channel === "email" ? template.channel === "email" : template.channel !== "email")));
   if (!templates.length) {
     return `<p class="panel-copy">No saved ${channel === "email" ? "email" : "text"} templates yet. Build one below and save it — it will appear here next time.</p>`;
   }
   return `<div class="template-cards">${templates.map(template => `<article class="template-card ${selectedId === template.id ? "selected" : ""}" data-${action}="${escapeHtml(template.id)}" role="button" tabindex="0">
     <div class="template-card-body">
       <strong>${escapeHtml(template.name)}</strong>
-      <p>${escapeHtml((template.channel === "email" ? (template.subject || "No subject line") : String(template.body_text || "")).slice(0, 110))}</p>
+      <p>${escapeHtml((channel === "email" && template.channel !== "sms" ? (template.subject || "No subject line") : String(template.body_text || "")).slice(0, 110))}</p>
     </div>
-    <div class="template-card-foot"><span class="status ${template.channel === "email" ? "live" : "draft"}">${template.channel === "email" ? (template.format === "visual" ? "Designed email" : template.format === "html" ? "Custom HTML" : "Plain email") : "Text message"}</span>${selectedId === template.id ? `<span class="template-chosen">Chosen</span>` : ""}</div>
+    <div class="template-card-foot"><span class="status ${template.channel === "sms" ? "draft" : "live"}">${template.channel === "both" ? "Text + email" : template.channel === "email" ? (template.format === "visual" ? "Designed email" : template.format === "html" ? "Custom HTML" : "Plain email") : "Text message"}</span>${selectedId === template.id ? `<span class="template-chosen">Chosen</span>` : ""}</div>
   </article>`).join("")}</div>`;
 }
 
@@ -4484,8 +4506,8 @@ function flowStepWho() {
       </button>
     </div>
     ${flow.mode === "individual" ? flowRecipientPicker() : ""}
-    <div class="flow-actions"><button class="btn btn-red" type="button" data-flow-next ${chosen && (flow.mode === "bulk" || flow.recipientIds.length) ? "" : "disabled"}>Next</button>
-    ${!chosen ? `<span class="flow-hint">Choose text, email, or both to continue.</span>` : flow.mode === "individual" && !flow.recipientIds.length ? `<span class="flow-hint">Pick at least one person to continue.</span>` : ""}</div>`, "pad");
+    <div class="flow-actions"><button class="btn btn-red" type="button" data-flow-next>Next</button>
+    ${!chosen ? `<span class="flow-hint warning">Choose Text message or Email above to continue.</span>` : flow.mode === "individual" && !flow.recipientIds.length ? `<span class="flow-hint warning">Add at least one person to continue.</span>` : `<span class="flow-hint">${flow.mode === "individual" ? `${flow.recipientIds.length} ${flow.recipientIds.length === 1 ? "person" : "people"} chosen.` : "Going to everyone on the client list."}</span>`}</div>`, "pad");
 }
 
 // Only real, synced client records may be messaged. The app ships sample rows for
@@ -4516,6 +4538,7 @@ function flowRecipientPicker() {
     ${chosen.length ? `<div class="recipient-chosen"><strong>${chosen.length} chosen</strong>${chosen.map(client => `<span class="chip">${escapeHtml(client.name || "Client")}<button type="button" data-flow-pick="${escapeHtml(client.remoteId || client.id)}" aria-label="Remove">×</button></span>`).join("")}</div>` : ""}
     <details class="recipient-add" ${flow.addOpen ? "open" : ""}>
       <summary>Someone not on the list? Add them by name</summary>
+      ${flow.justAdded ? `<div class="recipient-added-note"><strong>✓ ${escapeHtml(flow.justAdded)} added${flow.addedCount > 1 ? ` — ${flow.addedCount} people added so far` : ""}</strong><span>Add another below, or press Next when you are done.</span></div>` : ""}
       <form class="communications-form" data-flow-add-recipient>
         <label>Their name<input required name="name" placeholder="Andrea Aaby"></label>
         <label>Mobile number<input name="phone" inputmode="tel" placeholder="(440) 555-0100"></label>
@@ -4605,8 +4628,25 @@ function flowStepSend() {
       ${data?.eligible ? `<button class="btn btn-red" type="button" data-flow-send="${channel}">Send the ${channel === "sms" ? "text" : "email"} to ${data.eligible.toLocaleString()} ${data.eligible === 1 ? "person" : "people"}</button>` : ""}
     </article>`;
   };
+  const done = state.campaignDone;
+  const named = flow.mode === "individual"
+    ? realClientRows().filter(client => flow.recipientIds.includes(client.remoteId || client.id))
+    : [];
+  const summary = `<div class="send-summary">
+    <div><strong>Going to</strong>${flow.mode === "individual"
+      ? `<p>${named.length} ${named.length === 1 ? "person" : "people"} you chose: ${named.map(client => escapeHtml(client.name || "Client")).join(", ") || "nobody yet"}</p>`
+      : `<p>Everyone on the client list who can be contacted.</p>`}</div>
+    <div><strong>Using</strong><p>${[
+      flow.channels.sms ? `Text: ${escapeHtml(state.flowTextDraft?.name || "the text you wrote")}` : "",
+      flow.channels.email ? `Email: ${escapeHtml(state.flowEmailDraft?.name || "the email you built")}` : ""
+    ].filter(Boolean).join("<br>")}</p></div>
+  </div>`;
   return panel("Send", `<button class="btn btn-outline" type="button" data-flow-count>Count who will receive it</button>`, `
+    ${done ? `<div class="send-complete"><strong>✓ ${escapeHtml(done.label)}</strong><span>${done.sent.toLocaleString()} delivered${done.failed ? ` · ${done.failed.toLocaleString()} could not be delivered` : ""}. Every person and what happened to them is on the <button type="button" class="link-button" data-communications-section="history">Send History</button> tab.</span></div>` : ""}
     <p class="panel-copy">Text and email are counted and sent separately, so you can see exactly who gets what.</p>
+    ${summary}
+    ${flow.channels.sms && state.flowTextDraft ? `<details class="final-preview"><summary>Final look at the text</summary><div class="phone-preview"><div class="phone-bubble">${designTextToHtml(String(state.flowTextDraft.body_text || "").replace(/{{\s*first_name\s*}}/gi, flowSampleClient().first_name).replace(/{{\s*city\s*}}/gi, flowSampleClient().city))}</div></div></details>` : ""}
+    ${flow.channels.email && state.flowEmailDraft ? `<details class="final-preview"><summary>Final look at the email</summary><div class="email-check-frame"><iframe title="Email preview" data-flow-preview sandbox=""></iframe></div></details>` : ""}
     <label class="wide">Name this send (for your records)<input data-flow-name value="${escapeHtml(flow.name || "")}" placeholder="TTRG invitation — August"></label>
     <label class="wide">Who counts as reachable<select data-flow-consent>
       <option value="true" ${state.campaignRequireConsent !== false ? "selected" : ""}>Only clients recorded as opted in</option>
@@ -4654,6 +4694,7 @@ function campaignFormValues() {
 }
 
 async function runCampaignBatches(campaignId, total, label) {
+  state.campaignDone = null;
   state.campaignProgress = { label, done: 0, total, failed: 0, running: true };
   render();
   let guard = 0;
@@ -4669,7 +4710,8 @@ async function runCampaignBatches(campaignId, total, label) {
       return;
     }
     if (result.done) {
-      state.campaignProgress = { label: "Finished", done: total, total, failed: result.failed || 0, running: false };
+      state.campaignProgress = null;
+      state.campaignDone = { label: `${label} — finished`, sent: Number(result.sent || 0), failed: Number(result.failed || 0) };
       await loadCommunicationsData(false);
       render();
       showToast(`Finished. ${Number(result.sent || 0).toLocaleString()} sent${result.failed ? `, ${result.failed} could not be delivered` : ""}.`);
@@ -4694,13 +4736,20 @@ function refreshTemplatePreview() {
   }
 }
 
-function templateDraftFromRecord(record) {
-  const draft = templateDraftDefault(record.channel === "email" ? "email" : "sms");
+// preferChannel lets the send flow open just the half it needs: the text step opens
+// the text version of a both-template, the email step opens the email version.
+function templateDraftFromRecord(record, preferChannel) {
+  const saved = ["email", "sms", "both"].includes(record.channel) ? record.channel : "sms";
+  const channel = preferChannel && saved === "both" ? preferChannel : saved;
+  const draft = templateDraftDefault(channel);
   draft.id = record.id || "";
   draft.name = record.name || "";
-  draft.channel = record.channel === "email" ? "email" : "sms";
+  draft.channel = channel;
   draft.subject = record.subject || "";
-  draft.body_text = record.body_text || "";
+  // In a both-template the short wording lives in body_text; the email version
+  // lives in the design/HTML.
+  draft.body_text = saved === "both" && channel === "email" ? "" : (record.body_text || "");
+  draft.sms_text = saved === "both" ? (record.body_text || "") : "";
   draft.body_html = record.body_html || "";
   draft.format = ["visual", "html", "text"].includes(record.format)
     ? record.format
@@ -8712,6 +8761,14 @@ document.addEventListener("click", async event => {
     const steps = messageFlowSteps().map(([id]) => id);
     const at = steps.indexOf(flow.step);
     const forward = Boolean(event.target.closest("[data-flow-next]"));
+    // Say what is missing rather than silently refusing to move.
+    if (forward && flow.step === "who") {
+      if (!flow.channels.sms && !flow.channels.email) { showToast("Choose Text message, Email, or both at the top of this page first."); return; }
+      if (flow.mode === "individual" && !flow.recipientIds.length) { showToast("Add at least one person, or choose \"Everyone on the client list\"."); return; }
+    }
+    if (forward && flow.step === "text" && !String(currentTemplateDraft().body_text || "").trim()) {
+      showToast("Write the text message first."); return;
+    }
     // Leaving the writing step carries the wording into the draft the preview reads.
     flow.step = steps[Math.max(0, Math.min(steps.length - 1, at + (forward ? 1 : -1)))] || "who";
     saveState();
@@ -8731,6 +8788,9 @@ document.addEventListener("click", async event => {
     state.messageFlow = null;
     state.campaignAudience = null;
     state.campaignProgress = null;
+    state.campaignDone = null;
+    state.flowTextDraft = null;
+    state.flowEmailDraft = null;
     state.templateDraft = null;
     saveState();
     return;
@@ -8740,7 +8800,7 @@ document.addEventListener("click", async event => {
     const record = (communicationsData.templates || []).find(item => item.id === flowTextTemplate.dataset.flowTextTemplate);
     if (record) {
       messageFlow().textTemplateId = record.id;
-      state.templateDraft = templateDraftFromRecord(record);
+      state.flowTextDraft = templateDraftFromRecord(record, "sms");
       render();
     }
     return;
@@ -8750,7 +8810,7 @@ document.addEventListener("click", async event => {
     const record = (communicationsData.templates || []).find(item => item.id === flowEmailTemplate.dataset.flowEmailTemplate);
     if (record) {
       messageFlow().emailTemplateId = record.id;
-      state.templateDraft = templateDraftFromRecord(record);
+      state.flowEmailDraft = templateDraftFromRecord(record, "email");
       render();
     }
     return;
@@ -8814,7 +8874,7 @@ document.addEventListener("click", async event => {
     if (String(typed || "").trim().toUpperCase() !== "SEND") { showToast("Nothing was sent."); return; }
     try {
       const payload = {
-        operation: "create_campaign", template_id: draft.id,
+        operation: "create_campaign", template_id: draft.id, channel,
         require_consent: state.campaignRequireConsent !== false,
         name: flow.name || draft.name
       };
@@ -10223,7 +10283,7 @@ document.addEventListener("focusin", event => {
 // steal focus mid-typing.
 document.addEventListener("input", event => {
   const field = event.target;
-  if (!field.matches("[data-design-meta],[data-design-body-text],[data-design-body-html],[data-design-page],[data-design-field],[data-flow-name]")) return;
+  if (!field.matches("[data-design-meta],[data-design-body-text],[data-design-sms-text],[data-design-body-html],[data-design-page],[data-design-field],[data-flow-name]")) return;
   // Route to whichever draft the current screen is editing: the text, the email,
   // or the one open on the Templates tab.
   const draft = currentTemplateDraft();
@@ -10233,6 +10293,7 @@ document.addEventListener("input", event => {
     const key = field.dataset.designMeta;
     if (key !== "channel") { draft[key] = field.value; touched = true; }
   } else if (field.matches("[data-design-body-text]")) { draft.body_text = field.value; touched = true; }
+  else if (field.matches("[data-design-sms-text]")) { draft.sms_text = field.value; touched = true; }
   else if (field.matches("[data-design-body-html]")) { draft.body_html = field.value; touched = true; }
   else if (field.matches("[data-design-page]")) {
     const key = field.dataset.designPage;
@@ -10275,8 +10336,12 @@ document.addEventListener("change", async event => {
   }
   if (event.target.matches("[data-design-meta='channel']")) {
     const draft = currentTemplateDraft();
-    draft.channel = event.target.value === "email" ? "email" : "sms";
-    if (draft.channel !== "email") {
+    draft.channel = ["email", "sms", "both"].includes(event.target.value) ? event.target.value : "email";
+    if (draft.channel === "both") {
+      // Seed the text version from the email wording so it is never a blank box.
+      if (!String(draft.sms_text || "").trim()) draft.sms_text = renderDesignText(draft.design).slice(0, 300);
+      if (draft.format === "text") draft.format = "visual";
+    } else if (draft.channel !== "email") {
       // Carry the wording across so switching to text does not start from a blank box.
       if (!String(draft.body_text || "").trim()) draft.body_text = renderDesignText(draft.design).slice(0, 900);
       draft.format = "text";
@@ -11073,7 +11138,11 @@ document.addEventListener("submit", async event => {
       });
       const client = result.client;
       const flow = messageFlow();
+      // Keep the form open and confirmed on screen so several people can be added
+      // one after another without hunting for it again.
       flow.addOpen = true;
+      flow.justAdded = client.client_name;
+      flow.addedCount = (flow.addedCount || 0) + 1;
       if (!flow.recipientIds.includes(client.id)) flow.recipientIds.push(client.id);
       // Make the new person visible to the picker straight away.
       state.clients = [...(state.clients || []), {
