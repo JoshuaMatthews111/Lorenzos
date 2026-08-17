@@ -6,47 +6,47 @@ const markets = [
     slug: "dog-training-cleveland-oh",
     photoPos: "center 58%",
     photo2: "assets/facility-grounds-wide.jpg", photo2Alt: "Open training grounds at the Cleveland headquarters campus",
-    photo: "assets/facility-exterior-main.jpg", photoName: "The 17,000 sq ft headquarters", photoCaption: "Where every Lorenzo's trainer is certified", word: "THE HQ", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
+    photo: "assets/facility-exterior-main.jpg", photoName: "Your dog trains where every Lorenzo's trainer gets certified", photoCaption: "Next door to our 17,000 sq ft Cleveland headquarters", word: "THE HQ", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
     arch: "hq", mk1: "#152569", mk2: "#C8102E",
     
     
       
     tint: "21,37,105",
     tint2: "200,16,46",
-    hook: "See where it started: a free evaluation backed by our 17,000 sq ft Cleveland headquarters — the facility where every Lorenzo's trainer is certified.",
+    hook: "This is where it all starts. Train your dog at the same facility where Lorenzo's professional trainers come to learn, train, and earn their certification — next door to our 17,000 sq ft Cleveland headquarters.",
     title: "Cleveland & Akron Dog Training",
-    h1: "Aggression, Leash Pulling, or a New Puppy? Cleveland's Dog Trainers Start Here.",
+    h1: "Aggression, Leash Pulling, or a New Puppy? Cleveland Training Where the Trainers Get Certified.",
     market: "Cleveland / Akron, OH",
     city: "Cleveland",
     state: "OH",
     area: "Cleveland, Akron, Garfield Heights, Cleveland Heights, Streetsboro, and Northeast Ohio",
     trainers: "Harley McGrew and Brady DeRemer",
-    proof: "Local Northeast Ohio support backed by Lorenzo's office-routed training system.",
+    proof: "Local Northeast Ohio support, with every inquiry personally coordinated through Lorenzo's Cleveland office.",
     nearby: ["Cleveland Heights", "Garfield Heights", "Akron", "Streetsboro", "Northeast Ohio"],
     checks: ["Aggression and reactivity help from trainers certified at our national HQ", "Board & train at headquarters — your dog lives and learns on campus", "New puppy? Potty, crate, and socialization handled early", "Free evaluation backed by the 17,000 sq ft Cleveland campus"],
-    care: {"eyebrow": "The home team", "h2": "Trained where every Lorenzo's trainer is certified.", "p": "Cleveland isn't just a market to us — it's headquarters. Your evaluation is backed by the 17,000 sq ft campus where every trainer in the network earns certification, and board & train dogs live and learn on-site.", "t": "Why Northeast Ohio starts here."},
+    care: {"eyebrow": "The home team", "h2": "Your Dog Trains Where Every Lorenzo's Trainer Gets Certified.", "p": "Cleveland isn't just another location — it's where Lorenzo's began. Your dog trains at the same facility where our trainers from across the country come to learn and earn their certification. It's also home to our Board & Train program, where dogs live, learn, and train on-site — all right next door to our 17,000 sq. ft. Cleveland headquarters.", "t": "Why Northeast Ohio starts here."},
     testis: [{"h": "Evaluated at the source", "p": "Free evaluations backed by the national headquarters — not a satellite office."}, {"h": "39 years of dogs like yours", "p": "Aggression, reactivity, puppies, rescues — since 1988, Northeast Ohio families have started here."}, {"h": "Board & train advantage", "p": "Your dog trains daily with professionals and comes home with real skills — owner handoff lessons included."}],
     zipCodes: ["44118", "44241"]
   },
   {
     slug: "dog-training-columbus-oh",
-    photo2Pos: "72% 20%", photo2: "assets/emilio-yoyo.jpg", photo2Alt: "A professional safely handling a reactive dog during behavior work",
-    photo: "assets/get-started-premium-hero.jpg", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
+    photo2: "assets/get-started-premium-hero.jpg", photo2Alt: "Two dogs relaxed together with their owner after training",
+    photo: "assets/ad-testimonial-take-1-cover.png", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     
     
       
     tint: "21,37,105",
     tint2: "120,20,60",
-    hook: "Dogs fighting in the same house? Multi-dog conflict is exactly what we fix — ask about a same-week assessment.",
+    hook: "Dogs fighting in the same house? We specialize in resolving multi-dog conflict. Ask about a same-week assessment.",
     title: "Columbus Dog Training",
-    h1: "Dogs Fighting at Home? Columbus Aggression & Behavior Training Starts Here.",
+    h1: "Dogs Fighting at Home? Columbus Aggression & Behavior Training.",
     market: "Columbus / Reynoldsburg, OH",
     city: "Columbus",
     state: "OH",
     area: "Columbus, Reynoldsburg, and Central Ohio communities",
     trainers: "Shannon Paskins",
-    proof: "Central Ohio dog owners can request obedience and behavior modification help through Lorenzo's office.",
+    proof: "Central Ohio families get local obedience and behavior help, personally coordinated through Lorenzo's office.",
     nearby: ["Columbus", "Reynoldsburg", "Central Ohio", "Franklin County", "Licking County"],
     checks: ["Dogs fighting in the same house — assessment, safety plan, reintroduction", "Jumping, barking, and door-crashing brought under control", "Potty training and puppy foundations", "Owner coaching so the peace holds after we leave"],
     care: {"eyebrow": "Multi-dog households", "h2": "Two dogs. One house. It can work again.", "p": "When dogs in the same home start fighting, waiting makes it worse. Columbus families bring us exactly this — we assess both dogs, make the household safe immediately, and rebuild the relationship step by step.", "t": "How we handle dogs in conflict."},
@@ -55,7 +55,7 @@ const markets = [
   },
   {
     slug: "dog-training-atlanta-ga",
-    photo2: "assets/matthew-behavior-dog.jpg", photo2Alt: "A behavior-case dog working calmly with a professional",
+    photo2: "assets/alison1.png", photo2Alt: "A handler in a wheelchair with her trained service dog",
     photo: "assets/utility-retrieval.png", photoName: "Dogs with jobs", photoCaption: "Service, task work and specialty training — Atlanta's open lane", word: "SERVICE", issues: "Service dog training|Aggression|Task work|Obedience", proofValue: "3", proofLabel: "Certified Atlanta trainers", benefits: "Free suitability assessment|Service-dog specialists|90-day guarantee", priceMode: "quiet",
     arch: "specialty", mk1: "#14101F", mk2: "#C9A227",
     
@@ -63,7 +63,7 @@ const markets = [
       
     tint: "30,25,90",
     tint2: "190,60,30",
-    hook: "Specialty & service dog training few in Atlanta offer — ask about a free suitability assessment for your dog.",
+    hook: "Specialty & Service Dog Training in Atlanta — starting with a free assessment.",
     title: "Atlanta Dog Training",
     h1: "Service Dog Training in Atlanta — Plus Aggression Help & Real-World Obedience.",
     market: "Atlanta, GA",
@@ -71,10 +71,10 @@ const markets = [
     state: "GA",
     area: "Atlanta, Loganville, Dallas, and surrounding Georgia communities",
     trainers: "Aryson Whorley, Christopher Almonte, and Chloe Chisolm",
-    proof: "Georgia dog owners can start with one office-routed request and be matched to the right next step.",
+    proof: "Georgia families start with one request and are matched to the right program by Lorenzo's office.",
     nearby: ["Atlanta", "Loganville", "Dallas", "North Georgia", "Metro Atlanta"],
     checks: ["Service dog training with an honest suitability assessment first", "Task work, scent work, retrieval, and advanced control", "Aggression and behavior modification handled professionally", "Real-world obedience for everyday Atlanta life"],
-    care: {"eyebrow": "Specialty programs", "h2": "The training few in Atlanta offer.", "p": "Service dog and specialty training take more than obedience classes. We start with an honest suitability assessment — not every dog is a service-dog candidate, and you deserve the truth before you invest.", "t": "What specialty training really involves."},
+    care: {"eyebrow": "Specialty programs", "h2": "Training You Won't Find Just Anywhere in Atlanta.", "p": "Service and specialty dog training starts with finding the right fit. Our free suitability assessment helps determine your dog's potential for advanced training and the program best suited to your goals.", "t": "What specialty training really involves."},
     testis: [{"h": "Suitability first", "p": "A free assessment tells you honestly whether your dog is a candidate — before you spend anything."}, {"h": "Realistic timelines", "p": "Task training is measured in months of structured work. We map it out clearly up front."}, {"h": "Beyond service dogs", "p": "Protection, scent, utility, and retrieval work for owners who want a dog with a job."}],
     zipCodes: ["30052", "30324", "30157"]
   },
@@ -131,15 +131,15 @@ const markets = [
   {
     slug: "dog-training-chicago-il",
     photoPos: "center 15%",
-    photo2: "assets/get-started-premium-hero.jpg", photo2Alt: "Two dogs sitting calmly with their owner \u2014 the outcome of training",
-    photo: "assets/emilio-yoyo.jpg", photoName: "Reactivity, handled safely", photoCaption: "Professional behavior work — this is the job", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
+    photo2: "assets/ad-testimonial-take-1-cover.png", photo2Alt: "A Chicago family with their trained dog at home",
+    photo: "assets/ldtt-team-cover.jpg", photoName: "50+ trainers. No waitlist.", photoCaption: "Our team keeps evaluation slots open every week", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
     arch: "metro", mk1: "#0B1B3F", mk2: "#D64545",
     
     
       
     tint: "10,30,80",
     tint2: "200,16,46",
-    hook: "No waitlist. Evaluations available this week across Chicagoland.",
+    hook: "No waitlist. Evaluations available this week across Chicago.",
     title: "Chicago Dog Training",
     h1: "Reactive Dog? New Puppy? Chicago Dog Training With No Waitlist.",
     market: "Chicago, IL",
@@ -147,10 +147,10 @@ const markets = [
     state: "IL",
     area: "Chicago, Northwest Indiana, Gary, and surrounding communities",
     trainers: "Jasmine Bland",
-    proof: "A Chicago-market page lets the office route leads from stronger ad territory while preserving trainer attribution.",
-    nearby: ["Chicago", "Northwest Indiana", "Gary", "South Suburbs", "Chicagoland"],
-    checks: ["Reactivity on busy streets — lunging, barking, pulling toward dogs", "Evaluations available this week across Chicagoland", "New puppy foundations before bad habits set", "In-home and private training options"],
-    care: {"eyebrow": "No waitlist", "h2": "Why wait months to fix this week's problem?", "p": "Around Chicagoland, good trainers often book out for weeks. We keep evaluation slots open — tell us what's happening today and start this week, not next season.", "t": "Built for city dogs."},
+    proof: "Professional dog training for Chicago families, combining local service with the experience, standards, and support of the Lorenzo's Dog Training Team network.",
+    nearby: ["Chicago", "Northwest Indiana", "Gary", "South Suburbs", "Chicago Metro"],
+    checks: ["Reactivity on busy streets — lunging, barking, pulling toward dogs", "Evaluations available this week across Chicago", "New puppy foundations before bad habits set", "In-home and private training options"],
+    care: {"eyebrow": "No waitlist", "h2": "Why wait months to fix this week's problem?", "p": "Professional dog training shouldn't come with a long wait. Chicago families can connect with our team, schedule an evaluation, and often begin the process within the same week.", "t": "Built for city dogs."},
     testis: [{"h": "Start this week", "p": "No waitlist. Your evaluation gets scheduled now, while the problem is fresh."}, {"h": "Reactivity is our daily work", "p": "Lunging and barking at dogs, bikes, and strangers — trainable, with a clear plan."}, {"h": "Real-life proofing", "p": "Training that holds on crowded sidewalks and busy streets, not just a quiet backyard."}],
     zipCodes: ["46409"]
   },
@@ -239,16 +239,16 @@ const markets = [
     tint2: "200,16,46",
     hook: "Apartment-friendly puppy training — built for small spaces, shared walls, and busy schedules.",
     title: "Ann Arbor Dog Training",
-    h1: "Puppy Peeing on the Floor? Barking Through the Walls? Ann Arbor Apartment Puppy Training.",
+    h1: "Puppy Accidents? Nonstop Barking? Ann Arbor Apartment & Condo Puppy Training.",
     market: "Ann Arbor, MI",
     city: "Ann Arbor",
     state: "MI",
     area: "Ann Arbor, Ypsilanti, Washtenaw County, and surrounding Southeast Michigan communities",
     trainers: "Dylan Atkinson",
-    proof: "Michigan dog owners can request obedience, behavior modification, and real-world training help through Lorenzo's office-routed system.",
+    proof: "Michigan dog owners can turn to Lorenzo's for professional obedience training, behavior modification, and real-world training designed for everyday life.",
     nearby: ["Ann Arbor", "Ypsilanti", "Washtenaw County", "Southeast Michigan", "Canton"],
     checks: ["Accidents on the floor? Potty training on a schedule that works", "Barking through thin walls handled early", "Crate training without the crying", "Leash skills for busy sidewalks"],
-    care: {"eyebrow": "Small spaces, big results", "h2": "Apartment life with a puppy can be calm.", "p": "Shared walls, no yard, a busy schedule — apartment puppy raising is its own skill. We build the routines that matter: potty on schedule, crate peace, quiet greetings, and leash skills for sidewalk life.", "t": "The first months, done right."},
+    care: {"eyebrow": "Small spaces, big results", "h2": "Apartment life with a puppy can be calm.", "p": "Raising a puppy in an apartment comes with its own challenges. Shared walls, limited outdoor space, and busy schedules make good routines even more important. We'll help you build the skills that matter — from potty training and crate training to calm greetings, less barking, and better leash manners.", "t": "The first months, done right."},
     testis: [{"h": "Potty, solved", "p": "A schedule-based system that works without a backyard."}, {"h": "Neighbor-proof", "p": "Demand barking and door alarms quieted before they become habit."}, {"h": "Sidewalk skills", "p": "Loose-leash walking and calm greetings for a city full of people and dogs."}],
     zipCodes: ["48103", "48104", "48105", "48108", "48109"]
   }
@@ -363,7 +363,7 @@ const casePanels = {
 };
 
 const page = market => {
-  const metaDescription = `Request ${market.market} dog training from Lorenzo's Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with office-routed follow-up.`;
+  const metaDescription = `Request ${market.market} dog training from Lorenzo's Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with fast local follow-up.`;
   const nearby = market.nearby.map(place => `<span>${escapeHtml(place)}</span>`).join("");
   const zipCodes = market.zipCodes.map(zip => `<span>${escapeHtml(zip)}</span>`).join("");
   const SEC = {
@@ -379,7 +379,7 @@ const page = market => {
       <div class="container market-section-grid">
         <div>
           <span class="eyebrow">Training built for real life</span>
-          <h2>One request. A clearer path for your dog.</h2>
+          <h2>A clearer path for your dog.</h2>
           <p>${escapeHtml(market.proof)}</p>
           <div class="market-nearby">${nearby}</div>
         </div>
@@ -430,8 +430,8 @@ const page = market => {
           <div class="gcopy">
             <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
             <h2>We stand behind our training.</h2>
-            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
-            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
+            <p>Every LDTT program is backed by our Limited Training Guarantee. If your dog isn&rsquo;t demonstrating the behaviors covered in your program within 90 days of completion, reach out to us. As long as you&rsquo;ve followed your trainer&rsquo;s instructions and recommended practice plan, we&rsquo;ll provide the corrective instruction or follow-up training needed &mdash; at <b>no additional training fee</b>.</p>
+            <p class="g-commit">Our commitment is simple: we&rsquo;ll do our part, give you the tools to do yours, and stand behind the training we provide.</p>
           </div>
           <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
         </div>
@@ -444,8 +444,8 @@ const page = market => {
           <div class="gcopy">
             <span class="g-eyebrow">The LDTT Limited Training Guarantee</span>
             <h2>We stand behind our training &mdash; in writing.</h2>
-            <p>Every LDTT program includes our Limited Training Guarantee. If your dog is not demonstrating the behaviors addressed in your training program within 90 days of completing it, contact us &mdash; when you&rsquo;ve followed your trainer&rsquo;s instructions and practice plan, we provide corrective instruction or follow-up training at <b>no additional training fee</b>.</p>
-            <p class="g-commit">Our commitment is simple: we do our part, and we show you how to do yours.</p>
+            <p>Every LDTT program is backed by our Limited Training Guarantee. If your dog isn&rsquo;t demonstrating the behaviors covered in your program within 90 days of completion, reach out to us. As long as you&rsquo;ve followed your trainer&rsquo;s instructions and recommended practice plan, we&rsquo;ll provide the corrective instruction or follow-up training needed &mdash; at <b>no additional training fee</b>.</p>
+            <p class="g-commit">Our commitment is simple: we&rsquo;ll do our part, give you the tools to do yours, and stand behind the training we provide.</p>
           </div>
           <a class="gcta" href="#consultation">Get My Free Evaluation <span aria-hidden="true">&rarr;</span></a>
         </div>
@@ -921,6 +921,24 @@ const page = market => {
     .market-landing .ad-benefit-row .price-pill{background:#C8102E !important;color:#fff !important;
       border:none !important;font-weight:800;letter-spacing:.02em}
 
+    /* The SMS consent box read as an error/required field in red, which the
+       office believes was suppressing form completions. Calm blue + an explicit
+       "optional" line above it. */
+    .market-consult-panel .consent-optional{margin:14px 0 4px;font-size:13px;color:#1E3A8A !important}
+    .market-consult-panel .consent-row{background:#eef4ff !important;border:1px solid #b9cdf0 !important;
+      border-radius:10px;padding:12px !important}
+    .market-consult-panel .consent-row span{color:#28324d !important}
+    .market-consult-panel .consent-row a{color:#1E3A8A !important}
+
+    /* Services strip — the office asked that visitors see we do more than the
+       one service this page leads with, near the top. */
+    .market-services-strip{margin:14px 0 0;font-size:13.5px;line-height:1.7}
+    .market-services-strip b{display:block;font-size:12px;letter-spacing:.14em;
+      text-transform:uppercase;margin-bottom:6px;opacity:.85}
+    .market-services-strip a{color:inherit;text-decoration:none;border-bottom:1px solid currentColor;
+      padding-bottom:1px;margin-right:4px;white-space:nowrap}
+    .market-services-strip a:hover{opacity:.75}
+
     /* 6) Proof-band floor: numbers and labels always readable on their band. */
     .ad-proof-band-v2 strong,.ad-proof-grid-v2 strong{color:#fff !important}
     .ad-proof-band-v2 span,.ad-proof-grid-v2 span{color:#c9d2ec !important}
@@ -954,7 +972,7 @@ const page = market => {
           </a>
           <h1>${escapeHtml(market.h1)}</h1>
           <p class="ad-lead market-hook"><strong>${escapeHtml(market.hook)}</strong></p>
-          <p class="ad-lead">Tell us what's going on with your dog. A certified ${escapeHtml(market.city)} dog trainer calls you back — usually the same day — and the evaluation is free.</p>
+          <p class="ad-lead">Tell us what&rsquo;s going on with your dog. A member of our team will reach out to discuss your concerns and arrange your <b>free</b> evaluation.</p>
           ${market.spanish ? `<p class="ad-lead market-spanish" lang="es"><strong>Hablamos español.</strong> Entrenamiento profesional de perros en ${escapeHtml(market.city)} — puede enviar su solicitud en español y un entrenador que habla español le llamará.</p>` : ""}
           <div class="ad-benefit-row">
             ${market.priceMode === "forward" ? `<span class="price-pill">Training from $1,250</span>` : ""}
@@ -970,6 +988,14 @@ const page = market => {
             <a class="btn market-primary-cta" href="#consultation">Book My Consultation</a>
             <a class="market-text-link" href="#market-services">Explore training options <span aria-hidden="true">&darr;</span></a>
           </div>
+          <p class="market-services-strip">
+            <b>We also train</b>
+            <a href="#market-services">Obedience</a> &middot;
+            <a href="#market-services">Puppy training</a> &middot;
+            <a href="#market-services">Behavior &amp; aggression</a> &middot;
+            <a href="#market-services">Board &amp; train</a> &middot;
+            <a href="#market-services">Service &amp; specialty</a>
+          </p>
         </div>
 
         ${casePanels[market.slug] || `<figure class="market-hero-media market-trainer-media">
@@ -1001,7 +1027,7 @@ const page = market => {
           <div class="ad-consult-header">
             <span>${escapeHtml(market.market)}</span>
             <h2>Book your free, no-obligation evaluation.</h2>
-            <p>Tell us what is going on with your dog. A local trainer calls you back &mdash; usually the same day.</p>
+            <p>Tell us what&rsquo;s going on with your dog. A member of our team will reach out to discuss your concerns and arrange your <b>free</b> evaluation.</p>
           </div>
           <form class="ad-form-card ad-form-card-v2 contact-intake"
             action="https://formsubmit.co/production@lorenzosdogtrainingteam.com"
@@ -1033,6 +1059,7 @@ const page = market => {
             <label class="wide">What is happening with your dog?
               <textarea name="comments" rows="3" placeholder="${market.spanish ? "English or español — example: pulling on leash, barking, jumping / jala la correa, ladridos, ansiedad..." : "Example: pulling on leash, barking, jumping, potty training, aggression, anxiety..."}"></textarea>
             </label>
+            <p class="consent-optional"><b>Optional &mdash; not required to book your evaluation.</b></p>
             <label class="consent-row">
               <input type="checkbox" name="sms_consent" value="yes">
               <span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy-policy.html">Privacy Policy</a>.</span>
