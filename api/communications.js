@@ -762,6 +762,73 @@ async function recordConsent(access, body) {
   return { updated: targets.length, channel };
 }
 
+// Staff need to message someone who is not on the imported list yet. Rather than a
+// throwaway address, the person becomes a real client record so the send is logged
+// against them like everyone else.
+async function addRecipient(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const name = clean(body.name, 180);
+  const email = clean(body.email, 254).toLowerCase();
+  const phone = cleanPhone(body.phone);
+  if (!name) throw Object.assign(new Error("Enter the person's name."), { status: 400 });
+  if (!email && !phone) throw Object.assign(new Error("Add a mobile number or an email address."), { status: 400 });
+  if (email && !EMAIL_SHAPE.test(email)) throw Object.assign(new Error("That email address does not look right."), { status: 400 });
+
+  const filters = [];
+  if (email) filters.push(`email.ilike.${email}`);
+  if (phone) filters.push(`phone.eq.${phone}`);
+  const existing = await supabaseFetch(`/rest/v1/clients?select=id,client_name,email,phone,service_area,raw_payload&or=(${filters.join(",")})&limit=1`);
+  if (existing?.length) return { client: existing[0], existed: true };
+
+  const parts = name.split(/\s+/);
+  const rows = await supabaseFetch("/rest/v1/clients", {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      client_name: name,
+      email: email || null,
+      phone: phone || null,
+      service_area: clean(body.city, 120) || null,
+      status: "active",
+      // Consent stays unknown; the office records it deliberately, as everywhere else.
+      imported_source: "Added by office",
+      raw_payload: { first_name: parts[0] || "", last_name: parts.slice(1).join(" "), city: clean(body.city, 120), added_by: actorName(access) }
+    })
+  });
+  const client = rows?.[0];
+  await audit(access, "client_added_for_message", "clients", client.id, `${actorName(access)} added ${name} as a message recipient.`);
+  return { client, existed: false };
+}
+
+async function campaignReport(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const campaignId = clean(body.campaign_id, 80);
+  if (!campaignId) {
+    const campaigns = await supabaseFetch("/rest/v1/communications_campaigns?select=*&order=created_at.desc&limit=50");
+    return { campaigns };
+  }
+  const [campaigns, recipients] = await Promise.all([
+    supabaseFetch(`/rest/v1/communications_campaigns?select=*&id=eq.${encodeURIComponent(campaignId)}&limit=1`),
+    supabaseFetch(`/rest/v1/communications_campaign_recipients?select=id,client_id,recipient_email,recipient_phone,status,error_summary,provider_message_id,sent_at,updated_at&campaign_id=eq.${encodeURIComponent(campaignId)}&order=updated_at.desc&limit=500`)
+  ]);
+  const campaign = campaigns?.[0];
+  if (!campaign) throw Object.assign(new Error("That send no longer exists."), { status: 404 });
+  const ids = [...new Set((recipients || []).map(row => row.client_id).filter(Boolean))].slice(0, 500);
+  const clients = ids.length
+    ? await supabaseFetch(`/rest/v1/clients?select=id,client_name&id=in.(${ids.join(",")})`)
+    : [];
+  const nameById = new Map((clients || []).map(client => [client.id, client.client_name]));
+  const counts = (recipients || []).reduce((totals, row) => {
+    totals[row.status] = (totals[row.status] || 0) + 1;
+    return totals;
+  }, {});
+  return {
+    campaign,
+    counts,
+    recipients: (recipients || []).map(row => ({ ...row, client_name: nameById.get(row.client_id) || "Client" }))
+  };
+}
+
 async function removeRecord(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const table = {
@@ -801,6 +868,8 @@ async function handler(req, res) {
     else if (operation === "send_campaign_batch") data = await sendCampaignBatch(access, req.body || {});
     else if (operation === "cancel_campaign") data = await cancelCampaign(access, req.body || {});
     else if (operation === "record_consent") data = await recordConsent(access, req.body || {});
+    else if (operation === "add_recipient") data = await addRecipient(access, req.body || {});
+    else if (operation === "campaign_report") data = await campaignReport(access, req.body || {});
     else if (operation === "remove") data = await removeRecord(access, req.body || {});
     else return res.status(400).json({ ok: false, message: "Unsupported communications action." });
     return res.status(200).json({ ok: true, ...data });

@@ -5117,6 +5117,12 @@ button:disabled{cursor:not-allowed}
 .consent-tiles article{padding:16px;border:1px solid #d5e2f0;border-radius:13px;background:#fff;text-align:center}
 .consent-tiles span{display:block;font-size:1.9rem;font-weight:900;color:var(--navy);line-height:1.1}
 .consent-tiles small{display:block;margin-top:5px;color:var(--muted);font-size:.78rem;font-weight:700}
+.recipient-add{border:1px dashed #b9cde2;border-radius:12px;padding:12px 14px;background:#f8fbff}
+.recipient-add summary{cursor:pointer;color:var(--navy);font-size:.84rem;font-weight:900;padding:2px 0}
+.recipient-add[open] summary{margin-bottom:12px}
+.history-filters{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.history-filters button{min-height:38px;padding:8px 14px;border:1px solid #cbd9e9;border-radius:9px;background:#fff;color:var(--navy);font-weight:800;font-size:.8rem;cursor:pointer}
+.history-filters button.active{border-color:var(--navy);background:var(--navy);color:#fff}
 .design-current-image{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid #dce7f2;border-radius:10px;background:#f8fbff}
 .design-current-image img{width:64px;height:64px;object-fit:cover;border-radius:8px}
 .design-current-image span{color:#0b6b3a;font-size:.8rem;font-weight:800}

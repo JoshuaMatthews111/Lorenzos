@@ -247,6 +247,9 @@ const defaultState = {
   campaignId: "",
   messageFlow: null,
   consentAudience: null,
+  sendHistory: null,
+  sendReport: null,
+  sendReportFilter: "all",
   selectedTrainerId: "eric-beck",
   clientFilter: "Active",
   clientSearch: "",
@@ -3905,7 +3908,7 @@ function communicationsClaimBadge(lead) {
 
 function communicationsTabs() {
   const tabs = communicationsData.canManage
-    ? [["alerts", "Lead Alerts"], ["status", "Lead Status"], ["messages", "Send a Message"], ["templates", "Templates"], ["consent", "Permission"], ["settings", "Settings"]]
+    ? [["alerts", "Lead Alerts"], ["status", "Lead Status"], ["messages", "Send a Message"], ["templates", "Templates"], ["consent", "Permission"], ["history", "Send History"], ["settings", "Settings"]]
     : [["status", "Lead Status"]];
   return `<div class="communications-tabs">${tabs.filter(([id]) => id !== "settings" || communicationsData.isSuperAdmin).map(([id, label]) => `<button type="button" class="${state.communicationsSection === id ? "active" : ""}" data-communications-section="${id}">${label}</button>`).join("")}</div>`;
 }
@@ -4289,6 +4292,47 @@ function communicationsDesigner() {
 
 const OPT_IN_SMS_TEXT = "Lorenzo's Dog Training Team: Hi {{first_name}}, would you like training tips, class dates and offers by text? Reply YES to join. Msg & data rates may apply, about 2-4 msgs/month. Reply STOP to stop.";
 
+const SEND_STATUS_LABELS = {
+  sent: ["Delivered to provider", "live"],
+  failed: ["Did not send", "lost"],
+  skipped: ["Skipped", "draft"],
+  queued: ["Waiting", "draft"]
+};
+
+function communicationsHistoryPage() {
+  const report = state.sendReport;
+  const campaigns = state.sendHistory;
+  if (report?.campaign) {
+    const counts = report.counts || {};
+    const filter = state.sendReportFilter || "all";
+    const rows = (report.recipients || []).filter(row => filter === "all" || row.status === filter);
+    return `${panel(`Send: ${escapeHtml(report.campaign.name)}`, `<button class="btn btn-outline" type="button" data-history-back>Back to all sends</button>`, `
+      <div class="consent-tiles">
+        <article><span>${Number(report.campaign.total_recipients || 0).toLocaleString()}</span><small>in this send</small></article>
+        <article><span>${(counts.sent || 0).toLocaleString()}</span><small>delivered</small></article>
+        <article><span>${(counts.failed || 0).toLocaleString()}</span><small>did not send</small></article>
+        <article><span>${((counts.queued || 0) + (counts.skipped || 0)).toLocaleString()}</span><small>waiting or skipped</small></article>
+      </div>
+      <div class="history-filters">${[["all", "Everyone"], ["sent", "Delivered"], ["failed", "Did not send"], ["skipped", "Skipped"], ["queued", "Waiting"]].map(([id, label]) => `<button type="button" class="${filter === id ? "active" : ""}" data-history-filter="${id}">${label}</button>`).join("")}</div>
+      <div class="table-wrap"><table class="data-table"><thead><tr><th>Who</th><th>Sent to</th><th>What happened</th><th>When</th><th>Detail</th></tr></thead><tbody>${rows.map(row => {
+        const [label, tone] = SEND_STATUS_LABELS[row.status] || [row.status, "draft"];
+        return `<tr><td data-th="Who"><strong>${escapeHtml(row.client_name)}</strong></td><td data-th="Sent to">${escapeHtml(row.recipient_email || formatPhoneNumber(row.recipient_phone) || "—")}</td><td data-th="What happened"><span class="status ${tone}">${escapeHtml(label)}</span></td><td data-th="When">${escapeHtml(row.sent_at ? formatDateTime(row.sent_at) : "—")}</td><td data-th="Detail">${escapeHtml(row.error_summary || row.provider_message_id || "—")}</td></tr>`;
+      }).join("") || `<tr><td colspan="5">Nothing in this group.</td></tr>`}</tbody></table></div>
+      ${(report.recipients || []).length >= 500 ? `<p class="flow-hint">Showing the 500 most recent of this send.</p>` : ""}`, "pad")}`;
+  }
+  return panel("Send History", `<button class="btn btn-outline" type="button" data-history-refresh>Refresh</button>`, `
+    <p class="panel-copy">Every text and email the office has sent, and what happened to each one.</p>
+    ${Array.isArray(campaigns) ? (campaigns.length ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Send</th><th>Type</th><th>Started</th><th>Delivered</th><th>Problems</th><th>Status</th><th></th></tr></thead><tbody>${campaigns.map(campaign => `<tr>
+      <td data-th="Send"><strong>${escapeHtml(campaign.name)}</strong></td>
+      <td data-th="Type">${campaign.channel === "email" ? "Email" : "Text"}</td>
+      <td data-th="Started">${escapeHtml(formatDateTime(campaign.created_at))}</td>
+      <td data-th="Delivered">${Number(campaign.sent_recipients || 0).toLocaleString()} of ${Number(campaign.total_recipients || 0).toLocaleString()}</td>
+      <td data-th="Problems">${Number(campaign.failed_recipients || 0) ? `<span class="status lost">${Number(campaign.failed_recipients).toLocaleString()}</span>` : "—"}</td>
+      <td data-th="Status"><span class="status ${campaign.status === "sent" ? "live" : campaign.status === "cancelled" ? "lost" : "draft"}">${escapeHtml({ queued: "Ready", sending: "Sending", sent: "Finished", cancelled: "Stopped" }[campaign.status] || campaign.status)}</span></td>
+      <td data-th=""><button class="btn btn-outline btn-small" type="button" data-history-open="${escapeHtml(campaign.id)}">See who got it</button></td>
+    </tr>`).join("")}</tbody></table></div>` : `<p class="panel-copy">Nothing has been sent yet. When you send a text or email it will appear here with a line for every person.</p>`) : `<p class="panel-copy">Press Refresh to load the sends.</p>`}`, "pad");
+}
+
 function communicationsConsentPage() {
   const audience = state.consentAudience;
   return `${panel("Permission To Contact", `<button class="btn btn-outline" type="button" data-consent-count>Check current numbers</button>`, `
@@ -4443,6 +4487,17 @@ function flowRecipientPicker() {
       return `<button type="button" class="recipient-row ${picked ? "picked" : ""}" data-flow-pick="${escapeHtml(id)}"><span><strong>${escapeHtml(client.name || "Client")}</strong><small>${escapeHtml(client.email || "no email")} · ${escapeHtml(formatPhoneNumber(client.phone) || "no mobile")}</small></span><em>${picked ? "Remove" : "Add"}</em></button>`;
     }).join("") : `<p class="panel-copy">Nobody matches "${escapeHtml(flow.recipientSearch)}".</p>`}</div>` : ""}
     ${chosen.length ? `<div class="recipient-chosen"><strong>${chosen.length} chosen</strong>${chosen.map(client => `<span class="chip">${escapeHtml(client.name || "Client")}<button type="button" data-flow-pick="${escapeHtml(client.remoteId || client.id)}" aria-label="Remove">×</button></span>`).join("")}</div>` : ""}
+    <details class="recipient-add" ${flow.addOpen ? "open" : ""}>
+      <summary>Someone not on the list? Add them by name</summary>
+      <form class="communications-form" data-flow-add-recipient>
+        <label>Their name<input required name="name" placeholder="Andrea Aaby"></label>
+        <label>Mobile number<input name="phone" inputmode="tel" placeholder="(440) 555-0100"></label>
+        <label>Email address<input type="email" name="email" placeholder="name@example.com"></label>
+        <label>City<input name="city" placeholder="Mentor"></label>
+        <button class="btn btn-outline" type="submit">Add to this message</button>
+        <small class="field-help wide">A mobile number or an email address is needed. They are saved to the client list so this send is recorded against them.</small>
+      </form>
+    </details>
   </div>`;
 }
 
@@ -4695,6 +4750,8 @@ function communicationsScreen() {
         ? communicationsTemplateLibrary()
         : state.communicationsSection === "consent"
           ? communicationsConsentPage()
+        : state.communicationsSection === "history"
+          ? communicationsHistoryPage()
           : state.communicationsSection === "settings"
             ? communicationsSettings()
             : communicationsAlertLists();
@@ -8524,6 +8581,13 @@ document.addEventListener("click", async event => {
   if (communicationsSection) {
     state.communicationsSection = communicationsSection.dataset.communicationsSection || "alerts";
     saveState();
+    if (state.communicationsSection === "history" && !Array.isArray(state.sendHistory)) {
+      try {
+        const result = await communicationsRequest({ operation: "campaign_report" });
+        state.sendHistory = result.campaigns || [];
+        render();
+      } catch (error) { showToast(error.message || "The send history could not be loaded."); }
+    }
     return;
   }
   if (event.target.closest("[data-communications-refresh]")) {
@@ -8545,6 +8609,34 @@ document.addEventListener("click", async event => {
       communicationsLeadAction.removeAttribute("disabled");
       showToast(error.message || "The lead could not be updated.");
     }
+    return;
+  }
+  const historyOpen = event.target.closest("[data-history-open]");
+  if (historyOpen) {
+    try {
+      state.sendReport = await communicationsRequest({ operation: "campaign_report", campaign_id: historyOpen.dataset.historyOpen });
+      state.sendReportFilter = "all";
+      render();
+    } catch (error) { showToast(error.message || "That send could not be opened."); }
+    return;
+  }
+  if (event.target.closest("[data-history-back]")) {
+    state.sendReport = null;
+    render();
+    return;
+  }
+  const historyFilter = event.target.closest("[data-history-filter]");
+  if (historyFilter) {
+    state.sendReportFilter = historyFilter.dataset.historyFilter;
+    render();
+    return;
+  }
+  if (event.target.closest("[data-history-refresh]")) {
+    try {
+      const result = await communicationsRequest({ operation: "campaign_report" });
+      state.sendHistory = result.campaigns || [];
+      render();
+    } catch (error) { showToast(error.message || "The send history could not be loaded."); }
     return;
   }
   const flowChannel = event.target.closest("[data-flow-channel]");
@@ -10915,6 +11007,28 @@ document.addEventListener("submit", async event => {
       state.campaignId = created.campaign.id;
       await runCampaignBatches(created.campaign.id, created.eligible, `Sending ${created.eligible.toLocaleString()} ${word}`);
     } catch (error) { showToast(error.message || "The send could not be started."); }
+    return;
+  }
+  if (event.target.matches("[data-flow-add-recipient]")) {
+    const data = new FormData(event.target);
+    try {
+      const result = await communicationsRequest({
+        operation: "add_recipient",
+        name: data.get("name"), phone: data.get("phone"), email: data.get("email"), city: data.get("city")
+      });
+      const client = result.client;
+      const flow = messageFlow();
+      flow.addOpen = true;
+      if (!flow.recipientIds.includes(client.id)) flow.recipientIds.push(client.id);
+      // Make the new person visible to the picker straight away.
+      state.clients = [...(state.clients || []), {
+        remoteId: client.id, id: client.id, name: client.client_name,
+        email: client.email || "", phone: client.phone || "", serviceArea: client.service_area || ""
+      }].filter((row, index, all) => all.findIndex(item => (item.remoteId || item.id) === (row.remoteId || row.id)) === index);
+      event.target.reset();
+      render();
+      showToast(result.existed ? `${client.client_name} was already on the list and has been added to this message.` : `${client.client_name} added to this message.`);
+    } catch (error) { showToast(error.message || "That person could not be added."); }
     return;
   }
   if (event.target.matches("[data-consent-form]")) {
