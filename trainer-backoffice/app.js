@@ -4521,7 +4521,7 @@ function communicationsHistoryPage() {
       <td data-th="Started">${escapeHtml(formatDateTime(campaign.created_at))}</td>
       <td data-th="Delivered">${Number(campaign.sent_recipients || 0).toLocaleString()} of ${Number(campaign.total_recipients || 0).toLocaleString()}</td>
       <td data-th="Problems">${Number(campaign.failed_recipients || 0) ? `<span class="status lost">${Number(campaign.failed_recipients).toLocaleString()}</span>` : "—"}</td>
-      <td data-th="Status"><span class="status ${campaign.status === "sent" ? "live" : campaign.status === "cancelled" ? "lost" : "draft"}">${escapeHtml({ queued: "Ready", sending: "Sending", sent: "Finished", cancelled: "Stopped" }[campaign.status] || campaign.status)}</span></td>
+      <td data-th="Status"><span class="status ${campaign.status === "completed" ? "live" : campaign.status === "cancelled" ? "lost" : "draft"}">${escapeHtml({ draft: "Ready", sending: "Sending", completed: "Finished", failed: "Problem", cancelled: "Stopped" }[campaign.status] || campaign.status)}</span></td>
       <td data-th=""><button class="btn btn-outline btn-small" type="button" data-history-open="${escapeHtml(campaign.id)}">See who got it</button></td>
     </tr>`).join("")}</tbody></table></div>` : `<p class="panel-copy">Nothing has been sent yet. When you send a text or email it will appear here with a line for every person.</p>`) : `<p class="panel-copy">Press Refresh to load the sends.</p>`}`, "pad");
 }
@@ -4554,7 +4554,7 @@ function communicationsCampaignPanel() {
   const campaigns = (communicationsData.campaigns || []).slice(0, 6);
   const audience = state.campaignAudience;
   const progress = state.campaignProgress;
-  const statusLabel = { queued: "Ready to send", sending: "Sending", sent: "Finished", cancelled: "Stopped" };
+  const statusLabel = { draft: "Ready to send", sending: "Sending", completed: "Finished", failed: "Problem", cancelled: "Stopped" };
   return `${panel("Send To The Client List",
     `<button class="btn btn-outline" type="button" data-campaign-check>Check who will receive it</button>`,
     `<p class="panel-copy">This sends to the client database. Anyone marked Do Not Contact, anyone who replied STOP, and anyone without a working email or mobile number is left out automatically. <strong>Send a test to yourself first.</strong></p>
@@ -4588,7 +4588,7 @@ function communicationsCampaignPanel() {
         <button class="btn btn-outline" type="submit">Record consent on file</button>
       </form></div>
     </div>`, "pad")}
-  ${campaigns.length ? panel("Recent Sends", "", `<div class="communications-list">${campaigns.map(campaign => `<article><div><strong>${escapeHtml(campaign.name)}</strong><small>${escapeHtml(campaign.channel === "email" ? "Email" : "Text")} · ${Number(campaign.sent_recipients || 0).toLocaleString()} sent${Number(campaign.failed_recipients || 0) ? ` · ${Number(campaign.failed_recipients).toLocaleString()} failed` : ""} of ${Number(campaign.total_recipients || 0).toLocaleString()}</small></div><span class="status ${campaign.status === "sent" ? "live" : campaign.status === "cancelled" ? "lost" : "draft"}">${escapeHtml(statusLabel[campaign.status] || campaign.status)}</span></article>`).join("")}</div>`, "pad") : ""}`;
+  ${campaigns.length ? panel("Recent Sends", "", `<div class="communications-list">${campaigns.map(campaign => `<article><div><strong>${escapeHtml(campaign.name)}</strong><small>${escapeHtml(campaign.channel === "email" ? "Email" : "Text")} · ${Number(campaign.sent_recipients || 0).toLocaleString()} sent${Number(campaign.failed_recipients || 0) ? ` · ${Number(campaign.failed_recipients).toLocaleString()} failed` : ""} of ${Number(campaign.total_recipients || 0).toLocaleString()}</small></div><span class="status ${campaign.status === "completed" ? "live" : campaign.status === "cancelled" ? "lost" : "draft"}">${escapeHtml(statusLabel[campaign.status] || campaign.status)}</span></article>`).join("")}</div>`, "pad") : ""}`;
 }
 
 function messageFlow() {

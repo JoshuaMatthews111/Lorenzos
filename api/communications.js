@@ -642,7 +642,7 @@ async function createCampaign(access, body) {
         ? (htmlToText(template.body_html) || template.body_text)
         : template.body_text,
       audience_filter: { require_consent: requireConsent, skipped, source: "clients" },
-      status: "queued",
+      status: "draft",
       total_recipients: eligible.length,
       created_by: access.user.id
     })
@@ -682,7 +682,7 @@ async function sendCampaignBatch(access, body) {
   if (!queued?.length) {
     await supabaseFetch(`/rest/v1/communications_campaigns?id=eq.${encodeURIComponent(campaignId)}`, {
       method: "PATCH", headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ status: "sent", sent_by: access.user.id })
+      body: JSON.stringify({ status: "completed", sent_by: access.user.id })
     });
     return { done: true, campaign_id: campaignId, sent: campaign.sent_recipients, failed: campaign.failed_recipients };
   }
