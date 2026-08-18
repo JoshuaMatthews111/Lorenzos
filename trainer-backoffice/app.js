@@ -5382,6 +5382,17 @@ function dashboardContactFormRows(leadRows = dashboardSubmittedLeadRows()) {
   return leadRows.filter(lead => !isPaidAdLandingPageLead(lead));
 }
 
+const DASHBOARD_BUCKET_COLORS = {
+  "Contact Us forms": "#246bfe",              // blue
+  "Paid Ad Submitted Inquiries": "#f59e0b",   // amber
+  "Ebook requests": "#64748b",                // grey
+  "Eval Scheduled": "#d80f35",                // red
+  "Eval Complete": "#4ac26b",                 // lighter green, distinct from Became a Client
+  "Became a Client": "#0c9b58",               // deep green, unchanged
+  "Lost": "#111827",                          // black
+  "New Trainer Applications": "#8b5cf6"       // purple
+};
+
 function dashboardBucketRows() {
   const leadRows = dashboardSubmittedLeadRows();
   const appRows = filteredReportApplicationRows();
@@ -5389,6 +5400,8 @@ function dashboardBucketRows() {
     ["Contact Us forms", dashboardContactFormRows(leadRows).length],
     ["Paid Ad Submitted Inquiries", dashboardPaidAdSubmittedInquiryRows(leadRows).length],
     ["Ebook requests", dashboardEbookRequestRows(leadRows).length],
+    ["Eval Scheduled", leadRows.filter(lead => lead.status === "Evaluation Scheduled").length],
+    ["Eval Complete", leadRows.filter(lead => lead.status === "Evaluation Complete").length],
     ["Became a Client", leadRows.filter(lead => lead.status === "Became a Client").length],
     ["Lost", dashboardLostLeadRows(leadRows).length],
     ["New Trainer Applications", appRows.length]
@@ -6348,7 +6361,9 @@ function leadStatusCounts(rows) {
 function leadSummary() {
   const labels = dashboardBucketRows();
   const total = labels.reduce((sum, [, value]) => sum + value, 0);
-  const colors = ["#246bfe", "#f59e0b", "#64748b", "#0c9b58", "#d80f35", "#8b5cf6"];
+  // Colours are tied to the bucket name, never to its position, so adding or
+  // reordering a slice can never silently repaint the others.
+  const colors = labels.map(([name]) => DASHBOARD_BUCKET_COLORS[name] || "#64748b");
   let cursor = 0;
   const segments = labels.map(([, value], index) => {
     const start = total ? (cursor / total) * 100 : 0;
