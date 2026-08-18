@@ -5359,7 +5359,8 @@ function formSubmissionBucketRows() {
     ["Ebook requests", 0]
   ]);
   rows.forEach(lead => buckets.set(leadSubmissionBucket(lead), (buckets.get(leadSubmissionBucket(lead)) || 0) + 1));
-  return Array.from(buckets.entries());
+  // Only show stages that actually have leads in them.
+  return Array.from(buckets.entries()).filter(([, value]) => value > 0);
 }
 
 function dashboardLostLeadRows(leadRows = filteredReportLeadRows()) {
@@ -5386,29 +5387,43 @@ const DASHBOARD_BUCKET_COLORS = {
   "Contact Us forms": "#246bfe",              // blue
   "Paid Ad Submitted Inquiries": "#f59e0b",   // amber
   "Ebook requests": "#64748b",                // grey
+  "New Inquiry": "#60a5fa",                   // light blue — just arrived
+  "Office Contacted": "#0ea5e9",              // sky — office has made contact
+  "Engaged: No Outcome": "#c026d3",           // magenta — talking, no decision
   "Eval Scheduled": "#d80f35",                // red
   "Eval Complete": "#4ac26b",                 // lighter green, distinct from Became a Client
+  "Eval Cancelled": "#fb923c",                // orange — booked then called off
   "Became a Client": "#0c9b58",               // deep green, unchanged
   "Lost": "#111827",                          // black
-  "Archived": "#0891b2",                      // teal, distinct from every other slice
+  "Bad Lead": "#6b7280",                      // slate
+  "Do Not Contact": "#a16207",                // dark amber
+  "Archived": "#0891b2",                      // teal
   "New Trainer Applications": "#8b5cf6"       // purple
 };
 
 function dashboardBucketRows() {
   const leadRows = dashboardSubmittedLeadRows();
   const appRows = filteredReportApplicationRows();
+  const byStatus = status => leadRows.filter(lead => lead.status === status).length;
   const buckets = new Map([
     ["Contact Us forms", dashboardContactFormRows(leadRows).length],
     ["Paid Ad Submitted Inquiries", dashboardPaidAdSubmittedInquiryRows(leadRows).length],
     ["Ebook requests", dashboardEbookRequestRows(leadRows).length],
-    ["Eval Scheduled", leadRows.filter(lead => lead.status === "Evaluation Scheduled").length],
-    ["Eval Complete", leadRows.filter(lead => lead.status === "Evaluation Complete").length],
-    ["Became a Client", leadRows.filter(lead => lead.status === "Became a Client").length],
+    ["New Inquiry", byStatus("New Inquiry")],
+    ["Office Contacted", byStatus("Office Contacted")],
+    ["Engaged: No Outcome", byStatus("Engaged Lead: No Outcome")],
+    ["Eval Scheduled", byStatus("Evaluation Scheduled")],
+    ["Eval Cancelled", byStatus("Evaluation Cancelled")],
+    ["Eval Complete", byStatus("Evaluation Complete")],
+    ["Became a Client", byStatus("Became a Client")],
     ["Lost", dashboardLostLeadRows(leadRows).length],
-    ["Archived", leadRows.filter(lead => lead.status === "Archived").length],
+    ["Bad Lead", byStatus("Bad Lead")],
+    ["Do Not Contact", byStatus("Do Not Contact")],
+    ["Archived", byStatus("Archived")],
     ["New Trainer Applications", appRows.length]
   ]);
-  return Array.from(buckets.entries());
+  // Only show stages that actually have leads in them.
+  return Array.from(buckets.entries()).filter(([, value]) => value > 0);
 }
 
 function reportLifecycleRows() {
