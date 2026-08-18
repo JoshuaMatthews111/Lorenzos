@@ -3949,6 +3949,15 @@ function communicationsOwnerLabel(userId) {
 
 // A lead claimed in Communications is the same lead the office works in the
 // pipeline, so the pipeline has to show who owns it too.
+// Office can retire any lead by hand without waiting for the 30-day rule. Archiving
+// never deletes: the lead stays searchable and can be put back.
+function leadArchiveControl(lead) {
+  if (lead.status === "Archived") {
+    return `<button class="lead-archive-btn restore" type="button" data-restore-lead="${escapeHtml(lead.id)}" title="Put this lead back in the pipeline">Restore</button>`;
+  }
+  return `<button class="lead-archive-btn" type="button" data-archive-lead="${escapeHtml(lead.id)}" title="Archive this lead">Archive</button>`;
+}
+
 function leadAssignmentLine(lead) {
   return lead.claimedBy ? `<small class="lead-assignee">Assigned to ${escapeHtml(staffFullName(lead.claimedBy))}</small>` : "";
 }
@@ -4005,6 +4014,55 @@ function communicationsClaimBadge(lead) {
   const urgent = (status === "new" && ageMinutes > 10) || (status === "claimed" && lead.claimedAt && Math.floor((Date.now() - new Date(lead.claimedAt).getTime()) / 60000) > 30);
   const label = { new: "New", claimed: "Claimed", contacted: "Contacted", appointment_set: "Appointment Set", won: "Won", lost: "Lost" }[status] || "New";
   return `<span class="status ${urgent ? "lost" : status === "contacted" || status === "won" ? "live" : "draft"}">${escapeHtml(label)}</span>`;
+}
+
+// Plain-English directions shown at the top of each Communications screen, written
+// for office staff who do not think in software terms.
+const COMMS_HELP = {
+  messages: ["How to send a message", [
+    "Step 1 — Pick Text message, Email, or both. Then choose everyone on the client list, or search for the few people you want.",
+    "Step 2 — Write the text. Use the grey buttons to drop in the client's first name so each person sees their own name.",
+    "Step 3 — Check the text. It shows exactly what a real client will get. Press Approve if it looks right.",
+    "Step 4 — Build the email the same way, then check and approve it.",
+    "Step 5 — Press \"Count who will receive it\" to see the numbers, send yourself a test, then type SEND to confirm.",
+    "Nothing goes out until you type SEND. You can stop a send while it is running."
+  ]],
+  templates: ["How to make and save a message", [
+    "Give it a name you will recognise later, like \"Spring class reminder\".",
+    "Choose Email only, Text only, or Both. Both keeps a short phone version and a full email version together.",
+    "Type your wording. Use the client-detail buttons for their name and city.",
+    "Add a logo, photo, button or video link with the + buttons.",
+    "Press Save Template. You can edit, copy or delete any saved message at any time."
+  ]],
+  consent: ["How permission works", [
+    "You may only text or email someone who has agreed to hear from you.",
+    "If the office already holds signed consent forms, write what the paperwork is and press Record this consent.",
+    "For new people, send the opt-in text. Anyone who replies YES is recorded automatically.",
+    "Anyone who replies STOP is removed for good, automatically. You do not have to do anything."
+  ]],
+  history: ["How to see what happened", [
+    "Every text and email you have sent is listed here, newest first.",
+    "Delivered means the phone company or email provider accepted it.",
+    "Press \"See who got it\" to view every person and what happened to their message.",
+    "If something failed, the reason is shown on that person's line."
+  ]],
+  alerts: ["How lead alerts work", [
+    "An alert list is the group of staff who get told when a new lead comes in.",
+    "Create the list, choose which market or service it covers, then add the people and their mobile numbers.",
+    "Quiet hours stop messages going out overnight."
+  ]],
+  status: ["How to take a lead", [
+    "Available means nobody has picked this lead up yet.",
+    "Press Assign to me to take it. Your name then shows on the lead here and in the Leads pipeline.",
+    "Press Log Contact once you have spoken to them, or Release to hand it back."
+  ]]
+};
+
+function communicationsHelp(section) {
+  const entry = COMMS_HELP[section];
+  if (!entry) return "";
+  const [title, steps] = entry;
+  return `<details class="comms-help"><summary>${escapeHtml(title)}</summary><ol>${steps.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ol></details>`;
 }
 
 function communicationsTabs() {
@@ -4943,7 +5001,7 @@ function communicationsScreen() {
           : state.communicationsSection === "settings"
             ? communicationsSettings()
             : communicationsAlertLists();
-  return `${communicationsTabs()}${content}`;
+  return `${communicationsTabs()}${communicationsHelp(state.communicationsSection)}${content}`;
 }
 
 const adminScreens = {
@@ -6338,7 +6396,7 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
 const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"];
 function boardStatus(status) { return /^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status; }
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small>${leadAssignmentLine(lead)}</article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><strong>${escapeHtml(lead.owner)}</strong><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small>${leadAssignmentLine(lead)}${leadArchiveControl(lead)}</article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -9245,11 +9303,11 @@ document.addEventListener("click", async event => {
     }
     return;
   }
-  const openLead = event.target.closest("[data-open-lead]");
-  if (openLead && !event.target.closest("select,input,textarea,button")) { state.selectedLeadId = openLead.dataset.openLead; saveState(); return; }
-  if (event.target.closest("[data-close-lead]")) { state.selectedLeadId = ""; saveState(); return; }
   const archiveLead = event.target.closest("[data-archive-lead]");
   if (archiveLead) {
+    event.stopPropagation();
+    const archiveTarget = state.leads.find(item => item.id === archiveLead.dataset.archiveLead);
+    if (!window.confirm(`Archive ${archiveTarget?.owner || "this lead"}?\n\nIt leaves the live pipeline but stays on file, stays searchable, and can be put back at any time.`)) return;
     const lead = updateLeadRecord(archiveLead.dataset.archiveLead, { status: "Archived" });
     state.selectedLeadId = "";
     if (remoteReady) runRemoteMutation("Lead archived; record preserved", () => window.LDTT_PORTAL.operationalMutation({
@@ -9266,6 +9324,21 @@ document.addEventListener("click", async event => {
     else saveState("Lead archived; record preserved");
     return;
   }
+  // Put an archived lead back into the working pipeline.
+  const restoreLead = event.target.closest("[data-restore-lead]");
+  if (restoreLead) {
+    event.stopPropagation();
+    const lead = updateLeadRecord(restoreLead.dataset.restoreLead, { status: "New Inquiry" });
+    if (remoteReady) runRemoteMutation("Lead restored to the pipeline", () => persistLeadWorkflow(lead), {
+      type: "Lead",
+      detail: `${lead?.owner || "Lead"} was restored to the pipeline by ${currentActorLabel()}.`
+    });
+    else saveState("Lead restored to the pipeline");
+    return;
+  }
+  const openLead = event.target.closest("[data-open-lead]");
+  if (openLead && !event.target.closest("select,input,textarea,button")) { state.selectedLeadId = openLead.dataset.openLead; saveState(); return; }
+  if (event.target.closest("[data-close-lead]")) { state.selectedLeadId = ""; saveState(); return; }
   const saveLead = event.target.closest("[data-save-lead]");
   if (saveLead) {
     const lead = allLeadRows().find(item => item.id === saveLead.dataset.saveLead);

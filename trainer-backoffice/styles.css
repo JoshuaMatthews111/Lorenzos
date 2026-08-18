@@ -5173,3 +5173,16 @@ button:disabled{cursor:not-allowed}
   .communications-status-table td[data-th="Action"]::before,.communications-status-table td[colspan]::before{display:none}
   .communications-status-table td[data-th="Action"] .btn{min-height:44px}
 }
+
+/* Manual archive / restore on pipeline cards */
+.lead-archive-btn{margin-top:9px;padding:5px 11px;border:1px solid var(--red);border-radius:999px;background:#fff;color:var(--red);font:inherit;font-size:.72rem;font-weight:900;cursor:pointer}
+.lead-archive-btn:hover{background:var(--red);color:#fff}
+.lead-archive-btn.restore{border-color:#0b6b3a;color:#0b6b3a}
+.lead-archive-btn.restore:hover{background:#0b6b3a;color:#fff}
+
+/* Plain-English directions on each Communications screen */
+.comms-help{margin:0 0 18px;padding:12px 16px;border:1px solid #cfe0f2;border-radius:12px;background:#f7fbff}
+.comms-help summary{cursor:pointer;color:var(--navy);font-weight:900;font-size:.88rem}
+.comms-help[open] summary{margin-bottom:10px}
+.comms-help ol{margin:0;padding-left:20px;color:var(--ink);font-size:.86rem;line-height:1.7}
+.comms-help li{margin-bottom:6px}
