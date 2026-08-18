@@ -5390,6 +5390,7 @@ const DASHBOARD_BUCKET_COLORS = {
   "Eval Complete": "#4ac26b",                 // lighter green, distinct from Became a Client
   "Became a Client": "#0c9b58",               // deep green, unchanged
   "Lost": "#111827",                          // black
+  "Archived": "#0891b2",                      // teal, distinct from every other slice
   "New Trainer Applications": "#8b5cf6"       // purple
 };
 
@@ -5404,6 +5405,7 @@ function dashboardBucketRows() {
     ["Eval Complete", leadRows.filter(lead => lead.status === "Evaluation Complete").length],
     ["Became a Client", leadRows.filter(lead => lead.status === "Became a Client").length],
     ["Lost", dashboardLostLeadRows(leadRows).length],
+    ["Archived", leadRows.filter(lead => lead.status === "Archived").length],
     ["New Trainer Applications", appRows.length]
   ]);
   return Array.from(buckets.entries());

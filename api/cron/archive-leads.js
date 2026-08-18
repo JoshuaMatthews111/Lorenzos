@@ -1,7 +1,7 @@
 // Daily lead archiving (office request, 2026-08-17).
 //
 // Old inbound enquiries were piling up in the live pipeline and skewing the board.
-// This moves inactive ones to Archived so the working queues stay current. Nothing
+// This moves old ones to Archived so the working queues stay current. Nothing
 // is deleted: archived leads keep every field and can be restored by the office.
 //
 // Deliberately conservative — a lead is left alone if anyone is working it.
@@ -57,18 +57,18 @@ module.exports = async function handler(req, res) {
     const candidates = await supabaseFetch(
       `/rest/v1/leads?select=id,first_name,last_name,status,updated_at,created_at,claimed_by,assigned_user_id,communications_code`
       + `&status=not.in.(${protectedList})`
-      + `&updated_at=lt.${encodeURIComponent(cutoff)}`
+      + `&created_at=lt.${encodeURIComponent(cutoff)}`
       // Someone is working it — leave it in the live pipeline.
       + `&claimed_by=is.null&assigned_user_id=is.null`
       + `&archived_at=is.null`
-      + `&order=updated_at.asc&limit=500`
+      + `&order=created_at.asc&limit=500`
     );
 
     const summary = {
       ok: true,
       dryRun,
       thresholdDays: ARCHIVE_AFTER_DAYS,
-      inactiveSince: cutoff,
+      createdBefore: cutoff,
       eligible: candidates.length,
       archived: 0,
       leads: candidates.slice(0, 50).map(lead => ({
@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
         code: lead.communications_code,
         name: [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Lead",
         status: lead.status,
-        lastActivity: lead.updated_at
+        created: lead.created_at
       }))
     };
     if (dryRun || !candidates.length) return res.status(200).json(summary);
@@ -96,7 +96,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify(chunk.map(lead => ({
           lead_id: lead.id,
           event_type: "lead_archived",
-          note: `Archived automatically after ${ARCHIVE_AFTER_DAYS} days with no activity (was ${lead.status}).`,
+          note: `Archived automatically ${ARCHIVE_AFTER_DAYS} days after it came in (was ${lead.status}).`,
           event_key: `auto-archive:${lead.id}:${stamp}`,
           occurred_at: stamp,
           raw_payload: { source: "auto_archive", previous_status: lead.status, threshold_days: ARCHIVE_AFTER_DAYS }
@@ -113,8 +113,8 @@ module.exports = async function handler(req, res) {
         action: "leads_auto_archived",
         entity_type: "leads",
         entity_id: "scheduled",
-        summary: `${summary.archived} lead(s) archived after ${ARCHIVE_AFTER_DAYS} days without activity.`,
-        after_data: { threshold_days: ARCHIVE_AFTER_DAYS, inactive_since: cutoff, archived: summary.archived }
+        summary: `${summary.archived} lead(s) archived ${ARCHIVE_AFTER_DAYS} days after they came in.`,
+        after_data: { threshold_days: ARCHIVE_AFTER_DAYS, created_before: cutoff, archived: summary.archived, rule: 'creation_date' }
       })
     }).catch(() => {});
 
