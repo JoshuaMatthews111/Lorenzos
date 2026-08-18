@@ -105,6 +105,9 @@ const checks = [
   ["a redraw mid-edit restores the typed wording and the cursor", /function captureTypedInput/.test(app) && /function restoreTypedInput/.test(app) && /setSelectionRange\(snapshot\.start, snapshot\.end\)/.test(app)],
   ["a held-back redraw is applied once typing stops", /flushPendingBackgroundRender/.test(app) && /setInterval\(flushPendingBackgroundRender/.test(app)],
   ["one template can carry both a text and an email version", /Both text and email/.test(app) && /data-design-sms-text/.test(app) && /'both'::text/.test(read("supabase/migrations/20260817210000_communications_template_both_channels.sql"))],
+  ["reading a record is never interrupted by a background refresh", /function userIsReadingRecord/.test(app) && /workspaceHasTypedInput\(\) \|\| userIsReadingRecord\(\)/.test(app) && /lead-detail-panel/.test(app)],
+  ["a redraw keeps the reading position instead of jumping to the top", /function captureScrollState/.test(app) && /function restoreScrollState/.test(app) && /restoreScrollState\(target, scrolled\)/.test(app)],
+  ["removed clients can be found and put back", /function recentlyDeletedClients/.test(app) && /data-restore-client/.test(app)],
   ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)]
 ];
 

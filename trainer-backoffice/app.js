@@ -1205,6 +1205,16 @@ function isTypingField(element) {
   return !["button", "submit", "reset", "checkbox", "radio", "file", "color", "range"].includes(String(element.type || "text").toLowerCase());
 }
 
+let lastScrollActivityAt = 0;
+document.addEventListener("scroll", () => { lastScrollActivityAt = Date.now(); }, { passive: true, capture: true });
+
+// Someone scrolling through a record, or with a record open, is mid-task. Redrawing
+// under them is what kept jumping people back to the top.
+function userIsReadingRecord() {
+  if (Date.now() - lastScrollActivityAt < 6000) return true;
+  return Boolean(document.querySelector(".lead-detail-panel"));
+}
+
 function workspaceHasTypedInput() {
   const workspace = document.getElementById("workspaceView");
   if (!workspace) return false;
@@ -1214,7 +1224,7 @@ function workspaceHasTypedInput() {
 }
 
 function backgroundRender() {
-  if (workspaceHasTypedInput()) {
+  if (workspaceHasTypedInput() || userIsReadingRecord()) {
     pendingBackgroundRender = true;
     renderTopbar();
     return;
@@ -1224,7 +1234,7 @@ function backgroundRender() {
 }
 
 function flushPendingBackgroundRender() {
-  if (!pendingBackgroundRender || workspaceHasTypedInput()) return;
+  if (!pendingBackgroundRender || workspaceHasTypedInput() || userIsReadingRecord()) return;
   pendingBackgroundRender = false;
   render();
 }
@@ -3851,8 +3861,38 @@ function renderView() {
   // Backstop: if any redraw still happens mid-edit, put the half-finished wording
   // and the cursor back exactly where they were instead of clearing the form.
   const typed = captureTypedInput(target);
+  const scrolled = captureScrollState(target);
   target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
   restoreTypedInput(target, typed);
+  restoreScrollState(target, scrolled);
+}
+
+// A redraw must not throw someone back to the top of a lead they are reading.
+const SCROLLABLE_PARTS = ".table-wrap, .lead-detail-panel, .recipient-results, .kanban-cards, .communications-blocks, .review-inbox-list";
+
+function captureScrollState(target) {
+  if (!target) return null;
+  return {
+    x: window.scrollX || 0,
+    y: window.scrollY || 0,
+    parts: [...target.querySelectorAll(SCROLLABLE_PARTS)].map(el => [el.scrollTop, el.scrollLeft])
+  };
+}
+
+function restoreScrollState(target, snapshot) {
+  if (!target || !snapshot) return;
+  const parts = [...target.querySelectorAll(SCROLLABLE_PARTS)];
+  snapshot.parts.forEach(([top, left], index) => {
+    const el = parts[index];
+    if (!el) return;
+    el.scrollTop = top;
+    el.scrollLeft = left;
+  });
+  if (snapshot.y || snapshot.x) {
+    window.scrollTo(snapshot.x, snapshot.y);
+    // Run again once layout settles, otherwise a taller/shorter page snaps to the top.
+    requestAnimationFrame(() => window.scrollTo(snapshot.x, snapshot.y));
+  }
 }
 
 function typedFieldKey(field) {
