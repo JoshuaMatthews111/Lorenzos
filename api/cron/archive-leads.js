@@ -55,7 +55,7 @@ module.exports = async function handler(req, res) {
   try {
     const protectedList = PROTECTED_STATUSES.map(status => `"${status}"`).join(",");
     const candidates = await supabaseFetch(
-      `/rest/v1/leads?select=id,client_name,status,updated_at,created_at,claimed_by,assigned_user_id,communications_code`
+      `/rest/v1/leads?select=id,first_name,last_name,status,updated_at,created_at,claimed_by,assigned_user_id,communications_code`
       + `&status=not.in.(${protectedList})`
       + `&updated_at=lt.${encodeURIComponent(cutoff)}`
       // Someone is working it — leave it in the live pipeline.
@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
       leads: candidates.slice(0, 50).map(lead => ({
         id: lead.id,
         code: lead.communications_code,
-        name: lead.client_name,
+        name: [lead.first_name, lead.last_name].filter(Boolean).join(" ") || "Lead",
         status: lead.status,
         lastActivity: lead.updated_at
       }))
