@@ -248,6 +248,7 @@ const defaultState = {
   campaignBatchSize: 0,
   campaignBatchPage: 1,
   previewFullSize: false,
+  browse: null,
   campaignDone: null,
   flowTextDraft: null,
   flowEmailDraft: null,
@@ -4701,12 +4702,15 @@ function flowStepWho() {
         <strong>Everyone on the client list</strong><span>All active clients who can be contacted.</span><em>${flow.mode === "bulk" ? "Selected" : "Tap to select"}</em>
       </button>
       <button type="button" class="choice-card ${flow.mode === "individual" ? "selected" : ""}" data-flow-mode="individual">
-        <strong>Just certain people</strong><span>Search and pick names one at a time.</span><em>${flow.mode === "individual" ? "Selected" : "Tap to select"}</em>
+        <strong>Just certain people</strong><span>Search, or open the full list and tick who you want.</span><em>${flow.mode === "individual" ? "Selected" : "Tap to select"}</em>
+      </button>
+      <button type="button" class="choice-card ${flow.mode === "saved" ? "selected" : ""}" data-flow-mode="saved">
+        <strong>A saved list</strong><span>A group you already built and named.</span><em>${flow.mode === "saved" ? "Selected" : "Tap to select"}</em>
       </button>
     </div>
-    ${flow.mode === "individual" ? flowRecipientPicker() : ""}
+    ${flow.mode === "individual" ? flowRecipientPicker() : flow.mode === "saved" ? flowSavedListPicker() : ""}
     <div class="flow-actions"><button class="btn btn-red" type="button" data-flow-next>Next</button>
-    ${!chosen ? `<span class="flow-hint warning">Choose Text message or Email above to continue.</span>` : flow.mode === "individual" && !flow.recipientIds.length ? `<span class="flow-hint warning">Add at least one person to continue.</span>` : `<span class="flow-hint">${flow.mode === "individual" ? `${flow.recipientIds.length} ${flow.recipientIds.length === 1 ? "person" : "people"} chosen.` : "Going to everyone on the client list."}</span>`}</div>`, "pad");
+    ${!chosen ? `<span class="flow-hint warning">Choose Text message or Email above to continue.</span>` : (flow.mode !== "bulk" && !flow.recipientIds.length) ? `<span class="flow-hint warning">Choose at least one person to continue.</span>` : `<span class="flow-hint">${flow.mode === "bulk" ? "Going to everyone on the client list." : `${flow.recipientIds.length} ${flow.recipientIds.length === 1 ? "person" : "people"} chosen.`}</span>`}</div>`, "pad");
 }
 
 // Only real, synced client records may be messaged. The app ships sample rows for
@@ -4714,6 +4718,49 @@ function flowStepWho() {
 function realClientRows() {
   if (!remoteReady) return [];
   return (state.clients || []).filter(client => client.remoteId && !/@example\.com$/i.test(client.email || ""));
+}
+
+function flowBrowseList() {
+  const flow = messageFlow();
+  const page = state.browse || { clients: [], page: 1, pages: 1, total: 0, perPage: 100 };
+  const rows = page.clients || [];
+  return `<div class="browse-list">
+    <div class="browse-controls">
+      <label>Show per page<select data-browse-per-page>${[25, 50, 100, 200, 500, 1000].map(size => `<option value="${size}" ${Number(page.perPage) === size ? "selected" : ""}>${size.toLocaleString()}</option>`).join("")}</select></label>
+      <span class="browse-count">${page.total.toLocaleString()} clients · page ${page.page} of ${page.pages}</span>
+      <div class="browse-pager">
+        <button class="btn btn-outline btn-small" type="button" data-browse-page="${Math.max(1, page.page - 1)}" ${page.page <= 1 ? "disabled" : ""}>Back</button>
+        <button class="btn btn-outline btn-small" type="button" data-browse-page="${Math.min(page.pages, page.page + 1)}" ${page.page >= page.pages ? "disabled" : ""}>Next</button>
+      </div>
+    </div>
+    <div class="browse-bulk">
+      <button class="btn btn-outline btn-small" type="button" data-browse-select-page>Tick everyone on this page</button>
+      <button class="btn btn-outline btn-small" type="button" data-browse-clear>Untick everything</button>
+      <strong>${flow.recipientIds.length.toLocaleString()} chosen</strong>
+    </div>
+    <div class="browse-rows">${rows.map(client => {
+      const picked = flow.recipientIds.includes(client.id);
+      return `<label class="browse-row ${picked ? "picked" : ""}">
+        <input type="checkbox" data-browse-pick="${escapeHtml(client.id)}" ${picked ? "checked" : ""}>
+        <span><strong>${escapeHtml(client.client_name || "Client")}</strong><small>${escapeHtml(client.email || "no email")} · ${escapeHtml(formatPhoneNumber(client.phone) || "no mobile")}</small></span>
+      </label>`;
+    }).join("") || `<p class="panel-copy">No clients on this page.</p>`}</div>
+  </div>`;
+}
+
+function flowSavedListPicker() {
+  const flow = messageFlow();
+  const saved = communicationsData.savedLists || [];
+  if (!saved.length) {
+    return `<div class="recipient-picker"><p class="panel-copy">No saved lists yet. Build one on the <button type="button" class="link-button" data-view="clients">Clients</button> screen, or tick people under "Just certain people" and save them as a list.</p></div>`;
+  }
+  return `<div class="recipient-picker"><div class="saved-list-grid">${saved.map(list => {
+    const count = Array.isArray(list.client_ids) ? list.client_ids.length : 0;
+    const picked = flow.savedListId === list.id;
+    return `<button type="button" class="choice-card ${picked ? "selected" : ""}" data-flow-saved-list="${escapeHtml(list.id)}">
+      <strong>${escapeHtml(list.name)}</strong><span>${count.toLocaleString()} ${count === 1 ? "person" : "people"}${list.description ? ` · ${escapeHtml(list.description)}` : ""}</span>
+      <em>${picked ? "Selected" : "Tap to use"}</em></button>`;
+  }).join("")}</div></div>`;
 }
 
 function flowRecipientPicker() {
@@ -4739,6 +4786,11 @@ function flowRecipientPicker() {
       return `<button type="button" class="recipient-row ${picked ? "picked" : ""}" data-flow-pick="${escapeHtml(id)}"><span><strong>${escapeHtml(client.name || "Client")}</strong><small>${escapeHtml(client.email || "no email")} · ${escapeHtml(formatPhoneNumber(client.phone) || "no mobile")}</small></span><em>${picked ? "Remove" : "Add"}</em></button>`;
     }).join("") : `<p class="panel-copy">Nobody matches "${escapeHtml(flow.recipientSearch)}".</p>`}</div>` : ""}
     ${chosen.length ? `<div class="recipient-chosen"><strong>${chosen.length} chosen</strong>${chosen.map(client => `<span class="chip">${escapeHtml(client.name || "Client")}<button type="button" data-flow-pick="${escapeHtml(client.remoteId || client.id)}" aria-label="Remove">×</button></span>`).join("")}</div>` : ""}
+    <div class="browse-toggle">
+      <button class="btn btn-outline" type="button" data-flow-browse>${flow.browseOpen ? "Close the full list" : "Or open the full client list and tick people"}</button>
+      ${flow.recipientIds.length ? `<button class="btn btn-outline" type="button" data-flow-save-list>Save these ${flow.recipientIds.length} as a list</button>` : ""}
+    </div>
+    ${flow.browseOpen ? flowBrowseList() : ""}
     <details class="recipient-add" ${flow.addOpen ? "open" : ""}>
       <summary>Someone not on the list? Add them by name</summary>
       ${flow.justAdded ? `<div class="recipient-added-note"><strong>✓ ${escapeHtml(flow.justAdded)} added${flow.addedCount > 1 ? ` — ${flow.addedCount} people added so far` : ""}</strong><span>Add another below, or press Next when you are done.</span></div>` : ""}
@@ -9008,6 +9060,74 @@ document.addEventListener("click", async event => {
     } catch (error) { showToast(error.message || "The send history could not be loaded."); }
     return;
   }
+  // --- browse the full client list, tick people, save them as a named list ---
+  async function loadBrowsePage(page, perPage) {
+    const flow = messageFlow();
+    const result = await communicationsRequest({
+      operation: "browse_clients",
+      page: page || 1,
+      per_page: perPage || state.browse?.perPage || 100,
+      term: flow.recipientSearch || ""
+    });
+    state.browse = result;
+    // keep names available for the chips and the send summary
+    const known = new Set((state.clients || []).map(row => row.remoteId || row.id));
+    state.clients = [...(state.clients || []), ...(result.clients || [])
+      .filter(row => !known.has(row.id))
+      .map(row => ({ remoteId: row.id, id: row.id, name: row.client_name, email: row.email || "", phone: row.phone || "", serviceArea: row.service_area || "" }))];
+    render();
+  }
+
+  if (event.target.closest("[data-flow-browse]")) {
+    const flow = messageFlow();
+    flow.browseOpen = !flow.browseOpen;
+    if (flow.browseOpen) { try { await loadBrowsePage(1); } catch (error) { showToast(error.message || "The list could not be opened."); } }
+    else render();
+    return;
+  }
+  const browsePage = event.target.closest("[data-browse-page]");
+  if (browsePage) {
+    try { await loadBrowsePage(Number(browsePage.dataset.browsePage)); }
+    catch (error) { showToast(error.message || "That page could not be loaded."); }
+    return;
+  }
+  if (event.target.closest("[data-browse-select-page]")) {
+    const flow = messageFlow();
+    const ids = (state.browse?.clients || []).map(client => client.id);
+    flow.recipientIds = [...new Set([...flow.recipientIds, ...ids])];
+    render();
+    showToast(`${ids.length} people ticked on this page.`);
+    return;
+  }
+  if (event.target.closest("[data-browse-clear]")) {
+    messageFlow().recipientIds = [];
+    render();
+    return;
+  }
+  if (event.target.closest("[data-flow-save-list]")) {
+    const flow = messageFlow();
+    const name = window.prompt(`Save these ${flow.recipientIds.length} people as a list.\n\nWhat should it be called?`, "");
+    if (!name || !name.trim()) return;
+    try {
+      await communicationsRequest({ operation: "save_client_list", name: name.trim(), client_ids: flow.recipientIds });
+      await loadCommunicationsData(false);
+      render();
+      showToast(`Saved "${name.trim()}". You can pick it under "A saved list" next time.`);
+    } catch (error) { showToast(error.message || "The list could not be saved."); }
+    return;
+  }
+  const savedListPick = event.target.closest("[data-flow-saved-list]");
+  if (savedListPick) {
+    const flow = messageFlow();
+    const list = (communicationsData.savedLists || []).find(item => item.id === savedListPick.dataset.flowSavedList);
+    if (list) {
+      flow.savedListId = list.id;
+      flow.recipientIds = Array.isArray(list.client_ids) ? [...list.client_ids] : [];
+      render();
+      showToast(`Using "${list.name}" — ${flow.recipientIds.length.toLocaleString()} people.`);
+    }
+    return;
+  }
   const flowChannel = event.target.closest("[data-flow-channel]");
   if (flowChannel) {
     const flow = messageFlow();
@@ -10667,6 +10787,28 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
+  const browsePick = event.target.closest("[data-browse-pick]");
+  if (browsePick) {
+    const flow = messageFlow();
+    const id = browsePick.dataset.browsePick;
+    flow.recipientIds = browsePick.checked
+      ? [...new Set([...flow.recipientIds, id])]
+      : flow.recipientIds.filter(value => value !== id);
+    const counter = document.querySelector(".browse-bulk strong");
+    if (counter) counter.textContent = `${flow.recipientIds.length.toLocaleString()} chosen`;
+    browsePick.closest(".browse-row")?.classList.toggle("picked", browsePick.checked);
+    return;
+  }
+  if (event.target.matches("[data-browse-per-page]")) {
+    const perPage = Number(event.target.value) || 100;
+    try {
+      const flow = messageFlow();
+      const result = await communicationsRequest({ operation: "browse_clients", page: 1, per_page: perPage, term: flow.recipientSearch || "" });
+      state.browse = result;
+      render();
+    } catch (error) { showToast(error.message || "That could not be loaded."); }
+    return;
+  }
   if (event.target.matches("[data-flow-batch]")) {
     state.campaignBatchSize = Number(event.target.value) || 0;
     state.campaignBatchPage = 1;

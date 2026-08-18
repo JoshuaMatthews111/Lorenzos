@@ -190,7 +190,7 @@ async function configurationStatus() {
 }
 
 async function loadCommunications(access) {
-  const [lists, members, templates, testers, campaigns, deliveries, events, config] = await Promise.all([
+  const [lists, members, templates, testers, campaigns, deliveries, events, config, savedLists] = await Promise.all([
     isAdmin(access) ? supabaseFetch("/rest/v1/communications_alert_lists?select=*&order=created_at.desc") : Promise.resolve([]),
     isAdmin(access) ? supabaseFetch("/rest/v1/communications_alert_members?select=*&order=created_at.asc") : supabaseFetch(`/rest/v1/communications_alert_members?select=*&portal_user_id=eq.${encodeURIComponent(access.user.id)}&active=eq.true&stopped_at=is.null`),
     isAdmin(access) ? supabaseFetch("/rest/v1/communications_templates?select=*&order=updated_at.desc") : Promise.resolve([]),
@@ -198,9 +198,10 @@ async function loadCommunications(access) {
     isAdmin(access) ? supabaseFetch("/rest/v1/communications_campaigns?select=*&order=created_at.desc&limit=50") : Promise.resolve([]),
     isAdmin(access) ? supabaseFetch("/rest/v1/communications_alert_deliveries?select=*&order=created_at.desc&limit=100") : Promise.resolve([]),
     isAdmin(access) ? supabaseFetch("/rest/v1/communications_webhook_events?select=provider,event_type,outcome,received_at&order=received_at.desc&limit=12") : Promise.resolve([]),
-    isSuperAdmin(access) ? configurationStatus() : Promise.resolve(null)
+    isSuperAdmin(access) ? configurationStatus() : Promise.resolve(null),
+    isAdmin(access) ? supabaseFetch("/rest/v1/client_saved_lists?select=*&order=name.asc") : Promise.resolve([])
   ]);
-  return { lists, members, templates, testers, campaigns, deliveries, events, config, canManage: isAdmin(access), isSuperAdmin: isSuperAdmin(access) };
+  return { lists, members, templates, testers, campaigns, deliveries, events, config, savedLists, canManage: isAdmin(access), isSuperAdmin: isSuperAdmin(access) };
 }
 
 function listPayload(input = {}) {
@@ -870,6 +871,57 @@ async function searchClients(access, body) {
   return { clients: rows || [], term };
 }
 
+async function saveClientList(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const name = clean(body.name, 120);
+  const ids = Array.isArray(body.client_ids)
+    ? [...new Set(body.client_ids.map(id => clean(id, 80)).filter(Boolean))].slice(0, 20000)
+    : [];
+  if (name.length < 2) throw Object.assign(new Error("Give the list a name."), { status: 400 });
+  if (!ids.length) throw Object.assign(new Error("Choose at least one person for the list."), { status: 400 });
+  const id = clean(body.id, 80);
+  const payload = { name, description: clean(body.description, 400) || null, client_ids: ids, updated_at: new Date().toISOString() };
+  const rows = await supabaseFetch(
+    id ? `/rest/v1/client_saved_lists?id=eq.${encodeURIComponent(id)}` : "/rest/v1/client_saved_lists?on_conflict=name",
+    {
+      method: id ? "PATCH" : "POST",
+      headers: { Prefer: "return=representation,resolution=merge-duplicates" },
+      body: JSON.stringify(id ? payload : { ...payload, created_by: access.user.id })
+    }
+  );
+  await audit(access, id ? "client_list_updated" : "client_list_created", "client_saved_list", rows?.[0]?.id || name,
+    `${actorName(access)} saved the list "${name}" with ${ids.length} people.`);
+  return { record: rows?.[0] || null, count: ids.length };
+}
+
+async function deleteClientList(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const id = clean(body.id, 80);
+  if (!id) throw Object.assign(new Error("Which list?"), { status: 400 });
+  await supabaseFetch(`/rest/v1/client_saved_lists?id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+  await audit(access, "client_list_removed", "client_saved_list", id, "Saved client list removed.");
+  return { removed: true };
+}
+
+// Browse the client list a page at a time so the office can tick people by hand.
+async function browseClients(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const perPage = safeNumber(body.per_page, 25, 1000, 100);
+  const page = safeNumber(body.page, 1, 10000, 1);
+  const term = clean(body.term, 120);
+  const filters = term
+    ? `&or=(client_name.ilike.${encodeURIComponent(`*${term}*`)},email.ilike.${encodeURIComponent(`*${term}*`)},phone.ilike.${encodeURIComponent(`*${term}*`)})`
+    : "";
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/clients?select=id,client_name,email,phone,service_area,status,sms_consent,email_consent`
+    + `&archived_at=is.null${filters}&order=client_name.asc&limit=${perPage}&offset=${(page - 1) * perPage}`,
+    { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, Prefer: "count=exact" } }
+  );
+  const clients = await response.json();
+  const total = Number(String(response.headers.get("content-range") || "").split("/")[1]) || (clients || []).length;
+  return { clients: clients || [], page, perPage, total, pages: Math.max(1, Math.ceil(total / perPage)) };
+}
+
 async function campaignReport(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const campaignId = clean(body.campaign_id, 80);
@@ -940,6 +992,9 @@ async function handler(req, res) {
     else if (operation === "record_consent") data = await recordConsent(access, req.body || {});
     else if (operation === "add_recipient") data = await addRecipient(access, req.body || {});
     else if (operation === "search_clients") data = await searchClients(access, req.body || {});
+    else if (operation === "browse_clients") data = await browseClients(access, req.body || {});
+    else if (operation === "save_client_list") data = await saveClientList(access, req.body || {});
+    else if (operation === "delete_client_list") data = await deleteClientList(access, req.body || {});
     else if (operation === "campaign_report") data = await campaignReport(access, req.body || {});
     else if (operation === "remove") data = await removeRecord(access, req.body || {});
     else return res.status(400).json({ ok: false, message: "Unsupported communications action." });
