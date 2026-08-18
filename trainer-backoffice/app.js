@@ -5177,7 +5177,22 @@ function portalAccessScreen() {
   const activeRows = rows.filter(portalUserHasAccess);
   const disabledRows = rows.filter(user => !portalUserHasAccess(user));
   const superAdmins = rows.filter(user => portalPermissionValue(user) === "super_admin");
-  return `${metricGrid([
+  return `${panel("Add a Staff Login", "", `
+    <p class="panel-copy">Create a login for someone in the office. They can sign in straight away with the email and password you set here.</p>
+    <form class="communications-form" data-create-account-form>
+      <label>First name<input name="first_name" placeholder="Jasmine"></label>
+      <label>Last name<input name="last_name" placeholder="Smith"></label>
+      <label class="wide">Email they will sign in with<input required type="email" name="email" placeholder="jasmine@lorenzosdogtrainingteam.com"></label>
+      <label class="wide">Password<input required name="password" minlength="10" placeholder="At least 10 characters"><small class="field-help">Write it down and give it to them. They are asked to change it the first time they sign in.</small></label>
+      <label>What can they do?<select name="permission_level">
+        <option value="office_admin">Office Admin — day-to-day work, messaging, leads</option>
+        <option value="super_admin">Super Admin — everything, including settings</option>
+        <option value="trainer">Trainer — their own page and leads only</option>
+      </select></label>
+      <label class="check-row"><input type="checkbox" name="must_change_password" checked> Ask them to change the password when they first sign in</label>
+      <button class="btn btn-red" type="submit">Create this login</button>
+    </form>`, "pad")}
+  ${metricGrid([
     ["shield", "Super Admins", superAdmins.length, "Full access", ""],
     ["users", "Office Admins", rows.filter(user => portalPermissionValue(user) === "office_admin").length, "Office operations", ""],
     ["lead", "Trainer Accounts", rows.filter(user => portalPermissionValue(user) === "trainer").length, "Trainer portal", ""],
@@ -11375,6 +11390,35 @@ document.addEventListener("submit", async event => {
       render();
       showToast(result.existed ? `${client.client_name} was already on the list and has been added to this message.` : `${client.client_name} added to this message.`);
     } catch (error) { showToast(error.message || "That person could not be added."); }
+    return;
+  }
+  if (event.target.matches("[data-create-account-form]")) {
+    const data = new FormData(event.target);
+    const email = String(data.get("email") || "").trim().toLowerCase();
+    const password = String(data.get("password") || "");
+    if (password.length < 10) { showToast("The password needs to be at least 10 characters."); return; }
+    const session = window.LDTT_PORTAL?.readSession?.();
+    try {
+      const response = await fetch("/api/manage-portal-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+        body: JSON.stringify({
+          action: "create-account",
+          email,
+          password,
+          first_name: data.get("first_name"),
+          last_name: data.get("last_name"),
+          permission_level: data.get("permission_level"),
+          must_change_password: data.get("must_change_password") === "on"
+        })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok === false) throw new Error(result.message || "The login could not be created.");
+      event.target.reset();
+      await refreshOperationalData("account-created").catch(() => {});
+      render();
+      showToast(`Login created for ${email}. Give them the password you just set.`);
+    } catch (error) { showToast(error.message || "The login could not be created."); }
     return;
   }
   if (event.target.matches("[data-consent-form]")) {

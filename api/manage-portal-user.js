@@ -118,6 +118,59 @@ module.exports = async function handler(req, res) {
     if (!admin) return res.status(403).json({ ok: false, message: "Active Super Admin access required." });
 
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+
+    // Create a brand-new staff login. Supabase's admin API is used deliberately:
+    // it builds the identity records a login needs, which writing the tables by
+    // hand does not, and that is why hand-made accounts cannot sign in.
+    if (clean(body.action, 40) === "create-account") {
+      const newEmail = clean(body.email, 254).toLowerCase();
+      const password = String(body.password || "");
+      const permission = ["super_admin", "office_admin", "trainer"].includes(clean(body.permission_level, 40))
+        ? clean(body.permission_level, 40) : "office_admin";
+      const firstName = clean(body.first_name, 80);
+      const lastName = clean(body.last_name, 80);
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(newEmail)) {
+        return res.status(400).json({ ok: false, message: "Enter a valid email address for the new account." });
+      }
+      if (password.length < 10) {
+        return res.status(400).json({ ok: false, message: "The password must be at least 10 characters." });
+      }
+      const existing = await findAuthUserByEmail(newEmail);
+      if (existing?.id) {
+        return res.status(409).json({ ok: false, message: "That email already has a login. Use Reset Password instead." });
+      }
+      const created = await supabaseFetch("/auth/v1/admin/users", {
+        method: "POST",
+        body: JSON.stringify({
+          email: newEmail,
+          password,
+          email_confirm: true,
+          user_metadata: { first_name: firstName, last_name: lastName }
+        })
+      });
+      if (!created?.id) throw new Error("The login could not be created.");
+      const profile = await supabaseFetch("/rest/v1/portal_users", {
+        method: "POST",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({
+          user_id: created.id,
+          email: newEmail,
+          role: permission === "trainer" ? "trainer" : "admin",
+          permission_level: permission,
+          trainer_id: body.trainer_id || null,
+          first_name: firstName || null,
+          last_name: lastName || null,
+          display_name: [firstName, lastName].filter(Boolean).join(" ") || newEmail,
+          active: true,
+          access_status: "active",
+          must_change_password: body.must_change_password !== false
+        })
+      });
+      await auditPortalChange(admin, "portal_account_created", { user_id: created.id }, profile?.[0] || null,
+        `${admin.actor.name || admin.actor.email} created a ${permission.replace("_", " ")} login for ${newEmail}.`).catch(() => {});
+      return res.status(200).json({ ok: true, created: true, user: profile?.[0] || null, email: newEmail });
+    }
+
     let userId = clean(body.user_id, 120);
     const targetEmail = clean(body.email, 254).toLowerCase();
     const action = clean(body.action, 40);
