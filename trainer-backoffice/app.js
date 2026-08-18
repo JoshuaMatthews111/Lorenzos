@@ -5052,7 +5052,7 @@ const adminScreens = {
   },
   clients() {
     const importer = isOfficeAdmin() ? "" : `<details class="client-import-panel" id="clientImportPanel"><summary>Import Existing Clients</summary><div class="import-layout">${panel("1. Upload CSV, Excel, or PDF", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div></details>`;
-    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${clientLoadNotice()}${panel("Central Client Database", `<button class="btn btn-outline" data-export-operational="clients">Download Client Sheet</button>${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Import Clients</button>`}`, clientTable(), "pad")}${importer}`;
+    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${clientLoadNotice()}${panel("Central Client Database", `<button class="btn btn-outline" data-export-operational="clients">Download Client Sheet</button>${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Import Clients</button>`}`, clientTable(), "pad")}${panel("Recently Deleted", "", recentlyDeletedClients(), "pad")}${importer}`;
   },
   import() {
     return `<div class="import-layout">${panel("1. Paste CSV / Spreadsheet Data", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div>`;
@@ -7943,6 +7943,24 @@ function convertedLeadQueue() {
   }).join("") || `<tr><td colspan="6">No converted clients yet. When a lead moves to Became a Client, it appears here.</td></tr>`}</tbody></table></div><p class="panel-copy">This queue connects the office lead outcome to the Client Database. Conversion means a confirmed client event, not a click or form submit.</p>`;
 }
 
+// Nothing leaves the client list for good. Anything archived or removed lands here
+// so the office can see it and put it back.
+function recentlyDeletedClients() {
+  const removed = (state.clients || [])
+    .filter(client => client.status === "Archived")
+    .sort((a, b) => String(b.lastContacted || b.dateStarted || "").localeCompare(String(a.lastContacted || a.dateStarted || "")));
+  const body = removed.length
+    ? `<p class="panel-copy">These clients were removed from the active list. They are still on file and still searchable. Press Put Back to return one to the active list.</p>
+       <div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Contact</th><th>Was imported from</th><th></th></tr></thead><tbody>${removed.map(client => `<tr>
+         <td data-th="Client"><strong>${escapeHtml(client.name || "Client")}</strong></td>
+         <td data-th="Contact">${escapeHtml(formatPhoneNumber(client.phone) || client.email || "—")}</td>
+         <td data-th="Was imported from">${escapeHtml(client.importedSource || "Manual")}</td>
+         <td data-th=""><button class="btn btn-outline btn-small" type="button" data-restore-client="${escapeHtml(client.id)}">Put Back</button></td>
+       </tr>`).join("")}</tbody></table></div>`
+    : `<p class="panel-copy">Nothing has been removed. If a client is ever archived or deleted, it appears here so you can put it back.</p>`;
+  return `<details class="recently-deleted" ${removed.length ? "" : ""}><summary>Recently Deleted (${removed.length})</summary>${body}</details>`;
+}
+
 function clientTable() {
   const rows = filteredClientRows();
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Trainer</th><th>Status</th><th>Consent</th><th>Imported Source</th><th>Campaign Eligibility</th><th>Notes</th></tr></thead><tbody>${rows.map(client => `<tr data-open-client="${escapeHtml(client.id)}"><td><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.phone)} · ${escapeHtml(client.email)}</small></td><td>${escapeHtml(client.dog)}<small>${escapeHtml(client.breed)}</small></td><td>${escapeHtml(trainerName(client.trainerId))}</td><td><span class="status ${clientStatusClass(client.status)}">${escapeHtml(client.status)}</span></td><td>SMS: ${consentBadge(client.smsConsent)}<br>Email: ${consentBadge(client.emailConsent)}</td><td>${escapeHtml(client.importedSource)}</td><td>${campaignEligibility(client)}</td><td>${escapeHtml(client.notes)}</td></tr>`).join("") || `<tr><td colspan="8">No client records match this filter yet.</td></tr>`}</tbody></table></div>${clientDetailPanel()}`;
@@ -9349,6 +9367,16 @@ document.addEventListener("click", async event => {
       detail: `${lead?.owner || "Lead"} was restored to the pipeline by ${currentActorLabel()}.`
     });
     else saveState("Lead restored to the pipeline");
+    return;
+  }
+  const restoreClient = event.target.closest("[data-restore-client]");
+  if (restoreClient) {
+    event.stopPropagation();
+    const client = state.clients.find(item => item.id === restoreClient.dataset.restoreClient);
+    if (!client) return;
+    client.status = "Active";
+    recordActivity("Client put back", `${client.name || "Client"} was put back on the active client list.`, "Client");
+    saveState(`${client.name || "Client"} put back on the active list.`);
     return;
   }
   const openLead = event.target.closest("[data-open-lead]");

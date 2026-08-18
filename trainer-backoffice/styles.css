@@ -5186,3 +5186,7 @@ button:disabled{cursor:not-allowed}
 .comms-help[open] summary{margin-bottom:10px}
 .comms-help ol{margin:0;padding-left:20px;color:var(--ink);font-size:.86rem;line-height:1.7}
 .comms-help li{margin-bottom:6px}
+
+/* Recently Deleted clients */
+.recently-deleted summary{cursor:pointer;color:var(--navy);font-weight:900;font-size:.88rem;padding:4px 0}
+.recently-deleted[open] summary{margin-bottom:12px}
