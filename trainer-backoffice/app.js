@@ -4069,6 +4069,7 @@ const COMMS_HELP = {
     "Step 3 — Check the text. It shows exactly what a real client will get. Press Approve if it looks right.",
     "Step 4 — Build the email the same way, then check and approve it.",
     "Step 5 — Press \"Count who will receive it\" to see the numbers, send yourself a test, then type SEND to confirm.",
+    "Adding a picture to a text is optional. A plain text with a link works well and costs the least. A picture makes it a picture message, which SimpleTexting charges at a higher rate — check your SimpleTexting account for the rate and your remaining credits.",
     "Nothing goes out until you type SEND. You can stop a send while it is running."
   ]],
   templates: ["How to make and save a message", [
@@ -4837,7 +4838,7 @@ function flowStepText() {
     <div class="communications-token-row"><span>Add client details:</span>${MERGE_TOKENS.map(([token, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-token="${token}">${label}</button>`).join("")}<small>Each person sees their own name and city here.</small></div>
     <label class="wide">Message<textarea class="communications-writing-box" data-design-body-text rows="7" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.body_text || "")}</textarea></label>
     <p class="flow-hint">${smsCostLine(draft.body_text)}.</p>
-    <label class="wide upload-field">Add a picture to the text (optional)<input type="file" accept="image/png,image/jpeg,image/gif" data-sms-media-upload><small class="field-help">Sends as a picture message. Keep it under 1 MB so it arrives quickly.</small></label>
+    <label class="wide upload-field">Add a picture to the text — optional<input type="file" accept="image/png,image/jpeg,image/gif" data-sms-media-upload><small class="field-help"><strong>Only add a picture if you want one.</strong> A plain text with a link works perfectly well and costs the least. Adding a picture turns it into a picture message, which SimpleTexting charges at a higher rate than a plain text — your SimpleTexting account shows the exact rate and your remaining credits. Keep the picture under about 600 KB so phone networks accept it.</small></label>
     ${draft.media_url ? `<div class="design-current-image"><img src="${escapeHtml(draft.media_url)}" alt=""><span>Picture attached</span><button class="btn btn-outline btn-small" type="button" data-sms-media-clear>Remove picture</button></div>` : ""}
     <div class="flow-actions"><button class="btn btn-outline" type="button" data-flow-back>Back</button><button class="btn btn-red" type="button" data-flow-next ${String(draft.body_text || "").trim() ? "" : "disabled"}>See how it looks</button></div>`, "pad");
 }
@@ -4906,7 +4907,12 @@ function flowStepSend() {
         const size = Number(state.campaignBatchSize) || 0;
         const page = Number(state.campaignBatchPage) || 1;
         const thisGroup = size ? Math.max(0, Math.min(size, data.eligible - (page - 1) * size)) : data.eligible;
+        const cost = channel === "sms" ? smsCost(state.flowTextDraft?.body_text || "") : null;
+        const hasPicture = channel === "sms" && Boolean(state.flowTextDraft?.media_url);
         return `${size ? `<p class="send-batch-note">Sending group ${page} of ${data.pages || 1} — <strong>${thisGroup.toLocaleString()}</strong> of ${data.eligible.toLocaleString()} people.</p>` : ""}
+        ${cost ? `<p class="send-credit-note">${hasPicture
+          ? `This has a picture attached, so it sends as a picture message. SimpleTexting charges picture messages at a higher rate than plain texts — check your SimpleTexting account for the exact rate and your remaining credits.`
+          : `Each person receives ${cost.parts} text part${cost.parts === 1 ? "" : "s"}, so this group uses roughly <strong>${(cost.parts * thisGroup).toLocaleString()} credits</strong>. SimpleTexting's own count is the one that matters — check your account balance before a large send.`}</p>` : ""}
         <button class="btn btn-red btn-send-now" type="button" data-flow-send="${channel}" ${thisGroup ? "" : "disabled"}>Send ${channel === "sms" ? "text" : "email"} now to ${thisGroup.toLocaleString()} ${thisGroup === 1 ? "person" : "people"}</button>`;
       })() : ""}
     </article>`;
