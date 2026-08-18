@@ -1188,11 +1188,53 @@ async function reloadRemoteData() {
   remoteSyncError = "";
 }
 
+// Live data refreshes itself every half minute, on window focus and whenever another
+// device changes something. Redrawing the screen underneath someone who is part-way
+// through typing wipes what they have written, so those redraws wait for them to
+// finish. Nothing is lost: the refreshed data is already in memory and is drawn as
+// soon as the person stops typing.
+let pendingBackgroundRender = false;
+
+function isTypingField(element) {
+  if (!element) return false;
+  if (element.isContentEditable) return true;
+  if (element.tagName === "TEXTAREA") return true;
+  if (element.tagName !== "INPUT") return false;
+  return !["button", "submit", "reset", "checkbox", "radio", "file", "color", "range"].includes(String(element.type || "text").toLowerCase());
+}
+
+function workspaceHasTypedInput() {
+  const workspace = document.getElementById("workspaceView");
+  if (!workspace) return false;
+  if (isTypingField(document.activeElement) && workspace.contains(document.activeElement)) return true;
+  return [...workspace.querySelectorAll("input, textarea")].some(field =>
+    isTypingField(field) && String(field.value || "").trim() && String(field.value) !== String(field.defaultValue || ""));
+}
+
+function backgroundRender() {
+  if (workspaceHasTypedInput()) {
+    pendingBackgroundRender = true;
+    renderTopbar();
+    return;
+  }
+  pendingBackgroundRender = false;
+  render();
+}
+
+function flushPendingBackgroundRender() {
+  if (!pendingBackgroundRender || workspaceHasTypedInput()) return;
+  pendingBackgroundRender = false;
+  render();
+}
+
+document.addEventListener("focusout", () => window.setTimeout(flushPendingBackgroundRender, 600));
+document.addEventListener("submit", () => window.setTimeout(flushPendingBackgroundRender, 900));
+
 async function refreshOperationalData(reason = "background") {
   if (!session.loggedIn || session.demoUsername || document.hidden) return;
   try {
     await reloadRemoteData();
-    render();
+    backgroundRender();
   } catch (error) {
     remoteSyncError = error.message || "Live data unavailable";
     console.warn(`LDTT ${reason} refresh failed`, error);
@@ -1211,6 +1253,9 @@ function startOperationalSync() {
     operationalRealtimeDebounce = window.setTimeout(() => refreshOperationalData("realtime"), 450);
   }) || null;
   operationalSyncTimer = window.setInterval(() => refreshOperationalData("poll"), 30000);
+  // A redraw held back while someone was typing is applied as soon as they stop,
+  // rather than waiting for the next poll.
+  window.setInterval(flushPendingBackgroundRender, 4000);
 }
 
 async function hydrateSharedOperationalDataForDemo() {
@@ -3801,7 +3846,57 @@ function renderView() {
   if (state.activeView === "communications" && session.loggedIn && !communicationsData.loaded && !communicationsData.loading) {
     loadCommunicationsData();
   }
+  // Backstop: if any redraw still happens mid-edit, put the half-finished wording
+  // and the cursor back exactly where they were instead of clearing the form.
+  const typed = captureTypedInput(target);
   target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
+  restoreTypedInput(target, typed);
+}
+
+function typedFieldKey(field) {
+  const form = field.closest("form");
+  const formKey = form ? [...form.attributes].map(attribute => attribute.name).filter(name => name.startsWith("data-")).join("|") || form.className : "";
+  const own = [...field.attributes].map(attribute => `${attribute.name}=${attribute.value}`)
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search)/.test(pair)).join("|");
+  return own ? `${formKey}::${own}` : "";
+}
+
+function captureTypedInput(target) {
+  if (!target) return null;
+  const values = new Map();
+  for (const field of target.querySelectorAll("input, textarea")) {
+    if (!isTypingField(field)) continue;
+    const value = String(field.value || "");
+    if (!value.trim() || value === String(field.defaultValue || "")) continue;
+    const key = typedFieldKey(field);
+    if (key) values.set(key, value);
+  }
+  const active = document.activeElement;
+  const focusKey = isTypingField(active) && target.contains(active) ? typedFieldKey(active) : "";
+  return {
+    values,
+    focusKey,
+    start: focusKey ? active.selectionStart : null,
+    end: focusKey ? active.selectionEnd : null
+  };
+}
+
+function restoreTypedInput(target, snapshot) {
+  if (!snapshot || (!snapshot.values.size && !snapshot.focusKey)) return;
+  for (const field of target.querySelectorAll("input, textarea")) {
+    if (!isTypingField(field)) continue;
+    const key = typedFieldKey(field);
+    if (!key) continue;
+    const saved = snapshot.values.get(key);
+    // Only refill a field the redraw left empty, so a genuine reset still resets.
+    if (saved !== undefined && !String(field.value || "").trim()) field.value = saved;
+    if (key === snapshot.focusKey) {
+      field.focus({ preventScroll: true });
+      if (snapshot.start !== null) {
+        try { field.setSelectionRange(snapshot.start, snapshot.end); } catch { /* not all inputs support selection */ }
+      }
+    }
+  }
 }
 
 async function communicationsRequest(payload = {}, method = "POST") {
@@ -10317,14 +10412,19 @@ document.addEventListener("input", event => {
   }
 });
 
-// Recipient search re-renders, so it keeps focus and caret where the typist left them.
+// Recipient search redraws the results, so it is debounced and puts the cursor back
+// where the typist left it rather than redrawing on every single keystroke.
+let recipientSearchTimer = null;
 document.addEventListener("input", event => {
   if (!event.target.matches("[data-flow-search]")) return;
-  const caret = event.target.selectionStart;
   messageFlow().recipientSearch = event.target.value;
-  render();
-  const field = document.querySelector("[data-flow-search]");
-  if (field) { field.focus(); field.setSelectionRange(caret, caret); }
+  window.clearTimeout(recipientSearchTimer);
+  recipientSearchTimer = window.setTimeout(() => {
+    const caret = document.activeElement?.matches?.("[data-flow-search]") ? document.activeElement.selectionStart : null;
+    render();
+    const field = document.querySelector("[data-flow-search]");
+    if (field && caret !== null) { field.focus({ preventScroll: true }); field.setSelectionRange(caret, caret); }
+  }, 220);
 });
 
 document.addEventListener("change", async event => {

@@ -101,6 +101,10 @@ const checks = [
   ["texting STOP and YES from a client updates that client's consent", /function recordClientConsent/.test(smsInbound) && /sms_consent: consented/.test(smsInbound) && /client_opted_out/.test(smsInbound)],
   ["recorded consent keeps its paperwork trail", /consent_source/.test(communicationsApi) && /Describe the consent paperwork/.test(communicationsApi) && /communications_consent_recorded/.test(communicationsApi)],
   ["staff are offered a compliant opt-in text to gather consent", /OPT_IN_SMS_TEXT/.test(app) && /Reply YES to join/.test(app) && /Reply STOP to stop/.test(app)],
+  ["background syncing never wipes wording someone is still typing", /function backgroundRender/.test(app) && /workspaceHasTypedInput/.test(app) && /await reloadRemoteData\(\);\s*\n\s*backgroundRender\(\);/.test(app)],
+  ["a redraw mid-edit restores the typed wording and the cursor", /function captureTypedInput/.test(app) && /function restoreTypedInput/.test(app) && /setSelectionRange\(snapshot\.start, snapshot\.end\)/.test(app)],
+  ["a held-back redraw is applied once typing stops", /flushPendingBackgroundRender/.test(app) && /setInterval\(flushPendingBackgroundRender/.test(app)],
+  ["one template can carry both a text and an email version", /Both text and email/.test(app) && /data-design-sms-text/.test(app) && /'both'::text/.test(read("supabase/migrations/20260817210000_communications_template_both_channels.sql"))],
   ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)]
 ];
 
