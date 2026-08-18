@@ -43,6 +43,30 @@ async function optionalSupabaseFetch(path, capability, unavailable) {
   }
 }
 
+// Columns the portal actually renders. raw_payload is the bulky part of a client
+// row and is not needed for any screen, so it stays on the server.
+const CLIENT_COLUMNS = [
+  "id", "lead_id", "trainer_id", "client_name", "phone", "email", "service_area", "zip",
+  "lead_source", "status", "sms_consent", "email_consent", "imported_source",
+  "date_started", "last_contacted", "notes", "created_at", "updated_at", "archived_at", "version"
+].join(",");
+const CLIENT_PAGE_LIMIT = 500;
+
+// Exact row count without transferring the rows themselves.
+async function countRows(table) {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1`, {
+    headers: {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      Prefer: "count=exact",
+      Range: "0-0"
+    }
+  });
+  const range = response.headers.get("content-range") || "";
+  const total = Number(String(range).split("/")[1]);
+  return Number.isFinite(total) ? total : 0;
+}
+
 async function supabaseFetchAll(path, pageSize = 1000, maxRows = 100000) {
   const rows = [];
   const separator = path.includes("?") ? "&" : "?";
@@ -187,7 +211,12 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     supabaseFetchAll("/rest/v1/trainer_pages?select=*&order=updated_at.desc"),
     supabaseFetchAll("/rest/v1/leads?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/lead_events?select=*&order=created_at.desc"),
-    supabaseFetchAll("/rest/v1/clients?select=*&order=created_at.desc"),
+    // The client database is now many thousands of rows. Sending all of them to the
+    // browser pushed this response past the platform's size limit, which made the
+    // whole portal fall back to offline mode — notes stopped saving and dragged
+    // cards stopped sticking. The office works with the most recent records and
+    // searches the server for anyone older.
+    supabaseFetchAll(`/rest/v1/clients?select=${CLIENT_COLUMNS}&order=created_at.desc`, CLIENT_PAGE_LIMIT, CLIENT_PAGE_LIMIT),
     supabaseFetchAll("/rest/v1/dogs?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/trainer_applications?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/content_submissions?select=*&order=created_at.desc"),
@@ -203,7 +232,10 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_clients_sheet?select=*&order=created_at.desc", "office_clients_sheet", unavailableCapabilities)
   ]);
+  const clientsTotal = await countRows("clients").catch(() => clients.length);
   return {
+    clientsTotal,
+    clientsTruncated: clients.length >= CLIENT_PAGE_LIMIT,
     trainers,
     pages,
     leads,

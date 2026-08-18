@@ -377,6 +377,7 @@ let remoteLifecycleEvents = [];
 let remoteReviewPublications = [];
 let remoteDeliveryAttempts = [];
 let remoteSheets = { leads: [], applications: [], clients: [] };
+let remoteClientsTotal = 0;
 let communicationsData = {
   loaded: false,
   loading: false,
@@ -1157,6 +1158,7 @@ function mergeRemoteOperationalData(data) {
   remoteLifecycleEvents = data.lifecycleEvents || [];
   remoteDeliveryAttempts = data.deliveryAttempts || [];
   remoteSheets = data.sheets || { leads: [], applications: [], clients: [] };
+  remoteClientsTotal = Number(data.clientsTotal || 0) || (data.clients || []).length;
   remoteServerRevision = data.serverRevision || "";
   remoteSyncedAt = data.syncedAt || "";
   remoteReady = true;
@@ -4619,9 +4621,13 @@ function flowRecipientPicker() {
   if (!remoteReady) {
     return `<div class="recipient-picker"><p class="panel-copy warning-copy">The live client list is not loaded right now, so nobody can be picked. Reload the portal until the top of the screen says <strong>Synced</strong>.</p></div>`;
   }
-  const matches = term
+  // Local rows are only the most recent clients, so server results are merged in.
+  const local = term
     ? all.filter(client => `${client.name || ""} ${client.email || ""} ${client.phone || ""}`.toLowerCase().includes(term)).slice(0, 20)
     : [];
+  const remote = (term && Array.isArray(flow.searchResults) ? flow.searchResults : [])
+    .filter(found => !local.some(client => (client.remoteId || client.id) === found.id));
+  const matches = [...local, ...remote].slice(0, 25);
   const chosen = all.filter(client => flow.recipientIds.includes(client.remoteId || client.id));
   return `<div class="recipient-picker">
     <label class="wide">Search your clients by name, email or number<input data-flow-search value="${escapeHtml(flow.recipientSearch || "")}" placeholder="Start typing a name…"></label>
@@ -4988,7 +4994,7 @@ const adminScreens = {
   },
   clients() {
     const importer = isOfficeAdmin() ? "" : `<details class="client-import-panel" id="clientImportPanel"><summary>Import Existing Clients</summary><div class="import-layout">${panel("1. Upload CSV, Excel, or PDF", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div></details>`;
-    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${panel("Central Client Database", `<button class="btn btn-outline" data-export-operational="clients">Download Client Sheet</button>${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Import Clients</button>`}`, clientTable(), "pad")}${importer}`;
+    return `${clientFilterBar()}${panel("Won / Paid Lead Queue", `<button class="btn btn-outline" data-view="leads">Open Lead Pipeline</button>`, convertedLeadQueue(), "pad")}<br>${clientLoadNotice()}${panel("Central Client Database", `<button class="btn btn-outline" data-export-operational="clients">Download Client Sheet</button>${isOfficeAdmin() ? "" : `<button class="btn btn-red" data-open-client-import>Import Clients</button>`}`, clientTable(), "pad")}${importer}`;
   },
   import() {
     return `<div class="import-layout">${panel("1. Paste CSV / Spreadsheet Data", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div>`;
@@ -7818,6 +7824,14 @@ function filteredClientRows(options = {}) {
     .filter(client => recordMatchesSearch(clientSearchValues(client), search));
 }
 
+// The browser holds the most recent clients only; the rest live on the server and
+// are reached by search. Say so plainly rather than looking like records vanished.
+function clientLoadNotice() {
+  const total = Number(remoteClientsTotal || 0);
+  if (!total || total <= (state.clients || []).length) return "";
+  return `<div class="source-record-note"><span class="status live">Client database</span><p>Showing the ${(state.clients || []).length.toLocaleString()} most recent of <strong>${total.toLocaleString()}</strong> clients. Everyone else is still on file — use the search when sending a message, or download the full client sheet.</p></div>`;
+}
+
 function clientFilterBar() {
   const rows = filteredClientRows();
   const searchNote = state.clientSearch ? ` matching "${escapeHtml(state.clientSearch)}"` : "";
@@ -10419,12 +10433,27 @@ document.addEventListener("input", event => {
   if (!event.target.matches("[data-flow-search]")) return;
   messageFlow().recipientSearch = event.target.value;
   window.clearTimeout(recipientSearchTimer);
-  recipientSearchTimer = window.setTimeout(() => {
+  recipientSearchTimer = window.setTimeout(async () => {
+    const flow = messageFlow();
+    const term = String(flow.recipientSearch || "").trim();
+    if (term.length >= 2) {
+      try {
+        const result = await communicationsRequest({ operation: "search_clients", term });
+        if (String(messageFlow().recipientSearch || "").trim() !== term) return;
+        flow.searchResults = (result.clients || []).map(client => ({
+          remoteId: client.id, id: client.id, name: client.client_name,
+          email: client.email || "", phone: client.phone || "", serviceArea: client.service_area || ""
+        }));
+        // Keep found people available to the chips and the send summary.
+        const known = new Set((state.clients || []).map(row => row.remoteId || row.id));
+        state.clients = [...(state.clients || []), ...flow.searchResults.filter(row => !known.has(row.remoteId))];
+      } catch { flow.searchResults = []; }
+    } else flow.searchResults = [];
     const caret = document.activeElement?.matches?.("[data-flow-search]") ? document.activeElement.selectionStart : null;
     render();
     const field = document.querySelector("[data-flow-search]");
     if (field && caret !== null) { field.focus({ preventScroll: true }); field.setSelectionRange(caret, caret); }
-  }, 220);
+  }, 280);
 });
 
 document.addEventListener("change", async event => {

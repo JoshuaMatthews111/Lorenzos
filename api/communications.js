@@ -831,6 +831,22 @@ async function addRecipient(access, body) {
   return { client, existed: false };
 }
 
+// The browser only holds the most recent clients, so anyone older is found here.
+async function searchClients(access, body) {
+  if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
+  const term = clean(body.term, 120);
+  if (term.length < 2) return { clients: [], term };
+  const escaped = term.replace(/[,()*]/g, " ").trim();
+  if (!escaped) return { clients: [], term };
+  const pattern = `*${escaped}*`;
+  const rows = await supabaseFetch(
+    `/rest/v1/clients?select=id,client_name,email,phone,service_area,status,sms_consent,email_consent`
+    + `&or=(client_name.ilike.${encodeURIComponent(pattern)},email.ilike.${encodeURIComponent(pattern)},phone.ilike.${encodeURIComponent(pattern)})`
+    + `&archived_at=is.null&order=client_name.asc&limit=25`
+  );
+  return { clients: rows || [], term };
+}
+
 async function campaignReport(access, body) {
   if (!isAdmin(access)) throw Object.assign(new Error("Admin access required."), { status: 403 });
   const campaignId = clean(body.campaign_id, 80);
@@ -900,6 +916,7 @@ async function handler(req, res) {
     else if (operation === "cancel_campaign") data = await cancelCampaign(access, req.body || {});
     else if (operation === "record_consent") data = await recordConsent(access, req.body || {});
     else if (operation === "add_recipient") data = await addRecipient(access, req.body || {});
+    else if (operation === "search_clients") data = await searchClients(access, req.body || {});
     else if (operation === "campaign_report") data = await campaignReport(access, req.body || {});
     else if (operation === "remove") data = await removeRecord(access, req.body || {});
     else return res.status(400).json({ ok: false, message: "Unsupported communications action." });
