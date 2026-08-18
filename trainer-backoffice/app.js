@@ -245,6 +245,9 @@ const defaultState = {
   campaignTemplateId: "",
   campaignRequireConsent: true,
   campaignId: "",
+  campaignBatchSize: 0,
+  campaignBatchPage: 1,
+  previewFullSize: false,
   campaignDone: null,
   flowTextDraft: null,
   flowEmailDraft: null,
@@ -4221,6 +4224,7 @@ function templateDraftDefault(channel = "email") {
     body_text: channel === "sms" ? "Hi {{first_name}}, this is Lorenzo's Dog Training Team following up about your dog." : "",
     sms_text: channel === "both" ? "Hi {{first_name}}, a quick note from Lorenzo's Dog Training Team." : "",
     body_html: "",
+    media_url: "",
     design: {
       width: 600, background: "#f4f7fb", contentBackground: "#ffffff",
       blocks: [designBlockDefault("bar"), designBlockDefault("logo"), designBlockDefault("heading"), designBlockDefault("text"), designBlockDefault("button")]
@@ -4761,6 +4765,8 @@ function flowStepText() {
     <div class="communications-token-row"><span>Add client details:</span>${MERGE_TOKENS.map(([token, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-token="${token}">${label}</button>`).join("")}<small>Each person sees their own name and city here.</small></div>
     <label class="wide">Message<textarea class="communications-writing-box" data-design-body-text rows="7" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.body_text || "")}</textarea></label>
     <p class="flow-hint">${count} characters · about ${Math.max(1, Math.ceil(count / 160))} message${count > 160 ? "s" : ""} per person.</p>
+    <label class="wide upload-field">Add a picture to the text (optional)<input type="file" accept="image/png,image/jpeg,image/gif" data-sms-media-upload><small class="field-help">Sends as a picture message. Keep it under 1 MB so it arrives quickly.</small></label>
+    ${draft.media_url ? `<div class="design-current-image"><img src="${escapeHtml(draft.media_url)}" alt=""><span>Picture attached</span><button class="btn btn-outline btn-small" type="button" data-sms-media-clear>Remove picture</button></div>` : ""}
     <div class="flow-actions"><button class="btn btn-outline" type="button" data-flow-back>Back</button><button class="btn btn-red" type="button" data-flow-next ${String(draft.body_text || "").trim() ? "" : "disabled"}>See how it looks</button></div>`, "pad");
 }
 
@@ -4795,7 +4801,7 @@ function flowStepCheck(channel) {
     : `as <strong>${escapeHtml(sample.name)}</strong> will receive it`;
   const body = channel === "sms"
     ? `<div class="phone-preview"><div class="phone-bubble">${designTextToHtml(filled(draft.body_text))}</div><small>Shown ${who}.</small></div>`
-    : `<div class="email-check-frame"><iframe title="Email preview" data-flow-preview sandbox=""></iframe><small>Shown ${who}. Subject: <strong>${escapeHtml(filled(draft.subject) || "(no subject)")}</strong></small></div>`;
+    : `<div class="email-check-frame ${state.previewFullSize ? "full" : ""}"><div class="preview-toolbar"><span>Subject: <strong>${escapeHtml(filled(draft.subject) || "(no subject)")}</strong></span><button class="btn btn-outline btn-small" type="button" data-preview-size>${state.previewFullSize ? "Shrink preview" : "Show full email"}</button></div><iframe title="Email preview" data-flow-preview sandbox=""></iframe><small>Shown ${who}.</small></div>`;
   return panel(channel === "sms" ? "Check the text before it goes out" : "Check the email before it goes out", "", `
     <p class="panel-copy">${sample.isSample ? "The live client list is not loaded, so this uses placeholder details rather than a real client." : "This is a real client from your list, with their own details filled in — exactly what they will receive."}</p>
     ${body}
@@ -4824,7 +4830,13 @@ function flowStepSend() {
         ${data.skipped.noContact ? `<li>${data.skipped.noContact.toLocaleString()} no ${channel === "sms" ? "mobile number" : "email address"}</li>` : ""}
         ${data.skipped.duplicate ? `<li>${data.skipped.duplicate.toLocaleString()} duplicates</li>` : ""}
       </ul>` : `<p class="panel-copy">Press "Count who will receive it" to see the numbers.</p>`}
-      ${data?.eligible ? `<button class="btn btn-red" type="button" data-flow-send="${channel}">Send the ${channel === "sms" ? "text" : "email"} to ${data.eligible.toLocaleString()} ${data.eligible === 1 ? "person" : "people"}</button>` : ""}
+      ${data ? (() => {
+        const size = Number(state.campaignBatchSize) || 0;
+        const page = Number(state.campaignBatchPage) || 1;
+        const thisGroup = size ? Math.max(0, Math.min(size, data.eligible - (page - 1) * size)) : data.eligible;
+        return `${size ? `<p class="send-batch-note">Sending group ${page} of ${data.pages || 1} — <strong>${thisGroup.toLocaleString()}</strong> of ${data.eligible.toLocaleString()} people.</p>` : ""}
+        <button class="btn btn-red btn-send-now" type="button" data-flow-send="${channel}" ${thisGroup ? "" : "disabled"}>Send ${channel === "sms" ? "text" : "email"} now to ${thisGroup.toLocaleString()} ${thisGroup === 1 ? "person" : "people"}</button>`;
+      })() : ""}
     </article>`;
   };
   const done = state.campaignDone;
@@ -4847,6 +4859,14 @@ function flowStepSend() {
     ${flow.channels.sms && state.flowTextDraft ? `<details class="final-preview"><summary>Final look at the text</summary><div class="phone-preview"><div class="phone-bubble">${designTextToHtml(String(state.flowTextDraft.body_text || "").replace(/{{\s*first_name\s*}}/gi, flowSampleClient().first_name).replace(/{{\s*city\s*}}/gi, flowSampleClient().city))}</div></div></details>` : ""}
     ${flow.channels.email && state.flowEmailDraft ? `<details class="final-preview"><summary>Final look at the email</summary><div class="email-check-frame"><iframe title="Email preview" data-flow-preview sandbox=""></iframe></div></details>` : ""}
     <label class="wide">Name this send (for your records)<input data-flow-name value="${escapeHtml(flow.name || "")}" placeholder="TTRG invitation — August"></label>
+    <label class="wide">How many at a time<select data-flow-batch>
+      ${[["0","The whole list in one go"],["100","100 at a time"],["200","200 at a time"],["500","500 at a time"],["1000","1,000 at a time"]]
+        .map(([value,label]) => `<option value="${value}" ${String(state.campaignBatchSize || 0) === value ? "selected" : ""}>${label}</option>`).join("")}
+    </select><small class="field-help">Sending in smaller batches lets you check the first group before the rest.</small></label>
+    ${Number(state.campaignBatchSize) ? `<label class="wide">Which group<select data-flow-page>${
+      Array.from({length: Math.max(1, Number(audience?.byChannel?.sms?.pages || audience?.byChannel?.email?.pages || 1))}, (_, i) => i + 1)
+        .map(page => `<option value="${page}" ${Number(state.campaignBatchPage || 1) === page ? "selected" : ""}>Group ${page}</option>`).join("")
+    }</select><small class="field-help">Group 1 is the first ${Number(state.campaignBatchSize).toLocaleString()} people, group 2 the next, and so on.</small></label>` : ""}
     <label class="wide">Who counts as reachable<select data-flow-consent>
       <option value="true" ${state.campaignRequireConsent !== false ? "selected" : ""}>Only clients recorded as opted in</option>
       <option value="false" ${state.campaignRequireConsent === false ? "selected" : ""}>All active clients we have not heard STOP from</option>
@@ -4950,6 +4970,7 @@ function templateDraftFromRecord(record, preferChannel) {
   draft.body_text = saved === "both" && channel === "email" ? "" : (record.body_text || "");
   draft.sms_text = saved === "both" ? (record.body_text || "") : "";
   draft.body_html = record.body_html || "";
+  draft.media_url = record.media_url || "";
   draft.format = ["visual", "html", "text"].includes(record.format)
     ? record.format
     : (draft.channel === "email" ? (record.body_html ? "html" : "text") : "text");
@@ -4979,6 +5000,7 @@ async function saveTemplateDraft(options = {}) {
         channel: draft.channel,
         subject: draft.subject,
         format: draft.channel === "email" ? draft.format : "text",
+        media_url: draft.media_url || "",
         design: draft.channel === "email" && draft.format === "visual" ? draft.design : null,
         body_text: bodies.body_text,
         body_html: bodies.body_html
@@ -9086,7 +9108,7 @@ document.addEventListener("click", async event => {
     const channels = Object.entries(flow.channels).filter(([, on]) => on).map(([key]) => key);
     if (!channels.length) { showToast("Choose text or email first."); return; }
     try {
-      const payload = { operation: "campaign_audience", channels, require_consent: state.campaignRequireConsent !== false };
+      const payload = { operation: "campaign_audience", channels, require_consent: state.campaignRequireConsent !== false, batch_size: Number(state.campaignBatchSize) || 0 };
       if (flow.mode === "individual") payload.client_ids = flow.recipientIds;
       state.campaignAudience = await communicationsRequest(payload);
       render();
@@ -9136,6 +9158,8 @@ document.addEventListener("click", async event => {
       const payload = {
         operation: "create_campaign", template_id: draft.id, channel,
         require_consent: state.campaignRequireConsent !== false,
+        batch_size: Number(state.campaignBatchSize) || 0,
+        batch_page: Number(state.campaignBatchPage) || 1,
         name: flow.name || draft.name
       };
       if (flow.mode === "individual") payload.client_ids = flow.recipientIds;
@@ -9192,6 +9216,16 @@ document.addEventListener("click", async event => {
     state.communicationsSection = "messages";
     render();
     showToast("Opt-in text ready in the builder above. Press Save Template, then send it as a campaign.");
+    return;
+  }
+  if (event.target.closest("[data-preview-size]")) {
+    state.previewFullSize = !state.previewFullSize;
+    saveState();
+    return;
+  }
+  if (event.target.closest("[data-sms-media-clear]")) {
+    currentTemplateDraft().media_url = "";
+    render();
     return;
   }
   if (event.target.closest("[data-design-preview-toggle]")) {
@@ -10633,6 +10667,34 @@ document.addEventListener("input", event => {
 });
 
 document.addEventListener("change", async event => {
+  if (event.target.matches("[data-flow-batch]")) {
+    state.campaignBatchSize = Number(event.target.value) || 0;
+    state.campaignBatchPage = 1;
+    render();
+    return;
+  }
+  if (event.target.matches("[data-flow-page]")) {
+    state.campaignBatchPage = Number(event.target.value) || 1;
+    render();
+    return;
+  }
+  const smsMedia = event.target.closest("[data-sms-media-upload]");
+  if (smsMedia?.files?.length) {
+    const file = smsMedia.files[0];
+    if (file.size > 1.5 * 1024 * 1024) { showToast("Picture messages must be under 1.5 MB."); smsMedia.value = ""; return; }
+    try {
+      showToast("Uploading picture…");
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-") || "picture.jpg";
+      const path = `communications/sms-${Date.now()}-${safeName}`;
+      const result = await window.LDTT_PORTAL.upload("trainer-page-assets", path, file, { onProgress: () => {} });
+      const url = result?.publicUrl || window.LDTT_PORTAL.publicStorageUrl("trainer-page-assets", result?.path || path);
+      currentTemplateDraft().media_url = url;
+      render();
+      showToast("Picture attached to the text.");
+    } catch (error) { showToast(error.message || "The picture could not be attached."); }
+    smsMedia.value = "";
+    return;
+  }
   if (event.target.matches("[data-flow-consent]")) {
     state.campaignRequireConsent = event.target.value !== "false";
     state.campaignAudience = null;

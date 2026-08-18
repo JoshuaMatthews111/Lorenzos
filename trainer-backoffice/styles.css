@@ -5190,3 +5190,9 @@ button:disabled{cursor:not-allowed}
 /* Recently Deleted clients */
 .recently-deleted summary{cursor:pointer;color:var(--navy);font-weight:900;font-size:.88rem;padding:4px 0}
 .recently-deleted[open] summary{margin-bottom:12px}
+
+/* Batch sending, bigger send button, full-size email preview */
+.send-batch-note{margin:6px 0 0;color:var(--navy);font-size:.82rem;font-weight:700}
+.btn-send-now{width:100%;min-height:48px;font-size:.95rem}
+.preview-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;color:var(--navy);font-size:.84rem}
+.email-check-frame.full iframe{height:1400px}

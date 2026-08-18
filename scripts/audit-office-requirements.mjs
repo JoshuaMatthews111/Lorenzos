@@ -108,6 +108,10 @@ const checks = [
   ["reading a record is never interrupted by a background refresh", /function userIsReadingRecord/.test(app) && /workspaceHasTypedInput\(\) \|\| userIsReadingRecord\(\)/.test(app) && /lead-detail-panel/.test(app)],
   ["a redraw keeps the reading position instead of jumping to the top", /function captureScrollState/.test(app) && /function restoreScrollState/.test(app) && /restoreScrollState\(target, scrolled\)/.test(app)],
   ["removed clients can be found and put back", /function recentlyDeletedClients/.test(app) && /data-restore-client/.test(app)],
+  ["sending never collapses the line breaks someone wrote", /Tidy runs of SPACES only/.test(communicationsApi) && /\[ \\t\]\{2,\}/.test(communicationsApi) && !/replace\(\/\\s\{2,\}\/g, " "\)/.test(communicationsApi)],
+  ["the list can be sent in batches, a page at a time", /batch_size/.test(communicationsApi) && /allEligible\.slice\(\(batchPage - 1\) \* batchSize/.test(communicationsApi) && /data-flow-batch/.test(app) && /data-flow-page/.test(app)],
+  ["a text can carry a picture", /mediaUrl: \[mediaUrl\]/.test(communicationsApi) && /data-sms-media-upload/.test(app)],
+  ["the email preview can be opened full size", /data-preview-size/.test(app) && /email-check-frame\.full/.test(styles)],
   ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)]
 ];
 

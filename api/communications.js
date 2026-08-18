@@ -66,7 +66,15 @@ function htmlToText(html) {
 }
 
 function noMergeTokens(value) {
-  return String(value || "").replace(/{{\s*[^}]+\s*}}/g, "").replace(/\s{2,}/g, " ").trim();
+  // Tidy runs of SPACES only. Collapsing all whitespace also ate every line break,
+  // which is why a carefully spaced message arrived as one solid paragraph.
+  return String(value || "")
+    .replace(/{{\s*[^}]+\s*}}/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function mergeTemplate(value, recipient = {}, unsubscribeUrl = "") {
@@ -396,7 +404,7 @@ async function saveSettings(access, body) {
   return { saved, config: await configurationStatus() };
 }
 
-async function sendSms(phone, text) {
+async function sendSms(phone, text, mediaUrl = "") {
   const [{ secret: apiKey }, { setting: sender }] = await Promise.all([
     getSetting("simpletexting_api_key", true), getSetting("simpletexting_sending_number", false)
   ]);
@@ -404,7 +412,9 @@ async function sendSms(phone, text) {
   const response = await fetch(`${SIMPLETEXTING_BASE}/messages`, {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ contactPhone: phone, mode: "AUTO", text })
+    body: JSON.stringify(mediaUrl
+      ? { contactPhone: phone, mode: "AUTO", text, mediaUrl: [mediaUrl] }
+      : { contactPhone: phone, mode: "AUTO", text })
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || Number(data?.code) < 0) throw new Error(data?.message || data?.error || "SimpleTexting refused this message.");
@@ -487,7 +497,7 @@ async function sendTest(access, body) {
       outcomes.push({ name: tester.display_name, status: "sent", id: result.id });
     } else {
       if (!tester.phone) { outcomes.push({ name: tester.display_name, status: "skipped", message: "No mobile number" }); continue; }
-      const result = await sendSms(tester.phone, mergeTemplate(body.body_text, data, unsubscribe));
+      const result = await sendSms(tester.phone, mergeTemplate(body.body_text, data, unsubscribe), clean(body.media_url, 2000));
       outcomes.push({ name: tester.display_name, status: "sent", id: result.id });
     }
   }
@@ -593,10 +603,17 @@ async function campaignAudience(access, body) {
   const channels = Array.isArray(body.channels) && body.channels.length
     ? body.channels.filter(value => ["sms", "email"].includes(value))
     : [body.channel === "sms" ? "sms" : "email"];
+  const batchSize = safeNumber(body.batch_size, 0, 100000, 0);
   const byChannel = {};
   for (const channel of channels) {
     const { eligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
-    byChannel[channel] = { eligible: eligible.length, skipped };
+    byChannel[channel] = {
+      eligible: eligible.length,
+      skipped,
+      // How the list breaks into pages at the chosen batch size.
+      batchSize: batchSize || null,
+      pages: batchSize ? Math.max(1, Math.ceil(eligible.length / batchSize)) : 1
+    };
   }
   return { requireConsent, totalClients: clients.length, byChannel };
 }
@@ -624,7 +641,12 @@ async function createCampaign(access, body) {
     : null;
   const allClients = await loadSendableClients();
   const clients = chosenIds ? allClients.filter(client => chosenIds.has(client.id)) : allClients;
-  const { eligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
+  const { eligible: allEligible, skipped } = eligibleRecipients(clients, channel, requireConsent);
+  const batchSize = safeNumber(body.batch_size, 0, 100000, 0);
+  const batchPage = safeNumber(body.batch_page, 1, 10000, 1);
+  const eligible = batchSize
+    ? allEligible.slice((batchPage - 1) * batchSize, batchPage * batchSize)
+    : allEligible;
   if (!eligible.length) throw Object.assign(new Error("Nobody in this selection can receive this message yet."), { status: 400 });
 
   const campaignRows = await supabaseFetch("/rest/v1/communications_campaigns", {
@@ -635,13 +657,14 @@ async function createCampaign(access, body) {
       template_id: template.id,
       channel,
       subject: channel === "email" ? template.subject : null,
+      media_url: channel === "sms" ? (template.media_url || null) : null,
       body_html: channel === "email" ? template.body_html : null,
       // Email sends carry the email's own plain-text part; text sends carry the
       // short wording written for a phone.
       body_text: channel === "email" && template.channel === "both"
         ? (htmlToText(template.body_html) || template.body_text)
         : template.body_text,
-      audience_filter: { require_consent: requireConsent, skipped, source: "clients" },
+      audience_filter: { require_consent: requireConsent, skipped, source: "clients", batch_size: batchSize || null, batch_page: batchSize ? batchPage : null, total_eligible: allEligible.length },
       status: "draft",
       total_recipients: eligible.length,
       created_by: access.user.id
@@ -715,7 +738,7 @@ async function sendCampaignBatch(access, body) {
           outcome = { status: "sent", id: result.id, subject, body: text };
         } else {
           const text = mergeTemplate(campaign.body_text, details, "");
-          const result = await sendSms(recipient.recipient_phone, text);
+          const result = await sendSms(recipient.recipient_phone, text, campaign.media_url || "");
           outcome = { status: "sent", id: result.id, body: text };
         }
       } catch (error) {
