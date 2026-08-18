@@ -5387,16 +5387,10 @@ const DASHBOARD_BUCKET_COLORS = {
   "Contact Us forms": "#246bfe",              // blue
   "Paid Ad Submitted Inquiries": "#f59e0b",   // amber
   "Ebook requests": "#64748b",                // grey
-  "New Inquiry": "#60a5fa",                   // light blue — just arrived
-  "Office Contacted": "#0ea5e9",              // sky — office has made contact
-  "Engaged: No Outcome": "#c026d3",           // magenta — talking, no decision
   "Eval Scheduled": "#d80f35",                // red
   "Eval Complete": "#4ac26b",                 // lighter green, distinct from Became a Client
-  "Eval Cancelled": "#fb923c",                // orange — booked then called off
   "Became a Client": "#0c9b58",               // deep green, unchanged
   "Lost": "#111827",                          // black
-  "Bad Lead": "#6b7280",                      // slate
-  "Do Not Contact": "#a16207",                // dark amber
   "Archived": "#0891b2",                      // teal
   "New Trainer Applications": "#8b5cf6"       // purple
 };
@@ -5409,16 +5403,10 @@ function dashboardBucketRows() {
     ["Contact Us forms", dashboardContactFormRows(leadRows).length],
     ["Paid Ad Submitted Inquiries", dashboardPaidAdSubmittedInquiryRows(leadRows).length],
     ["Ebook requests", dashboardEbookRequestRows(leadRows).length],
-    ["New Inquiry", byStatus("New Inquiry")],
-    ["Office Contacted", byStatus("Office Contacted")],
-    ["Engaged: No Outcome", byStatus("Engaged Lead: No Outcome")],
     ["Eval Scheduled", byStatus("Evaluation Scheduled")],
-    ["Eval Cancelled", byStatus("Evaluation Cancelled")],
     ["Eval Complete", byStatus("Evaluation Complete")],
     ["Became a Client", byStatus("Became a Client")],
     ["Lost", dashboardLostLeadRows(leadRows).length],
-    ["Bad Lead", byStatus("Bad Lead")],
-    ["Do Not Contact", byStatus("Do Not Contact")],
     ["Archived", byStatus("Archived")],
     ["New Trainer Applications", appRows.length]
   ]);
