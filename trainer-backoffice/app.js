@@ -4475,7 +4475,7 @@ function communicationsDesigner() {
   const bothTextEditor = isBoth ? `<section class="both-section">
       <h3 class="flow-heading">1. The text message version</h3>
       <label class="wide">Text wording<textarea class="communications-writing-box" data-design-sms-text rows="5" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.sms_text || "")}</textarea></label>
-      <small class="field-help">${smsCount} characters · about ${Math.max(1, Math.ceil(smsCount / 160))} message${smsCount > 160 ? "s" : ""} per person. Keep it short — phones show only a line or two.</small>
+      <small class="field-help">${smsCostLine(draft.sms_text)}. Keep it short — phones show only a line or two.</small>
     </section>
     <h3 class="flow-heading">2. The email version</h3>` : "";
 
@@ -4483,7 +4483,7 @@ function communicationsDesigner() {
   if (!isEmail || draft.format === "text") {
     const count = String(draft.body_text || "").length;
     editor = `<label class="wide">Message<textarea data-design-body-text rows="6" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.body_text || "")}</textarea></label>
-      ${isEmail ? "" : `<small class="field-help">${count} characters · about ${Math.max(1, Math.ceil(count / 160))} text segment${count > 160 ? "s" : ""} per person.</small>`}`;
+      ${isEmail ? "" : `<small class="field-help">${smsCostLine(draft.body_text)}.</small>`}`;
   } else if (draft.format === "html") {
     editor = `<label class="wide">Upload an HTML email file<input type="file" accept=".html,.htm,text/html" data-design-html-upload><small class="field-help">The file's HTML is loaded below, and you can still edit it before saving.</small></label>
       <label class="wide">HTML<textarea data-design-body-html rows="12" spellcheck="false" placeholder="&lt;table role=&quot;presentation&quot;&gt;…&lt;/table&gt;">${escapeHtml(draft.body_html || "")}</textarea></label>
@@ -4806,6 +4806,26 @@ function flowRecipientPicker() {
   </div>`;
 }
 
+// Texts are billed per 160 characters — but a single emoji switches the whole message
+// to the long format, where a part is only 70 characters. At thousands of recipients
+// that difference is real money, so it is shown before sending.
+const GSM_BASIC = /^[A-Za-z0-9@£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà\n\r\f^{}\\\[~\]|€]*$/;
+
+function smsCost(text) {
+  const value = String(text || "");
+  const unicode = !GSM_BASIC.test(value);
+  const single = unicode ? 70 : 160;
+  const multi = unicode ? 67 : 153;
+  const parts = value.length <= single ? 1 : Math.ceil(value.length / multi);
+  return { unicode, parts: Math.max(1, parts), length: value.length };
+}
+
+function smsCostLine(text) {
+  const cost = smsCost(text);
+  return `${cost.length} characters · about ${cost.parts} message${cost.parts === 1 ? "" : "s"} per person`
+    + (cost.unicode ? ` · <strong>emojis or special characters detected</strong>, which shortens each part to 70 characters and costs more` : "");
+}
+
 function flowStepText() {
   const flow = messageFlow();
   const draft = currentTemplateDraft();
@@ -4816,7 +4836,7 @@ function flowStepText() {
     <h3 class="flow-heading">Your wording</h3>
     <div class="communications-token-row"><span>Add client details:</span>${MERGE_TOKENS.map(([token, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-token="${token}">${label}</button>`).join("")}<small>Each person sees their own name and city here.</small></div>
     <label class="wide">Message<textarea class="communications-writing-box" data-design-body-text rows="7" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.body_text || "")}</textarea></label>
-    <p class="flow-hint">${count} characters · about ${Math.max(1, Math.ceil(count / 160))} message${count > 160 ? "s" : ""} per person.</p>
+    <p class="flow-hint">${smsCostLine(draft.body_text)}.</p>
     <label class="wide upload-field">Add a picture to the text (optional)<input type="file" accept="image/png,image/jpeg,image/gif" data-sms-media-upload><small class="field-help">Sends as a picture message. Keep it under 1 MB so it arrives quickly.</small></label>
     ${draft.media_url ? `<div class="design-current-image"><img src="${escapeHtml(draft.media_url)}" alt=""><span>Picture attached</span><button class="btn btn-outline btn-small" type="button" data-sms-media-clear>Remove picture</button></div>` : ""}
     <div class="flow-actions"><button class="btn btn-outline" type="button" data-flow-back>Back</button><button class="btn btn-red" type="button" data-flow-next ${String(draft.body_text || "").trim() ? "" : "disabled"}>See how it looks</button></div>`, "pad");
