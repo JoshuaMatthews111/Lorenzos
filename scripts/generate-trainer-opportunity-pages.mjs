@@ -104,7 +104,7 @@ const markets = [
   }
 ];
 
-const cacheVersion = "20260808syncnotes";
+const cacheVersion = "20260818reviewcta";
 const googleEndpoint = "https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/formResponse";
 
 const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({

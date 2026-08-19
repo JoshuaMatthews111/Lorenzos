@@ -1933,7 +1933,10 @@ body.is-logged-in .login-screen { display: none; }
 .lp3-contact aside span { color:#60748d; font-size:.8rem; }
 
 @media (max-width:1100px) {
-  .lp-page .landing-nav nav { display:none; }
+  /* Trainers asked for the red Leave a Review button to stay at the top on phones.
+     Hide the rest of the nav, never the review CTA. */
+  .lp-page .landing-nav nav > a:not(.landing-review-nav) { display:none; }
+  .lp-page .landing-nav nav { gap:0; margin-left:auto; }
   .lp5-trainer,.lp6-trainer { grid-template-columns:350px 1fr; }
   .lp5-trainer aside,.lp6-trainer aside { grid-column:1/-1; margin:0; border-radius:0; }
   .lp3-contact { grid-template-columns:1fr 1fr; }
@@ -2425,7 +2428,8 @@ body.public-site { background: #fff; }
 @media (max-width: 1100px) {
   .approved-template-grid, .wizard-upload-grid, .review-editor-grid, .wizard-template-choice { grid-template-columns: 1fr 1fr; }
   .trainer-onboarding { grid-template-columns: 220px minmax(0, 1fr); }
-  .landing-nav nav { display: none; }
+  .landing-nav nav > a:not(.landing-review-nav) { display: none; }
+  .landing-nav nav { gap: 0; margin-left: auto; }
   .landing-hero { grid-template-columns: 1fr 340px; }
   .landing-trainer-section { grid-template-columns: 330px 1fr; }
   .landing-trainer-section .landing-trainer-side { grid-column: 1 / -1; margin: 0; border-radius: 0; }
@@ -5216,3 +5220,16 @@ button:disabled{cursor:not-allowed}
 .browse-row small{display:block;color:var(--muted);font-size:.76rem;margin-top:2px}
 .saved-list-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:13px}
 .send-credit-note{margin:8px 0 0;padding:9px 11px;border-radius:9px;background:#fff8e8;border:1px solid #f0dcae;color:#7a5a12;font-size:.79rem;line-height:1.5}
+
+/* Review CTA stays visible and tappable at the top on phones (trainer request, 18 Aug 2026) */
+@media (max-width:800px){
+  .landing-review-nav{
+    padding:9px 14px;
+    font-size:.72rem;
+    white-space:nowrap;
+    box-shadow:0 8px 18px rgba(216,15,53,.24);
+  }
+}
+@media (max-width:420px){
+  .landing-review-nav{ padding:8px 12px; font-size:.68rem; }
+}

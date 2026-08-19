@@ -8538,7 +8538,7 @@ function commonFooterFunnel(trainer) {
 function landingHeader(trainer) {
   const logo = trainer.companyLogo || "/assets/lorenzo-logo-white.png";
   const hasReviews = Boolean(trainerReviewsMarkup(trainer));
-  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a>${hasReviews ? `<a href="#reviews">Results</a>` : ""}<a class="landing-review-nav" href="#submit-review">Leave Review</a><a href="#contact">Contact</a></nav></header>`;
+  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a>${hasReviews ? `<a href="#reviews">Results</a>` : ""}<a class="landing-review-nav" href="#submit-review">Leave a Review</a><a href="#contact">Contact</a></nav></header>`;
 }
 
 function trainerCity(trainer) {
@@ -8553,7 +8553,7 @@ function trainerLocationLabel(trainer) {
 function landingFooter(trainer) {
   const trainerSlug = trainer.slug || trainer.id || "";
   const homeHref = `index.html?trainer_source=${encodeURIComponent(trainerSlug)}&trainer_name=${encodeURIComponent(trainer.name)}&source_page=trainer_landing_footer`;
-  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p><a class="trainer-footer-home-link" href="${homeHref}">Visit Lorenzo's Dog Training Team home</a></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainerLocationLabel(trainer))}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a><a class="trainer-footer-review-link" href="#submit-review">Leave Review</a></div></footer>`;
+  return `<footer class="trainer-landing-footer"><div class="footer-brand"><img src="/assets/lorenzo-logo-white.png" alt="Lorenzo's Dog Training Team"><p>Serious training for dogs of any age, size, breed, and temperament.</p><a class="trainer-footer-home-link" href="${homeHref}">Visit Lorenzo's Dog Training Team home</a></div><div><strong>${escapeHtml(trainer.name)}</strong><span>${escapeHtml(trainerLocationLabel(trainer))}</span><span>${escapeHtml(trainer.serviceArea)}</span></div><div><strong>Training Services</strong><span>Dog Obedience Training</span><span>Behavior Modification</span><span>Specialty Training</span></div><div><strong>Connect</strong>${trainerSocialMarkup(trainer)}<a href="#contact">Request consultation</a><a class="trainer-footer-review-link" href="#submit-review">Leave a Review</a></div></footer>`;
 }
 
 function serviceCardsMarkup(layoutId) {

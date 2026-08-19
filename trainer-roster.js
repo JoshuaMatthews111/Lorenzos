@@ -578,7 +578,7 @@ window.LDTT_TRAINER_ROSTER = [
     "name": "Jasmine Bland",
     "state": "Indiana",
     "market": "Hammond, IN",
-    "serviceArea": "Hammond and surrounding Indiana communities",
+    "serviceArea": "Northwest Indiana (NWI) and the Chicagoland area",
     "phone": "(866) 436-4959",
     "email": "",
     "username": "",
