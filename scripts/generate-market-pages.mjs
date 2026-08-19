@@ -152,7 +152,7 @@ const markets = [
     checks: ["Reactivity on busy streets — lunging, barking, pulling toward dogs", "Evaluations available this week across Chicago", "New puppy foundations before bad habits set", "In-home and private training options"],
     care: {"eyebrow": "No waitlist", "h2": "Why wait months to fix this week's problem?", "p": "Professional dog training shouldn't come with a long wait. Chicago families can connect with our team, schedule an evaluation, and often begin the process within the same week.", "t": "Built for city dogs."},
     testis: [{"h": "Start this week", "p": "No waitlist. Your evaluation gets scheduled now, while the problem is fresh."}, {"h": "Reactivity is our daily work", "p": "Lunging and barking at dogs, bikes, and strangers — trainable, with a clear plan."}, {"h": "Real-life proofing", "p": "Training that holds on crowded sidewalks and busy streets, not just a quiet backyard."}],
-    zipCodes: ["46409"]
+    zipCodes: ["60618"]
   },
   {
     slug: "dog-training-tallahassee-fl",
@@ -202,7 +202,7 @@ const markets = [
     checks: ["Recall you can trust off the porch and on the sand", "Rental manners: no barking complaints, no chewed furniture", "Holiday board & train — slots fill 6–8 weeks ahead", "Puppy and obedience foundations year-round"],
     care: {"eyebrow": "Vacation-ready", "h2": "The beach is better with a dog who listens.", "p": "Emerald Coast life is patios, rentals, and open sand. We train the skills that make it easy — rock-solid recall, calm greetings, and manners your rental host will thank you for.", "t": "Trained for coast life."},
     testis: [{"h": "Beach recall", "p": "Coming when called even with birds, waves, and other dogs in play."}, {"h": "Rental-proof manners", "p": "Quiet, calm, and welcome back next season."}, {"h": "Holiday board & train", "p": "Drop off before the holidays, come home to a transformed dog. Book 6–8 weeks ahead."}],
-    zipCodes: ["32405"]
+    zipCodes: ["32550"]
   },
   {
     slug: "dog-training-lexington-ky",
