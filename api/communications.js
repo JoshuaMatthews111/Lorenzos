@@ -88,7 +88,17 @@ function mergeTemplate(value, recipient = {}, unsubscribeUrl = "") {
     opt_out_url: unsubscribeUrl,
     unsubscribe_url: unsubscribeUrl
   };
-  return noMergeTokens(String(value || "").replace(
+  // Templates saved before the normaliser was fixed hold {{{first_name}}} — the
+  // browser wrapped an already-correct token a second time. Filling only the
+  // inner one leaves the outer braces, which is how a live send went out reading
+  // "Dear {Joshua},". Collapse any run of braces back to one token first. This is
+  // the last thing that runs before a client sees the message, so it repairs the
+  // stored templates without anyone having to re-save them.
+  const collapsed = String(value || "").replace(
+    /\{{2,}\s*([a-z_]+)\s*\}{2,}/gi,
+    (_all, name) => `{{${String(name).toLowerCase()}}}`,
+  );
+  return noMergeTokens(collapsed.replace(
     /{{\s*(first_name|last_name|city|dog_name|unsubscribe|opt_out_url|unsubscribe_url)\s*}}/gi,
     (_all, key) => replacements[String(key).toLowerCase()] || ""
   ));

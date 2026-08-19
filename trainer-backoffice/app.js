@@ -4360,7 +4360,21 @@ const PLACEHOLDER_PATTERNS = [
 ];
 
 function normalizeMergePlaceholders(value) {
-  return PLACEHOLDER_PATTERNS.reduce((text, [pattern, token]) => text.replace(pattern, token), String(value || ""));
+  // Park tokens that are already correct before normalising, and repair any that
+  // were wrapped twice before this fix. The first pattern above matches the INNER
+  // {first_name} of a correct {{first_name}}, so normalising an already-clean
+  // template turned it into {{{first_name}}} — the server then filled the inner
+  // token and left the outer braces, which is why a real send went out reading
+  // "Dear {Joshua},".
+  const parked = [];
+  let text = String(value || "")
+    .replace(/\{{2,}\s*([a-z_]+)\s*\}{2,}/gi, (_match, name) => `{{${name.toLowerCase()}}}`)
+    .replace(/{{\s*[a-z_]+\s*}}/gi, (match) => {
+      parked.push(match);
+      return `@@MERGE${parked.length - 1}@@`;
+    });
+  text = PLACEHOLDER_PATTERNS.reduce((carry, [pattern, token]) => carry.replace(pattern, token), text);
+  return text.replace(/@@MERGE(\d+)@@/g, (_match, index) => parked[Number(index)]);
 }
 
 function countMergeTokens(value) {
