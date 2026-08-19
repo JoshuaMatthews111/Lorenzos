@@ -30,7 +30,11 @@ const markets = [
   },
   {
     slug: "dog-training-columbus-oh",
-    photo2: "assets/get-started-premium-hero.jpg", photo2Alt: "Two dogs relaxed together with their owner after training",
+    // Bill's photo, sent by Rachel 2026-08-19 for the "Two dogs. One house." section.
+    // It is 16:9 and this figure crops to 4:3, so the subjects are pulled left of
+    // centre — a plain centre crop pushes them into the corner and fills the frame
+    // with empty floor.
+    photo2: "assets/columbus-two-dogs.jpg", photo2Alt: "Two dogs sitting calmly side by side on one leash with a Lorenzo's trainer", photo2Pos: "30% center",
     photo: "assets/ad-testimonial-take-1-cover.png", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     
