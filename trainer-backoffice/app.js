@@ -1,3 +1,32 @@
+/* A failed image paints the browser's broken-image question mark. Trainers and
+   office staff read that as "the site is broken", so never show it — hide the
+   image, and hide its media wrapper when nothing else is left inside. One
+   delegated capture-phase listener covers every image the portal and the public
+   trainer pages render, so no markup has to be touched. */
+(function hideBrokenMedia() {
+  if (typeof document === "undefined" || window.__LDTT_BROKEN_MEDIA__) return;
+  window.__LDTT_BROKEN_MEDIA__ = true;
+  const WRAPPERS = [
+    ".trainer-review-media",
+    ".wizard-media-preview",
+    ".editor-image-preview",
+    ".submission-dialog-content",
+    ".trainer-page-thumbnail"
+  ];
+  document.addEventListener("error", function (event) {
+    const img = event.target;
+    if (!img || img.tagName !== "IMG" || img.dataset.ldttBroken) return;
+    img.dataset.ldttBroken = "1";
+    img.style.display = "none";
+    for (const selector of WRAPPERS) {
+      const wrapper = img.closest(selector);
+      if (!wrapper) continue;
+      if (!wrapper.querySelector("img:not([data-ldtt-broken])")) wrapper.style.display = "none";
+      break;
+    }
+  }, true);
+})();
+
 const STORE_KEY = "lorenzoBackOfficePrototype.v9";
 const UI_STORE_KEY = "lorenzoBackOfficeUi.v10";
 const SESSION_KEY = "lorenzoBackOfficeSession.v4";

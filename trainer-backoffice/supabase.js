@@ -433,7 +433,10 @@
     return uploadOnce();
   }
 
-  async function signedStorageUrl(bucket, path, expiresIn = 3600) {
+  /* Signed links used to last an hour, so leaving the portal open past that
+     turned every submission thumbnail into a broken-image question mark.
+     Twelve hours outlives a working day without making the link permanent. */
+  async function signedStorageUrl(bucket, path, expiresIn = 43200) {
     if (!path || /^(data:|blob:|https?:|\/)/i.test(path)) return path || "";
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
     const result = await request(`/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {

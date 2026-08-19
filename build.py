@@ -37,7 +37,7 @@ TRAINER_APPLICATION_FORM_EMBED="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkP
 TRAINER_APPLICATION_FORM_LINK="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform"
 TRAINER_APPLICATION_FORM_RESPONSE="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/formResponse"
 SITE_ASSET_VERSION="20260808trainerSync"
-PORTAL_ASSET_VERSION="20260803photoRoles"
+PORTAL_ASSET_VERSION="20260819media"
 GOOGLE_ADS_ID="AW-11463464040"
 CONTACT_CONVERSION_ID="AW-11463464040/WIE3CMK0kr0aEOiomtoq"
 CONTACT_ATTRIBUTION_HIDDEN_FIELDS=''.join(f'<input type="hidden" name="{name}" value="">' for name in ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","gclid","landing_url"])
