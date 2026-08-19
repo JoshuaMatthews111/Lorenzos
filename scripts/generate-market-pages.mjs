@@ -273,6 +273,30 @@ const attributionInputs = () => attributionFields
   .map(name => `<input type="hidden" name="${name}" value="">`)
   .join("\n              ");
 
+const metaPixelId = '3790623554504010'
+
+/* Meta pixel. Without it Meta cannot see which ads produced a lead, so it
+   cannot learn who to show ads to, and visitors who read a page and left can
+   never be retargeted. The form submit fires a Lead event so Meta optimises
+   toward people who actually enquire rather than people who merely click. */
+const metaPixelHead = () => `<script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '${metaPixelId}');
+    fbq('track', 'PageView');
+    document.addEventListener('submit', function(e){
+      var f = e.target;
+      if (!(f instanceof HTMLFormElement) || typeof fbq !== 'function') return;
+      if (f.classList.contains('contact-intake')) fbq('track', 'Lead', { value: 250, currency: 'USD' });
+      if (f.classList.contains('pdf-optin')) fbq('track', 'CompleteRegistration', { value: 25, currency: 'USD' });
+    }, true);
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1" alt=""></noscript>`
+
 const googleAdsHead = () => `<script async src="https://www.googletagmanager.com/gtag/js?id=${googleAdsId}"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -534,6 +558,7 @@ const page = market => {
     description: metaDescription
   })}</script>
   ${googleAdsHead()}
+  ${metaPixelHead()}
   <style>
     .market-copy .ad-lead.market-hook{border-left:4px solid #c8102e;background:rgba(200,16,46,.07);padding:10px 14px;border-radius:0 10px 10px 0;font-size:1.02em}
     .market-spanish{border-left:4px solid #152569;background:rgba(21,37,105,.06);padding:10px 14px;border-radius:0 10px 10px 0}

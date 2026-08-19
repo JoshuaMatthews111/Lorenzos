@@ -7,6 +7,24 @@
   <meta name="description" content="Lorenzo's office-controlled trainer network portal for trainer pages, leads, clients, approvals, and reporting.">
   <link rel="icon" href="assets/ldtt-favicon.png">
   <link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260808searchfix">
+<!-- Meta pixel -->
+  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '3790623554504010');
+    fbq('track', 'PageView');
+    document.addEventListener('submit', function(e){
+      var f = e.target;
+      if (!(f instanceof HTMLFormElement) || typeof fbq !== 'function') return;
+      if (f.classList.contains('contact-intake')) fbq('track', 'Lead', { value: 250, currency: 'USD' });
+      if (f.classList.contains('pdf-optin')) fbq('track', 'CompleteRegistration', { value: 25, currency: 'USD' });
+    }, true);
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=3790623554504010&ev=PageView&noscript=1" alt=""></noscript>
 </head>
 <body class="is-logged-out">
   <section class="login-screen" id="loginScreen" aria-label="Trainer Network login">
