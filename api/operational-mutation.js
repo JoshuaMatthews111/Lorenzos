@@ -47,7 +47,7 @@ const ENTITY_CONFIG = {
   },
   submission: {
     table: "content_submissions",
-    fields: new Set(["trainer_id", "submission_type", "title", "file_url", "notes", "status", "office_notes"])
+    fields: new Set(["trainer_id", "submission_type", "title", "file_url", "notes", "status", "office_notes", "photo_position"])
   },
   portal_user: {
     table: "portal_users",

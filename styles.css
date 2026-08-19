@@ -2726,3 +2726,6 @@ body.review-modal-open{overflow:hidden}
     font-size:clamp(2.45rem,12vw,3.7rem);
   }
 }
+.approved-review-quote.is-clamped{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+.review-read-more{margin:6px 0 0;padding:0;border:0;background:none;color:#7fb2ff;font:inherit;font-weight:900;font-size:.86rem;cursor:pointer;text-decoration:underline}
+.review-read-more:hover{color:#fff}

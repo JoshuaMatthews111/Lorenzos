@@ -1049,6 +1049,7 @@ function remoteApplicationToUi(row) {
 }
 
 function remoteSubmissionToUi(row) {
+  const photoPosition = row.photo_position || "";
   const trainer = state.trainers.find(item => item.remoteId === row.trainer_id);
   const notes = String(row.notes || "");
   const isHomepageReview = /homepage review form|Lorenzo's Dog Training Team homepage/i.test(notes);
@@ -1109,6 +1110,7 @@ function remoteSubmissionToUi(row) {
     .replace(/\s*\[\[review_targets:[^\]]*\]\]\s*/ig, "")
     .trim();
   return {
+    photoPosition,
     id: row.id,
     remoteId: row.id,
     trainerId: reviewTargets.find(target => target !== "lorenzos-team") || reviewTargets[0] || "",
@@ -7829,6 +7831,24 @@ function submissionForm(kind = "media") {
   return `<div class="form-grid"><div class="field"><label>Submission Type<select name="submission-type">${options.map(option => `<option>${option}</option>`).join("")}</select></label></div><div class="field"><label>Title<input name="submission-title" placeholder="${placeholder}" required></label></div>${contentField}<div class="field wide"><label>Notes For The Office<textarea name="submission-note" placeholder="Tell the office where this should be used and confirm client permission when applicable."></textarea></label></div></div>`;
 }
 
+// Review photos sit in a fixed frame on the website, so a tall photo can cut off the
+// dog. This lets the office choose which part of the picture stays visible, and shows
+// the result in the same shape the website uses.
+const REVIEW_FRAME_CHOICES = [["50% 0%", "Top"], ["50% 25%", "Upper"], ["50% 50%", "Middle"], ["50% 75%", "Lower"], ["50% 100%", "Bottom"]];
+
+function reviewFrameControl(sub) {
+  const isVideo = ["Training Video", "Video"].includes(sub.type) || reviewMediaIsVideo(sub.contentUrl, sub.fileType);
+  if (!sub.contentUrl || isVideo) return "";
+  const current = sub.photoPosition || "50% 50%";
+  return `<details class="review-frame" ${sub.photoPosition ? "open" : ""}>
+    <summary>Fix how this photo sits in the frame</summary>
+    <div class="review-frame-preview"><img src="${escapeHtml(sub.contentUrl)}" alt="" style="object-position:${escapeHtml(current)}"></div>
+    <p class="field-help">This is the exact shape the website uses. Pick the part of the picture that should stay visible so the dog is not cut off.</p>
+    <div class="review-frame-choices">${REVIEW_FRAME_CHOICES.map(([value, label]) =>
+      `<button type="button" class="${current === value ? "active" : ""}" data-review-frame="${escapeHtml(sub.id)}" data-frame-value="${value}">${label}</button>`).join("")}</div>
+  </details>`;
+}
+
 function submissionsTable(admin, kind = "all") {
   const sourceRows = admin ? state.submissions : trainerSubmissions();
   let rows = kind === "media" ? sourceRows.filter(sub => ["Photo", "Training Video", "Video"].includes(sub.type)) : kind === "review" ? sourceRows.filter(sub => ["Review", "Testimonial"].includes(sub.type)) : sourceRows;
@@ -7909,7 +7929,7 @@ function submissionReviewList(rows) {
       <td><strong>${escapeHtml(sourceLabel)}</strong><small>${escapeHtml(sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString() : "Date pending")}</small></td>
       <td><span class="status ${submissionStatusClass(sub.status)}">${escapeHtml(sub.status || "Pending")}</span></td>
       <td><textarea class="review-list-note" data-submission-note="${escapeHtml(sub.id)}" placeholder="Office note...">${escapeHtml(sub.officeNote || sub.note || "")}</textarea></td>
-      <td><div class="review-list-actions">${actionButtons}<button class="btn btn-outline btn-small" type="button" data-open-submission-detail="${escapeHtml(sub.id)}">Open</button></div></td>
+      <td><div class="review-list-actions">${actionButtons}<button class="btn btn-outline btn-small" type="button" data-open-submission-detail="${escapeHtml(sub.id)}">Open</button></div>${reviewFrameControl(sub)}</td>
     </tr>`;
   }).join("")}</tbody></table></div>`;
 }
@@ -9626,6 +9646,29 @@ document.addEventListener("click", async event => {
     client.status = "Active";
     recordActivity("Client put back", `${client.name || "Client"} was put back on the active client list.`, "Client");
     saveState(`${client.name || "Client"} put back on the active list.`);
+    return;
+  }
+  const reviewFrame = event.target.closest("[data-review-frame]");
+  if (reviewFrame) {
+    event.stopPropagation();
+    const sub = (state.submissions || []).find(item => item.id === reviewFrame.dataset.reviewFrame);
+    const value = reviewFrame.dataset.frameValue;
+    if (!sub) return;
+    sub.photoPosition = value;
+    // Show the new framing straight away, then save it.
+    const preview = reviewFrame.closest(".review-frame")?.querySelector("img");
+    if (preview) preview.style.objectPosition = value;
+    reviewFrame.closest(".review-frame-choices")?.querySelectorAll("button").forEach(button =>
+      button.classList.toggle("active", button === reviewFrame));
+    if (remoteReady && sub.remoteId) {
+      runRemoteMutation("Photo framing saved", () => window.LDTT_PORTAL.operationalMutation({
+        operation: "update",
+        entity_type: "submission",
+        id: sub.remoteId,
+        changes: { photo_position: value },
+        summary: `Review photo framing set to ${value}`
+      }), { type: "Review", detail: `${sub.reviewerName || "Review"} photo framing adjusted.` });
+    } else saveState("Photo framing saved");
     return;
   }
   const openLead = event.target.closest("[data-open-lead]");

@@ -857,10 +857,32 @@ const approvedHomepageReviewCards=rows=>(Array.isArray(rows)?rows:[]).map(row=>{
   const media=fileUrl
     ? fileType.startsWith('video/')
       ? publicReviewVideoMarkup(fileUrl,`${reviewer} review video`)
-      : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy">`
+      : `<img src="${escapePublicText(fileUrl)}" alt="Review media from ${escapePublicText(reviewer)}" loading="lazy"${row.photo_position?` style="object-position:${escapePublicText(row.photo_position)}"`:''}>`
     : '';
-  return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Client review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote>${escapePublicText(reviewText||'Real client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
+  return `<article class="review-shot-card homepage-approved-review-card" data-approved-home-review>${media?`<div class="homepage-approved-review-media">${media}</div>`:''}<div><span class="approved-review-pill">Client review</span><div class="big-stars">${'★'.repeat(rating)}${'☆'.repeat(5-rating)}</div><blockquote class="approved-review-quote" data-review-quote>${escapePublicText(reviewText||'Real client review.')}</blockquote><strong>${escapePublicText(reviewer)}</strong>${location?`<span>${escapePublicText(location)}</span>`:''}</div></article>`;
 }).join('');
+
+// A long review is clamped with a "Read more" link. Short ones are left exactly as
+// they are — nothing to expand, so no link is added.
+function setUpReviewReadMore(scope){
+  (scope||document).querySelectorAll('[data-review-quote]').forEach(quote=>{
+    if(quote.dataset.readMoreReady==='true') return;
+    quote.dataset.readMoreReady='true';
+    quote.classList.add('is-clamped');
+    requestAnimationFrame(()=>{
+      if(quote.scrollHeight-quote.clientHeight<8){quote.classList.remove('is-clamped');return;}
+      const toggle=document.createElement('button');
+      toggle.type='button';
+      toggle.className='review-read-more';
+      toggle.textContent='Read more';
+      toggle.addEventListener('click',()=>{
+        const open=quote.classList.toggle('is-clamped')===false;
+        toggle.textContent=open?'Show less':'Read more';
+      });
+      quote.insertAdjacentElement('afterend',toggle);
+    });
+  });
+}
 async function loadApprovedHomepageReviews(){
   if(!approvedHomeReviewRail) return;
   try{
@@ -872,6 +894,7 @@ async function loadApprovedHomepageReviews(){
     approvedHomeReviewRail.querySelectorAll('[data-approved-home-review]').forEach(card=>card.remove());
     if(cards) approvedHomeReviewRail.insertAdjacentHTML('afterbegin',cards);
     resetHomepageReviewCarousel();
+    setUpReviewReadMore(approvedHomeReviewRail);
   }catch(error){
     console.warn('Approved homepage reviews could not be loaded',error);
   }

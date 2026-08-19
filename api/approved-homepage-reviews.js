@@ -114,7 +114,7 @@ module.exports = async function handler(req, res) {
     }
     const filter = publicationIds.length ? `&id=in.(${publicationIds.map(encodeURIComponent).join(",")})` : "";
     const rows = await supabaseFetch(
-      `/rest/v1/content_submissions?select=id,trainer_id,title,notes,office_notes,file_url,created_at&submission_type=in.(review,testimonial)&status=eq.approved${filter}&order=created_at.desc&limit=50`
+      `/rest/v1/content_submissions?select=id,trainer_id,title,notes,office_notes,file_url,photo_position,created_at&submission_type=in.(review,testimonial)&status=eq.approved${filter}&order=created_at.desc&limit=50`
     );
     const homepageRows = (Array.isArray(rows) ? rows : [])
       .filter(row => publicationIds.length
@@ -134,6 +134,7 @@ module.exports = async function handler(req, res) {
         location,
         rating,
         media_url: await signedMediaUrl(row.file_url),
+        photo_position: row.photo_position || null,
         media_type: mediaTypeFromRow(row),
         published_at: publicationPublishedAt.get(row.id) || row.created_at,
         created_at: row.created_at

@@ -5233,3 +5233,13 @@ button:disabled{cursor:not-allowed}
 @media (max-width:420px){
   .landing-review-nav{ padding:8px 12px; font-size:.68rem; }
 }
+
+/* Fixing how a review photo sits in the website frame */
+.review-frame{margin-top:10px;border:1px solid #dce7f2;border-radius:10px;padding:9px 11px;background:#f8fbff}
+.review-frame summary{cursor:pointer;color:var(--navy);font-weight:900;font-size:.76rem}
+.review-frame[open] summary{margin-bottom:9px}
+.review-frame-preview{height:150px;background:#061f46;border-radius:8px;overflow:hidden}
+.review-frame-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.review-frame-choices{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.review-frame-choices button{padding:6px 11px;border:1px solid #cbd9e9;border-radius:999px;background:#fff;color:var(--navy);font:inherit;font-size:.74rem;font-weight:800;cursor:pointer}
+.review-frame-choices button.active{border-color:var(--navy);background:var(--navy);color:#fff}
