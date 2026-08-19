@@ -40,7 +40,7 @@ const markets = [
     tint2: "120,20,60",
     hook: "Dogs fighting in the same house? We specialize in resolving multi-dog conflict. Ask about a same-week assessment.",
     title: "Columbus Dog Training",
-    h1: "Dogs Fighting at Home? Columbus Aggression & Behavior Training.",
+    h1: "Dogs Fighting at Home? Get Help with Aggression & Behavior Training in Columbus.",
     market: "Columbus / Reynoldsburg, OH",
     city: "Columbus",
     state: "OH",
@@ -49,8 +49,8 @@ const markets = [
     proof: "Central Ohio families get local obedience and behavior help, personally coordinated through Lorenzo's office.",
     nearby: ["Columbus", "Reynoldsburg", "Central Ohio", "Franklin County", "Licking County"],
     checks: ["Dogs fighting in the same house — assessment, safety plan, reintroduction", "Jumping, barking, and door-crashing brought under control", "Potty training and puppy foundations", "Owner coaching so the peace holds after we leave"],
-    care: {"eyebrow": "Multi-dog households", "h2": "Two dogs. One house. It can work again.", "p": "When dogs in the same home start fighting, waiting makes it worse. Columbus families bring us exactly this — we assess both dogs, make the household safe immediately, and rebuild the relationship step by step.", "t": "How we handle dogs in conflict."},
-    testis: [{"h": "Assess first", "p": "A professional reads both dogs — triggers, resource guarding, body language — before anyone talks plans."}, {"h": "Make home safe now", "p": "You get an immediate management plan so nobody gets hurt while training happens."}, {"h": "Reintroduce for keeps", "p": "Structured reintroduction with owner coaching, so calm is the new normal after we leave."}],
+    care: {"eyebrow": "Multi-dog households", "h2": "Two dogs. One house. It can work again.", "p": "When dogs in the same home start fighting, waiting can make the problem worse. We help Columbus families address these conflicts by assessing both dogs, establishing safety and structure in the home, and rebuilding the relationship step by step.", "t": "How we handle dogs in conflict."},
+    testis: [{"h": "Assess first", "p": "A professional reads both dogs — triggers, resource guarding, body language — before anyone talks plans."}, {"h": "Make home safe now", "p": "You get an immediate management plan so nobody gets hurt while training happens."}, {"h": "Reintroduce With Confidence", "p": "Structured reintroduction with owner coaching, so calm is the new normal after we leave."}],
     zipCodes: ["43068"]
   },
   {
