@@ -71,6 +71,13 @@ module.exports = async function handler(req, res) {
       await setWebhookOutcome("simpletexting", webhook.eventId, "unknown_staff_number");
       return json(res, 200, { ok: true });
     }
+    // Staff commands change business records, so they are only obeyed when the
+    // webhook proved who it came from. Opt-outs above are always honoured, because
+    // ignoring a real STOP is far worse than acting on a false one.
+    if (!webhook.verified) {
+      await setWebhookOutcome("simpletexting", webhook.eventId, "unverified_command_ignored");
+      return json(res, 200, { ok: true });
+    }
     if (/\bHELP\b/.test(text)) {
       await sms(phone, "Commands: TAKE 1234, DONE 1234, PASS 1234, STATUS 1234, STOP.");
       await setWebhookOutcome("simpletexting", webhook.eventId, "help_sent");
