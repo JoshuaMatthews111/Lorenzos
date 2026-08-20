@@ -24,6 +24,11 @@ const evaluationCancelledMigration = read("supabase/migrations/20260817170535_ad
 const templateDesignMigration = read("supabase/migrations/20260817172642_communications_template_design.sql");
 const sendVerificationDropped = read("supabase/migrations/20260817173440_drop_temp_provider_send_verification.sql");
 const smsInbound = read("api/webhooks/sms-inbound.js");
+const trainerOpportunityGenerator = read("scripts/generate-trainer-opportunity-pages.mjs");
+const trainerOpportunityPages = trainerOpportunityGenerator
+  .match(/slug: "(trainer-opportunity-[a-z0-9-]+)"/g)
+  .map(row => row.replace(/^slug: "/, "").replace(/"$/, ""))
+  .map(slug => [slug, read(`${slug}.html`)]);
 
 const checks = [
   ["staff identity replaces anonymous portal labels", /portalActorLabel/.test(app) && /first_name/.test(app) && /last_name/.test(app)],
@@ -112,7 +117,9 @@ const checks = [
   ["the list can be sent in batches, a page at a time", /batch_size/.test(communicationsApi) && /allEligible\.slice\(\(batchPage - 1\) \* batchSize/.test(communicationsApi) && /data-flow-batch/.test(app) && /data-flow-page/.test(app)],
   ["a text can carry a picture", /mediaUrl: \[mediaUrl\]/.test(communicationsApi) && /data-sms-media-upload/.test(app)],
   ["the email preview can be opened full size", /data-preview-size/.test(app) && /email-check-frame\.full/.test(styles)],
-  ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)]
+  ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)],
+  ["the trainer recruiting generator emits the Meta pixel itself", /const metaPixelHead = \(\) =>/.test(trainerOpportunityGenerator) && /connect\.facebook\.net/.test(trainerOpportunityGenerator) && /\$\{metaPixelHead\(\)\}/.test(trainerOpportunityGenerator)],
+  ["every trainer recruiting page still carries the Meta pixel", trainerOpportunityPages.length === 10 && trainerOpportunityPages.every(([, html]) => /connect\.facebook\.net\/en_US\/fbevents\.js/.test(html) && /fbq\('init', '3790623554504010'\)/.test(html) && /fbq\('track', 'PageView'\)/.test(html) && /facebook\.com\/tr\?id=3790623554504010/.test(html))]
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

@@ -105,6 +105,31 @@ const markets = [
 ];
 
 const cacheVersion = "20260818reviewcta";
+const metaPixelId = "3790623554504010";
+
+/* Meta pixel. Lives here, not hand-pasted into the built pages: it used to be
+   added to the HTML by hand, so every regeneration of these ten recruiting
+   pages silently deleted it and Meta stopped seeing the traffic. Emitting it
+   from the generator means a rebuild restores it instead of removing it.
+   Kept byte-identical to what the pages already ship. */
+const metaPixelHead = () => `  <script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '${metaPixelId}');
+    fbq('track', 'PageView');
+    document.addEventListener('submit', function(e){
+      var f = e.target;
+      if (!(f instanceof HTMLFormElement) || typeof fbq !== 'function') return;
+      if (f.classList.contains('contact-intake')) fbq('track', 'Lead', { value: 250, currency: 'USD' });
+      if (f.classList.contains('pdf-optin')) fbq('track', 'CompleteRegistration', { value: 25, currency: 'USD' });
+    }, true);
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=${metaPixelId}&ev=PageView&noscript=1" alt=""></noscript>`;
+
 const googleEndpoint = "https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/formResponse";
 
 const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({
@@ -199,6 +224,8 @@ const page = market => {
   <link rel="stylesheet" href="styles.css?v=${cacheVersion}">
   <script type="application/ld+json">${JSON.stringify(structuredData)}</script>
   <script type="application/ld+json">${JSON.stringify(faqData)}</script>
+<!-- Meta pixel -->
+${metaPixelHead()}
 </head>
 <body class="ad-funnel-redesign trainer-recruiting-ad" data-market="${escapeHtml(market.market)}">
   <header class="ad-header ad-header-v2">
