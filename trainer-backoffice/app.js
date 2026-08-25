@@ -5628,6 +5628,17 @@ function enhancePasswordFields(root = document) {
   });
 }
 
+function loginFailureMessage(error, username = "") {
+  const raw = String(error?.message || "");
+  if (/invalid login credentials|invalid_grant/i.test(raw)) {
+    return `That email and password did not match${username ? ` for ${username}` : ""}. Check the password with the "Show" button before trying again — a browser saved password may have replaced what you typed.`;
+  }
+  if (/email not confirmed/i.test(raw)) return "That account has not been confirmed yet. Contact the office.";
+  if (/too many requests|rate limit/i.test(raw)) return "Too many attempts. Wait a minute, then try once more.";
+  if (/failed to fetch|networkerror/i.test(raw)) return "Could not reach the portal. Check your internet connection and try again.";
+  return `Sign in failed: ${raw}`;
+}
+
 function suggestedPortalPassword() {
   const words = ["Maple", "Harbor", "Copper", "Willow", "Ridge", "Anchor", "Summit", "Cedar"];
   const bytes = new Uint32Array(3);
@@ -12533,7 +12544,7 @@ document.addEventListener("submit", async event => {
       status.textContent = "";
       render();
     } catch (error) {
-      status.textContent = `Sign in failed: ${error.message}`;
+      status.textContent = loginFailureMessage(error, username);
       try {
         await window.LDTT_PORTAL?.signOut?.();
       } catch {
