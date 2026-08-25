@@ -5269,6 +5269,9 @@ button:disabled{cursor:not-allowed}
 .login-help-row{display:flex;justify-content:flex-end;margin-top:-4px}
 .login-link-btn{border:0;background:none;padding:0;font:inherit;font-size:.8rem;font-weight:800;color:var(--red);cursor:pointer;text-decoration:underline}
 .forgot-form{display:grid;gap:10px;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;text-align:left}
+/* A class selector beats the browser's own [hidden]{display:none}, so the
+   reset form opened by itself on every visit. Put the hiding back. */
+.forgot-form[hidden]{display:none}
 .forgot-form p{color:var(--muted);font-size:.8rem;margin:0}
 
 /* ---- Delete your own office note ---- */
@@ -5282,3 +5285,9 @@ button:disabled{cursor:not-allowed}
 .sandbox-banner{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 18px;background:repeating-linear-gradient(135deg,#f7b500,#f7b500 14px,#ffcf4d 14px,#ffcf4d 28px);color:#2b1d00;font-size:.82rem;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.16)}
 .sandbox-banner strong{background:#2b1d00;color:#ffcf4d;padding:3px 10px;border-radius:999px;font-size:.72rem;letter-spacing:.08em}
 body.is-sandbox .login-card::after{content:"Sandbox copy — nothing you do here changes the live site.";display:block;margin-top:14px;padding:9px 12px;border-radius:8px;background:#fff6dd;border:1px solid #f0cf7a;color:#5b4300;font-size:.78rem;font-weight:700}
+
+/* Conversions box sits directly under the buckets box, same column */
+.dashboard-stack{display:grid;gap:16px;align-content:start;min-width:0}
+.conversion-range{margin:0 0 4px;padding:8px 11px;border-radius:8px;background:var(--line-2);color:var(--muted);font-size:.74rem;font-weight:700}
+.conversion-funnel .panel-copy{font-size:.76rem;margin:0}
+.conversion-stage small{display:block}

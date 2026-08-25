@@ -1760,9 +1760,12 @@ function portalUserById(userId) {
   return remotePortalUsers.find(item => String(item.user_id) === String(userId)) || null;
 }
 
+const sandboxDeletedNoteIds = new Set();
+
 function officeNotesFor(entityType, entityId) {
   if (!entityId) return [];
   return remoteOfficeNotes
+    .filter(note => !sandboxDeletedNoteIds.has(String(note.id)))
     .filter(note => note.entity_type === entityType && note.entity_id === entityId)
     .sort((a, b) => timestampValue(a.created_at) - timestampValue(b.created_at));
 }
@@ -5265,10 +5268,12 @@ const adminScreens = {
         ["report", "Office Notes", metrics.officeNotes, "Saved note rows", "", { view: "reports" }]
       ])}
       <div class="dashboard-grid">
-        ${panel("Dashboard Buckets", "", leadSummary())}
+        <div class="dashboard-stack">
+          ${panel("Dashboard Buckets", "", leadSummary())}
+          ${panel("Conversions", `<button class="btn btn-outline" type="button" data-view="reports">By Market</button>`, companyConversionChart(), "pad")}
+        </div>
         ${panel("Lead Status Updates", "", leadOutcomeTable(filteredReportLeadRows()))}
       </div>
-      ${panel("Company Conversions", `<button class="btn btn-outline" type="button" data-view="reports">Break It Down By Market</button>`, companyConversionChart(), "pad")}
       ${leadDetailPanel()}`;
   },
   trainerPages() {
@@ -6763,10 +6768,10 @@ const CONVERSION_STAGE_RANK = {
 };
 
 const CONVERSION_STAGES = [
-  { key: "leads", rank: 1, event: "form_received", label: "Leads In", color: "#246bfe", help: "Every lead form received" },
-  { key: "scheduled", rank: 3, event: "evaluation_scheduled", label: "Evals Scheduled", color: "#d80f35", help: "Reached evaluation scheduled" },
-  { key: "completed", rank: 4, event: "evaluation_completed", label: "Evals Completed", color: "#4ac26b", help: "Evaluation actually happened" },
-  { key: "clients", rank: 5, event: "became_client", label: "Became A Client", color: "#0c9b58", help: "Paying client" }
+  { key: "leads", rank: 1, event: "form_received", label: "Leads came in", color: "#246bfe", help: "Everyone who filled in a form" },
+  { key: "scheduled", rank: 3, event: "evaluation_scheduled", label: "Booked an eval", color: "#d80f35", help: "Of those, this many booked" },
+  { key: "completed", rank: 4, event: "evaluation_completed", label: "Eval actually happened", color: "#4ac26b", help: "Of those, this many showed up" },
+  { key: "clients", rank: 5, event: "became_client", label: "Paid and became a client", color: "#0c9b58", help: "Of those, this many paid" }
 ];
 
 // Lifecycle events keyed by "<entity_type>:<entity_id>" so a lead can be matched
@@ -6804,37 +6809,38 @@ function companyConversionCounts() {
 function companyConversionChart() {
   const counts = companyConversionCounts();
   const top = counts[CONVERSION_STAGES[0].key] || 0;
-  const bars = CONVERSION_STAGES.map(stage => {
+  const bars = CONVERSION_STAGES.map((stage, index) => {
     const value = counts[stage.key] || 0;
     const width = top ? Math.max(2, Math.round((value / top) * 100)) : 2;
-    const ofLeads = top ? Math.round((value / top) * 1000) / 10 : 0;
     return `<article class="conversion-stage">
       <div class="conversion-stage-head">
-        <button class="conversion-stage-label" type="button" data-conversion-stage="${stage.key}" title="Open the leads that reached this stage">${escapeHtml(stage.label)}</button>
+        <button class="conversion-stage-label" type="button" data-conversion-stage="${stage.key}" title="Click to see these leads">${index + 1}. ${escapeHtml(stage.label)}</button>
         <strong>${value}</strong>
       </div>
       <div class="conversion-bar-track"><div class="conversion-bar-fill" style="width:${width}%;background:${stage.color}"></div></div>
-      <small>${escapeHtml(stage.help)} · ${ofLeads}% of leads in</small>
+      <small>${escapeHtml(stage.help)}</small>
     </article>`;
   }).join("");
   const step = (from, to) => {
     const a = counts[from] || 0;
     const b = counts[to] || 0;
-    return a ? `${Math.round((b / a) * 1000) / 10}%` : "—";
+    return a ? `${Math.round((b / a) * 100)}%` : "—";
   };
   return `<div class="conversion-funnel">
+    <p class="conversion-range">Showing ${escapeHtml(reportRangeLabel())}. Change the report date above and these numbers change with the rest of the dashboard.</p>
     ${bars}
     <div class="conversion-steps">
-      <div><span>Lead → Eval scheduled</span><strong>${step("leads", "scheduled")}</strong></div>
-      <div><span>Scheduled → Completed</span><strong>${step("scheduled", "completed")}</strong></div>
-      <div><span>Completed → Client</span><strong>${step("completed", "clients")}</strong></div>
-      <div><span>Lead → Client (overall)</span><strong>${step("leads", "clients")}</strong></div>
+      <div><span>Leads who booked</span><strong>${step("leads", "scheduled")}</strong></div>
+      <div><span>Booked evals that happened</span><strong>${step("scheduled", "completed")}</strong></div>
+      <div><span>Evals that paid</span><strong>${step("completed", "clients")}</strong></div>
+      <div><span>Leads who paid in the end</span><strong>${step("leads", "clients")}</strong></div>
     </div>
     <div class="conversion-outcomes">
       <div><span>Lost</span><strong>${counts.lost}</strong></div>
-      <div><span>Archived</span><strong>${counts.archived}</strong></div>
+      <div><span>Put aside</span><strong>${counts.archived}</strong></div>
     </div>
-    <p class="panel-copy">Each stage counts every lead that <strong>reached</strong> it and keeps counting it after the lead moves on. Moving a lead from Eval Scheduled to Eval Complete no longer removes it from the scheduled number.</p>
+    <p class="panel-copy">These numbers stay put. Move a lead from Booked to Eval Happened and it still counts as booked. So if we booked 25 evals this month, this keeps saying 25.</p>
+    <p class="panel-copy">Click any line to see exactly who those people are.</p>
   </div>`;
 }
 
@@ -9823,6 +9829,18 @@ document.addEventListener("click", async event => {
     const note = remoteOfficeNotes.find(item => String(item.id) === String(noteId));
     if (!note) { showToast("That note could not be found."); return; }
     if (!ownsOfficeNote(note)) { showToast("You can only delete a note you typed yourself."); return; }
+    if (window.LDTT_IS_SANDBOX) {
+      // The office asked to be able to try this button in the sandbox. Actually
+      // deleting would remove the real note from the live database, which is the
+      // one thing the sandbox is not allowed to do. So hide it for this session
+      // instead: the button, the "your own notes only" rule and the instant
+      // removal are all genuinely exercised, and the real note is untouched.
+      if (!window.confirm("Delete this note?\n\nThis is the sandbox, so the real note is not touched. It disappears from this screen now and comes back when you reload the page.")) return;
+      sandboxDeletedNoteIds.add(String(noteId));
+      render();
+      showToast("Note removed from this screen. The real note is untouched.");
+      return;
+    }
     if (!window.confirm("Delete this note? Only you typed it, and it cannot be brought back.")) return;
     // Take it off the screen now. The office complained that note changes only
     // appeared after a manual refresh, so remove locally and repaint first.
