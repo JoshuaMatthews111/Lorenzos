@@ -2363,6 +2363,12 @@ function demoPortalUser(key) {
 }
 
 function demoAccountForLogin(username, password) {
+  // The demo accounts run entirely in the browser on built-in sample rows —
+  // "Sarah Johnson" and friends — because they have no Supabase session to load
+  // real data with. In the sandbox the whole point is that the office is looking
+  // at their own live records, so a demo login there would show them made-up
+  // numbers and they would judge the work on fiction. Real logins only.
+  if (window.LDTT_IS_SANDBOX) return null;
   const key = demoPortalKeyFor(username);
   if (!key) return null;
   const expectedPassword = state.demoPasswords?.[key] || DEMO_TEST_PASSWORD;
