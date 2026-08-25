@@ -6860,37 +6860,90 @@ function conversionStageLabel(stageKey) {
   return CONVERSION_STAGES.find(item => item.key === stageKey)?.label || stageKey;
 }
 
-function marketConversionTable() {
-  const events = reportLifecycleRows().filter(event => isWithinWindow(event.occurred_at || event.created_at, "report"));
-  const isAdAttributed = event => Boolean(
-    event.utm_source || event.utm_medium || event.utm_campaign
-    || /(?:^|\/)(?:ad-|dog-training-[a-z]+-)/i.test(String(event.source_page || event.raw_payload?.source_page || ""))
-  );
-  const inquiryEvents = events.filter(event => event.event_type === "form_received" && isAdAttributed(event));
-  const inquiryByEntity = new Map(inquiryEvents.map(event => [`${event.entity_type}:${event.entity_id}`, event]));
-  const markets = new Map();
-  adLandingPageConfigs()
-    .filter(page => page.slug.startsWith("dog-training-"))
-    .forEach(page => {
-      markets.set(page.market, { forms: new Set(), clients: new Set(), page });
-    });
-  inquiryEvents.forEach(event => {
-    const market = String(event.market || event.raw_payload?.ad_market || "Unattributed").trim() || "Unattributed";
-    if (!markets.has(market)) markets.set(market, { forms: new Set(), clients: new Set() });
-    const row = markets.get(market);
-    row.forms.add(`${event.entity_type}:${event.entity_id}`);
-  });
-  events.filter(event => event.event_type === "became_client").forEach(event => {
-    const key = `${event.entity_type}:${event.entity_id}`;
-    const inquiry = inquiryByEntity.get(key);
-    if (!inquiry) return;
-    const market = String(inquiry.market || inquiry.raw_payload?.ad_market || "Unattributed").trim() || "Unattributed";
-    markets.get(market)?.clients.add(key);
-  });
-  const rows = [...markets.entries()].sort((a, b) => b[1].forms.size - a[1].forms.size || a[0].localeCompare(b[0]));
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Ad Market</th><th>Inquiries</th><th>Became Client</th><th>Conversion</th><th>Page</th></tr></thead><tbody>${rows.map(([market, value]) => `<tr><td><strong>${escapeHtml(market)}</strong></td><td>${value.forms.size}</td><td>${value.clients.size}</td><td>${value.forms.size ? Math.round((value.clients.size / value.forms.size) * 1000) / 10 : 0}%</td><td>${value.page ? `<a href="${escapeHtml(value.page.href)}" target="_blank" rel="noopener">${escapeHtml(value.page.label)}</a>` : "Lifecycle event"}</td></tr>`).join("") || `<tr><td colspan="5">No ad-attributed inquiries in this date range.</td></tr>`}</tbody></table></div>`;
+// Conversion by market.
+//
+// This used to be built from lifecycle events, and only from ones it judged
+// "ad attributed" — an inquiry needed a utm tag or an ad-looking source_page
+// before it counted, and a client only counted if an inquiry event for the very
+// same record had also been logged. In practice that threw away nearly every
+// row and the table read as empty, which is exactly what the office reported.
+//
+// Build it from the lead records instead. Every lead has a market (or resolves
+// to "Market pending"), and the stage logic is the same sticky one the
+// dashboard funnel uses, so the two always agree.
+// A lead resolves to "Cleveland, OH" while the ad page for the same place is
+// called "Cleveland / Akron, OH". Without this they came out as two rows for one
+// city, one holding all the leads and one sitting on zero. Collapse both to the
+// first city plus the state.
+function marketKey(market) {
+  const raw = String(market || "").trim();
+  if (!raw) return "";
+  const [placePart, statePart = ""] = raw.split(",");
+  const city = placePart.split("/")[0].trim().toLowerCase();
+  return `${city}|${statePart.trim().toLowerCase()}`;
 }
 
+function marketConversionTable() {
+  const leadRows = dashboardSubmittedLeadRows();
+  const lifecycle = conversionLifecycleIndex();
+  const pagesByKey = new Map(adLandingPageConfigs()
+    .filter(page => page.slug.startsWith("dog-training-"))
+    .map(page => [marketKey(page.market), page]));
+
+  // Keyed by place, but each row remembers the friendliest name it has seen —
+  // the ad page's name wins, because that is what the office calls the market.
+  const markets = new Map();
+  const ensure = (key, label) => {
+    if (!markets.has(key)) markets.set(key, { label, leads: 0, scheduled: 0, completed: 0, clients: 0, lost: 0 });
+    const row = markets.get(key);
+    if (pagesByKey.has(key)) row.label = pagesByKey.get(key).market;
+    return row;
+  };
+
+  leadRows.forEach(lead => {
+    const market = leadMarketLabel(lead) || "Market pending";
+    const row = ensure(marketKey(market) || market, market);
+    row.leads += 1;
+    if (leadReachedStage(lead, "scheduled", lifecycle)) row.scheduled += 1;
+    if (leadReachedStage(lead, "completed", lifecycle)) row.completed += 1;
+    if (leadReachedStage(lead, "clients", lifecycle)) row.clients += 1;
+    if (boardStatus(lead.status) === "Lost") row.lost += 1;
+  });
+
+  // Show the markets we advertise in even when they produced nothing this
+  // period. A market sitting on zero is the whole point of looking at this.
+  pagesByKey.forEach((page, key) => ensure(key, page.market));
+
+  const rows = [...markets.values()].sort((a, b) => b.leads - a.leads || a.label.localeCompare(b.label));
+  const rate = (part, whole) => (whole ? `${Math.round((part / whole) * 100)}%` : "—");
+  const totals = rows.reduce((sum, value) => ({
+    leads: sum.leads + value.leads,
+    scheduled: sum.scheduled + value.scheduled,
+    completed: sum.completed + value.completed,
+    clients: sum.clients + value.clients,
+    lost: sum.lost + value.lost
+  }), { leads: 0, scheduled: 0, completed: 0, clients: 0, lost: 0 });
+
+  const body = rows.map(value => {
+    const page = pagesByKey.get(marketKey(value.label));
+    return `<tr${value.leads ? "" : ' class="market-row-empty"'}>
+      <td><strong>${escapeHtml(value.label)}</strong>${page ? `<small><a href="${escapeHtml(page.href)}" target="_blank" rel="noopener">${escapeHtml(page.label)} ad page</a></small>` : ""}</td>
+      <td>${value.leads}</td>
+      <td>${value.scheduled}</td>
+      <td>${value.completed}</td>
+      <td><strong>${value.clients}</strong></td>
+      <td>${value.lost}</td>
+      <td>${rate(value.clients, value.leads)}</td>
+    </tr>`;
+  }).join("");
+
+  return `<div class="table-wrap"><table class="data-table"><thead><tr>
+      <th>Market</th><th>Leads came in</th><th>Booked an eval</th><th>Eval happened</th><th>Became a client</th><th>Lost</th><th>Lead to client</th>
+    </tr></thead><tbody>${body || `<tr><td colspan="7">No leads in this date range.</td></tr>`}</tbody>
+    ${rows.length ? `<tfoot><tr><td><strong>All markets</strong></td><td>${totals.leads}</td><td>${totals.scheduled}</td><td>${totals.completed}</td><td><strong>${totals.clients}</strong></td><td>${totals.lost}</td><td>${rate(totals.clients, totals.leads)}</td></tr></tfoot>` : ""}
+  </table></div>
+  <p class="panel-copy">Same counting as the dashboard: a lead that reached a stage keeps counting there after it moves on. "Market pending" means the lead did not give us a city we recognise.</p>`;
+}
 function approvedLayoutCards() {
   return `<div class="layout-card-grid approved-template-grid">${approvedLayouts.map((layout, index) => `<article class="layout-card approved-template-card ${trainerById().layout === layout.id ? "selected" : ""}"><div class="approved-template-image"><img src="${layout.preview}" alt="${escapeHtml(layout.name)} approved trainer landing page"><span>Approved Design ${index + 1}</span></div><div class="approved-template-copy"><h3>${escapeHtml(layout.name)}</h3><p>${escapeHtml(layout.tag)}</p><div class="template-points"><span>Trainer identity</span><span>Lead form</span><span>Reviews</span><span>Lorenzo credentials</span><span>Mobile responsive</span><span>Office-controlled</span></div><div class="row-actions"><a class="btn btn-outline" href="${templatePreviewHref(layout.id)}" target="_blank" rel="noopener">Open Full Design</a><button class="btn btn-red" data-assign-layout="${layout.id}">Use This Design</button></div></div></article>`).join("")}</div>`;
 }
