@@ -5284,7 +5284,7 @@ button:disabled{cursor:not-allowed}
 /* ---- Sandbox banner ---- */
 .sandbox-banner{position:sticky;top:0;z-index:9999;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 18px;background:repeating-linear-gradient(135deg,#f7b500,#f7b500 14px,#ffcf4d 14px,#ffcf4d 28px);color:#2b1d00;font-size:.82rem;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.16)}
 .sandbox-banner strong{background:#2b1d00;color:#ffcf4d;padding:3px 10px;border-radius:999px;font-size:.72rem;letter-spacing:.08em}
-body.is-sandbox .login-card::after{content:"Sandbox copy — changes stick while you test, vanish on reload, and never touch the live site.";display:block;margin-top:14px;padding:9px 12px;border-radius:8px;background:#fff6dd;border:1px solid #f0cf7a;color:#5b4300;font-size:.78rem;font-weight:700}
+body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shares the same practice changes. The live site never changes.";display:block;margin-top:14px;padding:9px 12px;border-radius:8px;background:#fff6dd;border:1px solid #f0cf7a;color:#5b4300;font-size:.78rem;font-weight:700}
 
 /* Conversions box sits directly under the buckets box, same column */
 .dashboard-stack{display:grid;gap:16px;align-content:start;min-width:0}

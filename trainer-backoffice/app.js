@@ -1242,14 +1242,7 @@ async function prepareRemoteData(data) {
 
 async function reloadRemoteData() {
   if (!window.LDTT_PORTAL?.enabled || !session.loggedIn) return;
-  // Once a sandbox tester has made an edit, a refresh from the server would
-  // undo it mid-test. Their session keeps its own version; reloading the page
-  // starts clean from the live records again.
-  if (window.LDTT_IS_SANDBOX && sandboxHasLocalEdits) return;
   const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
-  // Check again after the download: a refresh already in flight when the first
-  // edit was made would otherwise land on top of it and undo it.
-  if (window.LDTT_IS_SANDBOX && sandboxHasLocalEdits) return;
   mergeRemoteOperationalData(data);
   remoteSyncError = "";
 }
@@ -1784,12 +1777,9 @@ function portalUserById(userId) {
   return remotePortalUsers.find(item => String(item.user_id) === String(userId)) || null;
 }
 
-const sandboxDeletedNoteIds = new Set();
-
 function officeNotesFor(entityType, entityId) {
   if (!entityId) return [];
   return remoteOfficeNotes
-    .filter(note => !sandboxDeletedNoteIds.has(String(note.id)))
     .filter(note => note.entity_type === entityType && note.entity_id === entityId)
     .sort((a, b) => timestampValue(a.created_at) - timestampValue(b.created_at));
 }
@@ -1838,21 +1828,6 @@ function officeNoteTimeline(entityType, entityId) {
 
 async function addOfficeNote(entityType, entityId, note) {
   if (!remoteReady || session.role !== "admin" || !hasSharedRecordId(entityId) || !note.trim()) return null;
-  if (window.LDTT_IS_SANDBOX) {
-    sandboxHasLocalEdits = true;
-    const stamp = new Date().toISOString();
-    const record = {
-      id: `sandbox-note-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
-      entity_type: entityType,
-      entity_id: entityId,
-      note: note.trim(),
-      created_by: currentPortalUserId(),
-      created_at: stamp,
-      updated_at: stamp
-    };
-    remoteOfficeNotes = [...remoteOfficeNotes, record];
-    return record;
-  }
   const result = await window.LDTT_PORTAL.operationalMutation({
     operation: "save_note",
     entity_type: entityType,
@@ -2800,17 +2775,8 @@ async function persistClientRecord(client) {
   return saved || client;
 }
 
-let sandboxHasLocalEdits = false;
-
 async function runRemoteMutation(message, action, options = {}) {
   const viewport = options.preserveScroll ? captureViewportPosition() : null;
-  if (window.LDTT_IS_SANDBOX) {
-    sandboxHasLocalEdits = true;
-    if (message) showToast(`${message} — sandbox only. Sticks while you test; the live site is untouched.`);
-    if (options.render !== false) render();
-    restoreViewportPosition(viewport);
-    return true;
-  }
   try {
     await action();
     if (options.reload !== false && remoteReady) await reloadRemoteData();
@@ -9961,13 +9927,6 @@ document.addEventListener("click", async event => {
     const editor = document.querySelector(`[data-office-note-edit="${CSS.escape(noteId)}"]`);
     const note = editor?.value?.trim() || "";
     if (!note) { showToast("A note cannot be empty."); return; }
-    if (window.LDTT_IS_SANDBOX) {
-      // Every other save updates local state first and lets runRemoteMutation
-      // skip the server. An edit only changes the text server-side, so apply it
-      // locally here or the edit would look like it never took.
-      const record = remoteOfficeNotes.find(item => String(item.id) === String(noteId));
-      if (record) { record.note = note; record.updated_at = new Date().toISOString(); }
-    }
     runRemoteMutation("Office note edit saved with history", () => saveEditableOfficeNote(saveNoteEdit.dataset.entityType, saveNoteEdit.dataset.entityId, noteId, note), {
       type: "Office Note",
       detail: `${currentActorLabel()} edited an office note; the prior version was preserved.`
@@ -9980,19 +9939,9 @@ document.addEventListener("click", async event => {
     const note = remoteOfficeNotes.find(item => String(item.id) === String(noteId));
     if (!note) { showToast("That note could not be found."); return; }
     if (!ownsOfficeNote(note)) { showToast("You can only delete a note you typed yourself."); return; }
-    if (window.LDTT_IS_SANDBOX) {
-      // The office asked to be able to try this button in the sandbox. Actually
-      // deleting would remove the real note from the live database, which is the
-      // one thing the sandbox is not allowed to do. So hide it for this session
-      // instead: the button, the "your own notes only" rule and the instant
-      // removal are all genuinely exercised, and the real note is untouched.
-      if (!window.confirm("Delete this note?\n\nThis is the sandbox, so the real note is not touched. It disappears from this screen now and comes back when you reload the page.")) return;
-      sandboxDeletedNoteIds.add(String(noteId));
-      render();
-      showToast("Note removed from this screen. The real note is untouched.");
-      return;
-    }
-    if (!window.confirm("Delete this note? Only you typed it, and it cannot be brought back.")) return;
+    if (!window.confirm(window.LDTT_IS_SANDBOX
+      ? "Delete this note? Everyone testing sees it go. The real live note is not touched."
+      : "Delete this note? Only you typed it, and it cannot be brought back.")) return;
     // Take it off the screen now. The office complained that note changes only
     // appeared after a manual refresh, so remove locally and repaint first.
     const snapshot = [...remoteOfficeNotes];
@@ -12640,7 +12589,7 @@ async function applyEnvironmentBadge() {
     banner.id = "sandboxBanner";
     banner.className = "sandbox-banner";
     banner.setAttribute("role", "status");
-    banner.innerHTML = `<strong>SANDBOX</strong><span>Real live records, practice copy. Your changes stick while you test so you can try everything properly — but they are yours only, they vanish when you reload, and the live site is never touched.</span>`;
+    banner.innerHTML = `<strong>SANDBOX</strong><span>Real live records, practice copy. Changes here stick and the whole team sees them — move a lead and Missy sees it moved — but they live in a practice layer only. The real site never changes, and Joshua can wipe the practice layer to start fresh.</span>`;
     document.body.prepend(banner);
   } catch (error) {
     console.warn("LDTT environment check failed", error);

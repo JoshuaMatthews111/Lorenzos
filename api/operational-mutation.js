@@ -1,4 +1,5 @@
-const { blockedInSandbox, blockedOutsideSandbox } = require("../lib/sandbox");
+const { isSandbox, blockedOutsideSandbox } = require("../lib/sandbox");
+const sandboxStore = require("../lib/sandbox-store");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -436,9 +437,72 @@ async function setReviewPublications(admin, body, requestId) {
   };
 }
 
+// In the sandbox, saves become entries in a shared practice layer instead of
+// writes to the real tables — so every tester sees everyone's changes, and the
+// live records stay untouched. Deleting the layer resets the sandbox.
+async function sandboxMutation(admin, body) {
+  const operation = clean(body.operation, 40);
+  const stamp = new Date().toISOString();
+  if (operation === "update" || operation === "archive") {
+    const entityType = clean(body.entity_type, 40);
+    const id = clean(body.id, 120);
+    if (!ENTITY_CONFIG[entityType] || !id) return { status: 400, body: { ok: false, message: "A record is required." } };
+    const changes = operation === "archive"
+      ? { status: "archived", archived_at: stamp, archived_by: admin.actor.id }
+      : Object.fromEntries(Object.entries(body.changes || {}).filter(([key]) => ENTITY_CONFIG[entityType].fields.has(key)));
+    await sandboxStore.appendOp({ operation: "update", entity_type: entityType, id, changes: { ...changes, updated_at: stamp }, actor: admin.actor.email });
+    return { status: 200, body: { ok: true, sandbox: true, record: { id, ...changes }, actor: admin.actor, updated_at: stamp, version: 1 } };
+  }
+  if (operation === "create") {
+    const entityType = clean(body.entity_type, 40);
+    if (!ENTITY_CONFIG[entityType]) return { status: 400, body: { ok: false, message: "A record type is required." } };
+    const fields = Object.fromEntries(Object.entries(body.record || body.changes || {}).filter(([key]) => ENTITY_CONFIG[entityType].fields.has(key)));
+    const record = { id: `sbx-${crypto.randomUUID()}`, ...fields, created_at: stamp, updated_at: stamp };
+    await sandboxStore.appendOp({ operation: "create", entity_type: entityType, record, actor: admin.actor.email });
+    return { status: 200, body: { ok: true, sandbox: true, record, actor: admin.actor, updated_at: stamp, version: 1 } };
+  }
+  if (operation === "save_note") {
+    const noteText = clean(body.note, 20000);
+    if (!noteText) return { status: 400, body: { ok: false, message: "A note is required." } };
+    if (body.note_id) {
+      await sandboxStore.appendOp({ operation: "save_note", note_id: clean(body.note_id, 120), note: noteText, actor: admin.actor.email });
+      return { status: 200, body: { ok: true, sandbox: true, record: { id: clean(body.note_id, 120), note: noteText, updated_at: stamp }, actor: admin.actor, updated_at: stamp, version: 1 } };
+    }
+    const record = {
+      id: `sbx-${crypto.randomUUID()}`,
+      entity_type: clean(body.entity_type, 40),
+      entity_id: clean(body.entity_id, 120),
+      note: noteText,
+      created_by: admin.actor.id,
+      created_at: stamp,
+      updated_at: stamp
+    };
+    await sandboxStore.appendOp({ operation: "save_note", record, actor: admin.actor.email });
+    return { status: 200, body: { ok: true, sandbox: true, record, actor: admin.actor, updated_at: stamp, version: 1 } };
+  }
+  if (operation === "delete_note") {
+    const noteId = clean(body.note_id, 120);
+    if (!noteId) return { status: 400, body: { ok: false, message: "A note is required." } };
+    // The own-note rule holds in the sandbox too. A practice note carries its
+    // author in the op log; a real note is checked against the live table.
+    let createdBy = null;
+    if (noteId.startsWith("sbx-")) {
+      const ops = await sandboxStore.readOps();
+      createdBy = ops.find(op => op.operation === "save_note" && op.record?.id === noteId)?.record?.created_by || null;
+    } else {
+      const before = await getRecord("office_notes", noteId);
+      createdBy = before?.created_by || null;
+    }
+    if (String(createdBy || "") !== String(admin.actor.id)) {
+      return { status: 403, body: { ok: false, message: "You can only delete a note you typed yourself." } };
+    }
+    await sandboxStore.appendOp({ operation: "delete_note", note_id: noteId, actor: admin.actor.email });
+    return { status: 200, body: { ok: true, sandbox: true, deleted: true, id: noteId, actor: admin.actor } };
+  }
+  return { status: 423, body: { ok: false, sandbox: true, message: "That action is not part of the sandbox practice layer yet. Try it on the live portal once the change ships." } };
+}
+
 module.exports = async function handler(req, res) {
-  // The sandbox reads live records but is never allowed to change them.
-  if (blockedInSandbox(res, "Saving this record")) return;
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
@@ -453,6 +517,11 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const requestId = clean(body.request_id, 120) || crypto.randomUUID();
     let result;
+    if (isSandbox()) {
+      result = await sandboxMutation(admin, body);
+      result.body.request_id = requestId;
+      return res.status(result.status).json(result.body);
+    }
     switch (clean(body.operation, 40)) {
       case "create": result = await createRecord(admin, body, requestId); break;
       case "update": result = await updateRecord(admin, body, requestId); break;

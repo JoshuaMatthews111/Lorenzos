@@ -1,6 +1,8 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const crypto = require("node:crypto");
+const { isSandbox } = require("../lib/sandbox");
+const sandboxStore = require("../lib/sandbox-store");
 
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -327,6 +329,15 @@ module.exports = async function handler(req, res) {
     const data = access.portalUser.role === "trainer"
       ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities)
       : await loadAdminOperationalData(unavailableCapabilities);
+    // The sandbox lays every tester's practice edits over the live rows, so the
+    // whole team sees the same picture without a single real record changing.
+    if (isSandbox()) {
+      try {
+        sandboxStore.applyOps(data, await sandboxStore.readOps());
+      } catch (error) {
+        console.error("Sandbox practice layer could not be applied", error);
+      }
+    }
     let {
       trainers,
       pages,
