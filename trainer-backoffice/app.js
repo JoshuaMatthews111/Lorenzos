@@ -1247,6 +1247,9 @@ async function reloadRemoteData() {
   // starts clean from the live records again.
   if (window.LDTT_IS_SANDBOX && sandboxHasLocalEdits) return;
   const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+  // Check again after the download: a refresh already in flight when the first
+  // edit was made would otherwise land on top of it and undo it.
+  if (window.LDTT_IS_SANDBOX && sandboxHasLocalEdits) return;
   mergeRemoteOperationalData(data);
   remoteSyncError = "";
 }
