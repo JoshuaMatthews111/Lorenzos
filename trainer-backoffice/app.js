@@ -1241,13 +1241,29 @@ function isTypingField(element) {
 }
 
 let lastScrollActivityAt = 0;
-document.addEventListener("scroll", () => { lastScrollActivityAt = Date.now(); }, { passive: true, capture: true });
+// restoreScrollState() writes scrollTop/scrollLeft and calls window.scrollTo after
+// every render. Those fire scroll events, and this listener is capture:true, so it
+// used to see our own restores as fresh user activity — re-arming the 6s grace on
+// every redraw and leaving userIsReadingRecord() permanently true. Board updates
+// then never landed. Ignore anything inside the restore window.
+let programmaticScrollUntil = 0;
+document.addEventListener("scroll", () => {
+  if (Date.now() < programmaticScrollUntil) return;
+  lastScrollActivityAt = Date.now();
+}, { passive: true, capture: true });
 
 // Someone scrolling through a record, or with a record open, is mid-task. Redrawing
 // under them is what kept jumping people back to the top.
 function userIsReadingRecord() {
   if (Date.now() - lastScrollActivityAt < 6000) return true;
-  return Boolean(document.querySelector(".lead-detail-panel"));
+  // Was: any open .lead-detail-panel blocked every background render. That meant a
+  // stale payload could revert the board and no later refresh was allowed to correct
+  // it — the office saw their status changes "move back". The panel is a fixed
+  // overlay, so redrawing behind it is invisible and harmless. The one thing a
+  // redraw genuinely breaks is an open <select> popup, because restoreTypedInput
+  // only restores inputs and textareas — so guard exactly that instead.
+  const focused = document.activeElement;
+  return Boolean(focused && focused.tagName === "SELECT");
 }
 
 function workspaceHasTypedInput() {
@@ -3916,6 +3932,9 @@ function captureScrollState(target) {
 
 function restoreScrollState(target, snapshot) {
   if (!target || !snapshot) return;
+  // Scroll events are delivered asynchronously, so a synchronous flag would already
+  // be cleared by the time they arrive. Hold the window open past the rAF below.
+  programmaticScrollUntil = Date.now() + 250;
   const parts = [...target.querySelectorAll(SCROLLABLE_PARTS)];
   snapshot.parts.forEach(([top, left], index) => {
     const el = parts[index];
@@ -9686,7 +9705,12 @@ document.addEventListener("click", async event => {
     return;
   }
   const openLead = event.target.closest("[data-open-lead]");
-  if (openLead && !event.target.closest("select,input,textarea,button")) { state.selectedLeadId = openLead.dataset.openLead; saveState(); return; }
+  // The guard below stops a ROW click from firing when someone uses a control inside that
+  // row (status dropdown, archive button). But the dashboard's "Open / Add Note" IS a button
+  // and carries data-open-lead itself, so the old blanket "button" exclusion killed it.
+  // Allow the click when the control we landed on is the open-lead trigger itself.
+  const leadControl = event.target.closest("select,input,textarea,button");
+  if (openLead && (!leadControl || leadControl.hasAttribute("data-open-lead"))) { state.selectedLeadId = openLead.dataset.openLead; saveState(); return; }
   if (event.target.closest("[data-close-lead]")) { state.selectedLeadId = ""; saveState(); return; }
   const saveLead = event.target.closest("[data-save-lead]");
   if (saveLead) {
@@ -11299,6 +11323,10 @@ document.addEventListener("change", async event => {
   const statusField = event.target.closest("[data-lead-status]");
   if (statusField) {
     const lead = updateLeadRecord(statusField.dataset.leadStatus, { status: statusField.value });
+    // Move the card now. runRemoteMutation only repaints after it has re-downloaded
+    // the whole operational dataset, so without this the board sat still long enough
+    // that people clicked a second time and a stale screen wrote the old value back.
+    render();
     if (remoteReady) runRemoteMutation(
       conversionStatuses().includes(lead?.status) ? "Lead converted and client record saved" : "Lead status updated",
       () => persistLeadWorkflow(lead),
@@ -11621,6 +11649,7 @@ document.addEventListener("drop", event => {
   event.preventDefault();
   const lead = updateLeadRecord(draggedLeadId, { status: column.dataset.dropStatus === "Lost" ? "Lost / No Response" : column.dataset.dropStatus });
   draggedLeadId = "";
+  render();   // same reason as the status dropdown: land the card in its new column now
   if (remoteReady) runRemoteMutation("Lead moved to " + column.dataset.dropStatus, () => persistLeadWorkflow(lead), {
     type: "Lead",
     detail: `${lead?.owner || "Lead"} was dragged to ${lead?.status || column.dataset.dropStatus}${lead?.trainer ? ` for ${lead.trainer}` : ""}.`

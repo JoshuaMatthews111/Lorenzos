@@ -4,7 +4,9 @@
 // This moves old ones to Archived so the working queues stay current. Nothing
 // is deleted: archived leads keep every field and can be restored by the office.
 //
-// Deliberately conservative — a lead is left alone if anyone is working it.
+// Deliberately conservative — a lead is left alone if anyone is working it:
+// claimed, assigned, moved in the last 30 days, or annotated in the last 30 days.
+// do_not_contact is never auto-archived at all (suppression must stay visible).
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -13,10 +15,15 @@ const ARCHIVE_AFTER_DAYS = Math.max(1, Number(process.env.ARCHIVE_AFTER_DAYS || 
 
 // Never auto-archive an outcome the office has already recorded, and never touch a
 // lead that became a client — those belong in reporting and the client database.
+//
+// do_not_contact is protected for a different and more important reason: it is a
+// suppression record. If it drops off the working board someone can ring a person
+// who explicitly asked us not to. It must stay visible forever.
 const PROTECTED_STATUSES = [
   "archived",
   "became_client",
-  "first_session_payment"
+  "first_session_payment",
+  "do_not_contact"
 ];
 
 async function supabaseFetch(path, options = {}) {
@@ -54,21 +61,43 @@ module.exports = async function handler(req, res) {
 
   try {
     const protectedList = PROTECTED_STATUSES.map(status => `"${status}"`).join(",");
-    const candidates = await supabaseFetch(
+    // Age is measured from the last time the lead was TOUCHED, not from the day it
+    // arrived. The original rule used created_at, so a lead that came in 31 days ago
+    // but that the office moved through the pipeline yesterday was archived anyway —
+    // their work vanished off the board overnight. Staleness means "nobody has done
+    // anything with this", which is updated_at.
+    let candidates = await supabaseFetch(
       `/rest/v1/leads?select=id,first_name,last_name,status,updated_at,created_at,claimed_by,assigned_user_id,communications_code`
       + `&status=not.in.(${protectedList})`
-      + `&created_at=lt.${encodeURIComponent(cutoff)}`
+      + `&updated_at=lt.${encodeURIComponent(cutoff)}`
       // Someone is working it — leave it in the live pipeline.
       + `&claimed_by=is.null&assigned_user_id=is.null`
       + `&archived_at=is.null`
-      + `&order=created_at.asc&limit=500`
+      + `&order=updated_at.asc&limit=500`
     );
+
+    // Office notes live in their own table, so writing a note does not bump the
+    // lead's updated_at. Without this check a lead someone annotated this morning
+    // still looks untouched. Any recent note keeps the lead on the board.
+    if (candidates.length) {
+      const ids = candidates.map(lead => `"${lead.id}"`).join(",");
+      const recentNotes = await supabaseFetch(
+        `/rest/v1/office_notes?select=entity_id`
+        + `&entity_type=eq.lead`
+        + `&entity_id=in.(${ids})`
+        + `&created_at=gte.${encodeURIComponent(cutoff)}`
+      ).catch(() => []);
+      const annotated = new Set((recentNotes || []).map(note => note.entity_id));
+      if (annotated.size) {
+        candidates = candidates.filter(lead => !annotated.has(lead.id));
+      }
+    }
 
     const summary = {
       ok: true,
       dryRun,
       thresholdDays: ARCHIVE_AFTER_DAYS,
-      createdBefore: cutoff,
+      inactiveSince: cutoff,
       eligible: candidates.length,
       archived: 0,
       leads: candidates.slice(0, 50).map(lead => ({
@@ -96,7 +125,7 @@ module.exports = async function handler(req, res) {
         body: JSON.stringify(chunk.map(lead => ({
           lead_id: lead.id,
           event_type: "lead_archived",
-          note: `Archived automatically ${ARCHIVE_AFTER_DAYS} days after it came in (was ${lead.status}).`,
+          note: `Archived automatically after ${ARCHIVE_AFTER_DAYS} days with no activity (was ${lead.status}).`,
           event_key: `auto-archive:${lead.id}:${stamp}`,
           occurred_at: stamp,
           raw_payload: { source: "auto_archive", previous_status: lead.status, threshold_days: ARCHIVE_AFTER_DAYS }
@@ -113,8 +142,8 @@ module.exports = async function handler(req, res) {
         action: "leads_auto_archived",
         entity_type: "leads",
         entity_id: "scheduled",
-        summary: `${summary.archived} lead(s) archived ${ARCHIVE_AFTER_DAYS} days after they came in.`,
-        after_data: { threshold_days: ARCHIVE_AFTER_DAYS, created_before: cutoff, archived: summary.archived, rule: 'creation_date' }
+        summary: `${summary.archived} lead(s) archived after ${ARCHIVE_AFTER_DAYS} days with no activity.`,
+        after_data: { threshold_days: ARCHIVE_AFTER_DAYS, inactive_since: cutoff, archived: summary.archived, rule: 'last_activity' }
       })
     }).catch(() => {});
 

@@ -15,7 +15,7 @@
   <meta property="og:url" content="https://www.lorenzosdogtrainingteam.com/dog-training-miramar-beach-fl">
   <meta property="og:image" content="https://www.lorenzosdogtrainingteam.com/assets/get-started-premium-hero.jpg">
   <meta name="twitter:card" content="summary_large_image">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"Lorenzo's Dog Training Team — Miramar Beach, FL","url":"https://www.lorenzosdogtrainingteam.com/dog-training-miramar-beach-fl","telephone":"+1-866-436-4959","priceRange":"$1,250+","address":{"@type":"PostalAddress","addressLocality":"Miramar Beach","addressRegion":"FL","addressCountry":"US"},"areaServed":["Miramar Beach","Destin","Santa Rosa Beach","30A","Walton County"],"description":"Request Miramar Beach, FL dog training from Lorenzo's Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with fast local follow-up."}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"ProfessionalService","name":"Lorenzo's Dog Training Team — Miramar Beach, FL","url":"https://www.lorenzosdogtrainingteam.com/dog-training-miramar-beach-fl","telephone":"+1-866-436-4959","priceRange":"$1,250+","areaServed":["Miramar Beach","Destin","Santa Rosa Beach","30A","Walton County"],"description":"Request Miramar Beach, FL dog training from Lorenzo's Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with fast local follow-up."}</script>
   <script async src="https://www.googletagmanager.com/gtag/js?id=AW-11463464040"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -61,7 +61,7 @@
     .market-copy h1{margin-bottom:4px}
     .market-pricing{padding-top:34px;padding-bottom:10px}
     .market-pricing .cta-band{margin-top:20px}
-    .market-trainer-media img{width:100%;height:100%;min-height:280px;object-fit:cover;object-position:top center;display:block}
+    .market-trainer-media img{width:auto;max-width:100%;height:auto;min-height:0;aspect-ratio:var(--ar,16/9);object-fit:contain;margin-inline:auto;display:block}
     .market-trainer-media figcaption strong{display:block}
 
     /* ═══ per-market design archetypes ═══ */
@@ -70,7 +70,7 @@
     .arch-hq .market-hero-bg{opacity:.14}
     .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
     .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
-    .arch-hq .market-trainer-media{min-height:0;height:auto;aspect-ratio:16/9;width:100%;max-width:860px;margin-inline:auto;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
+    .arch-hq .market-trainer-media{min-height:0;height:auto;width:100%;max-width:860px;margin-inline:auto;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
     .arch-hq .ad-checks-v2 li{color:#dfe4f5}
 
     /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
@@ -86,7 +86,7 @@
     .arch-metro .market-copy h1{color:#fff;font-size:clamp(34px,5vw,54px);letter-spacing:-.03em}
     .arch-metro .market-copy .ad-lead{color:#c9d4ef}
     .arch-metro .market-copy .ad-lead.market-hook{background:var(--mk2);color:#fff;border-left-color:#fff}
-    .arch-metro .market-trainer-media{transform:rotate(-2deg);border:10px solid #fff;box-shadow:0 22px 45px rgba(0,0,0,.45)}
+    .arch-metro .market-trainer-media{border:10px solid #fff;box-shadow:0 22px 45px rgba(0,0,0,.45)}
     .arch-metro .ad-checks-v2 li{color:#dfe6f8}
 
     /* SPECIALTY — Atlanta: near-black, gold detailing, premium quiet */
@@ -135,7 +135,7 @@
     .arch-resort .market-copy h1{color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.25)}
     .arch-resort .market-copy .ad-lead{color:#eafcff}
     .arch-resort .market-copy .ad-lead.market-hook{background:#fff;color:var(--mk1);border-left-color:var(--mk1)}
-    .arch-resort .market-trainer-media{border:8px solid #fff;border-bottom-width:30px;box-shadow:0 16px 34px rgba(0,0,0,.28);transform:rotate(1.5deg)}
+    .arch-resort .market-trainer-media{border:8px solid #fff;border-bottom-width:30px;box-shadow:0 16px 34px rgba(0,0,0,.28)}
 
     /* CAMPUS — Ann Arbor: clean white, blue + maize underline energy */
     .arch-campus .market-hero{background:#fff}
@@ -157,6 +157,14 @@
     .arch-coast .market-hero::before,.arch-coast .market-hero::after,
     .arch-campus .market-hero::before,.arch-campus .market-hero::after,
     .arch-portrait2 .market-hero::before,.arch-portrait2 .market-hero::after{display:none !important}
+    /* These five archetypes run a LIGHT hero, but .market-copy still inherited the
+       white text colour used by the dark ones. h1 and .ad-lead each carried their
+       own override so they looked fine, and everything else — the "we also train"
+       strip most visibly — rendered white on near-white and vanished. Colour the
+       container itself so anything added later inherits something readable. */
+    .arch-portrait .market-copy,.arch-heritage .market-copy,
+    .arch-coast .market-copy,.arch-campus .market-copy,
+    .arch-portrait2 .market-copy{color:#3c4258}
     .arch-portrait .market-copy .ad-lead,.arch-heritage .market-copy .ad-lead,
     .arch-coast .market-copy .ad-lead,.arch-campus .market-copy .ad-lead,
     .arch-portrait2 .market-copy .ad-lead{color:#3c4258}
@@ -241,7 +249,24 @@
 
     /* METRO: form moves LEFT of the copy on desktop; proof is one dark ticker row */
     .arch-metro .ad-proof-band-v2{background:#070f24}
-    .arch-metro .ad-proof-grid-v2{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    /* Arrison, Chicago: flex + space-between sized each stat to its own text, so the four
+       sat at uneven widths (224/367/356/290) and the longer labels wrapped below ~1100px.
+       Four equal columns spread them across the full banner; nowrap + a fluid label size
+       keeps every label on one line all the way down to the mobile breakpoint. */
+    .arch-metro .ad-proof-grid-v2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;align-items:center}
+    .arch-metro .ad-proof-grid-v2 span{white-space:nowrap;font-size:clamp(.56rem,.86vw,.78rem)}
+    .arch-metro .ad-proof-grid-v2 strong{white-space:nowrap}
+    /* Below ~980px four equal columns get too narrow for "Professional trainers nationwide"
+       (it overflowed its cell by 12px at 820px). Two columns give each label room to stay
+       on one line and still read as a spread band rather than a wrapped list. */
+    @media(max-width:980px){
+      .arch-metro .ad-proof-grid-v2{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .arch-metro .ad-proof-grid-v2 span{font-size:clamp(.6rem,1.5vw,.78rem)}
+    }
+    @media(max-width:520px){
+      .arch-metro .ad-proof-grid-v2{grid-template-columns:1fr}
+      .arch-metro .ad-proof-grid-v2 span{font-size:.72rem}
+    }
     .arch-metro .ad-proof-grid-v2 > div{display:flex;align-items:baseline;gap:8px;padding:14px 8px}
     .arch-metro .ad-proof-grid-v2 strong{font-size:30px}
 
@@ -253,7 +278,12 @@
     .arch-specialty .ad-proof-band-v2{background:#0d0a16;border-block:1px solid var(--mk2)}
 
     /* COAST + RESORT: proof stats as floating pills, services rounded */
-    .arch-coast .ad-proof-band-v2,.arch-resort .ad-proof-band-v2{background:transparent}
+        /* Was transparent on both. On these light pages the white numbers landed on a
+       near-white ground at 1.05:1 — the 39 years / 100,000+ dogs credibility strip
+       was effectively invisible. Rachel reported it on Tallahassee; it was here too. */
+    .arch-coast .ad-proof-band-v2,.arch-resort .ad-proof-band-v2{background:var(--mk1)}
+    .arch-coast .ad-proof-band-v2 strong,.arch-resort .ad-proof-band-v2 strong{color:#fff}
+    .arch-coast .ad-proof-band-v2 span,.arch-resort .ad-proof-band-v2 span{color:#e6f3f8}
     .arch-coast .ad-proof-grid-v2 > div,.arch-resort .ad-proof-grid-v2 > div{
       background:var(--mk1);color:#fff;border-radius:999px;padding:14px 22px;text-align:center}
     .arch-coast .ad-proof-grid-v2,.arch-resort .ad-proof-grid-v2{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
@@ -273,9 +303,39 @@
     .arch-campus .market-service-grid{grid-template-columns:1fr 1fr}
     .arch-campus .market-service-grid article{border:none;border-top:4px solid var(--mk2);background:#F7F9FF}
 
+    /* Arrison: the "clearer path" block has exactly 4 items, so 2x2 always
+       balances — auto-fit was leaving a 3+1 orphan row at some widths. */
+
+    /* Arrison #5: the dog mark fills the dead white space behind this section.
+       Watermark only — sits under the content and ignores the pointer. */
+    .market-path-section{position:relative;overflow:hidden}
+    .market-path-section::after{
+      content:"";position:absolute;right:-40px;bottom:-30px;width:min(46vw,520px);
+      aspect-ratio:443/258;background:url("assets/ldtt-dog-mark.png") no-repeat center/contain;
+      opacity:.06;pointer-events:none;z-index:0}
+    .market-path-section > *{position:relative;z-index:1}
+
+    /* Arrison, Columbus #1: white on tan under the consultation button was unreadable. */
+    .arch-resort .market-primary-cta + *,
+    .arch-resort .market-cta-note,
+    .market-landing .market-cta-note{color:#3c4258}
+
+    /* City reviews published from the staff portal */
+    .ad-city-reviews{margin:56px 0 8px}
+    .ad-city-reviews h2{margin-bottom:18px}
+    .ad-city-review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));grid-auto-flow:row;gap:20px}
+    .ad-city-review-grid .review-shot-card{background:#fff;border:1px solid rgba(9,30,66,.12);color:inherit}
+    /* Footer reads as one line: '... Serious Results. | (866) 436-4959'.
+       styles.css sets .footer a{display:block}, which was pushing the phone
+       onto its own line no matter what white-space said. */
+    .subfooter{white-space:nowrap}
+    .subfooter a{display:inline;margin:0}
+    .subfooter-tel{white-space:nowrap}
+    @media (max-width:560px){.subfooter{white-space:normal}}
+
     /* giant market word — personality, not decoration: names the page's mission */
-    .market-copy{position:relative}
-    .market-word{position:absolute;top:-18px;left:-6px;font-size:clamp(64px,11vw,150px);font-weight:900;
+    .market-copy{position:relative;padding-top:calc(clamp(64px,11vw,150px) + 12px)}
+    .market-word{position:absolute;top:0;left:-6px;font-size:clamp(64px,11vw,150px);font-weight:900;
       letter-spacing:-.04em;line-height:1;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.16);
       pointer-events:none;user-select:none;white-space:nowrap;z-index:0}
     .market-copy > *:not(.market-word){position:relative;z-index:1}
@@ -327,8 +387,39 @@
     /* 4) Responsive floors: nothing crushes on small screens. */
     .arch-hq .market-service-grid{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
     .arch-campus .market-service-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    /* Rachel, Tallahassee: "either the banner or the data within it should be
+       another color. They are both white so the data blends in." portrait2 had no
+       band background at all, so white text landed on a white band. */
+    .arch-portrait2 .ad-proof-band-v2{background:var(--mk1)}
+    .arch-portrait2 .ad-proof-band-v2 strong{color:#fff}
+    .arch-portrait2 .ad-proof-band-v2 span{color:#e2e7f5}
+
+    /* A brand mark in the second media slot needs padding and a light ground,
+       otherwise it reads as a broken photo. */
+    .market-landing .market-care-photo img[src$="ldtt-dog-mark.png"]{
+      max-height:190px;padding:34px 28px;background:#fff;border-radius:14px;
+      box-shadow:0 10px 26px rgba(12,20,45,.10)}
+
+    /* Arrison, Cleveland #3: "stretch the blue across the width of the site where
+       the ticker is". arch-hq had no band background, so it rendered white. */
+    .arch-hq .ad-proof-band-v2{background:var(--mk1)}
+    .arch-hq .ad-proof-band-v2 strong{color:#fff}
+    .arch-hq .ad-proof-band-v2 span{color:#d7e0f5}
+
+    /* Hero video sits in the same frame as the hero image and follows the same
+       rule: show all of it, never crop. */
+    .market-landing .market-hero-video{aspect-ratio:16/9;width:auto;max-width:100%;
+      height:auto;max-height:440px;display:block;object-fit:contain;background:#0b1220;
+      margin-inline:auto;border-radius:10px}
+
+    /* Arrison #4: exactly 4 items, so auto-fit kept leaving a 3+1 orphan row.
+       2x2 is always balanced. Declared after the archetype overrides above,
+       which is the only reason it wins — same specificity, later position. */
+    .market-landing .market-service-grid{grid-template-columns:1fr 1fr}
+    @media (max-width:760px){.market-landing .market-service-grid{grid-template-columns:1fr}}
     @media(max-width:700px){
-      .market-word{font-size:clamp(44px,15vw,80px);top:-8px}
+      .market-copy{padding-top:calc(clamp(44px,15vw,80px) + 10px)}
+      .market-word{font-size:clamp(44px,15vw,80px);top:0}
       .price-big{font-size:clamp(40px,12vw,56px)}
       .guarantee-band{padding:20px 18px}
       .g-badge{width:80px;height:80px;font-size:13px}
@@ -340,10 +431,32 @@
 
     /* ═══ hero video card — static, self-contained (styles.css only styles it
        under funnel-redesign scopes that market pages never carry) ═══ */
+    /* styles.css:420 pins .ad-hero-video-card to aspect-ratio:16/9. The reel is 9:16,
+       so the frame inside grew ~318px taller than this figure and the hero section's
+       overflow:hidden sliced the bottom off behind the blue stats band. The figure
+       must size to its contents, not to a fixed 16:9 box. */
     .market-landing .ad-hero-video-card{min-height:0;border:0;border-radius:16px;background:#fff;
+      aspect-ratio:auto;height:auto;
       padding:10px 10px 14px;box-shadow:0 20px 50px rgba(10,16,40,.32);align-self:start}
     .market-landing .ad-hero-video-card .ad-video-frame{position:relative;border-radius:10px;overflow:hidden;background:#071a34}
-    .market-landing .ad-hero-video-card video{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#000}
+    /* Arrison #2: bigger frame, and the ad-campaign reel is 9:16 — forcing it into
+       a 16:9 box with cover was cropping it. Let the frame take the video's shape
+       and constrain by height instead. */
+    /* The reel is 9:16. Size the FRAME explicitly and let the video fill it —
+       width:fit-content here collapsed the frame to 0px, because the only child
+       sized itself from the parent it was supposed to be sizing. */
+    .market-landing .ad-hero-video-card .ad-video-frame{
+      position:relative;width:100%;max-width:340px;margin-inline:auto;
+      aspect-ratio:720/1180;border-radius:12px;overflow:hidden;background:#000}
+    .market-landing .ad-hero-video-card video,
+    .market-landing .ad-hero-video-card .ad-video-cover,
+    .market-landing .ad-hero-video-card .ad-video-cover img{
+      width:100%;height:100%;display:block;object-fit:cover;border-radius:12px}
+    .market-landing .ad-hero-video-card{max-width:340px;margin-inline:auto}
+    /* caption sits under the video and is allowed to wrap instead of being clipped */
+    .market-landing .ad-hero-video-card figcaption{padding:12px 6px 0;max-width:100%}
+    .market-landing .ad-hero-video-card figcaption strong{display:block;white-space:normal;line-height:1.3}
+    .market-landing .ad-hero-video-card figcaption span{display:block;white-space:normal;line-height:1.45}
     .market-landing .ad-hero-video-card .ad-video-cover{position:absolute;inset:0;z-index:2;display:block;width:100%;
       border:0;padding:0;margin:0;background:none;cursor:pointer}
     .market-landing .ad-hero-video-card .ad-video-cover img{width:100%;height:100%;object-fit:cover;display:block}
@@ -364,6 +477,23 @@
     .arch-hq .ad-hero-video-card{max-width:560px}
 
     /* ═══ case panels — designed media for pages where a photo would mislead ═══ */
+    /* Arrison: San Antonio and Ann Arbor showed NO photo at all, because a case panel
+       replaces the hero figure entirely. Render the photo above the panel instead of
+       choosing between them — the panel copy (Spanish/military, apartment puppy plan)
+       is real conversion content and should not be traded away for an image. */
+    /* one grid cell holding photo above panel — both carried .market-hero-media before,
+       so they were assigned the same grid-area and stacked on top of each other. */
+    .market-landing .market-hero-stack{display:flex;flex-direction:column;gap:14px;align-self:start}
+    .market-landing .market-hero-stack .market-case-panel{width:100%}
+    .market-landing .market-hero-photo-with-panel{margin:0;border-radius:16px;overflow:hidden;
+      box-shadow:0 20px 50px rgba(10,16,40,.28);aspect-ratio:var(--ar,16/10)}
+    .market-landing .market-hero-photo-with-panel img{width:100%;height:100%;object-fit:cover;display:block}
+    .market-landing .market-hero-photo-with-panel::after{content:none !important}
+    /* Arrison, San Diego: styles.css:416 lays a dark gradient (transparent 44% -> rgba(2,18,39,.88))
+       over EVERY .market-hero-media. That exists to darken a photo behind white text — but a case
+       panel is a white card, and the overlay was swallowing the price rows, the note, and the
+       "Book the Free Evaluation" button underneath it. Kill it on case panels only. */
+    .market-landing .market-case-panel::after{content:none !important;background:none !important}
     .market-case-panel{min-height:0;border:0;border-radius:16px;background:#fff;
       box-shadow:0 20px 50px rgba(10,16,40,.28);padding:26px;display:flex;flex-direction:column;gap:12px;align-self:start}
     /* floor: styles.css styles spans/text inside hero-media figures pale+small — the panel must win */
@@ -393,7 +523,7 @@
     /* below-fold market photo in the care section */
     .market-care-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;align-items:center}
     .market-care-photo{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.35)}
-    .market-care-photo img{width:100%;height:100%;min-height:220px;max-height:320px;object-fit:cover;display:block}
+    .market-care-photo img{width:auto;max-width:100%;height:auto;min-height:0;max-height:340px;aspect-ratio:var(--ar,16/9);object-fit:contain;margin-inline:auto;display:block}
 
     /* ═══ HERO GRID CONTRACT — explicit named areas. Legacy auto-placement put
        the headline 2,000px down and floated the video first on desktop. ═══ */
@@ -413,14 +543,22 @@
         grid-template-columns:minmax(380px,470px) minmax(0,1.3fr);
         grid-template-areas:"form copy" "form media"}
       .arch-portrait2 .market-hero-grid{grid-template-areas:"media form" "copy form"}
-      .arch-metro .market-trainer-media{transform:rotate(-2deg)}
     }
     /* media never crops the subject into mystery meat */
     .market-landing .market-trainer-media{min-height:0;align-self:start}
-    .market-landing .market-trainer-media img{aspect-ratio:4/3;width:100%;height:auto;
-      min-height:0;max-height:440px;object-fit:cover;object-position:center}
-    .arch-hq .market-trainer-media img{aspect-ratio:16/9;width:100%;height:100%;max-height:none;object-fit:cover;object-position:center}
-    .market-landing .market-care-photo img{aspect-ratio:4/3;height:auto}
+    /* ...and the frame hugs the image so a square photo does not leave a
+       wide dark gutter beside it. */
+    .market-landing .market-trainer-media,
+    .market-landing .market-care-photo{width:fit-content;max-width:100%;margin-inline:auto}
+
+    /* Frame takes the image's own shape, so cover has nothing left to crop.
+       Height is the constraint and width follows, which keeps a square photo
+       square instead of guillotining it into a letterbox. */
+    .market-landing .market-trainer-media img{aspect-ratio:var(--ar,16/9);
+      width:auto;max-width:100%;height:auto;min-height:0;max-height:440px;
+      object-fit:contain;margin-inline:auto;display:block}
+    .arch-hq .market-trainer-media img{aspect-ratio:var(--ar,16/9);width:auto;max-width:100%;height:auto;max-height:440px;object-fit:contain;margin-inline:auto}
+    .market-landing .market-care-photo img{aspect-ratio:var(--ar,16/9);width:auto;max-width:100%;height:auto;min-height:0;max-height:340px;object-fit:contain;margin-inline:auto;display:block}
 
     /* price pill — the price is part of the offer on forward markets */
     .market-landing .ad-benefit-row .price-pill{background:#C8102E !important;color:#fff !important;
@@ -509,7 +647,7 @@
         </div>
 
         <figure class="market-hero-media market-trainer-media">
-          <img src="assets/ad-testimonial-take-1-cover.png" alt="Vacation-ready — Miramar Beach, FL" style="object-position:center" loading="eager" fetchpriority="high" decoding="async">
+          <img src="assets/market-photos/miramar-beach-dog.jpg" alt="Vacation-ready — Miramar Beach, FL" style="--ar:1000/800;object-position:center" loading="eager" fetchpriority="high" decoding="async">
           <figcaption>
             <strong>Vacation-ready</strong>
             <span>Calm on the sand, welcome in the rental</span>
@@ -604,7 +742,7 @@
           <p>Emerald Coast life is patios, rentals, and open sand. We train the skills that make it easy — rock-solid recall, calm greetings, and manners your rental host will thank you for.</p>
           <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
         </div>
-        <figure class="market-care-photo"><img src="assets/get-started-premium-hero.jpg" alt="Calm, trained dogs relaxing outside the house" style="object-position:center" loading="lazy" decoding="async"></figure>
+        <figure class="market-care-photo"><img src="assets/market-photos/miramar-second.jpg" alt="Calm, trained dogs relaxing outside the house" style="--ar:2000/1333;object-position:center" loading="lazy" decoding="async"></figure>
       </div>
     </section>
 
@@ -659,7 +797,7 @@
 
     <section class="ad-proof-band-v2">
       <div class="container ad-proof-grid-v2">
-        <div><strong>39</strong><span>Years of experience</span></div>
+        <div><strong>38</strong><span>Years of experience</span></div>
         <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
         <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
         <div><strong>Fall slots</strong><span>Holiday board &amp; train</span></div>
@@ -700,6 +838,12 @@
 
     <section class="section tight">
       <div class="container">
+        <!-- Reviews published to this city page from the staff portal render here.
+             Hidden until the API returns at least one review for this destination. -->
+        <section class="ad-city-reviews" data-approved-market-reviews data-review-destination="dog-training-miramar-beach-fl" hidden>
+          <h2>What Miramar Beach families say</h2>
+          <div class="review-shot-grid ad-city-review-grid" data-approved-market-review-grid></div>
+        </section>
         <div class="cta-band ad-cta-v2">
           <div>
             <h2>Need dog training in Miramar Beach, FL?</h2>
@@ -712,7 +856,7 @@
   </main>
 
   <footer class="footer ad-footer">
-    <div class="container subfooter">&copy; Lorenzo's Dog Training Team. Serious Training. Serious Results. | <a href="tel:+18664364959">(866) 436-4959</a></div>
+    <div class="container subfooter">&copy; Lorenzo's Dog Training Team. Serious Training. Serious Results.<span class="subfooter-tel"> | <a href="tel:+18664364959">(866) 436-4959</a></span></div>
   </footer>
 
   <script>

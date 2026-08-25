@@ -835,7 +835,10 @@ const resetHomepageReviewCarousel=()=>{
     reviewCarousel.style.scrollBehavior='auto';
     reviewCarousel.style.scrollSnapType='none';
     reviewCarousel.scrollLeft=0;
-    firstCard?.scrollIntoView({behavior:'auto',block:'nearest',inline:'start'});
+    // NOTE: scrollIntoView() scrolls EVERY scrollable ancestor, including the window,
+    // so on page load this dragged the whole homepage down to the reviews section.
+    // scrollLeft=0 already resets the rail to the first card — that is all we need here.
+    void firstCard;
     reviewCarousel.style.scrollSnapType=previousSnap;
     reviewCarousel.style.scrollBehavior=previousBehavior;
   };

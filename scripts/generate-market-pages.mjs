@@ -1,11 +1,45 @@
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+
+/* Frames used to be hard-coded to 4:3 while the actual files are 16:9 or square,
+   so object-fit:cover quietly guillotined every photo — most visibly the square
+   retrieval shot, which lost the dog's head. Read the real pixel dimensions at
+   build time and let each frame take the shape of its own image. */
+/* "39 years" and "since 1988" were both on the Cleveland page, in the same
+   sentence. 1988 to 2026 is 38, so one of them was wrong. Derive the number from
+   the founding year so the two can never disagree again, and so it stays right
+   next year without anyone remembering to bump it.
+   NOTE: 1988 is taken from the site's own "since 1988" line — worth confirming. */
+const FOUNDED_YEAR = 1988;
+const YEARS_IN_BUSINESS = new Date().getFullYear() - FOUNDED_YEAR;
+
+function imageAspect(relPath) {
+  try {
+    const buf = readFileSync(resolve(process.cwd(), relPath));
+    if (buf.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+      return `${buf.readUInt32BE(16)}/${buf.readUInt32BE(20)}`;      // PNG
+    }
+    if (buf[0] === 0xff && buf[1] === 0xd8) {                         // JPEG
+      let i = 2;
+      while (i < buf.length) {
+        if (buf[i] !== 0xff) { i++; continue; }
+        const marker = buf[i + 1];
+        if (marker >= 0xc0 && marker <= 0xc3) {
+          return `${buf.readUInt16BE(i + 7)}/${buf.readUInt16BE(i + 5)}`;
+        }
+        i += 2 + buf.readUInt16BE(i + 2);
+      }
+    }
+  } catch { /* fall through to the default below */ }
+  return null;
+}
 
 const markets = [
   {
     slug: "dog-training-cleveland-oh",
     photoPos: "center 58%",
-    photo2: "assets/facility-grounds-wide.jpg", photo2Alt: "Open training grounds at the Cleveland headquarters campus",
+    photo2: "assets/ldtt-team-hq-exterior.jpg", photo2Alt: "The Lorenzo's team and their dogs outside the Cleveland headquarters",
+    heroVideo: "assets/video/ldtt-hq-campus.mp4", heroPoster: "assets/video/ldtt-hq-campus-poster.jpg",
     photo: "assets/facility-exterior-main.jpg", photoName: "Your dog trains where every Lorenzo's trainer gets certified", photoCaption: "Next door to our 17,000 sq ft Cleveland headquarters", word: "THE HQ", issues: "Aggression|Leash pulling|New puppy|Board & train", proofValue: "17,000", proofLabel: "Sq ft HQ facility", benefits: "Free evaluation|Same-day callback|90-day guarantee", priceMode: "quiet",
     arch: "hq", mk1: "#152569", mk2: "#C8102E",
     
@@ -25,7 +59,7 @@ const markets = [
     nearby: ["Cleveland Heights", "Garfield Heights", "Akron", "Streetsboro", "Northeast Ohio"],
     checks: ["Aggression and reactivity help from trainers certified at our national HQ", "Board & train at headquarters — your dog lives and learns on campus", "New puppy? Potty, crate, and socialization handled early", "Free evaluation backed by the 17,000 sq ft Cleveland campus"],
     care: {"eyebrow": "The home team", "h2": "Your Dog Trains Where Every Lorenzo's Trainer Gets Certified.", "p": "Cleveland isn't just another location — it's where Lorenzo's began. Your dog trains at the same facility where our trainers from across the country come to learn and earn their certification. It's also home to our Board & Train program, where dogs live, learn, and train on-site — all right next door to our 17,000 sq. ft. Cleveland headquarters.", "t": "Why Northeast Ohio starts here."},
-    testis: [{"h": "Evaluated at the source", "p": "Free evaluations backed by the national headquarters — not a satellite office."}, {"h": "39 years of dogs like yours", "p": "Aggression, reactivity, puppies, rescues — since 1988, Northeast Ohio families have started here."}, {"h": "Board & train advantage", "p": "Your dog trains daily with professionals and comes home with real skills — owner handoff lessons included."}],
+    testis: [{"h": "Evaluated at the source", "p": "Free evaluations backed by the national headquarters — not a satellite office."}, {"h": `${YEARS_IN_BUSINESS} years of dogs like yours`, "p": `Aggression, reactivity, puppies, rescues — since ${FOUNDED_YEAR}, Northeast Ohio families have started here.`}, {"h": "Board & train advantage", "p": "Your dog trains daily with professionals and comes home with real skills — owner handoff lessons included."}],
     zipCodes: ["44118", "44241"]
   },
   {
@@ -34,8 +68,8 @@ const markets = [
     // It is 16:9 and this figure crops to 4:3, so the subjects are pulled left of
     // centre — a plain centre crop pushes them into the corner and fills the frame
     // with empty floor.
-    photo2: "assets/columbus-two-dogs.jpg", photo2Alt: "Two dogs sitting calmly side by side on one leash with a Lorenzo's trainer", photo2Pos: "30% center",
-    photo: "assets/ad-testimonial-take-1-cover.png", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
+    photo2: "assets/ldtt-dog-mark.png", photo2Alt: "Lorenzo's Dog Training Team", photo2Pos: "30% center",
+    photo: "assets/columbus-two-dogs.jpg", photoName: "Two dogs. One calm house.", photoCaption: "Multi-dog peace is the outcome we train for", word: "AGGRESSION", issues: "Dogs fighting at home|Jumping|Potty training|Barking", proofValue: "Same week", proofLabel: "Aggression assessments", benefits: "Free evaluation|Multi-dog specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait", mk1: "#7A1E2C", mk2: "#EFE7DA",
     
     
@@ -84,8 +118,8 @@ const markets = [
   },
   {
     slug: "dog-training-san-diego-ca",
-    photo2: "assets/ad-testimonial-take-1-cover.png", photo2Alt: "Real Lorenzo's clients with their trained golden retriever",
-    photo: "assets/facility-purpose-aerial-clean.png", photoName: "Nothing to hide", photoCaption: "Real campus, real programs, published prices", word: "HONEST", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|90-day guarantee", priceMode: "forward",
+    photo2: "assets/market-photos/san-diego-client-dog.jpg", photo2Alt: "Real Lorenzo's clients with their trained golden retriever",
+    photo: "assets/facility-purpose-aerial-clean.png", photoName: "Nothing to hide", photoCaption: "Real campus, real programs, published prices", word: "HONEST", issues: "New puppy|Leash pulling|Barking|Recall", proofValue: "$1,250", proofLabel: "Transparent starting price", benefits: "Free evaluation|Published pricing|Military discount available|90-day guarantee", priceMode: "forward",
     arch: "coast", mk1: "#0E5E8A", mk2: "#EAF4F9",
     
     
@@ -109,7 +143,7 @@ const markets = [
   },
   {
     slug: "dog-training-san-antonio-tx",
-    photo: "assets/trainer-bio-photos/trainers.jpg", photoName: "One team, two languages", photoCaption: "English & Spanish — su solicitud es bienvenida en español", word: "BILINGÜE", issues: "Aggression|Puppy training|Obedience|Se habla español", proofValue: "2", proofLabel: "Trainers — English & Spanish", benefits: "Free evaluation|Military families welcome|90-day guarantee", priceMode: "quiet",
+    photo: "assets/market-photos/san-antonio-field-work.jpg", heroPhoto: "assets/market-photos/san-antonio-field-work.jpg", photo2: "assets/market-photos/san-antonio-handler-dog.jpg", photoName: "Real training, real San Antonio dogs", photoCaption: "Our trainers working in the field", word: "BILINGÜE", issues: "Aggression|Puppy training|Obedience|Spanish-speaking trainers", proofValue: "2", proofLabel: "Spanish-speaking trainers", benefits: "Free evaluation|Military discount available|90-day guarantee", priceMode: "quiet",
     arch: "mission", mk1: "#7E1F1F", mk2: "#D9A441",
     
     
@@ -118,7 +152,7 @@ const markets = [
     tint2: "200,120,30",
     hook: "Military family? Your training follows you — Lorenzo's has certified trainers in cities nationwide, so a PCS move never means starting over.",
     title: "San Antonio Dog Training",
-    h1: "Aggression, Puppy Training & Obedience in San Antonio — Hablamos Español.",
+    h1: "Aggression, Puppy Training & Obedience in San Antonio — Spanish-Speaking Trainers.",
     market: "San Antonio, TX",
     city: "San Antonio",
     state: "TX",
@@ -127,15 +161,15 @@ const markets = [
     spanish: true,
     proof: "Texas dog owners can request a fast follow-up for obedience, behavior modification, and advanced training needs.",
     nearby: ["San Antonio", "Castroville", "Bear Creek", "Bexar County", "Medina County"],
-    checks: ["Aggression, obedience, and puppy training — in English or Spanish", "Military families: your training follows you nationwide", "Se habla español — envíe su solicitud en español", "In-home and private options across the San Antonio area"],
-    care: {"eyebrow": "Military & bilingual", "h2": "PCS orders don't restart your dog's training.", "p": "San Antonio is a military town — and Lorenzo's has certified trainers in cities nationwide. If you're stationed somewhere new tomorrow, your dog's program continues. And your whole request can happen in Spanish, from first form to final lesson.", "t": "Built for San Antonio families."},
-    testis: [{"h": "Training that transfers", "p": "A nationwide trainer network means a military move never means starting over."}, {"h": "En español, de verdad", "p": "Envíe el formulario en español — un entrenador que habla español le da seguimiento."}, {"h": "One team, both languages", "p": "Same programs, same prices, same guarantee — in English or Spanish."}],
+    checks: ["Aggression, obedience, and puppy training for San Antonio families", "Military families: your training follows you nationwide", "Spanish-speaking trainers — your sessions can be in Spanish", "In-home and private options across the San Antonio area"],
+    care: {"eyebrow": "Military & bilingual", "h2": "PCS orders don't restart your dog's training.", "p": "San Antonio is a military town — and Lorenzo's has certified trainers in cities nationwide. If you're stationed somewhere new tomorrow, your dog's program continues. Our San Antonio trainers speak Spanish, so your training sessions can be run in Spanish.", "t": "Built for San Antonio families."},
+    testis: [{"h": "Training that transfers", "p": "A nationwide trainer network means a military move never means starting over."}, {"h": "Entrenadores que hablan español", "p": "Nuestros entrenadores en San Antonio hablan español — sus sesiones de entrenamiento pueden ser en español."}, {"h": "Same programs, either language", "p": "Same programs, same prices, same guarantee — with a Spanish-speaking trainer."}],
     zipCodes: ["78245", "78009"]
   },
   {
     slug: "dog-training-chicago-il",
     photoPos: "center 15%",
-    photo2: "assets/ad-testimonial-take-1-cover.png", photo2Alt: "A Chicago family with their trained dog at home",
+    photo2: "assets/market-photos/chicago-training-hall.jpg", photo2Alt: "A Chicago family with their trained dog at home",
     photo: "assets/ldtt-team-cover.jpg", photoName: "50+ trainers. No waitlist.", photoCaption: "Our team keeps evaluation slots open every week", word: "THIS WEEK", issues: "Reactivity|Leash pulling|New puppy|Barking", proofValue: "No waitlist", proofLabel: "Start this week", benefits: "Free evaluation|No waitlist|90-day guarantee", priceMode: "quiet",
     arch: "metro", mk1: "#0B1B3F", mk2: "#D64545",
     
@@ -160,8 +194,12 @@ const markets = [
   },
   {
     slug: "dog-training-tallahassee-fl",
-    photo2: "assets/utility-retrieval.png", photo2Alt: "A dog carrying out a trained retrieval task with focus",
-    photo: "assets/matthew-behavior-dog.jpg", photoName: "The tough cases", photoCaption: "Reactive and stubborn dogs are our specialty", word: "REACTIVE", issues: "Won't listen|Reactivity|Sound sensitivity|Leash pulling", proofValue: "Reactive dogs", proofLabel: "Our specialty", benefits: "Free evaluation|Reactivity specialists|90-day guarantee", priceMode: "forward",
+    photo2: "assets/market-photos/tallahassee-second.jpg", photo2Alt: "A dog carrying out a trained retrieval task with focus",
+    // Was matthew-behavior-dog.jpg: a muzzled dog on two dead-taut leads, letterboxed
+    // video still with a burned-in watermark. On a page whose own chips say "Leash
+    // pulling" that picture sells the problem, not the result. This one is real
+    // photography in a real Lorenzo's room — two dogs sitting, lead in a slack loop.
+    photo: "assets/market-photos/tallahassee-lead.jpg", photoName: "The tough cases", photoCaption: "Reactive and stubborn dogs — sitting calm on a loose lead", word: "REACTIVE", issues: "Won't listen|Reactivity|Sound sensitivity|Leash pulling", proofValue: "Reactive dogs", proofLabel: "Our specialty", benefits: "Free evaluation|Reactivity specialists|90-day guarantee", priceMode: "forward",
     arch: "portrait2", mk1: "#A63D2F", mk2: "#1E4D45",
     
     
@@ -185,8 +223,8 @@ const markets = [
   },
   {
     slug: "dog-training-miramar-beach-fl",
-    photo2: "assets/get-started-premium-hero.jpg", photo2Alt: "Calm, trained dogs relaxing outside the house",
-    photo: "assets/ad-testimonial-take-1-cover.png", photoName: "Vacation-ready", photoCaption: "Calm on the sand, welcome in the rental", word: "BEACH", issues: "Beach recall|Rental manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
+    photo2: "assets/market-photos/miramar-second.jpg", photo2Alt: "Calm, trained dogs relaxing outside the house",
+    photo: "assets/market-photos/miramar-beach-dog.jpg", photoName: "Vacation-ready", photoCaption: "Calm on the sand, welcome in the rental", word: "BEACH", issues: "Beach recall|Rental manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
     arch: "resort", mk1: "#0F8A9D", mk2: "#F2E9D8",
     
     
@@ -210,7 +248,7 @@ const markets = [
   },
   {
     slug: "dog-training-lexington-ky",
-    photo: "assets/facility-grounds-wide.jpg", photoName: "Room to run", photoCaption: "Recall that holds on open acreage", word: "FARM", issues: "Farm recall|Livestock manners|Leash pulling|Puppy", proofValue: "Open acreage", proofLabel: "Recall that holds", benefits: "Free evaluation|Farm & property dogs|90-day guarantee", priceMode: "quiet",
+    photo: "assets/market-photos/lexington-class-group.jpg", photo2: "assets/market-photos/lexington-trainer-candid.jpg", photoName: "Room to run", photoCaption: "Recall that holds on open acreage", word: "FARM", issues: "Farm recall|Livestock manners|Leash pulling|Puppy", proofValue: "Open acreage", proofLabel: "Recall that holds", benefits: "Free evaluation|Farm & property dogs|90-day guarantee", priceMode: "quiet",
     arch: "heritage", mk1: "#234D32", mk2: "#B08A57",
     
     
@@ -228,13 +266,13 @@ const markets = [
     proof: "Kentucky dog owners can start with a simple request and let Lorenzo's office guide the follow-up.",
     nearby: ["Lexington", "Harrodsburg", "Mercer County", "Central Kentucky", "Bluegrass Region"],
     checks: ["Recall that holds across open acreage", "Calm, safe manners around horses and livestock", "Property boundaries without a fence line", "Puppy and obedience foundations for farm life"],
-    care: {"eyebrow": "Farm & property dogs", "h2": "Town manners. Field reliability.", "p": "A farm dog needs more than sit and stay — recall across acreage, indifference to horses and livestock, and boundaries without fences. Bailey grew up with horses; this is training built around how Central Kentucky actually lives.", "t": "What farm-dog training covers."},
+    care: {"eyebrow": "Farm & property dogs", "h2": "Town manners. Field reliability.", "p": "A farm dog needs more than sit and stay — recall across acreage, calm behavior around livestock, and boundaries without fences. Our training is built around how Central Kentucky actually lives.", "t": "What farm-dog training covers."},
     testis: [{"h": "Distance recall", "p": "Reliable return from real distances, past real distractions."}, {"h": "Livestock neutrality", "p": "No chasing, no herding the horses, no drama at the barn."}, {"h": "Working boundaries", "p": "Your property line, respected — even when a rabbit crosses it."}],
     zipCodes: ["40330"]
   },
   {
     slug: "dog-training-ann-arbor-mi",
-    photo: "assets/get-started-premium-hero.jpg", photoName: "Start them right", photoCaption: "New puppy, new rescue — the habits that last a lifetime", word: "PUPPY", issues: "Apartment barking|Potty training|Crate training|Leash skills", proofValue: "Apartment", proofLabel: "Friendly training plans", benefits: "Free evaluation|Small-space plans|90-day guarantee", priceMode: "forward",
+    photo: "assets/market-photos/ann-arbor-third.jpg", heroPhoto: "assets/market-photos/ann-arbor-third.jpg", photo2: "assets/market-photos/ann-arbor-second.jpg", photoName: "Start them right", photoCaption: "New puppy, new rescue — the habits that last a lifetime", word: "PUPPY", issues: "Apartment barking|Potty training|Crate training|Leash skills", proofValue: "Apartment", proofLabel: "Friendly training plans", benefits: "Free evaluation|Small-space plans|90-day guarantee", priceMode: "forward",
     arch: "campus", mk1: "#1E3A8A", mk2: "#F0C93B",
     
     
@@ -369,10 +407,10 @@ const casePanels = {
           <a class="btn market-primary-cta" href="#consultation">Book the Free Evaluation</a>
         </div>`,
   "dog-training-san-antonio-tx": `<div class="market-hero-media market-case-panel case-bilingual">
-          <span class="case-kicker">Se habla español</span>
+          <span class="case-kicker">Spanish-speaking trainers</span>
           <p class="case-big" lang="es">Hablamos español.</p>
-          <p class="case-note" lang="es">Envíe su solicitud en español — un entrenador que habla español le da seguimiento.</p>
-          <p class="case-note">Same programs, same prices, same guarantee — in English or Spanish.</p>
+          <p class="case-note" lang="es">Nuestros entrenadores en San Antonio hablan español — sus sesiones pueden ser en español.</p>
+          <p class="case-note">Same programs, same prices, same guarantee — with a Spanish-speaking trainer.</p>
           <div class="case-divider" aria-hidden="true"></div>
           <span class="case-kicker">Military families</span>
           <p class="case-note"><b>PCS orders?</b> Lorenzo&rsquo;s has certified trainers in cities nationwide — your dog&rsquo;s training follows you.</p>
@@ -397,7 +435,7 @@ const page = market => {
   const SEC = {
     proof: `    <section class="ad-proof-band-v2">
       <div class="container ad-proof-grid-v2">
-        <div><strong>39</strong><span>Years of experience</span></div>
+        <div><strong>${YEARS_IN_BUSINESS}</strong><span>Years of experience</span></div>
         <div><strong>100,000+</strong><span>Dogs trained of all breeds</span></div>
         <div><strong>50+</strong><span>Professional trainers nationwide</span></div>
         <div><strong>${escapeHtml(market.proofValue)}</strong><span>${escapeHtml(market.proofLabel)}</span></div>
@@ -489,7 +527,7 @@ const page = market => {
           <p>${escapeHtml(market.care.p)}</p>
           <a class="btn btn-secondary" href="#consultation">Book My Consultation</a>
         </div>
-        ${market.photo2 ? `<figure class="market-care-photo"><img src="${escapeHtml(market.photo2)}" alt="${escapeHtml(market.photo2Alt)}" style="object-position:${market.photo2Pos || "center"}" loading="lazy" decoding="async"></figure>` : ""}
+        ${market.photo2 ? `<figure class="market-care-photo"><img src="${escapeHtml(market.photo2)}" alt="${escapeHtml(market.photo2Alt)}" style="${imageAspect(market.photo2) ? `--ar:${imageAspect(market.photo2)};` : ""}object-position:${market.photo2Pos || "center"}" loading="lazy" decoding="async"></figure>` : ""}
       </div>
     </section>`,
     testi: `    <section class="market-testimonial-section section">
@@ -522,6 +560,12 @@ const page = market => {
     </section>`,
     cta: `    <section class="section tight">
       <div class="container">
+        <!-- Reviews published to this city page from the staff portal render here.
+             Hidden until the API returns at least one review for this destination. -->
+        <section class="ad-city-reviews" data-approved-market-reviews data-review-destination="${market.slug}" hidden>
+          <h2>What ${escapeHtml(market.city)} families say</h2>
+          <div class="review-shot-grid ad-city-review-grid" data-approved-market-review-grid></div>
+        </section>
         <div class="cta-band ad-cta-v2">
           <div>
             <h2>Need dog training in ${escapeHtml(market.market)}?</h2>
@@ -552,12 +596,17 @@ const page = market => {
   <meta name="twitter:card" content="summary_large_image">
   <script type="application/ld+json">${JSON.stringify({
     "@context": "https://schema.org",
-    "@type": "LocalBusiness",
+    // Only ONE physical location exists — the Cleveland HQ, and it is in Garfield
+    // Heights, not Cleveland. Every page used to publish a PostalAddress in its own
+    // market city, which tells Google there is a branch in San Diego, Chicago and so
+    // on. The other nine are service areas covered by trainers, so they carry
+    // areaServed and no address. Omitting an address is valid; inventing one is not.
+    "@type": market.slug === "dog-training-cleveland-oh" ? "LocalBusiness" : "ProfessionalService",
     name: `Lorenzo's Dog Training Team — ${market.market}`,
     url: `https://www.lorenzosdogtrainingteam.com/${market.slug}`,
     telephone: "+1-866-436-4959",
     priceRange: "$1,250+",
-    address: { "@type": "PostalAddress", addressLocality: market.city, addressRegion: market.state, addressCountry: "US" },
+    ...(market.slug === "dog-training-cleveland-oh" ? { address: { "@type": "PostalAddress", streetAddress: "4805 Orchard Rd", addressLocality: "Garfield Heights", addressRegion: "OH", addressCountry: "US" } } : {}),
     areaServed: market.nearby,
     description: metaDescription
   })}</script>
@@ -584,7 +633,7 @@ const page = market => {
     .market-copy h1{margin-bottom:4px}
     .market-pricing{padding-top:34px;padding-bottom:10px}
     .market-pricing .cta-band{margin-top:20px}
-    .market-trainer-media img{width:100%;height:100%;min-height:280px;object-fit:cover;object-position:top center;display:block}
+    .market-trainer-media img{width:auto;max-width:100%;height:auto;min-height:0;aspect-ratio:var(--ar,16/9);object-fit:contain;margin-inline:auto;display:block}
     .market-trainer-media figcaption strong{display:block}
 
     /* ═══ per-market design archetypes ═══ */
@@ -593,7 +642,7 @@ const page = market => {
     .arch-hq .market-hero-bg{opacity:.14}
     .arch-hq .market-copy h1,.arch-hq .market-copy .ad-lead{color:#fff}
     .arch-hq .market-copy .ad-lead.market-hook{background:rgba(255,255,255,.1);color:#fff;border-left-color:var(--mk2)}
-    .arch-hq .market-trainer-media{min-height:0;height:auto;aspect-ratio:16/9;width:100%;max-width:860px;margin-inline:auto;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
+    .arch-hq .market-trainer-media{min-height:0;height:auto;width:100%;max-width:860px;margin-inline:auto;overflow:hidden;border:6px solid #fff;border-radius:16px;box-shadow:0 24px 56px rgba(0,0,0,.4)}
     .arch-hq .ad-checks-v2 li{color:#dfe4f5}
 
     /* PORTRAIT — Columbus: warm parchment, wine accents, framed trainer */
@@ -609,7 +658,7 @@ const page = market => {
     .arch-metro .market-copy h1{color:#fff;font-size:clamp(34px,5vw,54px);letter-spacing:-.03em}
     .arch-metro .market-copy .ad-lead{color:#c9d4ef}
     .arch-metro .market-copy .ad-lead.market-hook{background:var(--mk2);color:#fff;border-left-color:#fff}
-    .arch-metro .market-trainer-media{transform:rotate(-2deg);border:10px solid #fff;box-shadow:0 22px 45px rgba(0,0,0,.45)}
+    .arch-metro .market-trainer-media{border:10px solid #fff;box-shadow:0 22px 45px rgba(0,0,0,.45)}
     .arch-metro .ad-checks-v2 li{color:#dfe6f8}
 
     /* SPECIALTY — Atlanta: near-black, gold detailing, premium quiet */
@@ -658,7 +707,7 @@ const page = market => {
     .arch-resort .market-copy h1{color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.25)}
     .arch-resort .market-copy .ad-lead{color:#eafcff}
     .arch-resort .market-copy .ad-lead.market-hook{background:#fff;color:var(--mk1);border-left-color:var(--mk1)}
-    .arch-resort .market-trainer-media{border:8px solid #fff;border-bottom-width:30px;box-shadow:0 16px 34px rgba(0,0,0,.28);transform:rotate(1.5deg)}
+    .arch-resort .market-trainer-media{border:8px solid #fff;border-bottom-width:30px;box-shadow:0 16px 34px rgba(0,0,0,.28)}
 
     /* CAMPUS — Ann Arbor: clean white, blue + maize underline energy */
     .arch-campus .market-hero{background:#fff}
@@ -680,6 +729,14 @@ const page = market => {
     .arch-coast .market-hero::before,.arch-coast .market-hero::after,
     .arch-campus .market-hero::before,.arch-campus .market-hero::after,
     .arch-portrait2 .market-hero::before,.arch-portrait2 .market-hero::after{display:none !important}
+    /* These five archetypes run a LIGHT hero, but .market-copy still inherited the
+       white text colour used by the dark ones. h1 and .ad-lead each carried their
+       own override so they looked fine, and everything else — the "we also train"
+       strip most visibly — rendered white on near-white and vanished. Colour the
+       container itself so anything added later inherits something readable. */
+    .arch-portrait .market-copy,.arch-heritage .market-copy,
+    .arch-coast .market-copy,.arch-campus .market-copy,
+    .arch-portrait2 .market-copy{color:#3c4258}
     .arch-portrait .market-copy .ad-lead,.arch-heritage .market-copy .ad-lead,
     .arch-coast .market-copy .ad-lead,.arch-campus .market-copy .ad-lead,
     .arch-portrait2 .market-copy .ad-lead{color:#3c4258}
@@ -764,7 +821,24 @@ const page = market => {
 
     /* METRO: form moves LEFT of the copy on desktop; proof is one dark ticker row */
     .arch-metro .ad-proof-band-v2{background:#070f24}
-    .arch-metro .ad-proof-grid-v2{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    /* Arrison, Chicago: flex + space-between sized each stat to its own text, so the four
+       sat at uneven widths (224/367/356/290) and the longer labels wrapped below ~1100px.
+       Four equal columns spread them across the full banner; nowrap + a fluid label size
+       keeps every label on one line all the way down to the mobile breakpoint. */
+    .arch-metro .ad-proof-grid-v2{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;align-items:center}
+    .arch-metro .ad-proof-grid-v2 span{white-space:nowrap;font-size:clamp(.56rem,.86vw,.78rem)}
+    .arch-metro .ad-proof-grid-v2 strong{white-space:nowrap}
+    /* Below ~980px four equal columns get too narrow for "Professional trainers nationwide"
+       (it overflowed its cell by 12px at 820px). Two columns give each label room to stay
+       on one line and still read as a spread band rather than a wrapped list. */
+    @media(max-width:980px){
+      .arch-metro .ad-proof-grid-v2{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .arch-metro .ad-proof-grid-v2 span{font-size:clamp(.6rem,1.5vw,.78rem)}
+    }
+    @media(max-width:520px){
+      .arch-metro .ad-proof-grid-v2{grid-template-columns:1fr}
+      .arch-metro .ad-proof-grid-v2 span{font-size:.72rem}
+    }
     .arch-metro .ad-proof-grid-v2 > div{display:flex;align-items:baseline;gap:8px;padding:14px 8px}
     .arch-metro .ad-proof-grid-v2 strong{font-size:30px}
 
@@ -776,7 +850,12 @@ const page = market => {
     .arch-specialty .ad-proof-band-v2{background:#0d0a16;border-block:1px solid var(--mk2)}
 
     /* COAST + RESORT: proof stats as floating pills, services rounded */
-    .arch-coast .ad-proof-band-v2,.arch-resort .ad-proof-band-v2{background:transparent}
+        /* Was transparent on both. On these light pages the white numbers landed on a
+       near-white ground at 1.05:1 — the 39 years / 100,000+ dogs credibility strip
+       was effectively invisible. Rachel reported it on Tallahassee; it was here too. */
+    .arch-coast .ad-proof-band-v2,.arch-resort .ad-proof-band-v2{background:var(--mk1)}
+    .arch-coast .ad-proof-band-v2 strong,.arch-resort .ad-proof-band-v2 strong{color:#fff}
+    .arch-coast .ad-proof-band-v2 span,.arch-resort .ad-proof-band-v2 span{color:#e6f3f8}
     .arch-coast .ad-proof-grid-v2 > div,.arch-resort .ad-proof-grid-v2 > div{
       background:var(--mk1);color:#fff;border-radius:999px;padding:14px 22px;text-align:center}
     .arch-coast .ad-proof-grid-v2,.arch-resort .ad-proof-grid-v2{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
@@ -796,9 +875,39 @@ const page = market => {
     .arch-campus .market-service-grid{grid-template-columns:1fr 1fr}
     .arch-campus .market-service-grid article{border:none;border-top:4px solid var(--mk2);background:#F7F9FF}
 
+    /* Arrison: the "clearer path" block has exactly 4 items, so 2x2 always
+       balances — auto-fit was leaving a 3+1 orphan row at some widths. */
+
+    /* Arrison #5: the dog mark fills the dead white space behind this section.
+       Watermark only — sits under the content and ignores the pointer. */
+    .market-path-section{position:relative;overflow:hidden}
+    .market-path-section::after{
+      content:"";position:absolute;right:-40px;bottom:-30px;width:min(46vw,520px);
+      aspect-ratio:443/258;background:url("assets/ldtt-dog-mark.png") no-repeat center/contain;
+      opacity:.06;pointer-events:none;z-index:0}
+    .market-path-section > *{position:relative;z-index:1}
+
+    /* Arrison, Columbus #1: white on tan under the consultation button was unreadable. */
+    .arch-resort .market-primary-cta + *,
+    .arch-resort .market-cta-note,
+    .market-landing .market-cta-note{color:#3c4258}
+
+    /* City reviews published from the staff portal */
+    .ad-city-reviews{margin:56px 0 8px}
+    .ad-city-reviews h2{margin-bottom:18px}
+    .ad-city-review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));grid-auto-flow:row;gap:20px}
+    .ad-city-review-grid .review-shot-card{background:#fff;border:1px solid rgba(9,30,66,.12);color:inherit}
+    /* Footer reads as one line: '... Serious Results. | (866) 436-4959'.
+       styles.css sets .footer a{display:block}, which was pushing the phone
+       onto its own line no matter what white-space said. */
+    .subfooter{white-space:nowrap}
+    .subfooter a{display:inline;margin:0}
+    .subfooter-tel{white-space:nowrap}
+    @media (max-width:560px){.subfooter{white-space:normal}}
+
     /* giant market word — personality, not decoration: names the page's mission */
-    .market-copy{position:relative}
-    .market-word{position:absolute;top:-18px;left:-6px;font-size:clamp(64px,11vw,150px);font-weight:900;
+    .market-copy{position:relative;padding-top:calc(clamp(64px,11vw,150px) + 12px)}
+    .market-word{position:absolute;top:0;left:-6px;font-size:clamp(64px,11vw,150px);font-weight:900;
       letter-spacing:-.04em;line-height:1;color:transparent;-webkit-text-stroke:2px rgba(255,255,255,.16);
       pointer-events:none;user-select:none;white-space:nowrap;z-index:0}
     .market-copy > *:not(.market-word){position:relative;z-index:1}
@@ -850,8 +959,39 @@ const page = market => {
     /* 4) Responsive floors: nothing crushes on small screens. */
     .arch-hq .market-service-grid{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
     .arch-campus .market-service-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+    /* Rachel, Tallahassee: "either the banner or the data within it should be
+       another color. They are both white so the data blends in." portrait2 had no
+       band background at all, so white text landed on a white band. */
+    .arch-portrait2 .ad-proof-band-v2{background:var(--mk1)}
+    .arch-portrait2 .ad-proof-band-v2 strong{color:#fff}
+    .arch-portrait2 .ad-proof-band-v2 span{color:#e2e7f5}
+
+    /* A brand mark in the second media slot needs padding and a light ground,
+       otherwise it reads as a broken photo. */
+    .market-landing .market-care-photo img[src$="ldtt-dog-mark.png"]{
+      max-height:190px;padding:34px 28px;background:#fff;border-radius:14px;
+      box-shadow:0 10px 26px rgba(12,20,45,.10)}
+
+    /* Arrison, Cleveland #3: "stretch the blue across the width of the site where
+       the ticker is". arch-hq had no band background, so it rendered white. */
+    .arch-hq .ad-proof-band-v2{background:var(--mk1)}
+    .arch-hq .ad-proof-band-v2 strong{color:#fff}
+    .arch-hq .ad-proof-band-v2 span{color:#d7e0f5}
+
+    /* Hero video sits in the same frame as the hero image and follows the same
+       rule: show all of it, never crop. */
+    .market-landing .market-hero-video{aspect-ratio:16/9;width:auto;max-width:100%;
+      height:auto;max-height:440px;display:block;object-fit:contain;background:#0b1220;
+      margin-inline:auto;border-radius:10px}
+
+    /* Arrison #4: exactly 4 items, so auto-fit kept leaving a 3+1 orphan row.
+       2x2 is always balanced. Declared after the archetype overrides above,
+       which is the only reason it wins — same specificity, later position. */
+    .market-landing .market-service-grid{grid-template-columns:1fr 1fr}
+    @media (max-width:760px){.market-landing .market-service-grid{grid-template-columns:1fr}}
     @media(max-width:700px){
-      .market-word{font-size:clamp(44px,15vw,80px);top:-8px}
+      .market-copy{padding-top:calc(clamp(44px,15vw,80px) + 10px)}
+      .market-word{font-size:clamp(44px,15vw,80px);top:0}
       .price-big{font-size:clamp(40px,12vw,56px)}
       .guarantee-band{padding:20px 18px}
       .g-badge{width:80px;height:80px;font-size:13px}
@@ -863,10 +1003,32 @@ const page = market => {
 
     /* ═══ hero video card — static, self-contained (styles.css only styles it
        under funnel-redesign scopes that market pages never carry) ═══ */
+    /* styles.css:420 pins .ad-hero-video-card to aspect-ratio:16/9. The reel is 9:16,
+       so the frame inside grew ~318px taller than this figure and the hero section's
+       overflow:hidden sliced the bottom off behind the blue stats band. The figure
+       must size to its contents, not to a fixed 16:9 box. */
     .market-landing .ad-hero-video-card{min-height:0;border:0;border-radius:16px;background:#fff;
+      aspect-ratio:auto;height:auto;
       padding:10px 10px 14px;box-shadow:0 20px 50px rgba(10,16,40,.32);align-self:start}
     .market-landing .ad-hero-video-card .ad-video-frame{position:relative;border-radius:10px;overflow:hidden;background:#071a34}
-    .market-landing .ad-hero-video-card video{width:100%;display:block;aspect-ratio:16/9;object-fit:cover;background:#000}
+    /* Arrison #2: bigger frame, and the ad-campaign reel is 9:16 — forcing it into
+       a 16:9 box with cover was cropping it. Let the frame take the video's shape
+       and constrain by height instead. */
+    /* The reel is 9:16. Size the FRAME explicitly and let the video fill it —
+       width:fit-content here collapsed the frame to 0px, because the only child
+       sized itself from the parent it was supposed to be sizing. */
+    .market-landing .ad-hero-video-card .ad-video-frame{
+      position:relative;width:100%;max-width:340px;margin-inline:auto;
+      aspect-ratio:720/1180;border-radius:12px;overflow:hidden;background:#000}
+    .market-landing .ad-hero-video-card video,
+    .market-landing .ad-hero-video-card .ad-video-cover,
+    .market-landing .ad-hero-video-card .ad-video-cover img{
+      width:100%;height:100%;display:block;object-fit:cover;border-radius:12px}
+    .market-landing .ad-hero-video-card{max-width:340px;margin-inline:auto}
+    /* caption sits under the video and is allowed to wrap instead of being clipped */
+    .market-landing .ad-hero-video-card figcaption{padding:12px 6px 0;max-width:100%}
+    .market-landing .ad-hero-video-card figcaption strong{display:block;white-space:normal;line-height:1.3}
+    .market-landing .ad-hero-video-card figcaption span{display:block;white-space:normal;line-height:1.45}
     .market-landing .ad-hero-video-card .ad-video-cover{position:absolute;inset:0;z-index:2;display:block;width:100%;
       border:0;padding:0;margin:0;background:none;cursor:pointer}
     .market-landing .ad-hero-video-card .ad-video-cover img{width:100%;height:100%;object-fit:cover;display:block}
@@ -887,6 +1049,23 @@ const page = market => {
     .arch-hq .ad-hero-video-card{max-width:560px}
 
     /* ═══ case panels — designed media for pages where a photo would mislead ═══ */
+    /* Arrison: San Antonio and Ann Arbor showed NO photo at all, because a case panel
+       replaces the hero figure entirely. Render the photo above the panel instead of
+       choosing between them — the panel copy (Spanish/military, apartment puppy plan)
+       is real conversion content and should not be traded away for an image. */
+    /* one grid cell holding photo above panel — both carried .market-hero-media before,
+       so they were assigned the same grid-area and stacked on top of each other. */
+    .market-landing .market-hero-stack{display:flex;flex-direction:column;gap:14px;align-self:start}
+    .market-landing .market-hero-stack .market-case-panel{width:100%}
+    .market-landing .market-hero-photo-with-panel{margin:0;border-radius:16px;overflow:hidden;
+      box-shadow:0 20px 50px rgba(10,16,40,.28);aspect-ratio:var(--ar,16/10)}
+    .market-landing .market-hero-photo-with-panel img{width:100%;height:100%;object-fit:cover;display:block}
+    .market-landing .market-hero-photo-with-panel::after{content:none !important}
+    /* Arrison, San Diego: styles.css:416 lays a dark gradient (transparent 44% -> rgba(2,18,39,.88))
+       over EVERY .market-hero-media. That exists to darken a photo behind white text — but a case
+       panel is a white card, and the overlay was swallowing the price rows, the note, and the
+       "Book the Free Evaluation" button underneath it. Kill it on case panels only. */
+    .market-landing .market-case-panel::after{content:none !important;background:none !important}
     .market-case-panel{min-height:0;border:0;border-radius:16px;background:#fff;
       box-shadow:0 20px 50px rgba(10,16,40,.28);padding:26px;display:flex;flex-direction:column;gap:12px;align-self:start}
     /* floor: styles.css styles spans/text inside hero-media figures pale+small — the panel must win */
@@ -916,7 +1095,7 @@ const page = market => {
     /* below-fold market photo in the care section */
     .market-care-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;align-items:center}
     .market-care-photo{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.35)}
-    .market-care-photo img{width:100%;height:100%;min-height:220px;max-height:320px;object-fit:cover;display:block}
+    .market-care-photo img{width:auto;max-width:100%;height:auto;min-height:0;max-height:340px;aspect-ratio:var(--ar,16/9);object-fit:contain;margin-inline:auto;display:block}
 
     /* ═══ HERO GRID CONTRACT — explicit named areas. Legacy auto-placement put
        the headline 2,000px down and floated the video first on desktop. ═══ */
@@ -936,14 +1115,22 @@ const page = market => {
         grid-template-columns:minmax(380px,470px) minmax(0,1.3fr);
         grid-template-areas:"form copy" "form media"}
       .arch-portrait2 .market-hero-grid{grid-template-areas:"media form" "copy form"}
-      .arch-metro .market-trainer-media{transform:rotate(-2deg)}
     }
     /* media never crops the subject into mystery meat */
     .market-landing .market-trainer-media{min-height:0;align-self:start}
-    .market-landing .market-trainer-media img{aspect-ratio:4/3;width:100%;height:auto;
-      min-height:0;max-height:440px;object-fit:cover;object-position:center}
-    .arch-hq .market-trainer-media img{aspect-ratio:16/9;width:100%;height:100%;max-height:none;object-fit:cover;object-position:center}
-    .market-landing .market-care-photo img{aspect-ratio:4/3;height:auto}
+    /* ...and the frame hugs the image so a square photo does not leave a
+       wide dark gutter beside it. */
+    .market-landing .market-trainer-media,
+    .market-landing .market-care-photo{width:fit-content;max-width:100%;margin-inline:auto}
+
+    /* Frame takes the image's own shape, so cover has nothing left to crop.
+       Height is the constraint and width follows, which keeps a square photo
+       square instead of guillotining it into a letterbox. */
+    .market-landing .market-trainer-media img{aspect-ratio:var(--ar,16/9);
+      width:auto;max-width:100%;height:auto;min-height:0;max-height:440px;
+      object-fit:contain;margin-inline:auto;display:block}
+    .arch-hq .market-trainer-media img{aspect-ratio:var(--ar,16/9);width:auto;max-width:100%;height:auto;max-height:440px;object-fit:contain;margin-inline:auto}
+    .market-landing .market-care-photo img{aspect-ratio:var(--ar,16/9);width:auto;max-width:100%;height:auto;min-height:0;max-height:340px;object-fit:contain;margin-inline:auto;display:block}
 
     /* price pill — the price is part of the offer on forward markets */
     .market-landing .ad-benefit-row .price-pill{background:#C8102E !important;color:#fff !important;
@@ -1001,7 +1188,7 @@ const page = market => {
           <h1>${escapeHtml(market.h1)}</h1>
           <p class="ad-lead market-hook"><strong>${escapeHtml(market.hook)}</strong></p>
           <p class="ad-lead">Tell us what&rsquo;s going on with your dog. A member of our team will reach out to discuss your concerns and arrange your <b>free</b> evaluation.</p>
-          ${market.spanish ? `<p class="ad-lead market-spanish" lang="es"><strong>Hablamos español.</strong> Entrenamiento profesional de perros en ${escapeHtml(market.city)} — puede enviar su solicitud en español y un entrenador que habla español le llamará.</p>` : ""}
+          ${market.spanish ? `<p class="ad-lead market-spanish"><strong>Spanish-speaking trainers.</strong> <span lang="es">Nuestros entrenadores en ${escapeHtml(market.city)} hablan español — sus sesiones de entrenamiento pueden ser en español.</span> Please send your request in English so our office can route it quickly.</p>` : ""}
           <div class="ad-benefit-row">
             ${market.priceMode === "forward" ? `<span class="price-pill">Training from $1,250</span>` : ""}
             ${market.benefits.split("|").map(b => `<span>${escapeHtml(b)}</span>`).join("\n            ")}
@@ -1026,8 +1213,29 @@ const page = market => {
           </p>
         </div>
 
-        ${casePanels[market.slug] || `<figure class="market-hero-media market-trainer-media">
-          <img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — ${escapeHtml(market.market)}" style="object-position:${market.photoPos || "center"}" loading="eager" fetchpriority="high" decoding="async">
+        ${casePanels[market.slug] ? (market.heroPhoto ? `<div class="market-hero-media market-hero-stack">
+          <figure class="market-hero-photo-with-panel">
+            <img src="${escapeHtml(market.heroPhoto)}" alt="${escapeHtml(market.photoName || market.market + " dog training")}"${imageAspect(market.heroPhoto)} loading="eager" decoding="async">
+          </figure>
+          ${casePanels[market.slug]}
+        </div>` : casePanels[market.slug]) : `<figure class="market-hero-media market-trainer-media">
+          ${market.heroVideo ? `<video class="market-hero-video" src="${escapeHtml(market.heroVideo)}" poster="${escapeHtml(market.heroPoster || "")}" autoplay muted loop playsinline preload="auto" aria-label="${escapeHtml(market.photoName)}"></video>
+          <script>(function(){var v=document.currentScript.previousElementSibling;if(!v)return;
+            var go=function(){var p=v.play();if(p&&p.catch)p.catch(function(){});};
+            go();
+            v.addEventListener("canplay",go,{once:true});
+            document.addEventListener("visibilitychange",function(){if(!document.hidden)go();});
+            /* Some browsers refuse muted autoplay until the visitor interacts at all.
+               The poster covers that gap; this starts the loop the moment they do
+               anything, so it is never a dead frame. */
+            ["pointerdown","touchstart","scroll","keydown"].forEach(function(evt){
+              document.addEventListener(evt,go,{once:true,passive:true});
+            });
+            /* Don't burn battery/bandwidth while it is off screen. */
+            if(window.IntersectionObserver){new IntersectionObserver(function(es){
+              es.forEach(function(e){e.isIntersecting?go():v.pause();});
+            },{threshold:0.1}).observe(v);}
+          })();<\/script>` : `<img src="${escapeHtml(market.photo)}" alt="${escapeHtml(market.photoName)} — ${escapeHtml(market.market)}" style="${imageAspect(market.photo) ? `--ar:${imageAspect(market.photo)};` : ""}object-position:${market.photoPos || "center"}" loading="eager" fetchpriority="high" decoding="async">`}
           <figcaption>
             <strong>${escapeHtml(market.photoName)}</strong>
             <span>${escapeHtml(market.photoCaption)}</span>
@@ -1037,12 +1245,12 @@ const page = market => {
         ${market.slug === "dog-training-cleveland-oh" ? `<figure class="market-hero-media ad-hero-video-card">
           <div class="ad-video-frame">
             <button class="ad-video-cover" type="button" data-video-cover aria-label="Play real client results video">
-              <img src="assets/ad-testimonial-take-1-cover.png" alt="Real client results video cover" loading="lazy" decoding="async">
+              <img src="assets/video/ldtt-cleveland-ad-reel-poster.jpg" alt="Real client results video cover" loading="lazy" decoding="async">
               <span class="video-bubble">Real Client Results</span>
               <span class="video-play-mark" aria-hidden="true">&#9654;</span>
             </button>
-            <video controls preload="metadata" poster="assets/ad-testimonial-take-1-cover.png" playsinline>
-              <source src="assets/ad-testimonial-take-1.mp4" type="video/mp4">
+            <video controls preload="metadata" poster="assets/video/ldtt-cleveland-ad-reel-poster.jpg" playsinline>
+              <source src="assets/video/ldtt-cleveland-ad-reel.mp4" type="video/mp4">
             </video>
           </div>
           <figcaption>
@@ -1085,7 +1293,7 @@ const page = market => {
               </select>
             </label>
             <label class="wide">What is happening with your dog?
-              <textarea name="comments" rows="3" placeholder="${market.spanish ? "English or español — example: pulling on leash, barking, jumping / jala la correa, ladridos, ansiedad..." : "Example: pulling on leash, barking, jumping, potty training, aggression, anxiety..."}"></textarea>
+              <textarea name="comments" rows="3" placeholder="Example: pulling on leash, barking, jumping, potty training, aggression, anxiety..."></textarea>
             </label>
             <p class="consent-optional"><b>Optional &mdash; not required to book your evaluation.</b></p>
             <label class="consent-row">
@@ -1125,7 +1333,7 @@ const page = market => {
   </main>
 
   <footer class="footer ad-footer">
-    <div class="container subfooter">&copy; Lorenzo's Dog Training Team. Serious Training. Serious Results. | <a href="tel:+18664364959">(866) 436-4959</a></div>
+    <div class="container subfooter">&copy; Lorenzo's Dog Training Team. Serious Training. Serious Results.<span class="subfooter-tel"> | <a href="tel:+18664364959">(866) 436-4959</a></span></div>
   </footer>
 
   ${conversionAndAttributionScript()}
