@@ -3595,11 +3595,16 @@ function render() {
   // The login screen is static markup, so it also needs the show/hide control.
   enhancePasswordFields(document);
   if (!session.loggedIn) return;
-  if (session.role === "trainer" && portalUser?.must_change_password) {
-    state.activeView = "settings";
-  }
-  if (portalProfileNeedsCompletion()) {
-    state.activeView = "settings";
+  // Saving a password is refused in the sandbox, so these two forced gates would
+  // trap anyone whose account still has them set, with no way to clear them.
+  // Skip both there; on live they behave exactly as before.
+  if (!window.LDTT_IS_SANDBOX) {
+    if (session.role === "trainer" && portalUser?.must_change_password) {
+      state.activeView = "settings";
+    }
+    if (portalProfileNeedsCompletion()) {
+      state.activeView = "settings";
+    }
   }
   if (session.role === "admin") {
     if (!portalUser) {
@@ -9988,12 +9993,12 @@ document.addEventListener("click", async event => {
   }
   const view = event.target.closest("[data-view]");
   if (view) {
-    if (portalUser?.must_change_password && view.dataset.view !== "settings") {
+    if (!window.LDTT_IS_SANDBOX && portalUser?.must_change_password && view.dataset.view !== "settings") {
       state.activeView = "settings";
       saveState("Create your permanent password before using the portal");
       return;
     }
-    if (portalProfileNeedsCompletion() && view.dataset.view !== "settings") {
+    if (!window.LDTT_IS_SANDBOX && portalProfileNeedsCompletion() && view.dataset.view !== "settings") {
       state.activeView = "settings";
       saveState("Complete your portal profile before using the portal");
       return;
@@ -12457,5 +12462,7 @@ async function applyEnvironmentBadge() {
   }
 }
 
-applyEnvironmentBadge();
-bootstrapApplication();
+// Wait for the answer before booting. The sandbox flag decides whether the
+// forced password gates apply and whether direct Supabase writes are locked, so
+// starting the portal before we know would leave a gap where a write could land.
+applyEnvironmentBadge().finally(() => bootstrapApplication());
