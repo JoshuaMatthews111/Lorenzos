@@ -6871,63 +6871,82 @@ function conversionStageLabel(stageKey) {
 // Build it from the lead records instead. Every lead has a market (or resolves
 // to "Market pending"), and the stage logic is the same sticky one the
 // dashboard funnel uses, so the two always agree.
-// A lead resolves to "Cleveland, OH" while the ad page for the same place is
-// called "Cleveland / Akron, OH". Without this they came out as two rows for one
-// city, one holding all the leads and one sitting on zero. Collapse both to the
-// first city plus the state.
+// People type their town free-hand, so the same place arrives as "Cleveland",
+// "Cleveland, Ohio", "Cleveland, OH " and "cleveland,oh", and the ad page for it
+// is called "Cleveland / Akron, OH". Reduce all of them to "city|st".
+const US_STATE_CODES = {
+  alabama: "al", alaska: "ak", arizona: "az", arkansas: "ar", california: "ca", colorado: "co",
+  connecticut: "ct", delaware: "de", florida: "fl", georgia: "ga", hawaii: "hi", idaho: "id",
+  illinois: "il", indiana: "in", iowa: "ia", kansas: "ks", kentucky: "ky", louisiana: "la",
+  maine: "me", maryland: "md", massachusetts: "ma", michigan: "mi", minnesota: "mn",
+  mississippi: "ms", missouri: "mo", montana: "mt", nebraska: "ne", nevada: "nv",
+  "new hampshire": "nh", "new jersey": "nj", "new mexico": "nm", "new york": "ny",
+  "north carolina": "nc", "north dakota": "nd", ohio: "oh", oklahoma: "ok", oregon: "or",
+  pennsylvania: "pa", "rhode island": "ri", "south carolina": "sc", "south dakota": "sd",
+  tennessee: "tn", texas: "tx", utah: "ut", vermont: "vt", virginia: "va", washington: "wa",
+  "west virginia": "wv", wisconsin: "wi", wyoming: "wy"
+};
+
 function marketKey(market) {
   const raw = String(market || "").trim();
   if (!raw) return "";
   const [placePart, statePart = ""] = raw.split(",");
-  const city = placePart.split("/")[0].trim().toLowerCase();
-  return `${city}|${statePart.trim().toLowerCase()}`;
+  const city = placePart.split("/")[0].replace(/[^a-z\s]/gi, "").trim().toLowerCase();
+  const stateRaw = statePart.replace(/[^a-z\s]/gi, "").trim().toLowerCase();
+  const state = US_STATE_CODES[stateRaw] || stateRaw;
+  return `${city}|${state}`;
 }
 
+// Conversion by market.
+//
+// This used to be built from lifecycle events, and only from ones it judged
+// "ad attributed" — an inquiry needed a utm tag or an ad-shaped source_page
+// before it counted, and a client only counted if an inquiry event for the very
+// same record had also been logged. In practice that discarded nearly every row
+// and the table read as empty, which is what the office reported.
+//
+// Build it from the lead records instead. The stage counting is the same sticky
+// logic the dashboard funnel uses, so the two always agree.
+//
+// The office asked for "the cities where we run ads", so those get a row each,
+// listed even on zero — a market producing nothing is the main thing worth
+// seeing. Everywhere else rolls into one line, because with real data the tail
+// is fifty towns holding one lead apiece plus a few junk entries.
 function marketConversionTable() {
   const leadRows = dashboardSubmittedLeadRows();
   const lifecycle = conversionLifecycleIndex();
-  const pagesByKey = new Map(adLandingPageConfigs()
-    .filter(page => page.slug.startsWith("dog-training-"))
-    .map(page => [marketKey(page.market), page]));
+  const adPages = adLandingPageConfigs().filter(page => page.slug.startsWith("dog-training-"));
+  const pagesByKey = new Map(adPages.map(page => [marketKey(page.market), page]));
 
-  // Keyed by place, but each row remembers the friendliest name it has seen —
-  // the ad page's name wins, because that is what the office calls the market.
-  const markets = new Map();
-  const ensure = (key, label) => {
-    if (!markets.has(key)) markets.set(key, { label, leads: 0, scheduled: 0, completed: 0, clients: 0, lost: 0 });
-    const row = markets.get(key);
-    if (pagesByKey.has(key)) row.label = pagesByKey.get(key).market;
-    return row;
-  };
+  const blank = () => ({ leads: 0, scheduled: 0, completed: 0, clients: 0, lost: 0 });
+  const adMarkets = new Map(adPages.map(page => [marketKey(page.market), { label: page.market, page, ...blank() }]));
+  const other = { label: "Everywhere else (no ad running)", ...blank() };
+  const otherPlaces = new Map();
 
   leadRows.forEach(lead => {
-    const market = leadMarketLabel(lead) || "Market pending";
-    const row = ensure(marketKey(market) || market, market);
+    const label = leadMarketLabel(lead) || "Market pending";
+    const key = marketKey(label) || label;
+    const row = adMarkets.get(key) || other;
     row.leads += 1;
     if (leadReachedStage(lead, "scheduled", lifecycle)) row.scheduled += 1;
     if (leadReachedStage(lead, "completed", lifecycle)) row.completed += 1;
     if (leadReachedStage(lead, "clients", lifecycle)) row.clients += 1;
     if (boardStatus(lead.status) === "Lost") row.lost += 1;
+    if (row === other) otherPlaces.set(key, (otherPlaces.get(key) || 0) + 1);
   });
 
-  // Show the markets we advertise in even when they produced nothing this
-  // period. A market sitting on zero is the whole point of looking at this.
-  pagesByKey.forEach((page, key) => ensure(key, page.market));
-
-  const rows = [...markets.values()].sort((a, b) => b.leads - a.leads || a.label.localeCompare(b.label));
   const rate = (part, whole) => (whole ? `${Math.round((part / whole) * 100)}%` : "—");
-  const totals = rows.reduce((sum, value) => ({
+  const sorted = [...adMarkets.values()].sort((a, b) => b.leads - a.leads || a.label.localeCompare(b.label));
+  const totals = [...sorted, other].reduce((sum, value) => ({
     leads: sum.leads + value.leads,
     scheduled: sum.scheduled + value.scheduled,
     completed: sum.completed + value.completed,
     clients: sum.clients + value.clients,
     lost: sum.lost + value.lost
-  }), { leads: 0, scheduled: 0, completed: 0, clients: 0, lost: 0 });
+  }), blank());
 
-  const body = rows.map(value => {
-    const page = pagesByKey.get(marketKey(value.label));
-    return `<tr${value.leads ? "" : ' class="market-row-empty"'}>
-      <td><strong>${escapeHtml(value.label)}</strong>${page ? `<small><a href="${escapeHtml(page.href)}" target="_blank" rel="noopener">${escapeHtml(page.label)} ad page</a></small>` : ""}</td>
+  const line = (value, extra = "") => `<tr${value.leads ? "" : ' class="market-row-empty"'}>
+      <td><strong>${escapeHtml(value.label)}</strong>${extra}</td>
       <td>${value.leads}</td>
       <td>${value.scheduled}</td>
       <td>${value.completed}</td>
@@ -6935,14 +6954,18 @@ function marketConversionTable() {
       <td>${value.lost}</td>
       <td>${rate(value.clients, value.leads)}</td>
     </tr>`;
-  }).join("");
+
+  const body = sorted.map(value => line(value, value.page
+    ? `<small><a href="${escapeHtml(value.page.href)}" target="_blank" rel="noopener">${escapeHtml(value.page.label)} ad page</a></small>`
+    : "")).join("")
+    + line(other, `<small>${otherPlaces.size} ${otherPlaces.size === 1 ? "town" : "towns"} with no ad, one or two leads each</small>`);
 
   return `<div class="table-wrap"><table class="data-table"><thead><tr>
       <th>Market</th><th>Leads came in</th><th>Booked an eval</th><th>Eval happened</th><th>Became a client</th><th>Lost</th><th>Lead to client</th>
-    </tr></thead><tbody>${body || `<tr><td colspan="7">No leads in this date range.</td></tr>`}</tbody>
-    ${rows.length ? `<tfoot><tr><td><strong>All markets</strong></td><td>${totals.leads}</td><td>${totals.scheduled}</td><td>${totals.completed}</td><td><strong>${totals.clients}</strong></td><td>${totals.lost}</td><td>${rate(totals.clients, totals.leads)}</td></tr></tfoot>` : ""}
+    </tr></thead><tbody>${body}</tbody>
+    <tfoot><tr><td><strong>Everything</strong></td><td>${totals.leads}</td><td>${totals.scheduled}</td><td>${totals.completed}</td><td><strong>${totals.clients}</strong></td><td>${totals.lost}</td><td>${rate(totals.clients, totals.leads)}</td></tr></tfoot>
   </table></div>
-  <p class="panel-copy">Same counting as the dashboard: a lead that reached a stage keeps counting there after it moves on. "Market pending" means the lead did not give us a city we recognise.</p>`;
+  <p class="panel-copy">One row for every city we run ads in, even the ones on zero. Everything else is rolled into the last line. Counting matches the dashboard: a lead that reached a stage keeps counting there after it moves on.</p>`;
 }
 function approvedLayoutCards() {
   return `<div class="layout-card-grid approved-template-grid">${approvedLayouts.map((layout, index) => `<article class="layout-card approved-template-card ${trainerById().layout === layout.id ? "selected" : ""}"><div class="approved-template-image"><img src="${layout.preview}" alt="${escapeHtml(layout.name)} approved trainer landing page"><span>Approved Design ${index + 1}</span></div><div class="approved-template-copy"><h3>${escapeHtml(layout.name)}</h3><p>${escapeHtml(layout.tag)}</p><div class="template-points"><span>Trainer identity</span><span>Lead form</span><span>Reviews</span><span>Lorenzo credentials</span><span>Mobile responsive</span><span>Office-controlled</span></div><div class="row-actions"><a class="btn btn-outline" href="${templatePreviewHref(layout.id)}" target="_blank" rel="noopener">Open Full Design</a><button class="btn btn-red" data-assign-layout="${layout.id}">Use This Design</button></div></div></article>`).join("")}</div>`;
