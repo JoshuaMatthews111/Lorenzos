@@ -5243,3 +5243,37 @@ button:disabled{cursor:not-allowed}
 .review-frame-choices{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
 .review-frame-choices button{padding:6px 11px;border:1px solid #cbd9e9;border-radius:999px;background:#fff;color:var(--navy);font:inherit;font-size:.74rem;font-weight:800;cursor:pointer}
 .review-frame-choices button.active{border-color:var(--navy);background:var(--navy);color:#fff}
+
+/* ---- Company conversion funnel (dashboard + reports) ---- */
+.conversion-funnel{display:grid;gap:14px}
+.conversion-stage{display:grid;gap:6px}
+.conversion-stage-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.conversion-stage-label{border:0;background:none;padding:0;font:inherit;font-weight:850;color:var(--ink);cursor:pointer;text-align:left;border-bottom:1px dashed var(--line)}
+.conversion-stage-label:hover{color:var(--red);border-bottom-color:var(--red)}
+.conversion-stage-head strong{font-size:1.45rem;font-weight:900;line-height:1}
+.conversion-stage small{color:var(--muted);font-size:.74rem}
+.conversion-bar-track{height:14px;border-radius:999px;background:var(--line-2);overflow:hidden}
+.conversion-bar-fill{height:100%;border-radius:999px;transition:width .25s ease}
+.conversion-steps,.conversion-outcomes{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:4px}
+.conversion-steps div,.conversion-outcomes div{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:3px;background:#fff}
+.conversion-steps span,.conversion-outcomes span{color:var(--muted);font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.conversion-steps strong,.conversion-outcomes strong{font-size:1.1rem;font-weight:900}
+
+/* ---- Show / hide password ---- */
+.password-field{position:relative;display:block}
+.password-field input{padding-right:74px !important;width:100%}
+.password-peek{position:absolute;right:8px;top:50%;transform:translateY(-25%);border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:.7rem;font-weight:800;cursor:pointer;line-height:1}
+.password-peek:hover{color:var(--red);border-color:var(--red)}
+
+/* ---- Forgot password on the login screen ---- */
+.login-help-row{display:flex;justify-content:flex-end;margin-top:-4px}
+.login-link-btn{border:0;background:none;padding:0;font:inherit;font-size:.8rem;font-weight:800;color:var(--red);cursor:pointer;text-decoration:underline}
+.forgot-form{display:grid;gap:10px;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;text-align:left}
+.forgot-form p{color:var(--muted);font-size:.8rem;margin:0}
+
+/* ---- Delete your own office note ---- */
+.office-note-heading .row-actions{display:flex;gap:6px}
+.btn-danger-outline{border-color:#e2b4bf !important;color:var(--red) !important}
+.login-status{margin-top:10px;font-size:.85rem;color:var(--muted);min-height:1.2em}
+.login-status.error{color:var(--red);font-weight:800}
+.login-status.success{color:#0c9b58;font-weight:800}

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo back-office prototype for office-controlled trainer pages, leads, clients, imports, approvals, and reporting.">
-  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260808searchfix">
+  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260825portalfixes">
 </head>
 <body class="is-logged-out">
   <section class="login-screen" id="loginScreen" aria-label="Trainer Network login">
@@ -26,6 +26,13 @@
         <button class="btn btn-red" type="submit">Enter Portal</button>
       </form>
       <div class="login-status" id="loginStatus" role="status" aria-live="polite"></div>
+      <div class="login-help-row"><button class="login-link-btn" type="button" id="forgotPasswordLink">Forgot password?</button></div>
+      <form id="forgotForm" class="forgot-form" hidden>
+        <p>Type the email you sign in with. If it has a portal account we email you a link to choose a new password.</p>
+        <label>Email<input required type="email" name="email" placeholder="you@lorenzosdogtrainingteam.com" autocomplete="email"></label>
+        <button class="btn btn-outline" type="submit">Email me a reset link</button>
+        <div class="login-status" id="forgotStatus" role="status" aria-live="polite"></div>
+      </form>
     </div>
   </section>
 
@@ -45,6 +52,6 @@
   <script src="/trainer-backoffice/application-data.js?v=20260730ads3"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js"></script>
   <script src="/trainer-backoffice/supabase.js?v=20260806publicationfix"></script>
-  <script src="/trainer-backoffice/app.js?v=20260808searchfix"></script>
+  <script src="/trainer-backoffice/app.js?v=20260825portalfixes"></script>
 </body>
 </html>

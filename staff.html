@@ -6,7 +6,7 @@
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo's office-controlled trainer network portal for trainer pages, leads, clients, approvals, and reporting.">
   <link rel="icon" href="assets/ldtt-favicon.png">
-  <link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260808searchfix">
+  <link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260825portalfixes">
 <!-- Meta pixel -->
   <script>
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -45,6 +45,13 @@
         <button class="btn btn-red" type="submit">Enter Portal</button>
       </form>
         <div class="login-status" id="loginStatus" role="status" aria-live="polite"></div>
+      <div class="login-help-row"><button class="login-link-btn" type="button" id="forgotPasswordLink">Forgot password?</button></div>
+      <form id="forgotForm" class="forgot-form" hidden>
+        <p>Type the email you sign in with. If it has a portal account we email you a link to choose a new password.</p>
+        <label>Email<input required type="email" name="email" placeholder="you@lorenzosdogtrainingteam.com" autocomplete="email"></label>
+        <button class="btn btn-outline" type="submit">Email me a reset link</button>
+        <div class="login-status" id="forgotStatus" role="status" aria-live="polite"></div>
+      </form>
     </div>
   </section>
   <div class="app-shell" id="appShell">
@@ -59,6 +66,6 @@
   <script src="trainer-roster.js"></script>
   <script src="trainer-backoffice/application-data.js?v=20260730ads3"></script>
   <script src="trainer-backoffice/supabase.js?v=20260806publicationfix"></script>
-  <script src="trainer-backoffice/app.js?v=20260808searchfix"></script>
+  <script src="trainer-backoffice/app.js?v=20260825portalfixes"></script>
 </body>
 </html>

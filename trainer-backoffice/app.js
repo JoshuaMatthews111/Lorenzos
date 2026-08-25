@@ -303,6 +303,7 @@ const defaultState = {
   leadSearch: "",
   applicationSearch: "",
   leadStatusFilter: "All",
+  leadStageFilter: "All",
   leadTrainerFilter: "All",
   leadSmsFilter: "All",
   leadOwnerFilter: "All",
@@ -400,6 +401,9 @@ const defaultState = {
 let state = loadState();
 let session = { loggedIn: false, role: "" };
 let portalUser = null;
+// Set when a reload lands before permissions are known, so the view the person
+// was actually on can be put back once portalUser arrives.
+let pendingRestoreView = "";
 let remoteReady = false;
 let remoteEvents = [];
 let remotePortalUsers = [];
@@ -590,6 +594,7 @@ function persistStateSnapshot() {
     leadSearch: state.leadSearch,
     applicationSearch: state.applicationSearch,
     leadStatusFilter: state.leadStatusFilter,
+    leadStageFilter: state.leadStageFilter,
     leadTrainerFilter: state.leadTrainerFilter,
     leadSmsFilter: state.leadSmsFilter,
     leadOwnerFilter: state.leadOwnerFilter,
@@ -1762,6 +1767,13 @@ function officeNotesFor(entityType, entityId) {
     .sort((a, b) => timestampValue(a.created_at) - timestampValue(b.created_at));
 }
 
+// The office asked to be able to remove a note they typed themselves — and only
+// that one. Someone else's note is never deletable, whatever your permission level.
+function ownsOfficeNote(note) {
+  const me = String(currentPortalUserId() || "");
+  return Boolean(me) && String(note?.created_by || "") === me;
+}
+
 function latestOfficeNote(entityType, entityId) {
   return officeNotesFor(entityType, entityId).at(-1) || null;
 }
@@ -1793,7 +1805,7 @@ function officeNoteTimeline(entityType, entityId) {
     const revisions = remoteNoteRevisions
       .filter(revision => revision.office_note_id === note.id)
       .sort((a, b) => timestampValue(b.created_at) - timestampValue(a.created_at));
-    return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorLabel(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
+    return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><div class="row-actions"><button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button>${ownsOfficeNote(note) ? `<button class="btn btn-outline btn-small btn-danger-outline" type="button" data-delete-office-note="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Delete</button>` : ""}</div></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorLabel(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
   }).join("")}</div>`;
 }
 
@@ -3580,6 +3592,8 @@ function render() {
   }
   document.body.classList.toggle("is-logged-in", session.loggedIn);
   document.body.classList.toggle("is-logged-out", !session.loggedIn);
+  // The login screen is static markup, so it also needs the show/hide control.
+  enhancePasswordFields(document);
   if (!session.loggedIn) return;
   if (session.role === "trainer" && portalUser?.must_change_password) {
     state.activeView = "settings";
@@ -3587,12 +3601,26 @@ function render() {
   if (portalProfileNeedsCompletion()) {
     state.activeView = "settings";
   }
-  if (session.role === "admin" && !canAccessAdminView(state.activeView)) {
-    state.activeView = "dashboard";
+  if (session.role === "admin") {
+    if (!portalUser) {
+      // Permissions are not loaded yet. Remember where they were and show the
+      // dashboard for this one paint only; do not persist the change.
+      if (state.activeView !== "dashboard") {
+        pendingRestoreView = state.activeView;
+        state.activeView = "dashboard";
+      }
+    } else {
+      if (pendingRestoreView && canAccessAdminView(pendingRestoreView)) {
+        state.activeView = pendingRestoreView;
+      }
+      pendingRestoreView = "";
+      if (!canAccessAdminView(state.activeView)) state.activeView = "dashboard";
+    }
   }
   renderSidebar();
   renderTopbar();
   renderView();
+  requestAnimationFrame(() => enhancePasswordFields(document));
   requestAnimationFrame(enhanceHorizontalScrollers);
   requestAnimationFrame(refreshTemplatePreview);
   window.setTimeout(() => {
@@ -5228,7 +5256,9 @@ const adminScreens = {
       <div class="dashboard-grid">
         ${panel("Dashboard Buckets", "", leadSummary())}
         ${panel("Lead Status Updates", "", leadOutcomeTable(filteredReportLeadRows()))}
-      </div>`;
+      </div>
+      ${panel("Company Conversions", `<button class="btn btn-outline" type="button" data-view="reports">Break It Down By Market</button>`, companyConversionChart(), "pad")}
+      ${leadDetailPanel()}`;
   },
   trainerPages() {
     return `${panel("Three Approved Trainer Landing Page Designs", "", approvedLayoutCards(), "pad")}<br>${panel("Trainer Page Control & Performance", `<button class="btn btn-red" id="addTrainer">Onboard New Trainer</button>`, trainerPageCards())}<br>${panel("Recent Trainer Page Activity", "", trainerSiteActivityTable(), "pad")}`;
@@ -5280,6 +5310,8 @@ const adminScreens = {
       ])}
       <div class="reports-stack">${panel("State Activity Map", "", regionClickReport(), "pad")}</div>
       <div class="dashboard-grid reports-grid">${panel("Clicks By Trainer", "", trainerClickReport(), "pad")}${panel("Conversion By Trainer", "", trainerPerformanceTable(), "pad")}</div>
+      ${panel("Company Conversions", "", companyConversionChart(), "pad")}
+      ${panel("Conversion By Market", "", marketConversionTable(), "pad")}
       <div class="reports-stack">${panel("Lost Reasons", "", lostReasonsTable(), "pad")}</div>
       ${panel("Recent Activity Log", `${isSuperAdmin() ? `<button class="btn btn-outline" type="button" data-clear-activity-log>Clear Local Log</button>` : ""}`, recentActivityTable(), "pad")}
       ${panel("Reporting Rule", "", `<p class="panel-copy">Conversions are counted only from the immutable <strong>Became a Client</strong> lifecycle event. Clicks and form submissions stay visible as traffic and inquiry metrics, but they do not inflate conversion reporting.</p>`, "pad")}`;
@@ -5291,7 +5323,8 @@ const adminScreens = {
       <p class="panel-copy report-range-note">Paid-ad landing performance is filtered to ${escapeHtml(reportRangeLabel())}. Form conversion here means a submitted lead form from the market page. Paying-client conversion still lives in the main reports.</p>
       ${adLandingPageSummary()}
       ${panel("Market Page Performance", "", adLandingPageTable(), "pad")}
-      ${panel("Top Markets By Lead Volume", "", adLandingRegionBars(), "pad")}`;
+      ${panel("Top Markets By Lead Volume", "", adLandingRegionBars(), "pad")}
+      ${panel("Conversion By Market", "", marketConversionTable(), "pad")}`;
   },
   portalAccess() {
     return portalAccessScreen();
@@ -5524,6 +5557,40 @@ function passwordSetupForm() {
   const [firstName = "", ...rest] = String(portalUser?.display_name || "").replace(/\([^)]*\)/g, "").trim().split(/\s+/).filter(Boolean);
   const lastName = rest.join(" ");
   return `<form id="changePasswordForm" class="password-change-form"><h3>Create your permanent password</h3><p class="panel-copy">Your temporary password worked. Confirm your name and choose a permanent password before continuing.</p><div class="form-grid-two"><label>First Name<input required name="firstName" autocomplete="given-name" value="${escapeHtml(firstName || "")}"></label><label>Last Name<input required name="lastName" autocomplete="family-name" value="${escapeHtml(lastName || "")}"></label></div><label>New Password<input required minlength="10" name="password" type="password" autocomplete="new-password"></label><label>Confirm Password<input required minlength="10" name="confirmation" type="password" autocomplete="new-password"></label><button class="btn btn-red" type="submit">Save Permanent Password</button><div id="passwordStatus" role="status" aria-live="polite"></div></form>`;
+}
+
+// People were locking themselves out by mistyping a password they could not see.
+// One enhancer covers the login screen, the permanent-password form and any other
+// password box, so no individual field has to remember to add the control.
+function enhancePasswordFields(root = document) {
+  root.querySelectorAll('input[type="password"]').forEach(input => {
+    if (input.dataset.peekReady === "true") return;
+    input.dataset.peekReady = "true";
+    const shell = document.createElement("span");
+    shell.className = "password-field";
+    input.parentNode.insertBefore(shell, input);
+    shell.appendChild(input);
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "password-peek";
+    toggle.textContent = "Show";
+    toggle.setAttribute("aria-label", "Show password");
+    toggle.addEventListener("click", () => {
+      const hidden = input.type === "password";
+      input.type = hidden ? "text" : "password";
+      toggle.textContent = hidden ? "Hide" : "Show";
+      toggle.setAttribute("aria-label", hidden ? "Hide password" : "Show password");
+      input.focus();
+    });
+    shell.appendChild(toggle);
+  });
+}
+
+function suggestedPortalPassword() {
+  const words = ["Maple", "Harbor", "Copper", "Willow", "Ridge", "Anchor", "Summit", "Cedar"];
+  const bytes = new Uint32Array(3);
+  crypto.getRandomValues(bytes);
+  return `${words[bytes[0] % words.length]}${words[bytes[1] % words.length]}${1000 + (bytes[2] % 9000)}`;
 }
 
 function metricGrid(items) {
@@ -6245,11 +6312,13 @@ function leadMatchesFilters(lead, options = {}) {
   const search = overrides.leadSearch ?? state.leadSearch;
   const trainerFilter = overrides.leadTrainerFilter ?? state.leadTrainerFilter;
   const statusFilter = overrides.leadStatusFilter ?? state.leadStatusFilter;
+  const stageFilter = overrides.leadStageFilter ?? state.leadStageFilter ?? "All";
   const smsFilter = overrides.leadSmsFilter ?? state.leadSmsFilter;
   const ownerFilter = overrides.leadOwnerFilter ?? state.leadOwnerFilter ?? "All";
   return (ignore.has("search") || recordMatchesSearch(leadSearchValues(lead), search))
     && (ignore.has("trainer") || leadMatchesTrainerFilter(lead, trainerFilter))
     && (ignore.has("status") || statusFilter === "All" || lead.status === statusFilter)
+    && (ignore.has("stage") || stageFilter === "All" || leadReachedStage(lead, stageFilter))
     && (ignore.has("sms") || smsFilter === "All" || lead.smsConsent === smsFilter)
     && (ignore.has("owner") || ownerFilter === "All"
       || (ownerFilter === "Me" && String(lead.assignedUserId || "") === String(currentPortalUserId()))
@@ -6278,6 +6347,7 @@ function activeLeadFilterLabels(admin = true) {
   const labels = [];
   if (admin && state.leadTrainerFilter !== "All") labels.push(`Trainer: ${trainerName(state.leadTrainerFilter)}`);
   if (admin && state.leadStatusFilter !== "All") labels.push(`Status: ${state.leadStatusFilter}`);
+  if (admin && (state.leadStageFilter || "All") !== "All") labels.push(`Reached: ${conversionStageLabel(state.leadStageFilter)}`);
   if (admin && state.leadSmsFilter !== "All") labels.push(`SMS: ${state.leadSmsFilter}`);
   if (admin && state.leadOwnerFilter !== "All") labels.push(`Owner: ${state.leadOwnerFilter === "Me" ? "Assigned to me" : state.leadOwnerFilter === "Unassigned" ? "Unassigned" : portalActorLabel(state.leadOwnerFilter)}`);
   if (admin && state.leadSearch) labels.push(`Search: "${state.leadSearch}"`);
@@ -6580,7 +6650,7 @@ function leadPipelineTable(admin) {
   const rows = filteredLeadRows(baseRows, filterOptions);
   const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
-  return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
+  return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}${admin && (state.leadStageFilter || "All") !== "All" ? ` <button class="btn btn-outline btn-small" type="button" data-clear-lead-stage>Clear "${escapeHtml(conversionStageLabel(state.leadStageFilter))}" filter</button>` : ""}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
 }
 
 function assignedLeadNotice(baseRows = allLeadRows()) {
@@ -6654,6 +6724,123 @@ function leadSummary() {
     return `${colors[index]} ${start}% ${end}%`;
   }).join(", ");
   return `<div class="donut-panel"><div class="donut" style="background:conic-gradient(${segments || "#e5edf7 0 100%"})"><div class="donut-total"><strong>${total}</strong><span>Dashboard Count</span></div></div><div class="legend">${labels.map(([name, value], index) => `<div class="legend-row"><span class="dot" style="background:${colors[index]}"></span><span>${escapeHtml(name)}</span><strong>${value}</strong></div>`).join("")}</div></div>`;
+}
+
+// ---------------------------------------------------------------------------
+// Company conversion funnel (dashboard)
+//
+// The Dashboard Buckets donut counts a lead in exactly ONE bucket: the stage it
+// is sitting in right now. So when the office moves a lead from "Eval Scheduled"
+// to "Eval Complete", the scheduled count DROPS. The office asked for the
+// opposite: "if we did 25 evals this month it should still read 25 evals."
+//
+// This funnel therefore counts a lead as having REACHED a stage and it never
+// leaves. A stage is reached when either
+//   (a) an immutable lifecycle event was recorded for it, or
+//   (b) the lead's current status is at or past that stage.
+// (b) is the safety net for records that predate lifecycle logging.
+// ---------------------------------------------------------------------------
+
+const CONVERSION_STAGE_RANK = {
+  "New Inquiry": 1,
+  "Office Contacted": 2,
+  "Engaged Lead: No Outcome": 2,
+  "Evaluation Scheduled": 3,
+  "Evaluation Cancelled": 3,
+  "Evaluation Complete": 4,
+  "Became a Client": 5
+};
+
+const CONVERSION_STAGES = [
+  { key: "leads", rank: 1, event: "form_received", label: "Leads In", color: "#246bfe", help: "Every lead form received" },
+  { key: "scheduled", rank: 3, event: "evaluation_scheduled", label: "Evals Scheduled", color: "#d80f35", help: "Reached evaluation scheduled" },
+  { key: "completed", rank: 4, event: "evaluation_completed", label: "Evals Completed", color: "#4ac26b", help: "Evaluation actually happened" },
+  { key: "clients", rank: 5, event: "became_client", label: "Became A Client", color: "#0c9b58", help: "Paying client" }
+];
+
+// Lifecycle events keyed by "<entity_type>:<entity_id>" so a lead can be matched
+// to its own history without depending on the current status column.
+function conversionLifecycleIndex(applyReportWindow = true) {
+  const index = new Map();
+  reportLifecycleRows()
+    .filter(event => !applyReportWindow || isWithinWindow(event.occurred_at || event.created_at, "report"))
+    .forEach(event => {
+      const key = `${event.entity_type || "lead"}:${event.entity_id || ""}`;
+      if (!index.has(key)) index.set(key, new Set());
+      index.get(key).add(event.event_type);
+    });
+  return index;
+}
+
+function companyConversionCounts() {
+  const leadRows = dashboardSubmittedLeadRows();
+  const lifecycle = conversionLifecycleIndex();
+  const counts = Object.fromEntries(CONVERSION_STAGES.map(stage => [stage.key, 0]));
+  leadRows.forEach(lead => {
+    const events = lifecycle.get(`lead:${lead.remoteId || lead.id}`) || new Set();
+    const rank = CONVERSION_STAGE_RANK[lead.status] || 1;
+    CONVERSION_STAGES.forEach(stage => {
+      if (events.has(stage.event) || rank >= stage.rank) counts[stage.key] += 1;
+    });
+  });
+  return {
+    ...counts,
+    lost: dashboardLostLeadRows(leadRows).length,
+    archived: leadRows.filter(lead => lead.status === "Archived").length
+  };
+}
+
+function companyConversionChart() {
+  const counts = companyConversionCounts();
+  const top = counts[CONVERSION_STAGES[0].key] || 0;
+  const bars = CONVERSION_STAGES.map(stage => {
+    const value = counts[stage.key] || 0;
+    const width = top ? Math.max(2, Math.round((value / top) * 100)) : 2;
+    const ofLeads = top ? Math.round((value / top) * 1000) / 10 : 0;
+    return `<article class="conversion-stage">
+      <div class="conversion-stage-head">
+        <button class="conversion-stage-label" type="button" data-conversion-stage="${stage.key}" title="Open the leads that reached this stage">${escapeHtml(stage.label)}</button>
+        <strong>${value}</strong>
+      </div>
+      <div class="conversion-bar-track"><div class="conversion-bar-fill" style="width:${width}%;background:${stage.color}"></div></div>
+      <small>${escapeHtml(stage.help)} · ${ofLeads}% of leads in</small>
+    </article>`;
+  }).join("");
+  const step = (from, to) => {
+    const a = counts[from] || 0;
+    const b = counts[to] || 0;
+    return a ? `${Math.round((b / a) * 1000) / 10}%` : "—";
+  };
+  return `<div class="conversion-funnel">
+    ${bars}
+    <div class="conversion-steps">
+      <div><span>Lead → Eval scheduled</span><strong>${step("leads", "scheduled")}</strong></div>
+      <div><span>Scheduled → Completed</span><strong>${step("scheduled", "completed")}</strong></div>
+      <div><span>Completed → Client</span><strong>${step("completed", "clients")}</strong></div>
+      <div><span>Lead → Client (overall)</span><strong>${step("leads", "clients")}</strong></div>
+    </div>
+    <div class="conversion-outcomes">
+      <div><span>Lost</span><strong>${counts.lost}</strong></div>
+      <div><span>Archived</span><strong>${counts.archived}</strong></div>
+    </div>
+    <p class="panel-copy">Each stage counts every lead that <strong>reached</strong> it and keeps counting it after the lead moves on. Moving a lead from Eval Scheduled to Eval Complete no longer removes it from the scheduled number.</p>
+  </div>`;
+}
+
+// Shared by the dashboard funnel and by the Leads view when someone clicks a
+// funnel stage. "Reached" is sticky: a lead that became a client still counts as
+// having reached Eval Scheduled.
+function leadReachedStage(lead, stageKey, lifecycleIndex = null) {
+  const stage = CONVERSION_STAGES.find(item => item.key === stageKey);
+  if (!stage) return true;
+  const index = lifecycleIndex || conversionLifecycleIndex(false);
+  const events = index.get(`lead:${lead.remoteId || lead.id}`) || new Set();
+  const rank = CONVERSION_STAGE_RANK[lead.status] || 1;
+  return events.has(stage.event) || rank >= stage.rank;
+}
+
+function conversionStageLabel(stageKey) {
+  return CONVERSION_STAGES.find(item => item.key === stageKey)?.label || stageKey;
 }
 
 function marketConversionTable() {
@@ -9619,6 +9806,32 @@ document.addEventListener("click", async event => {
     });
     return;
   }
+  const deleteNote = event.target.closest("[data-delete-office-note]");
+  if (deleteNote) {
+    const noteId = deleteNote.dataset.deleteOfficeNote;
+    const note = remoteOfficeNotes.find(item => String(item.id) === String(noteId));
+    if (!note) { showToast("That note could not be found."); return; }
+    if (!ownsOfficeNote(note)) { showToast("You can only delete a note you typed yourself."); return; }
+    if (!window.confirm("Delete this note? Only you typed it, and it cannot be brought back.")) return;
+    // Take it off the screen now. The office complained that note changes only
+    // appeared after a manual refresh, so remove locally and repaint first.
+    const snapshot = [...remoteOfficeNotes];
+    remoteOfficeNotes = remoteOfficeNotes.filter(item => String(item.id) !== String(noteId));
+    render();
+    const removed = await runRemoteMutation("Note deleted", () => window.LDTT_PORTAL.operationalMutation({
+      operation: "delete_note",
+      note_id: noteId,
+      entity_type: deleteNote.dataset.entityType,
+      entity_id: deleteNote.dataset.entityId,
+      summary: `${currentActorLabel()} deleted their own note`
+    }), { type: "Office Note", detail: `${currentActorLabel()} deleted a note they wrote.` });
+    if (!removed) {
+      // The server refused. Put it back rather than leaving a lie on screen.
+      remoteOfficeNotes = snapshot;
+      render();
+    }
+    return;
+  }
   const permanentDelete = event.target.closest("[data-permanent-delete]");
   if (permanentDelete) {
     const label = permanentDelete.dataset.recordLabel || "this record";
@@ -9702,6 +9915,14 @@ document.addEventListener("click", async event => {
         summary: `Review photo framing set to ${value}`
       }), { type: "Review", detail: `${sub.reviewerName || "Review"} photo framing adjusted.` });
     } else saveState("Photo framing saved");
+    return;
+  }
+  if (event.target.closest("#forgotPasswordLink")) {
+    const form = document.getElementById("forgotForm");
+    if (form) {
+      form.hidden = !form.hidden;
+      if (!form.hidden) form.querySelector('input[name="email"]')?.focus();
+    }
     return;
   }
   const openLead = event.target.closest("[data-open-lead]");
@@ -9834,7 +10055,8 @@ document.addEventListener("click", async event => {
     }
     const action = portalAccessAction.dataset.portalAccessAction;
     if (action === "reset-password") {
-      const password = window.prompt(`Enter a new permanent password for ${portalDisplayName(user)}:`, DEMO_TEST_PASSWORD);
+      const suggestion = suggestedPortalPassword();
+      const password = window.prompt(`Enter a new permanent password for ${portalDisplayName(user)}.\n\nLeave this exactly as it is to use the suggested password below, or type your own.`, suggestion);
       if (!password) return;
       if (password.length < 8) {
         showToast("Password must be at least 8 characters.");
@@ -9844,6 +10066,11 @@ document.addEventListener("click", async event => {
         await resetPortalUserPassword(user, password);
         recordActivity("Portal password reset", `${portalDisplayName(user)} password was reset by ${currentActorLabel()}.`, "Security");
         saveState("Portal password reset");
+        showActionConfirmation(
+          `Password reset for ${portalDisplayName(user)}`,
+          "Write this down before you close this box. It cannot be read back later — Supabase stores only a hash of it.",
+          { items: [`New password: ${password}`], meta: "It works right away. They can change it themselves under Settings." }
+        );
       } catch (error) {
         showToast(`Password could not be reset: ${error.message}`);
       }
@@ -10051,9 +10278,24 @@ document.addEventListener("click", async event => {
     saveState();
     return;
   }
+  const clearLeadStage = event.target.closest("[data-clear-lead-stage]");
+  if (clearLeadStage) {
+    state.leadStageFilter = "All";
+    saveState("Showing every lead again");
+    return;
+  }
+  const conversionStage = event.target.closest("[data-conversion-stage]");
+  if (conversionStage) {
+    state.leadStageFilter = conversionStage.dataset.conversionStage;
+    state.leadStatusFilter = "All";
+    state.activeView = "leads";
+    saveState(`Showing every lead that reached ${conversionStageLabel(state.leadStageFilter)}`);
+    return;
+  }
   const resetLeadStatus = event.target.closest("[data-filter-leads='all']");
   if (resetLeadStatus) {
     state.leadStatusFilter = "All";
+    state.leadStageFilter = "All";
     saveState(`Showing ${filteredLeadRows(allLeadRows()).length} leads across all statuses`);
     return;
   }
@@ -12084,6 +12326,31 @@ document.addEventListener("submit", async event => {
       render();
     } catch (error) {
       status.textContent = `Password could not be changed: ${error.message}`;
+    }
+    return;
+  }
+  if (event.target.id === "forgotForm") {
+    const status = document.getElementById("forgotStatus");
+    const button = event.target.querySelector('button[type="submit"]');
+    const email = event.target.elements.email.value.trim().toLowerCase();
+    button.disabled = true;
+    status.className = "login-status";
+    status.textContent = "Sending…";
+    try {
+      const response = await fetch("/api/portal-password-reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "request", email })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.message || "The reset email could not be sent.");
+      status.className = "login-status success";
+      status.textContent = result.message;
+    } catch (error) {
+      status.className = "login-status error";
+      status.textContent = error.message;
+    } finally {
+      button.disabled = false;
     }
     return;
   }

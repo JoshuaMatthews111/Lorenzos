@@ -285,6 +285,40 @@ async function saveNote(admin, body, requestId) {
   return { status: 200, body: { ok: true, record, actor: admin.actor, updated_at: record.updated_at || record.created_at, version: record.version || 1 } };
 }
 
+// Deleting an office note is deliberately narrower than every other delete here:
+// you may remove a note only if YOU wrote it. Permission level does not widen this,
+// so a Super Admin cannot quietly erase someone else's record of a call.
+async function deleteNote(admin, body, requestId) {
+  const noteId = clean(body.note_id, 120);
+  if (!noteId) return { status: 400, body: { ok: false, message: "A note is required." } };
+  const before = await getRecord("office_notes", noteId);
+  if (!before) return { status: 404, body: { ok: false, message: "Note not found." } };
+  if (String(before.created_by || "") !== String(admin.actor.id)) {
+    return { status: 403, body: { ok: false, message: "You can only delete a note you typed yourself." } };
+  }
+  await supabaseFetch(`/rest/v1/office_note_revisions?office_note_id=eq.${encodeURIComponent(noteId)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" }
+  });
+  await supabaseFetch(`/rest/v1/office_notes?id=eq.${encodeURIComponent(noteId)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" }
+  });
+  // The application table carries a flattened copy of its notes for the sheet export,
+  // so rebuild it or the deleted note keeps showing up there.
+  if (before.entity_type === "application" && before.entity_id) {
+    const remaining = await supabaseFetch(`/rest/v1/office_notes?select=note&entity_type=eq.application&entity_id=eq.${encodeURIComponent(before.entity_id)}&order=created_at.asc`);
+    const summary = (remaining || []).map(item => clean(item.note, 20000)).filter(Boolean).join("\n\n");
+    await supabaseFetch(`/rest/v1/${ENTITY_CONFIG.application.table}?id=eq.${encodeURIComponent(before.entity_id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ office_notes: summary || null })
+    });
+  }
+  await audit(admin, "note_deleted", before.entity_type || "office_note", before.entity_id || noteId, before, null, body.summary || "Author deleted their own note", requestId);
+  return { status: 200, body: { ok: true, deleted: true, id: noteId, actor: admin.actor } };
+}
+
 async function archiveRecord(admin, body, requestId) {
   const entityType = clean(body.entity_type, 40);
   const config = ENTITY_CONFIG[entityType];
@@ -417,6 +451,7 @@ module.exports = async function handler(req, res) {
       case "create": result = await createRecord(admin, body, requestId); break;
       case "update": result = await updateRecord(admin, body, requestId); break;
       case "save_note": result = await saveNote(admin, body, requestId); break;
+      case "delete_note": result = await deleteNote(admin, body, requestId); break;
       case "archive": result = await archiveRecord(admin, body, requestId); break;
       case "permanent_delete": result = await permanentlyDelete(admin, body, requestId); break;
       case "set_review_publications": result = await setReviewPublications(admin, body, requestId); break;
