@@ -12474,6 +12474,11 @@ async function applyEnvironmentBadge() {
     window.LDTT_IS_SANDBOX = true;
     window.LDTT_PORTAL?.lockForSandbox?.();
     document.body.classList.add("is-sandbox");
+    // Testers are going to reload this thing all day and redeploys land under
+    // them. Tick "keep me signed in" for them so a refresh, a new tab or a fresh
+    // build never drops them back at the login box mid-test.
+    const remember = document.querySelector('#loginForm input[name="remember"]');
+    if (remember) remember.checked = true;
     if (document.getElementById("sandboxBanner")) return;
     const banner = document.createElement("div");
     banner.id = "sandboxBanner";
