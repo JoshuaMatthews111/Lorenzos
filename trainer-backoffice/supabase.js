@@ -556,8 +556,27 @@
     return { trainer, page: pages?.[0] || null };
   }
 
+  // ---- Sandbox lock -------------------------------------------------------
+  // Everything the portal saves through /api is refused server-side on the
+  // sandbox deployment. These calls, though, talk straight to Supabase from the
+  // browser, so they need their own stop or the sandbox could still change a
+  // real record. app.js turns this on after asking /api/environment.
+  const SANDBOX_WRITE_METHODS = ["insert", "update", "updateBy", "remove", "rpc", "upload", "changePassword"];
+  const SANDBOX_MESSAGE = "Sandbox: this was not saved. The sandbox shows the real live records so you can check the layout and the numbers, but it is not allowed to change them.";
+  let sandboxLocked = false;
+
+  function lockForSandbox() {
+    if (sandboxLocked) return;
+    sandboxLocked = true;
+    SANDBOX_WRITE_METHODS.forEach(name => {
+      window.LDTT_PORTAL[name] = async () => { throw new Error(SANDBOX_MESSAGE); };
+    });
+  }
+
   window.LDTT_PORTAL = {
     enabled,
+    lockForSandbox,
+    sandboxMessage: SANDBOX_MESSAGE,
     readSession,
     signIn,
     signOut,

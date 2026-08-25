@@ -1,3 +1,4 @@
+const { blockedInSandbox } = require("../lib/sandbox");
 // Self-serve password reset for the staff portal.
 //
 // Why this does not use Supabase's own emailed recovery link: that route needs
@@ -226,6 +227,8 @@ async function setPassword(body) {
 }
 
 module.exports = async function handler(req, res) {
+  // The sandbox reads live records but is never allowed to change them.
+  if (blockedInSandbox(res, "Resetting this password")) return;
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });

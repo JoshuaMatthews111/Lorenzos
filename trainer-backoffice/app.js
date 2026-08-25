@@ -12429,4 +12429,33 @@ document.addEventListener("input", event => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Sandbox banner
+//
+// The sandbox runs this same code against the same live Supabase, so the office
+// sees their real logins and their real leads. It is not allowed to change any
+// of them. Say so loudly and permanently, because a copy that looks exactly
+// like the live portal is otherwise indistinguishable from it.
+// ---------------------------------------------------------------------------
+async function applyEnvironmentBadge() {
+  try {
+    const response = await fetch("/api/environment", { cache: "no-store" });
+    const info = await response.json().catch(() => ({}));
+    if (!info?.sandbox) return;
+    window.LDTT_IS_SANDBOX = true;
+    window.LDTT_PORTAL?.lockForSandbox?.();
+    document.body.classList.add("is-sandbox");
+    if (document.getElementById("sandboxBanner")) return;
+    const banner = document.createElement("div");
+    banner.id = "sandboxBanner";
+    banner.className = "sandbox-banner";
+    banner.setAttribute("role", "status");
+    banner.innerHTML = `<strong>SANDBOX</strong><span>These are the real live records, so everything should look and read exactly as it does on the live portal. Nothing you do here is saved, and the live site cannot be changed from this copy.</span>`;
+    document.body.prepend(banner);
+  } catch (error) {
+    console.warn("LDTT environment check failed", error);
+  }
+}
+
+applyEnvironmentBadge();
 bootstrapApplication();

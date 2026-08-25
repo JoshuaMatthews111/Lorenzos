@@ -1,3 +1,4 @@
+const { blockedInSandbox } = require("../../lib/sandbox");
 const { beginWebhook, clean, json, setWebhookOutcome, supabaseFetch, svixSignatureMatches } = require("../../lib/communications-webhooks");
 
 function recipientEmails(data) {
@@ -8,6 +9,8 @@ function recipientEmails(data) {
 }
 
 module.exports = async function handler(req, res) {
+  // The sandbox reads live records but is never allowed to change them.
+  if (blockedInSandbox(res, "This email event")) return;
   if (req.method !== "POST") return json(res, 405, { ok: false, message: "POST required." });
   try {
     const webhook = await beginWebhook(req, "resend", "resend_signing_secret", svixSignatureMatches);

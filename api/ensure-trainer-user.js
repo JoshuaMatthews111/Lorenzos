@@ -1,3 +1,4 @@
+const { blockedInSandbox } = require("../lib/sandbox");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const TRAINER_TEMP_PASSWORD = process.env.LDTT_TRAINER_TEMP_PASSWORD || "doglovers26";
@@ -97,6 +98,8 @@ async function createOrEnableAuthUser(email, displayName) {
 }
 
 module.exports = async function handler(req, res) {
+  // The sandbox reads live records but is never allowed to change them.
+  if (blockedInSandbox(res, "Creating this trainer login")) return;
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });

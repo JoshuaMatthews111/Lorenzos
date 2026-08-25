@@ -1,3 +1,4 @@
+const { blockedInSandbox } = require("../../lib/sandbox");
 // Daily lead archiving (office request, 2026-08-17).
 //
 // Old inbound enquiries were piling up in the live pipeline and skewing the board.
@@ -51,6 +52,8 @@ function authorized(req) {
 }
 
 module.exports = async function handler(req, res) {
+  // The sandbox reads live records but is never allowed to change them.
+  if (blockedInSandbox(res, "The nightly archive job")) return;
   res.setHeader("Cache-Control", "no-store");
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Server is not configured." });
   if (!authorized(req)) return res.status(403).json({ ok: false, message: "Forbidden." });

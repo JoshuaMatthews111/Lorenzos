@@ -1,3 +1,4 @@
+const { blockedInSandbox } = require("../lib/sandbox");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -436,6 +437,8 @@ async function setReviewPublications(admin, body, requestId) {
 }
 
 module.exports = async function handler(req, res) {
+  // The sandbox reads live records but is never allowed to change them.
+  if (blockedInSandbox(res, "Saving this record")) return;
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });

@@ -1,3 +1,4 @@
+const { blockedInSandbox } = require("../../lib/sandbox");
 const communications = require("../communications");
 const { beginWebhook, clean, cleanPhone, json, setWebhookOutcome, supabaseFetch } = require("../../lib/communications-webhooks");
 
@@ -20,6 +21,8 @@ async function sms(phone, text) {
 }
 
 module.exports = async function handler(req, res) {
+  // The sandbox reads live records but is never allowed to change them.
+  if (blockedInSandbox(res, "This inbound text")) return;
   if (req.method !== "POST") return json(res, 405, { ok: false, message: "POST required." });
   try {
     const webhook = await beginWebhook(req, "simpletexting", "simpletexting_signing_secret");

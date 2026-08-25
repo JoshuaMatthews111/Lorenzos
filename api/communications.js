@@ -1,3 +1,4 @@
+const { blockedInSandbox } = require("../lib/sandbox");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -985,6 +986,13 @@ async function handler(req, res) {
     const access = await verifyPortalUser(token);
     if (!access) return res.status(403).json({ ok: false, message: "Active portal access required." });
     const operation = req.method === "GET" ? clean(req.query?.operation || "load", 50) : clean(req.body?.operation, 50);
+    // Reading Communications is fine in the sandbox; anything that saves a record
+    // or actually sends a text or an email to a real person is not.
+    const READ_ONLY_OPERATIONS = new Set([
+      "load", "preview_campaign", "campaign_audience", "campaign_report",
+      "search_clients", "browse_clients"
+    ]);
+    if (!READ_ONLY_OPERATIONS.has(operation) && blockedInSandbox(res, "That Communications action")) return;
     let data;
     if (operation === "load") data = await loadCommunications(access);
     else if (operation === "save_alert_list") data = await saveAlertList(access, req.body || {});
