@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../lib/sandbox");
+const { blockedInSandbox, blockedOutsideSandbox } = require("../lib/sandbox");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -447,6 +447,9 @@ module.exports = async function handler(req, res) {
     const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const admin = await verifyAdmin(token);
     if (!admin) return res.status(403).json({ ok: false, message: "Active Admin or Office Admin access required." });
+    // A sandbox testing login must not reach live records, even with a token it
+    // picked up legitimately in the sandbox.
+    if (blockedOutsideSandbox(res, admin.actor?.email)) return;
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const requestId = clean(body.request_id, 120) || crypto.randomUUID();
     let result;

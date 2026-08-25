@@ -34,6 +34,23 @@ const PUBLIC_SITE_ORIGIN = "https://www.lorenzosdogtrainingteam.com";
 const TRAINER_TEMP_PASSWORD_NOTICE = "Provided privately by Lorenzo's office";
 const TEMP_PASSWORD = ""; // temp passwords are issued by the office privately — never shipped in public code
 const DEMO_TEST_PASSWORD = "doglovers26";
+
+// Sandbox-only testing logins. They share one Supabase project with the real
+// staff accounts — that is the price of the sandbox showing real records — so
+// they cannot simply be kept out of the live database. Instead the live portal
+// refuses them at the door, and only the sandbox lets them through.
+const SANDBOX_ONLY_LOGINS = new Set([
+  "superadmin@lorenzosdogtrainingteam.com",
+  "officeadmin@lorenzosdogtrainingteam.com",
+  "trainer@lorenzosdogtrainingteam.com"
+]);
+
+function isSandboxOnlyLogin(user) {
+  const email = String(user?.email || "").trim().toLowerCase();
+  return SANDBOX_ONLY_LOGINS.has(email);
+}
+
+const SANDBOX_ONLY_LOGIN_MESSAGE = "That is a sandbox testing login. It only works on the practice copy. On the live portal, please sign in with your own email and password.";
 const SITE_EVENT_KEY = "ldttTrainerSiteEvents.v1";
 const RECOVERABLE_LOCAL_CACHE_KEYS = [
   SITE_EVENT_KEY,
@@ -3773,6 +3790,15 @@ async function bootstrapApplication() {
     portalUser = await window.LDTT_PORTAL.currentPortalUser();
     if (!portalUser) {
       session = { loggedIn: false, role: "" };
+      render();
+      return;
+    }
+    if (!window.LDTT_IS_SANDBOX && isSandboxOnlyLogin(portalUser)) {
+      await window.LDTT_PORTAL.signOut();
+      portalUser = null;
+      session = { loggedIn: false, role: "" };
+      const status = document.getElementById("loginStatus");
+      if (status) status.textContent = SANDBOX_ONLY_LOGIN_MESSAGE;
       render();
       return;
     }
@@ -12484,6 +12510,11 @@ document.addEventListener("submit", async event => {
       }
       await window.LDTT_PORTAL.signIn(username, password, { remember: event.target.elements.remember?.checked === true });
       portalUser = await window.LDTT_PORTAL.currentPortalUser();
+      if (!window.LDTT_IS_SANDBOX && isSandboxOnlyLogin(portalUser)) {
+        await window.LDTT_PORTAL.signOut();
+        portalUser = null;
+        throw new Error(SANDBOX_ONLY_LOGIN_MESSAGE);
+      }
       if (!portalUserHasAccess(portalUser)) {
         await window.LDTT_PORTAL.signOut();
         throw new Error("This portal account is disabled. Contact Lorenzo's office.");

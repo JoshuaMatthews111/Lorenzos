@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../lib/sandbox");
+const { blockedInSandbox, blockedOutsideSandbox } = require("../lib/sandbox");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 
@@ -74,6 +74,7 @@ module.exports = async function handler(req, res) {
   try {
     const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const admin = await verifySuperAdmin(token);
+    if (admin && blockedOutsideSandbox(res, admin.actor?.email)) return;
     if (!admin) return res.status(403).json({ ok: false, message: "Super Admin access required." });
 
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};

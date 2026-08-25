@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../lib/sandbox");
+const { blockedInSandbox, blockedOutsideSandbox } = require("../lib/sandbox");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -985,6 +985,7 @@ async function handler(req, res) {
     const token = clean(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const access = await verifyPortalUser(token);
     if (!access) return res.status(403).json({ ok: false, message: "Active portal access required." });
+    if (blockedOutsideSandbox(res, access.portalUser?.email || access.user?.email)) return;
     const operation = req.method === "GET" ? clean(req.query?.operation || "load", 50) : clean(req.body?.operation, 50);
     // Reading Communications is fine in the sandbox; anything that saves a record
     // or actually sends a text or an email to a real person is not.
