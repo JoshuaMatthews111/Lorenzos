@@ -1822,7 +1822,7 @@ function officeNoteTimeline(entityType, entityId) {
     const revisions = remoteNoteRevisions
       .filter(revision => revision.office_note_id === note.id)
       .sort((a, b) => timestampValue(b.created_at) - timestampValue(a.created_at));
-    return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><div class="row-actions"><button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button>${ownsOfficeNote(note) ? `<button class="btn btn-outline btn-small btn-danger-outline" type="button" data-delete-office-note="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Delete</button>` : ""}</div></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorLabel(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
+    return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><div class="row-actions">${ownsOfficeNote(note) ? `<button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button><button class="btn btn-outline btn-small btn-danger-outline" type="button" data-delete-office-note="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Delete</button>` : ""}</div></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorLabel(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
   }).join("")}</div>`;
 }
 
@@ -5285,6 +5285,8 @@ const adminScreens = {
         ["lead", "Contact Us Forms", metrics.contactForms, "Lead source", "", { view: "leads" }],
         ["lead", "Paid Ad Submitted Inquiries", metrics.paidAdSubmittedInquiries, "Ad landing pages", "", { view: "leads" }],
         ["lead", "Ebook Requests", metrics.ebookRequests, "Guide downloads", "", { view: "leads" }],
+        ["calendar", "Evals Scheduled", metrics.evalScheduled, "Current lead status", "", { view: "leads" }],
+        ["calendar", "Evals Completed", metrics.evalCompleted, "Current lead status", "up", { view: "leads" }],
         ["trophy", "Became a Client", metrics.clientWon, "Current lead outcome", "up", { view: "clients" }],
         ["settings", "Lost", metrics.lostLeads, "Lead section total", "down", { view: "leads" }],
         ["message", "New Trainer Applications", metrics.newTrainerApplications, "Application rows", "up", { view: "applications" }],
@@ -12599,4 +12601,6 @@ async function applyEnvironmentBadge() {
 // Wait for the answer before booting. The sandbox flag decides whether the
 // forced password gates apply and whether direct Supabase writes are locked, so
 // starting the portal before we know would leave a gap where a write could land.
+document.addEventListener("DOMContentLoaded", () => enhancePasswordFields(document));
+enhancePasswordFields(document);
 applyEnvironmentBadge().finally(() => bootstrapApplication());

@@ -258,6 +258,9 @@ async function saveNote(admin, body, requestId) {
   if (body.note_id) {
     before = await getRecord("office_notes", clean(body.note_id, 120));
     if (!before) return { status: 404, body: { ok: false, message: "Note not found." } };
+    if (String(before.created_by || "") !== String(admin.actor.id)) {
+      return { status: 403, body: { ok: false, message: "You can only edit a note you typed yourself." } };
+    }
     if (versionConflict(before, body.expected_version, body.expected_updated_at)) {
       return { status: 409, body: { ok: false, conflict: true, message: "This note was already edited by another staff member.", record: before } };
     }
@@ -465,7 +468,18 @@ async function sandboxMutation(admin, body) {
     const noteText = clean(body.note, 20000);
     if (!noteText) return { status: 400, body: { ok: false, message: "A note is required." } };
     if (body.note_id) {
-      await sandboxStore.appendOp({ operation: "save_note", note_id: clean(body.note_id, 120), note: noteText, actor: admin.actor.email });
+      const noteId = clean(body.note_id, 120);
+      let createdBy = null;
+      if (noteId.startsWith("sbx-")) {
+        const ops = await sandboxStore.readOps();
+        createdBy = ops.find(op => op.operation === "save_note" && op.record?.id === noteId)?.record?.created_by || null;
+      } else {
+        createdBy = (await getRecord("office_notes", noteId))?.created_by || null;
+      }
+      if (String(createdBy || "") !== String(admin.actor.id)) {
+        return { status: 403, body: { ok: false, message: "You can only edit a note you typed yourself." } };
+      }
+      await sandboxStore.appendOp({ operation: "save_note", note_id: noteId, note: noteText, actor: admin.actor.email });
       return { status: 200, body: { ok: true, sandbox: true, record: { id: clean(body.note_id, 120), note: noteText, updated_at: stamp }, actor: admin.actor, updated_at: stamp, version: 1 } };
     }
     const record = {
