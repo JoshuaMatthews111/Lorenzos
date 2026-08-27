@@ -10419,6 +10419,13 @@ document.addEventListener("click", async event => {
   if (conversionStage) {
     state.leadStageFilter = conversionStage.dataset.conversionStage;
     state.leadStatusFilter = "All";
+    // The chart counts within the REPORT date range; the Leads page filters by
+    // its own range. Rachel clicked a stage saying 9 and got a list of 14 —
+    // right people, wrong window. Carry the report range across so the list
+    // holds exactly the people the number counted.
+    state.leadDateRange = state.reportDateRange;
+    state.customLeadStart = state.customReportStart;
+    state.customLeadEnd = state.customReportEnd;
     state.activeView = "leads";
     saveState(`Showing every lead that reached ${conversionStageLabel(state.leadStageFilter)}`);
     return;
