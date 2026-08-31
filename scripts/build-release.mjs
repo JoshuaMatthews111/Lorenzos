@@ -70,6 +70,7 @@ const marketSlugs = [
   "dog-training-chicago-il",
   "dog-training-tallahassee-fl",
   "dog-training-miramar-beach-fl",
+  "dog-training-panama-city-beach-fl",
   "dog-training-lexington-ky",
   "dog-training-ann-arbor-mi"
 ];

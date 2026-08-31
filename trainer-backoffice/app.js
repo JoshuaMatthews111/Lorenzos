@@ -6147,6 +6147,7 @@ function adLandingPageConfigs() {
     { slug: "dog-training-lexington-ky", label: "Lexington / Harrodsburg", market: "Lexington / Harrodsburg, KY", trainers: "Bailey Brown", href: "../dog-training-lexington-ky.html" },
     { slug: "dog-training-tallahassee-fl", label: "Tallahassee", market: "Tallahassee, FL", trainers: "Victoria Morris", href: "../dog-training-tallahassee-fl.html" },
     { slug: "dog-training-miramar-beach-fl", label: "Miramar Beach", market: "Miramar Beach, FL", trainers: "Tabatha Shelley", href: "../dog-training-miramar-beach-fl.html" },
+    { slug: "dog-training-panama-city-beach-fl", label: "Panama City Beach", market: "Panama City Beach, FL", trainers: "Tabatha Shelley", href: "../dog-training-panama-city-beach-fl.html" },
     { slug: "dog-training-ann-arbor-mi", label: "Ann Arbor", market: "Ann Arbor, MI", trainers: "Dylan Atkinson", href: "../dog-training-ann-arbor-mi.html" }
   ];
 }

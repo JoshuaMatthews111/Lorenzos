@@ -247,6 +247,28 @@ const markets = [
     zipCodes: ["32550"]
   },
   {
+    slug: "dog-training-panama-city-beach-fl",
+    photo2: "assets/market-photos/panama-city-beach-second.jpg", photo2Alt: "Calm, trained dogs relaxing outside the house",
+    photo: "assets/market-photos/panama-city-beach-dog.jpg", photoName: "Ready for the Gulf", photoCaption: "Calm at the condo, steady on the sand", word: "OBEDIENCE", issues: "Beach recall|Condo manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
+    arch: "resort", mk1: "#12758F", mk2: "#F4EADA",
+    tint: "12,80,110",
+    tint2: "21,37,105",
+    hook: "Gulf-ready: beach recall, condo manners, and a dog your building will welcome back.",
+    title: "Panama City Beach Dog Training",
+    h1: "Beach Recall, Condo Manners & Board and Train \u2014 Panama City Beach Dog Training.",
+    market: "Panama City Beach, FL",
+    city: "Panama City Beach",
+    state: "FL",
+    area: "Panama City Beach, Panama City, Lynn Haven, Callaway, Bay County, and nearby Gulf Coast communities",
+    trainers: "Tabatha Shelley",
+    proof: "Bay County families can request obedience, behavior modification, puppy training, and specialty support through Lorenzo's office.",
+    nearby: ["Panama City Beach", "Panama City", "Lynn Haven", "Callaway", "Bay County"],
+    checks: ["Recall you can trust on the sand and off the balcony", "Condo and HOA manners: no barking complaints, no chewed furniture", "Holiday board & train \u2014 slots fill 6\u20138 weeks ahead", "Puppy and obedience foundations year-round"],
+    care: {"eyebrow": "Gulf-ready", "h2": "The Gulf is better with a dog who listens.", "p": "Panama City Beach life is condos, boardwalks, and wide open sand. We train the skills that make it easy \u2014 rock-solid recall, calm greetings, and manners your building and neighbors will thank you for.", "t": "Trained for coast life."},
+    testis: [{"h": "Beach recall", "p": "Coming when called even with birds, waves, and other dogs in play."}, {"h": "Condo-proof manners", "p": "Quiet in the hallway, calm in the elevator, welcome back next season."}, {"h": "Holiday board & train", "p": "Drop off before the holidays, come home to a transformed dog. Book 6\u20138 weeks ahead."}],
+    zipCodes: ["32407", "32408", "32413"]
+  },
+  {
     slug: "dog-training-lexington-ky",
     photo: "assets/market-photos/lexington-class-group.jpg", photo2: "assets/market-photos/lexington-trainer-candid.jpg", photoName: "Room to run", photoCaption: "Recall that holds on open acreage", word: "FARM", issues: "Farm recall|Livestock manners|Leash pulling|Puppy", proofValue: "Open acreage", proofLabel: "Recall that holds", benefits: "Free evaluation|Farm & property dogs|90-day guarantee", priceMode: "quiet",
     arch: "heritage", mk1: "#234D32", mk2: "#B08A57",
@@ -394,6 +416,7 @@ const FLOWS = {
   "dog-training-tallahassee-fl": ["care", "pricing", "proof", "path", "testi", "guide", "cta"],
   "dog-training-atlanta-ga": ["path", "care", "proof", "pricing", "testi", "guide", "cta"],
   "dog-training-miramar-beach-fl": ["care", "path", "pricing", "proof", "testi", "guide", "cta"],
+  "dog-training-panama-city-beach-fl": ["care", "path", "pricing", "proof", "testi", "guide", "cta"],
   "dog-training-ann-arbor-mi": ["care", "pricing", "path", "proof", "testi", "cta"],
   default: ["proof", "path", "pricing", "care", "testi", "guide", "cta"]
 };
