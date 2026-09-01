@@ -269,6 +269,27 @@ const markets = [
     zipCodes: ["32407", "32408", "32413"]
   },
   {
+    slug: "dog-training-pensacola-fl",
+    photo: "assets/market-photos/lorenzo-pack-down-stay.jpg", photoName: "Real results", photoCaption: "Twenty-plus dogs, one calm down-stay", word: "BEHAVIOR", issues: "Barking|Leash pulling|Jumping|Won't listen", proofValue: "3 trainers", proofLabel: "Living in the area", benefits: "Free evaluation|Behavior specialists|90-day guarantee", priceMode: "quiet",
+    arch: "coast", mk1: "#14337A", mk2: "#E8EFF9",
+    tint: "20,51,122",
+    tint2: "21,37,105",
+    hook: "Three Lorenzo's trainers live right here \u2014 Pensacola, Navarre, and Crestview. Behavior help starts with a free local evaluation.",
+    title: "Pensacola Dog Training",
+    h1: "Barking, Pulling, Ignoring You? Pensacola Dog Behavior & Obedience Training.",
+    market: "Pensacola, FL",
+    city: "Pensacola",
+    state: "FL",
+    area: "Pensacola, Navarre, Gulf Breeze, Milton, Pace, Crestview, Escambia and Santa Rosa County, and nearby Northwest Florida communities",
+    trainers: "Clark Patton, Michael King, Daniel Bainbridge",
+    proof: "Three Lorenzo's trainers live in the Pensacola area, so obedience, behavior modification, puppy training, and specialty requests get a local answer through Lorenzo's office.",
+    nearby: ["Pensacola", "Navarre", "Gulf Breeze", "Milton", "Pace"],
+    checks: ["Barking, pulling, jumping, and flat-out ignoring you", "Obedience that holds around real distractions", "Three trainers living in Escambia and Santa Rosa County", "Free evaluation with a local trainer"],
+    care: {"eyebrow": "Behavior first", "h2": "Barking, pulling, ignoring you \u2014 that is behavior, not stubbornness.", "p": "Most Pensacola owners do not need a new command. They need the dog to actually do the one it already knows. We fix the behavior underneath it, then build obedience that holds at the door, on the leash, and around other dogs.", "t": "What behavior training covers."},
+    testis: [{"h": "Quiet at the door", "p": "Barking at the mail, the neighbor, and the doorbell handled with a plan, not a shout."}, {"h": "A leash you can hold", "p": "No dragging, no zig-zagging \u2014 a walk you would actually take again."}, {"h": "Listening under pressure", "p": "Commands that hold with people, dogs, and distractions in the mix."}],
+    zipCodes: ["32501", "32566", "32536"]
+  },
+  {
     slug: "dog-training-lexington-ky",
     photo: "assets/market-photos/lexington-class-group.jpg", photo2: "assets/market-photos/lexington-trainer-candid.jpg", photoName: "Room to run", photoCaption: "Recall that holds on open acreage", word: "FARM", issues: "Farm recall|Livestock manners|Leash pulling|Puppy", proofValue: "Open acreage", proofLabel: "Recall that holds", benefits: "Free evaluation|Farm & property dogs|90-day guarantee", priceMode: "quiet",
     arch: "heritage", mk1: "#234D32", mk2: "#B08A57",
@@ -417,6 +438,7 @@ const FLOWS = {
   "dog-training-atlanta-ga": ["path", "care", "proof", "pricing", "testi", "guide", "cta"],
   "dog-training-miramar-beach-fl": ["care", "path", "pricing", "proof", "testi", "guide", "cta"],
   "dog-training-panama-city-beach-fl": ["care", "path", "pricing", "proof", "testi", "guide", "cta"],
+  "dog-training-pensacola-fl": ["care", "path", "proof", "pricing", "testi", "guide", "cta"],
   "dog-training-ann-arbor-mi": ["care", "pricing", "path", "proof", "testi", "cta"],
   default: ["proof", "path", "pricing", "care", "testi", "guide", "cta"]
 };
