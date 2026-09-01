@@ -248,7 +248,7 @@ const markets = [
   },
   {
     slug: "dog-training-panama-city-beach-fl",
-    photo2: "assets/market-photos/panama-city-beach-second.jpg", photo2Alt: "Calm, trained dogs relaxing outside the house",
+    photo2: "assets/market-photos/lorenzo-pack-down-stay.jpg", photo2Alt: "Lorenzo Miller surrounded by more than twenty trained dogs, every one of them holding a calm down-stay on the grass",
     photo: "assets/market-photos/panama-city-beach-dog.jpg", photoName: "Ready for the Gulf", photoCaption: "Calm at the condo, steady on the sand", word: "OBEDIENCE", issues: "Beach recall|Condo manners|Barking|Board & train", proofValue: "Fall slots", proofLabel: "Holiday board & train", benefits: "Free evaluation|Vacation-ready training|90-day guarantee", priceMode: "quiet",
     arch: "resort", mk1: "#12758F", mk2: "#F4EADA",
     tint: "12,80,110",
