@@ -5293,3 +5293,150 @@ body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shar
 .conversion-stage small{display:block}
 .market-row-empty{opacity:.55}
 .market-row-empty strong{font-weight:700}
+
+/* ---------------------------------------------------------------------------
+   Lead source badges + Sales pipeline (Super Admin)
+   Added for the paid-ad automation build. Purely additive.
+--------------------------------------------------------------------------- */
+.source-cell { display: flex; align-items: flex-start; gap: 8px; }
+.source-cell > div { min-width: 0; }
+
+.source-badge {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  background: rgba(148, 163, 184, .16);
+  color: #64748b;
+  cursor: default;
+  user-select: none;
+}
+.source-badge svg { width: 14px; height: 14px; display: block; }
+.source-badge.facebook  { color: #1877F2; background: rgba(24, 119, 242, .12); }
+.source-badge.instagram { color: #E1306C; background: rgba(225, 48, 108, .12); }
+.source-badge.google    { background: rgba(66, 133, 244, .10); }
+.source-badge.paid      { color: #1d4ed8; background: rgba(29, 78, 216, .12); }
+.source-badge.site      { color: #475569; background: rgba(71, 85, 105, .12); }
+.source-badge.trainer   { color: #b45309; background: rgba(180, 83, 9, .12); }
+.source-badge.vet       { color: #0f766e; background: rgba(15, 118, 110, .12); }
+.source-badge.referral  { color: #7c3aed; background: rgba(124, 58, 237, .12); }
+.source-badge.word      { color: #9333ea; background: rgba(147, 51, 234, .12); }
+.source-badge.other     { color: #64748b; background: rgba(100, 116, 139, .14); }
+.source-badge.test      { color: #b91c1c; background: rgba(185, 28, 28, .12); }
+
+.sales-card-pending { opacity: .55; font-style: italic; }
+
+.test-lead-note { display: grid; gap: 8px; }
+.test-lead-note button { justify-self: start; }
+
+.sales-board {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  align-items: flex-start;
+}
+.sales-column {
+  flex: 0 0 236px;
+  background: rgba(148, 163, 184, .08);
+  border: 1px solid rgba(148, 163, 184, .28);
+  border-top: 3px solid #64748b;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 560px;
+}
+.sales-column.marketing { border-top-color: #0b6b66; }
+.sales-column.sales     { border-top-color: #a85a32; }
+.sales-column.won       { border-top-color: #2e7a4f; }
+.sales-column.lost      { border-top-color: #9b3a2e; }
+.sales-column.winback   { border-top-color: #b45309; }
+
+.sales-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, .28);
+}
+.sales-stage { font-size: 12px; font-weight: 700; letter-spacing: .01em; }
+.sales-count {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(148, 163, 184, .22);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.sales-column-body { padding: 10px; display: grid; gap: 8px; overflow-y: auto; }
+
+.sales-card {
+  background: var(--card, #fff);
+  border: 1px solid rgba(148, 163, 184, .32);
+  border-radius: 6px;
+  padding: 9px 10px;
+  display: grid;
+  gap: 3px;
+  cursor: pointer;
+}
+.sales-card:hover { border-color: rgba(148, 163, 184, .7); }
+.sales-card header { display: flex; align-items: center; gap: 7px; }
+.sales-card header strong { font-size: 13px; line-height: 1.25; }
+.sales-card small { font-size: 11.5px; opacity: .78; line-height: 1.35; }
+.sales-card-trainer { opacity: .6; }
+.sales-card-reason { color: #9b3a2e; font-weight: 600; opacity: 1; }
+.sales-empty { font-size: 12px; opacity: .5; margin: 4px 2px; }
+.sales-more { font-size: 11.5px; opacity: .6; margin: 2px; }
+.sales-rule { margin-top: 14px; }
+
+@media (max-width: 720px) {
+  .sales-column { flex-basis: 200px; }
+}
+
+/* Lead journey — what the bot did / will do, per lead */
+.lead-journey { display: grid; gap: 10px; }
+.journey-origin { font-size: 13px; color: #475569; margin: 0; }
+.journey-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.journey-step {
+  position: relative;
+  padding: 9px 12px 9px 26px;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  background: #fff;
+}
+.journey-step::before {
+  content: "";
+  position: absolute;
+  left: 10px; top: 14px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+.journey-step.done::before   { background: #2e7a4f; }
+.journey-step.manual::before { background: #b45309; }
+.journey-step.todo::before   { background: #cbd5e1; }
+.journey-step.done   { border-color: rgba(46, 122, 79, .35); }
+.journey-step.manual { border-color: rgba(180, 83, 9, .3); }
+.journey-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.journey-head strong { font-size: 13.5px; }
+.journey-channel {
+  font: 600 9.5px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: #64748b; background: #f1f5f9;
+  padding: 3px 7px; border-radius: 3px; white-space: nowrap;
+}
+.journey-step small { display: block; margin-top: 3px; font-size: 12px; color: #64748b; }
+.journey-copy { margin: 6px 0 0; font-size: 12.5px; color: #334155; font-style: italic; }
+.journey-missing {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #8a6a12;
+  background: rgba(138, 106, 18, .09);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+.journey-ask { margin: 2px 0 0; font-size: 12.5px; color: #8a6a12; font-weight: 600; }

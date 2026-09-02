@@ -284,6 +284,7 @@ const defaultState = {
   activeView: "dashboard",
   communicationsSection: "alerts",
   communicationsFilters: { status: "All", market: "All", owner: "All" },
+  showTestLeads: false,
   templateDraft: null,
   designPreviewOpen: false,
   campaignAudience: null,
@@ -964,8 +965,24 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
   };
 }
 
+// Which form the person actually filled in. The badge says which network sent
+// them; this says which of our own pages took the details.
+function leadOriginLabel(row, raw) {
+  const landingType = String(raw?.landing_page_type || "").toLowerCase();
+  const sourcePage = String(row?.source_page || raw?.source_page || "").toLowerCase();
+  const leadType = String(raw?.lead_type || "").toLowerCase();
+  if (leadType === "pdf_download") return "Ebook landing page";
+  if (landingType.includes("paid ad") || /^dog-training-/.test(sourcePage)) return "Paid ad landing page";
+  if (sourcePage.includes("trainer landing page")) return "Trainer landing page";
+  if (sourcePage) return "Website contact form";
+  return "Website contact form";
+}
+
 function remoteLeadToUi(row) {
   const raw = row.raw_payload || {};
+  // Test/bot rows are stamped raw_payload.qa === true, the same convention
+  // siteEventRows() already uses. Real form handlers stamp qa:false.
+  const isTestRow = raw.qa === true;
   const trainer = state.trainers.find(item => item.remoteId === row.trainer_id || item.slug === row.trainer_slug);
   const clientNote = row.comments || raw.comments || "";
   const derivedMarket = deriveLeadMarket({
@@ -979,6 +996,10 @@ function remoteLeadToUi(row) {
   return {
     id: row.id,
     remoteId: row.id,
+    isTest: isTestRow,
+    rawSource: row.lead_source || "",
+    utmSource: String(raw.utm_source || "").trim().toLowerCase(),
+    originLabel: leadOriginLabel(row, raw),
     first_name: row.first_name || raw.first_name || "",
     last_name: row.last_name || raw.last_name || "",
     owner: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Website Contact",
@@ -3834,6 +3855,7 @@ function adminNav() {
     ["pageEditor", "Page Editor", "edit"],
     ["trainers", "Trainers", "users"],
     ["leads", "Leads", "lead", newLeadCount],
+    ["sales", "Sales", "trophy"],
     ["applications", "Applications", "message", applicationRows().filter(applicationNeedsAction).length],
     ["clients", "Clients", "users"],
     ["approvals", "Reviews", "star", pendingReviewSubmissions().length],
@@ -3922,6 +3944,7 @@ function renderTopbar() {
     pageEditor: ["Full Site Builder", "Edit trainer pages, main website pages, and trainer portal screens with a real-time preview."],
     trainers: ["Trainer Onboarding", "Collect the trainer's account, media, credentials, reviews, SEO, and approved design."],
     leads: ["Leads", "Office-managed funnel from inquiry to paying client."],
+    sales: ["Sales Pipeline", "Super Admin view of where revenue is and where it stalled. Test records are never counted."],
     applications: ["Trainer Applications", "Recruiting submissions from the website application form."],
     clients: ["Client Database", "Central list for active, past, won, lost, bad lead, and do-not-contact records."],
     import: ["Client Import", "Prototype CSV import with preview, duplicate checks, and consent protection."],
@@ -5313,7 +5336,10 @@ const adminScreens = {
       : `${trainerAdminForm()}<br>${panel("Existing Trainer Profiles", `<button class="btn btn-red" id="addTrainer">+ Add New Trainer</button>`, trainerSelectList(), "pad")}`;
   },
   leads() {
-    return `${leadSourceRecordNotice()}${panel("Office Lead Pipeline", leadPanelActions(), leadPipelineTable(true), "pad")}`;
+    return `${leadSourceRecordNotice()}${testLeadNotice()}${panel("Office Lead Pipeline", leadPanelActions(), leadPipelineTable(true), "pad")}`;
+  },
+  sales() {
+    return salesPipelineView();
   },
   applications() {
     const apps = applicationRows();
@@ -5844,12 +5870,24 @@ function getMetrics() {
   };
 }
 
+// Test/bot leads never reach the numbers. Toggle them on from the Leads panel
+// to inspect them; every count, chart and export uses the filtered list.
+function excludeTestLeads(rows) {
+  if (state.showTestLeads) return rows;
+  return rows.filter(lead => lead?.isTest !== true);
+}
+
+function testLeadRows() {
+  const rows = remoteReady ? state.leads : [...contactSubmissionRows(), ...state.leads];
+  return rows.filter(lead => lead?.isTest === true);
+}
+
 function allLeadRows() {
-  return remoteReady ? state.leads : [...contactSubmissionRows(), ...state.leads];
+  return excludeTestLeads(remoteReady ? state.leads : [...contactSubmissionRows(), ...state.leads]);
 }
 
 function realLeadRows() {
-  return remoteReady ? state.leads : contactSubmissionRows();
+  return excludeTestLeads(remoteReady ? state.leads : contactSubmissionRows());
 }
 
 function siteEventRows() {
@@ -6698,11 +6736,222 @@ function leadSheetView(rows) {
   return `<div class="application-sheet-actions lead-sheet-actions"><span class="status live">Detailed Lead Sheet</span><p>Submitted lead-form fields are shown first. Delivery columns are computed from the server audit log, followed by any extra raw submission fields captured with the record. Click any row to open the lead record and notes.</p></div><div class="table-wrap application-sheet-table-wrap lead-sheet-table-wrap"><table class="data-table application-sheet-table lead-sheet-table"><thead><tr>${fields.map(field => `<th>${escapeHtml(field.label)}</th>`).join("")}</tr></thead><tbody>${rows.map(lead => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${escapeHtml(lead.id)}">${fields.map(field => `<td>${escapeHtml(leadSubmittedFieldValue(lead, field.key, field.label) || "—")}</td>`).join("")}</tr>`).join("") || `<tr><td colspan="${fields.length}">No lead submissions match the current filters.</td></tr>`}</tbody></table></div>`;
 }
 
+// Where the lead came from, shown as the network's own mark.
+// Inline SVG so nothing is fetched at runtime.
+const SOURCE_MARKS = {
+  facebook: { label: "Facebook", tone: "facebook", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.69.24 2.69.24v2.96h-1.52c-1.49 0-1.96.93-1.96 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"/></svg>` },
+  instagram: { label: "Instagram", tone: "instagram", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.3-1.46.72-2.12 1.39C1.35 2.68.93 3.35.63 4.14.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.3.79.72 1.46 1.39 2.12.66.67 1.33 1.09 2.12 1.39.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.3 1.46-.72 2.12-1.39.67-.66 1.09-1.33 1.39-2.12.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.3-.79-.72-1.46-1.39-2.12C21.32 1.35 20.65.93 19.86.63 19.1.33 18.22.13 16.95.07 15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 100 12.32A6.16 6.16 0 0012 5.84zm0 10.16a4 4 0 110-8 4 4 0 010 8zm7.85-10.4a1.44 1.44 0 11-2.88 0 1.44 1.44 0 012.88 0z"/></svg>` },
+  google: { label: "Google Search", tone: "google", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.27c0-.82-.07-1.6-.21-2.36H12v4.47h6.45a5.5 5.5 0 01-2.39 3.61v3h3.86c2.26-2.08 3.56-5.15 3.56-8.72z"/><path fill="#34A853" d="M12 24c3.23 0 5.94-1.07 7.92-2.9l-3.86-3a7.2 7.2 0 01-10.72-3.78H1.35v3.09A11.99 11.99 0 0012 24z"/><path fill="#FBBC05" d="M5.34 14.32a7.2 7.2 0 010-4.61V6.62H1.35a12 12 0 000 10.79l3.99-3.09z"/><path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.59 1.8l3.42-3.42C17.94 1.19 15.23 0 12 0 7.31 0 3.26 2.69 1.35 6.62l3.99 3.09A7.2 7.2 0 0112 4.75z"/></svg>` },
+  paid: { label: "Paid ad", tone: "paid", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 10v4a1 1 0 001 1h2l4 4V5L6 9H4a1 1 0 00-1 1zm13.5 2a4.5 4.5 0 00-2.5-4.03v8.05A4.5 4.5 0 0016.5 12zM14 3.23v2.06a6.99 6.99 0 010 13.42v2.06a9 9 0 000-17.54z"/></svg>` },
+  site: { label: "Website", tone: "site", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 100 20 10 10 0 000-20zm6.93 6h-2.95a15.6 15.6 0 00-1.38-3.56A8.03 8.03 0 0118.93 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14a7.9 7.9 0 010-4h3.38a16.5 16.5 0 000 4H4.26zm.81 2h2.95c.3 1.26.76 2.46 1.38 3.56A7.99 7.99 0 015.07 16zm2.95-8H5.07a7.99 7.99 0 014.33-3.56A15.6 15.6 0 008.02 8zM12 19.96A13.9 13.9 0 0110.09 16h3.82A13.9 13.9 0 0112 19.96zM14.34 14H9.66a14.7 14.7 0 010-4h4.68a14.7 14.7 0 010 4zm.26 5.56c.62-1.1 1.08-2.3 1.38-3.56h2.95a7.99 7.99 0 01-4.33 3.56zM16.36 14a16.5 16.5 0 000-4h3.38a7.9 7.9 0 010 4h-3.38z"/></svg>` },
+  trainer: { label: "Trainer referral", tone: "trainer", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 12a5 5 0 100-10 5 5 0 000 10zm0 2c-4.42 0-8 2.24-8 5v3h16v-3c0-2.76-3.58-5-8-5z"/></svg>` },
+  vet: { label: "Veterinarian", tone: "vet", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M14 2h-4v6H4v4h6v10h4V12h6V8h-6z"/></svg>` },
+  referral: { label: "Referral", tone: "referral", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16 11a4 4 0 100-8 4 4 0 000 8zm-8 0a4 4 0 100-8 4 4 0 000 8zm0 2c-2.67 0-8 1.34-8 4v3h9v-3c0-1.06.5-2.02 1.32-2.78A13.4 13.4 0 008 13zm8 0c-.35 0-.74.02-1.15.06A4.9 4.9 0 0117 17v3h7v-3c0-2.66-5.33-4-8-4z"/></svg>` },
+  word: { label: "Neighbor / word of mouth", tone: "word", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>` },
+  test: { label: "Test record — excluded from all counts", tone: "test", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 2v6.5L3.2 18.3A2.5 2.5 0 005.35 22h13.3a2.5 2.5 0 002.15-3.7L15 8.5V2H9zm2 2h2v5.06l.28.47L15.4 13H8.6l2.12-3.47.28-.47V4z"/></svg>` },
+  other: { label: "Other", tone: "other", svg: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 18h2v-2h-2v2zm1-16a6 6 0 00-6 6h2a4 4 0 118 0c0 1.4-.9 2.2-2 3-1.3 1-2 1.9-2 3.5h2c0-1 .5-1.6 1.6-2.4C16.9 11.1 18 10 18 8a6 6 0 00-6-6z"/></svg>` }
+};
+
+// Order matters: the first match wins.
+const LEAD_SOURCE_RULES = [
+  [/instagram/i,                          "instagram"],
+  [/facebook|meta\b/i,                    "facebook"],
+  [/google/i,                             "google"],
+  [/paid ad|paid advertising|market page/i, "paid"],
+  [/your website|website|organic/i,        "site"],
+  [/your trainer|trainer/i,                "trainer"],
+  [/veterinarian|veternarian|\bvet\b/i,    "vet"],
+  [/referred|former client|past client/i,  "referral"],
+  [/neighbor/i,                            "word"],
+  [/qa release|^qa\b/i,                    "test"]
+];
+
+function leadSourceMarkKey(lead) {
+  if (lead?.isTest) return "test";
+  // A paid ad tells us the real network in utm_source, so use it when we have it.
+  const utm = String(lead?.utmSource || "").toLowerCase();
+  if (/^(ig|instagram)$/.test(utm)) return "instagram";
+  if (/^(fb|facebook|meta)$/.test(utm)) return "facebook";
+  if (/^(google|adwords|gads)$/.test(utm)) return "google";
+  const source = String(lead?.rawSource || lead?.source || "");
+  const rule = LEAD_SOURCE_RULES.find(([pattern]) => pattern.test(source));
+  return rule ? rule[1] : "other";
+}
+
+function leadSourceBadge(lead) {
+  const key = leadSourceMarkKey(lead);
+  const mark = SOURCE_MARKS[key] || SOURCE_MARKS.other;
+  const source = String(lead?.rawSource || lead?.source || "").trim();
+  const paidVia = key !== "paid" && /paid ad|market page/i.test(source) ? " via paid ad" : "";
+  const title = `${mark.label}${paidVia}${source && source !== mark.label ? ` \u2014 ${source}` : ""}`;
+  return `<span class="source-badge ${mark.tone}" title="${escapeHtml(title)}" role="img" aria-label="${escapeHtml(title)}">${mark.svg}</span>`;
+}
+
+// ---------------------------------------------------------------------------
+// Sales pipeline (Super Admin). Same live leads as the Leads tab, grouped by
+// where the money is. Marketing owns a lead until the evaluation is booked and
+// the trainer has made contact; after that it is sales. Test records
+// (raw_payload.qa === true) never appear in these numbers.
+// ---------------------------------------------------------------------------
+const SALES_STAGES = [
+  ["captured",  "Captured & Responded",   "marketing", ["new_inquiry", "office_contacted", "engaged_no_outcome"]],
+  ["booked",    "Booked",                 "marketing", ["evaluation_scheduled"]],
+  ["confirmed", "Confirmed",              "marketing", ["site_visit"]],
+  ["evaluated", "In the Trainer's Hands", "sales",     ["evaluation_complete"]],
+  ["won",       "Won",                    "won",       ["first_session_payment", "became_client"]],
+  ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead"]],
+  ["winback",   "Win-back",               "winback",   ["lost_no_response", "follow_up_call_needed", "evaluation_cancelled", "lost_no_trainer_area"]]
+];
+
+// What the bot does, in order, and what it says at each step. `wording` holds
+// Angela and Tim's approved copy once they supply it; until then the step shows
+// as waiting on them, so nobody has to guess what is still outstanding.
+const LEAD_JOURNEY = [
+  { key: "captured",   label: "Lead captured",              channel: "Form",     wording: null, always: true },
+  { key: "respond",    label: "Instant text + email",       channel: "SMS + Email", wording: null },
+  { key: "booked",     label: "Evaluation booked",          channel: "Calendar", wording: null, reached: ["booked", "confirmed", "evaluated", "won", "lost", "winback"] },
+  { key: "confirm",    label: "Booking confirmation + house rules", channel: "SMS", wording: null, reached: ["booked", "confirmed", "evaluated", "won"] },
+  { key: "preeval",    label: "Pre-evaluation questions",   channel: "SMS + Form", wording: null, reached: ["booked", "confirmed", "evaluated", "won"] },
+  { key: "alert",      label: "Trainer alerted",            channel: "SMS to trainer", wording: null, reached: ["booked", "confirmed", "evaluated", "won"] },
+  { key: "contacted",  label: "Trainer contacted the client", channel: "Phone", wording: null, reached: ["confirmed", "evaluated", "won"] },
+  { key: "remind24",   label: "Reminder, 24 hours before",  channel: "SMS",      wording: null, reached: ["confirmed", "evaluated", "won"] },
+  { key: "remind5",    label: "Reminder, 5 hours before",   channel: "SMS",      wording: null, reached: ["confirmed", "evaluated", "won"] },
+  { key: "outcome",    label: "Evaluation outcome",         channel: "Trainer",  wording: null, reached: ["evaluated", "won", "lost"] },
+  { key: "won",        label: "Payment confirmed",          channel: "Authorize.net", wording: null, reached: ["won"] },
+  { key: "aftercare",  label: "Experience check + review + referral", channel: "SMS", wording: null, reached: ["won"] },
+  { key: "nosale",     label: "No-sale follow-up",          channel: "SMS",      wording: null, reached: ["lost"] },
+  { key: "winback",    label: "Win-back sequence",          channel: "SMS + Email", wording: null, reached: ["winback"] }
+];
+
+function leadJourneyTimeline(lead) {
+  const stage = salesStageFor(lead);
+  const captured = lead.createdAt ? formatDateTime(lead.createdAt) : "";
+  const missing = [];
+
+  const steps = LEAD_JOURNEY.filter(step => step.always || !step.reached || step.reached.includes(stage) || step.key === "respond")
+    .map(step => {
+      let state = "todo";
+      let detail = "";
+      if (step.key === "captured") {
+        state = "done";
+        detail = captured || "Received";
+      } else if (step.reached && step.reached.includes(stage)) {
+        // The office moved the lead here by hand. The bot did not send anything.
+        state = "manual";
+        detail = "Reached — handled by the office, not the bot";
+      } else {
+        state = "todo";
+        detail = "Not sent — the bot is not live yet";
+      }
+      if (!step.wording && step.key !== "captured") missing.push(step.label);
+      const wording = step.wording
+        ? `<p class="journey-copy">${escapeHtml(step.wording)}</p>`
+        : step.key === "captured" ? ""
+        : `<p class="journey-missing">Wording not supplied yet &mdash; Tim &amp; Angela</p>`;
+      return `<li class="journey-step ${state}">
+        <div class="journey-head"><strong>${escapeHtml(step.label)}</strong><span class="journey-channel">${escapeHtml(step.channel)}</span></div>
+        <small>${escapeHtml(detail)}</small>${wording}
+      </li>`;
+    }).join("");
+
+  const ask = missing.length
+    ? `<p class="journey-ask">${missing.length} message${missing.length === 1 ? "" : "s"} on this lead's path still need wording from Tim and Angela.</p>`
+    : "";
+
+  return `<section class="detail-note-block lead-journey">
+    <h3>What happened with this person</h3>
+    <p class="journey-origin">Came in through <strong>${escapeHtml(lead.originLabel || "Website contact form")}</strong>${lead.rawSource ? ` &middot; ${escapeHtml(lead.rawSource)}` : ""}</p>
+    <ol class="journey-list">${steps}</ol>${ask}
+  </section>`;
+}
+
+function salesStageFor(lead) {
+  const db = String(lead?.dbStatus || "").trim();
+  const found = SALES_STAGES.find(([, , , statuses]) => statuses.includes(db));
+  return found ? found[0] : "captured";
+}
+
+// A lead belongs to nobody until the customer picks a trainer in the booking
+// flow, or the market's lead trainer takes it and passes it on. Until then the
+// card says that plainly instead of claiming the lead is "Unassigned".
+function salesTrainerLine(lead) {
+  const id = String(lead?.trainerId || "").trim();
+  if (id && id !== "unassigned") {
+    const name = trainerName(id);
+    if (name && !/unassigned/i.test(name)) return escapeHtml(name);
+  }
+  const market = leadMarketLabel(lead);
+  return `<span class="sales-card-pending">Awaiting trainer selection${market ? ` \u00b7 ${escapeHtml(market)}` : ""}</span>`;
+}
+
+function testLeadNotice() {
+  const tests = testLeadRows();
+  if (!tests.length && !state.showTestLeads) return "";
+  return `<section class="source-record-note test-lead-note">
+    <span class="status ${state.showTestLeads ? "draft" : "live"}">${tests.length} test record${tests.length === 1 ? "" : "s"} held out of every count</span>
+    <p>Test and bot records are stamped <code>qa</code> and never reach the numbers, the charts, or the exports. Turn them on only to inspect them.</p>
+    <button class="btn btn-outline btn-small" type="button" data-toggle-test-leads>${state.showTestLeads ? "Hide test records" : "Show test records"}</button>
+  </section>`;
+}
+
+function salesPipelineView() {
+  const rows = allLeadRows();
+  const buckets = new Map(SALES_STAGES.map(([id]) => [id, []]));
+  rows.forEach(lead => buckets.get(salesStageFor(lead))?.push(lead));
+
+  const won = buckets.get("won") || [];
+  const lost = buckets.get("lost") || [];
+  const winback = buckets.get("winback") || [];
+  const decided = won.length + lost.length;
+  const closeRate = decided ? Math.round((won.length / decided) * 100) : 0;
+  const booked = (buckets.get("booked") || []).length + (buckets.get("confirmed") || []).length + (buckets.get("evaluated") || []).length;
+
+  const metrics = metricGrid([
+    ["lead", "In Pipeline", rows.length, "Test records excluded", ""],
+    ["calendar", "Evaluations Booked", booked, "Past marketing, in sales", booked ? "up" : ""],
+    ["trophy", "Won", won.length, "Payment confirmed", won.length ? "up" : ""],
+    ["report", "Close Rate", `${closeRate}%`, `${won.length} won of ${decided} decided`, closeRate >= 50 ? "up" : "down"]
+  ]);
+
+  const columns = SALES_STAGES.map(([id, label, tone]) => {
+    const items = buckets.get(id) || [];
+    const cards = items.slice(0, 25).map(lead => `
+      <article class="sales-card" data-open-lead="${escapeHtml(lead.id)}">
+        <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
+        <small>${escapeHtml(lead.dog || "Dog pending")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}</small>
+        <small class="sales-card-trainer">${salesTrainerLine(lead)}</small>
+        ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
+      </article>`).join("");
+    const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more</p>` : "";
+    return `<section class="sales-column ${tone}">
+      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${items.length}</span></header>
+      <div class="sales-column-body">${cards || `<p class="sales-empty">Nothing here.</p>`}${more}</div>
+    </section>`;
+  }).join("");
+
+  const sourceRows = Object.entries(rows.reduce((acc, lead) => {
+    const key = lead.rawSource || lead.source || "Other";
+    acc[key] = acc[key] || { total: 0, won: 0, sample: lead };
+    acc[key].total += 1;
+    if (salesStageFor(lead) === "won") acc[key].won += 1;
+    return acc;
+  }, {})).sort((a, b) => b[1].total - a[1].total).map(([source, stat]) => {
+    const rate = stat.total ? Math.round((stat.won / stat.total) * 100) : 0;
+    return `<tr><td><div class="source-cell">${leadSourceBadge(stat.sample)}<strong>${escapeHtml(source)}</strong></div></td><td>${stat.total}</td><td>${stat.won}</td><td><span class="status ${rate ? "won" : "draft"}">${rate}%</span></td></tr>`;
+  }).join("");
+
+  const sourceTable = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Source</th><th>Leads</th><th>Won</th><th>Close Rate</th></tr></thead><tbody>${sourceRows || `<tr><td colspan="4">No leads yet.</td></tr>`}</tbody></table></div>`;
+
+  return `${testLeadNotice()}${metrics}
+    ${panel("Sales Pipeline", "", `<div class="sales-board">${columns}</div><p class="panel-copy sales-rule">Marketing owns a lead until the evaluation is booked and the trainer has made contact. After that it is sales. A lead is not assigned to anyone until the customer picks a trainer or the market's lead trainer hands it out. Win-back holds ${winback.length} lead${winback.length === 1 ? "" : "s"} that are still recoverable &mdash; nothing is archived before 90 days.</p>`, "pad")}
+    <br>${panel("Close Rate by Source", "", sourceTable, "pad")}${leadDetailPanel()}`;
+}
+
 function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const filterOptions = { useWorkspaceFilters: admin };
   const rows = filteredLeadRows(baseRows, filterOptions);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><div class="source-cell">${leadSourceBadge(lead)}<div><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></div></div></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
   return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}${admin && (state.leadStageFilter || "All") !== "All" ? ` <button class="btn btn-outline btn-small" type="button" data-clear-lead-stage>Clear "${escapeHtml(conversionStageLabel(state.leadStageFilter))}" filter</button>` : ""}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
 }
@@ -6753,7 +7002,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label><section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -10415,6 +10664,14 @@ document.addEventListener("click", async event => {
   if (clearLeadStage) {
     state.leadStageFilter = "All";
     saveState("Showing every lead again");
+    return;
+  }
+  const toggleTestLeads = event.target.closest("[data-toggle-test-leads]");
+  if (toggleTestLeads) {
+    state.showTestLeads = !state.showTestLeads;
+    saveState(state.showTestLeads
+      ? "Test records are visible. They are still excluded from every count."
+      : "Test records hidden again.");
     return;
   }
   const conversionStage = event.target.closest("[data-conversion-stage]");
