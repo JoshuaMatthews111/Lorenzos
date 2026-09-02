@@ -5493,3 +5493,9 @@ body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shar
 @media (max-width: 640px) {
   .deal-form .grid-2, .deal-form .grid-3 { grid-template-columns: 1fr; }
 }
+
+/* Source mark on each Leads-board card */
+.lead-card-who { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+.lead-card-who .source-badge { width: 20px; height: 20px; }
+.lead-card-who .source-badge svg { width: 12px; height: 12px; }
+.lead-card-who strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
