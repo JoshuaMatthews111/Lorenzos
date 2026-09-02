@@ -5440,3 +5440,56 @@ body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shar
   padding: 5px 8px;
 }
 .journey-ask { margin: 2px 0 0; font-size: 12.5px; color: #8a6a12; font-weight: 600; }
+
+/* Source legend (Leads + Sales boards) */
+.source-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 14px; }
+.source-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
+.source-legend-item .source-badge { width: 20px; height: 20px; }
+.source-legend-item .source-badge svg { width: 12px; height: 12px; }
+.sales-intro { margin: 0 0 12px; }
+
+/* Deal cards on the Sales board */
+.deal-card { border-left: 3px solid #2e7a4f; }
+.deal-money { font-variant-numeric: tabular-nums; color: #2e7a4f; font-weight: 600; opacity: 1; }
+
+/* Trainer: Submit Deal form */
+.deal-form { display: grid; gap: 14px; }
+.deal-form .grid-2 { display: grid; gap: 12px; grid-template-columns: 1fr 1fr; }
+.deal-form .grid-3 { display: grid; gap: 12px; grid-template-columns: 1fr 1fr 1fr; }
+.deal-form label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; color: #334155; }
+.deal-form input, .deal-form select, .deal-form textarea {
+  font: 14px system-ui; padding: 9px 11px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff;
+}
+.deal-form textarea { min-height: 70px; resize: vertical; }
+.deal-form .hint { font-size: 12px; color: #64748b; font-weight: 400; }
+.deal-balance {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; border-radius: 8px; background: #f1f5f9; border: 1px solid #e2e8f0;
+}
+.deal-balance strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.deal-balance.over { background: rgba(155,58,46,.08); border-color: rgba(155,58,46,.35); }
+.deal-balance.over strong { color: #9b3a2e; }
+.deal-schedule { display: grid; gap: 6px; }
+.deal-schedule-row {
+  display: grid; grid-template-columns: 28px 1fr auto; gap: 10px; align-items: center;
+  padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13.5px; background: #fff;
+}
+.deal-schedule-row .seq { font: 600 11px ui-monospace, monospace; color: #64748b; }
+.deal-schedule-row .amt { font-variant-numeric: tabular-nums; font-weight: 600; }
+.deal-schedule-row.collected { border-color: rgba(46,122,79,.4); background: rgba(46,122,79,.05); }
+.deal-schedule-row.paid { border-color: rgba(46,122,79,.4); }
+.deal-schedule-row.late { border-color: rgba(155,58,46,.45); background: rgba(155,58,46,.05); }
+.custom-dates { display: grid; gap: 8px; }
+.custom-dates .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.deal-error { color: #9b3a2e; font-size: 13px; font-weight: 600; }
+.deal-ok { color: #2e7a4f; font-size: 13px; font-weight: 600; }
+
+/* Client record: payments */
+.client-payments { display: grid; gap: 10px; }
+.client-payments .deal-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.client-payments .deal-head strong { font-size: 14px; }
+.client-payments .deal-head small { color: #64748b; }
+
+@media (max-width: 640px) {
+  .deal-form .grid-2, .deal-form .grid-3 { grid-template-columns: 1fr; }
+}

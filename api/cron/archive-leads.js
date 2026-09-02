@@ -23,7 +23,6 @@ const ARCHIVE_AFTER_DAYS = Math.max(1, Number(process.env.ARCHIVE_AFTER_DAYS || 
 const PROTECTED_STATUSES = [
   "archived",
   "became_client",
-  "first_session_payment",
   "do_not_contact"
 ];
 

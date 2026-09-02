@@ -207,7 +207,9 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     lifecycleEvents,
     leadsSheet,
     applicationsSheet,
-    clientsSheet
+    clientsSheet,
+    deals,
+    dealPayments
   ] = await Promise.all([
     supabaseFetchAll("/rest/v1/trainers?select=*&order=full_name.asc"),
     supabaseFetchAll("/rest/v1/trainer_pages?select=*&order=updated_at.desc"),
@@ -232,7 +234,9 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     optionalSupabaseFetchAll("/rest/v1/lifecycle_events?select=*&order=occurred_at.desc", "lifecycle_events", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_leads_sheet?select=*&order=received_at.desc", "office_leads_sheet", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/office_clients_sheet?select=*&order=created_at.desc", "office_clients_sheet", unavailableCapabilities)
+    optionalSupabaseFetchAll("/rest/v1/office_clients_sheet?select=*&order=created_at.desc", "office_clients_sheet", unavailableCapabilities),
+    optionalSupabaseFetchAll("/rest/v1/deals?select=*&order=sold_on.desc,created_at.desc", "deals", unavailableCapabilities),
+    optionalSupabaseFetchAll("/rest/v1/deal_payments?select=*&order=due_on.asc,sequence.asc", "deal_payments", unavailableCapabilities)
   ]);
   const clientsTotal = await countRows("clients").catch(() => clients.length);
   return {
@@ -256,7 +260,9 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     lifecycleEvents,
     leadsSheet,
     applicationsSheet,
-    clientsSheet
+    clientsSheet,
+    deals,
+    dealPayments
   };
 }
 
@@ -277,6 +283,8 @@ async function loadTrainerOperationalData(portalUser, unavailableCapabilities) {
     fetchByIn("/rest/v1/lead_events?select=*&order=created_at.desc", "lead_id", leadIds, "lead_events", unavailableCapabilities),
     fetchByIn("/rest/v1/office_notes?select=*&order=created_at.desc", "entity_id", noteEntityIds, "office_notes", unavailableCapabilities)
   ]);
+  const deals = await optionalSupabaseFetchAll(`/rest/v1/deals?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=sold_on.desc,created_at.desc`, "deals", unavailableCapabilities);
+  const dealPayments = await fetchByIn("/rest/v1/deal_payments?select=*&order=due_on.asc,sequence.asc", "deal_id", deals.map(row => row.id), "deal_payments", unavailableCapabilities);
   const noteRevisions = await fetchByIn(
     "/rest/v1/office_note_revisions?select=*&order=created_at.desc",
     "office_note_id",
@@ -310,7 +318,9 @@ async function loadTrainerOperationalData(portalUser, unavailableCapabilities) {
     lifecycleEvents: [],
     leadsSheet: [],
     applicationsSheet: [],
-    clientsSheet: []
+    clientsSheet: [],
+    deals,
+    dealPayments
   };
 }
 

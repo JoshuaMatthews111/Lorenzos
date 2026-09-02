@@ -285,6 +285,9 @@ const defaultState = {
   communicationsSection: "alerts",
   communicationsFilters: { status: "All", market: "All", owner: "All" },
   showTestLeads: false,
+  deals: [],
+  dealPayments: [],
+  dealForm: {},
   templateDraft: null,
   designPreviewOpen: false,
   campaignAudience: null,
@@ -743,7 +746,6 @@ const leadStatusToDb = {
   "Archived": "archived"
 };
 const leadStatusFromDb = Object.fromEntries(Object.entries(leadStatusToDb).map(([label, value]) => [value, label]));
-leadStatusFromDb.first_session_payment = "Became a Client";
 leadStatusFromDb.follow_up_call_needed = "Office Contacted";
 const applicationStatusToDb = {
   "New Application": "new_application",
@@ -1000,6 +1002,9 @@ function remoteLeadToUi(row) {
     rawSource: row.lead_source || "",
     utmSource: String(raw.utm_source || "").trim().toLowerCase(),
     originLabel: leadOriginLabel(row, raw),
+    // Only leads the bot handled belong on the Sales board. Everything else
+    // stays exactly where it is on the Leads tab; its numbers do not move.
+    inSalesPipeline: raw.sales_pipeline === true,
     first_name: row.first_name || raw.first_name || "",
     last_name: row.last_name || raw.last_name || "",
     owner: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Website Contact",
@@ -1228,6 +1233,8 @@ function mergeRemoteOperationalData(data) {
     };
   });
   state.clients = (data.clients || []).map(client => remoteClientToUi(client, data.dogs || []));
+  state.deals = data.deals || [];
+  state.dealPayments = data.dealPayments || [];
   remoteEvents = data.events || [];
   remotePortalUsers = data.portalUsers || [];
   remoteOfficeNotes = data.officeNotes || [];
@@ -3887,6 +3894,7 @@ function trainerNav() {
   return [
     ["dashboard", "Dashboard", "dashboard"],
     ["leads", "My Leads", "lead", filteredLeadRows(trainerLeads(), { useWorkspaceFilters: false }).filter(l => !["Archived", "Became a Client"].includes(l.status)).length],
+    ["deals", "My Deals", "trophy", (state.dealPayments || []).filter(p => p.status === "scheduled" && p.due_on <= new Date().toISOString().slice(0, 10)).length],
     ["myPage", "My Trainer Page", "monitor"],
     ["performance", "Performance", "report"],
     ["submitMedia", "Submit Photos/Videos", "media", trainerMediaSubmissions().filter(s => s.status === "Pending").length],
@@ -3957,6 +3965,7 @@ function renderTopbar() {
   } : {
     dashboard: ["Dashboard", "Assigned leads, office notes, locked page access, and pending submissions."],
     leads: ["My Leads", "See office notes and outcomes for leads assigned to you."],
+    deals: ["My Deals", "Record what you sold and how the balance is arranged. Your money, your balances, in one place."],
     myPage: ["My Trainer Page", "This page is controlled, published, and locked by Lorenzo's office."],
     performance: ["Performance", "Basic lead and conversion numbers from office-managed tracking."],
     submitMedia: ["Submit Photos/Videos", "Send training photos and videos to the office for approval."],
@@ -4146,7 +4155,7 @@ function leadAssignmentLine(lead) {
 
 function communicationsLeadIsActive(lead) {
   return !new Set([
-    "archived", "do_not_contact", "bad_lead", "became_client", "first_session_payment",
+    "archived", "do_not_contact", "bad_lead", "became_client",
     "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
     "lost_client_complaint", "lost_no_trainer_area"
   ]).has(lead.dbStatus || "");
@@ -5336,7 +5345,7 @@ const adminScreens = {
       : `${trainerAdminForm()}<br>${panel("Existing Trainer Profiles", `<button class="btn btn-red" id="addTrainer">+ Add New Trainer</button>`, trainerSelectList(), "pad")}`;
   },
   leads() {
-    return `${leadSourceRecordNotice()}${testLeadNotice()}${panel("Office Lead Pipeline", leadPanelActions(), leadPipelineTable(true), "pad")}`;
+    return `${leadSourceRecordNotice()}${testLeadNotice()}${panel("Office Lead Pipeline", leadPanelActions(), `${sourceLegend()}${leadPipelineTable(true)}`, "pad")}`;
   },
   sales() {
     return salesPipelineView();
@@ -5421,6 +5430,9 @@ const trainerScreens = {
         ${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}
         ${panel("Submit Content For Approval", `<button class="btn btn-red" data-view="submitMedia">Submit Media</button><button class="btn btn-outline" data-view="submitReviews">Submit Reviews</button>`, `<p class="panel-copy">Photos, videos, reviews, screenshots, and testimonials go to Lorenzo's office before anything appears publicly.</p>`, "pad")}
       </div>`;
+  },
+  deals() {
+    return trainerDealsView();
   },
   myPage() {
     const trainer = trainerById(currentTrainerId());
@@ -6793,12 +6805,41 @@ function leadSourceBadge(lead) {
 // the trainer has made contact; after that it is sales. Test records
 // (raw_payload.qa === true) never appear in these numbers.
 // ---------------------------------------------------------------------------
+// Legend for the network marks. Shown on the Leads and Sales boards.
+function sourceLegend() {
+  const keys = ["facebook", "instagram", "google", "paid", "site", "trainer", "vet", "referral", "word", "test"];
+  return `<div class="source-legend" role="list">${keys.map(key => {
+    const mark = SOURCE_MARKS[key];
+    return `<span class="source-legend-item" role="listitem"><span class="source-badge ${mark.tone}" aria-hidden="true">${mark.svg}</span>${escapeHtml(mark.label)}</span>`;
+  }).join("")}</div>`;
+}
+
+// The Sales board only holds leads the bot carried, plus every trainer deal.
+// It starts empty on purpose: the Leads tab and its counts are untouched.
+function salesPipelineRows() {
+  return allLeadRows().filter(lead => lead.inSalesPipeline === true);
+}
+
+function dealsForLead(lead) {
+  const deals = state.deals || [];
+  return deals.filter(d => (lead?.remoteId && d.lead_id === lead.remoteId) || (lead?.clientId && d.client_id === lead.clientId));
+}
+
+function paymentsForDeal(dealId) {
+  return (state.dealPayments || []).filter(p => p.deal_id === dealId).sort((a, b) => (a.sequence ?? 0) - (b.sequence ?? 0));
+}
+
+function fmtMoney(n) {
+  const v = Number(n || 0);
+  return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 const SALES_STAGES = [
   ["captured",  "Captured & Responded",   "marketing", ["new_inquiry", "office_contacted", "engaged_no_outcome"]],
   ["booked",    "Booked",                 "marketing", ["evaluation_scheduled"]],
   ["confirmed", "Confirmed",              "marketing", ["site_visit"]],
   ["evaluated", "In the Trainer's Hands", "sales",     ["evaluation_complete"]],
-  ["won",       "Won",                    "won",       ["first_session_payment", "became_client"]],
+  ["won",       "Won",                    "won",       ["became_client"]],
   ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead"]],
   ["winback",   "Win-back",               "winback",   ["lost_no_response", "follow_up_call_needed", "evaluation_cancelled", "lost_no_trainer_area"]]
 ];
@@ -6874,6 +6915,166 @@ function salesStageFor(lead) {
 // A lead belongs to nobody until the customer picks a trainer in the booking
 // flow, or the market's lead trainer takes it and passes it on. Until then the
 // card says that plainly instead of claiming the lead is "Unassigned".
+// ---------------------------------------------------------------------------
+// Trainer: Submit Deal (Tim + Angela, 2026-09-02).
+// Sold, collected, balance derived. Balance is arranged weekly / bi-weekly /
+// monthly / custom dates and previewed before submit. Collected can never be
+// more than sold - the form refuses, and so does the database.
+// ---------------------------------------------------------------------------
+function dealForm() {
+  const f = state.dealForm || {};
+  return {
+    lead_id: f.lead_id || "", client_name: f.client_name || "", dog_name: f.dog_name || "",
+    program: f.program || "", sold_amount: f.sold_amount ?? "", collected_amount: f.collected_amount ?? "",
+    plan_type: f.plan_type || "paid_in_full", installments: f.installments || 4,
+    sold_on: f.sold_on || new Date().toISOString().slice(0, 10),
+    custom_dates: Array.isArray(f.custom_dates) && f.custom_dates.length ? f.custom_dates : [""],
+    notes: f.notes || "", error: f.error || "", ok: f.ok || "", busy: !!f.busy
+  };
+}
+
+function moneyNum(v) { const n = Number(String(v ?? "").replace(/[^0-9.\-]/g, "")); return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0; }
+function addDaysIso(iso, d) { const x = new Date(`${iso}T00:00:00Z`); x.setUTCDate(x.getUTCDate() + d); return x.toISOString().slice(0, 10); }
+function addMonthsIso(iso, m) { const x = new Date(`${iso}T00:00:00Z`); const day = x.getUTCDate(); x.setUTCDate(1); x.setUTCMonth(x.getUTCMonth() + m); const last = new Date(Date.UTC(x.getUTCFullYear(), x.getUTCMonth() + 1, 0)).getUTCDate(); x.setUTCDate(Math.min(day, last)); return x.toISOString().slice(0, 10); }
+
+// Mirrors api/submit-deal.js exactly so the preview is what gets saved.
+function previewSchedule(f) {
+  const sold = moneyNum(f.sold_amount), collected = moneyNum(f.collected_amount);
+  const balance = Math.round((sold - collected) * 100) / 100;
+  if (balance <= 0) return [];
+  let dates = [];
+  if (f.plan_type === "custom") dates = f.custom_dates.filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  else if (f.plan_type !== "paid_in_full") {
+    const n = Math.max(1, Math.min(60, Number(f.installments) || 1));
+    const step = f.plan_type === "weekly" ? d => addDaysIso(d, 7) : f.plan_type === "biweekly" ? d => addDaysIso(d, 14) : d => addMonthsIso(d, 1);
+    let c = f.sold_on; for (let i = 0; i < n; i += 1) { c = step(c); dates.push(c); }
+  }
+  if (!dates.length) return [];
+  const cents = Math.round(balance * 100), n = dates.length, base = Math.floor(cents / n), rem = cents - base * n;
+  return dates.map((due_on, i) => ({ due_on, amount: (base + (i === n - 1 ? rem : 0)) / 100 }));
+}
+
+function dealFormMarkup() {
+  const f = dealForm();
+  const sold = moneyNum(f.sold_amount), collected = moneyNum(f.collected_amount);
+  const balance = Math.round((sold - collected) * 100) / 100;
+  const over = collected > sold && sold > 0;
+  const schedule = previewSchedule(f);
+  const myLeads = trainerLeads(currentTrainerId()).filter(l => !["Archived", "Became a Client"].includes(l.status));
+  const leadOptions = `<option value="">Not from a lead in my list</option>` + myLeads.map(l => `<option value="${escapeHtml(l.remoteId || l.id)}" ${f.lead_id === (l.remoteId || l.id) ? "selected" : ""}>${escapeHtml(l.owner)}${l.dog && l.dog !== "Pending" ? ` (${escapeHtml(l.dog)})` : ""}</option>`).join("");
+  return `<form class="deal-form" data-deal-form>
+    <div class="grid-2">
+      <label>Lead this deal closes <span class="hint">optional &mdash; marks them Became a Client</span><select data-deal-field="lead_id">${leadOptions}</select></label>
+      <label>Date of sale<input type="date" data-deal-field="sold_on" value="${escapeHtml(f.sold_on)}" required></label>
+    </div>
+    <div class="grid-3">
+      <label>Client name<input type="text" data-deal-field="client_name" value="${escapeHtml(f.client_name)}" required placeholder="Kathy Robinson"></label>
+      <label>Dog name <span class="hint">optional</span><input type="text" data-deal-field="dog_name" value="${escapeHtml(f.dog_name)}"></label>
+      <label>Program<input type="text" data-deal-field="program" value="${escapeHtml(f.program)}" required placeholder="Basic Obedience"></label>
+    </div>
+    <div class="grid-2">
+      <label>Sold for<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="sold_amount" value="${escapeHtml(String(f.sold_amount))}" required placeholder="2500.00"></label>
+      <label>Collected today<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="collected_amount" value="${escapeHtml(String(f.collected_amount))}" placeholder="1250.00"></label>
+    </div>
+    <div data-deal-derived>${dealFormDerived(f)}</div>
+    <label>Notes for the office <span class="hint">optional</span><textarea data-deal-field="notes">${escapeHtml(f.notes)}</textarea></label>
+    ${f.error ? `<p class="deal-error">${escapeHtml(f.error)}</p>` : ""}${f.ok ? `<p class="deal-ok">${escapeHtml(f.ok)}</p>` : ""}
+    <div class="row-actions"><button class="btn btn-red" type="submit" data-deal-submit ${f.busy || over ? "disabled" : ""}>${f.busy ? "Saving\u2026" : "Submit deal"}</button></div>
+  </form>`;
+}
+
+// Everything on the form that is computed from the amounts. Re-rendered on its
+// own while the trainer types, so the inputs keep their caret.
+function dealFormDerived(f) {
+  const sold = moneyNum(f.sold_amount), collected = moneyNum(f.collected_amount);
+  const balance = Math.round((sold - collected) * 100) / 100;
+  const over = collected > sold && sold > 0;
+  const schedule = previewSchedule(f);
+  const planSel = ["paid_in_full:Paid in full today", "weekly:Weekly", "biweekly:Every two weeks", "monthly:Monthly", "custom:Custom dates"]
+    .map(x => { const [v, l] = x.split(":"); return `<option value="${v}" ${f.plan_type === v ? "selected" : ""}>${l}</option>`; }).join("");
+  const customRows = f.plan_type !== "custom" ? "" : `<div class="custom-dates"><span class="hint">One line per payment. The balance splits evenly across them.</span>${f.custom_dates.map((d, i) => `<div class="row"><input type="date" data-deal-custom="${i}" value="${escapeHtml(d)}"><button type="button" class="btn btn-outline btn-small" data-deal-custom-remove="${i}" ${f.custom_dates.length === 1 ? "disabled" : ""}>Remove</button></div>`).join("")}<button type="button" class="btn btn-outline btn-small" data-deal-custom-add>+ Add a date</button></div>`;
+  const installments = ["weekly", "biweekly", "monthly"].includes(f.plan_type) ? `<label>How many payments<input type="number" min="1" max="60" data-deal-field="installments" value="${escapeHtml(String(f.installments))}"></label>` : "";
+  const preview = !schedule.length ? (balance > 0 && f.plan_type === "paid_in_full" ? `<p class="deal-error">There is a ${fmtMoney(balance)} balance. Choose how it will be paid.</p>` : "") : `<div class="deal-schedule">${collected > 0 ? `<div class="deal-schedule-row collected"><span class="seq">0</span><span>Collected today &middot; ${escapeHtml(f.sold_on)}</span><span class="amt">${fmtMoney(collected)}</span></div>` : ""}${schedule.map((p, i) => `<div class="deal-schedule-row"><span class="seq">${i + 1}</span><span>Due ${escapeHtml(p.due_on)}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`).join("")}</div>`;
+  return `<div class="deal-balance ${over ? "over" : ""}"><span>${over ? "Collected cannot be more than the sale" : "Balance due"}</span><strong>${fmtMoney(Math.max(0, balance))}</strong></div>
+    <div class="grid-2">
+      <label>How will the balance be paid?<select data-deal-field="plan_type" ${balance <= 0 ? "disabled" : ""}>${planSel}</select></label>
+      ${installments}
+    </div>
+    ${customRows}
+    ${preview}`;
+}
+
+// Patch only the computed block + submit button; leave the inputs alone.
+function refreshDealDerived() {
+  const f = dealForm();
+  const box = document.querySelector("[data-deal-derived]");
+  if (box) box.innerHTML = dealFormDerived(f);
+  const btn = document.querySelector("[data-deal-submit]");
+  if (btn) { const over = moneyNum(f.collected_amount) > moneyNum(f.sold_amount) && moneyNum(f.sold_amount) > 0; btn.disabled = !!(f.busy || over); }
+}
+
+function trainerDealsView() {
+  const trainer = trainerById(currentTrainerId());
+  const deals = (state.deals || []).filter(d => d.trainer_id === trainer?.remoteId && d.status !== "cancelled");
+  const today = new Date().toISOString().slice(0, 10);
+  const pays = (state.dealPayments || []).filter(p => deals.some(d => d.id === p.deal_id));
+  const sold = deals.reduce((a, d) => a + Number(d.sold_amount || 0), 0);
+  const collected = deals.reduce((a, d) => a + Number(d.collected_amount || 0), 0);
+  const dueNow = pays.filter(p => p.status === "scheduled" && p.due_on <= today);
+  const upcoming = pays.filter(p => p.status === "scheduled" && p.due_on > today).sort((a, b) => a.due_on.localeCompare(b.due_on));
+  const rows = deals.map(d => {
+    const dp = paymentsForDeal(d.id); const next = dp.find(p => p.status === "scheduled");
+    return `<tr><td>${escapeHtml(d.sold_on)}</td><td><strong>${escapeHtml(d.client_name)}</strong>${d.dog_name ? `<small>${escapeHtml(d.dog_name)}</small>` : ""}</td><td>${escapeHtml(d.program)}</td><td class="amt">${fmtMoney(d.sold_amount)}</td><td class="amt">${fmtMoney(d.collected_amount)}</td><td class="amt">${fmtMoney(d.balance_due)}</td><td>${next ? `${escapeHtml(next.due_on)} &middot; ${fmtMoney(next.amount)}` : (Number(d.balance_due) > 0 ? "&mdash;" : `<span class="status won">Paid</span>`)}</td></tr>`;
+  }).join("");
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Client</th><th>Program</th><th>Sold</th><th>Collected</th><th>Balance</th><th>Next payment</th></tr></thead><tbody>${rows || `<tr><td colspan="7">No deals yet. Your first one goes in above.</td></tr>`}</tbody></table></div>`;
+  const reminders = dueNow.length ? `<section class="source-record-note"><span class="status draft">${dueNow.length} balance payment${dueNow.length === 1 ? "" : "s"} due now</span><p>${dueNow.slice(0, 5).map(p => { const d = deals.find(x => x.id === p.deal_id); return `${escapeHtml(d?.client_name || "Client")} &middot; ${fmtMoney(p.amount)} due ${escapeHtml(p.due_on)}`; }).join("<br>")}</p></section>` : "";
+  return `${metricGrid([
+    ["trophy", "Deals", deals.length, "Submitted by you", ""],
+    ["report", "Sold", fmtMoney(sold), "Total program value", ""],
+    ["lead", "Collected", fmtMoney(collected), `${sold ? Math.round((collected / sold) * 100) : 0}% of sold`, collected ? "up" : ""],
+    ["calendar", "Due Now", dueNow.length, upcoming[0] ? `Next: ${upcoming[0].due_on}` : "Nothing scheduled", dueNow.length ? "down" : ""]
+  ])}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Deals", "", table, "pad")}`;
+}
+
+// Client record: first payment + every scheduled payment.
+function clientPaymentsSection(client) {
+  const deals = (state.deals || []).filter(d => d.client_id === client.remoteId || (client.leadId && d.lead_id === client.leadId));
+  if (!deals.length) return `<section class="detail-note-block client-payments"><h3>Payments</h3><p class="panel-copy">No deal recorded yet. The trainer submits it from My Deals.</p></section>`;
+  const today = new Date().toISOString().slice(0, 10);
+  return `<section class="detail-note-block client-payments"><h3>Payments</h3>${deals.map(d => {
+    const dp = paymentsForDeal(d.id);
+    return `<div class="deal-head"><strong>${escapeHtml(d.program)} &middot; ${fmtMoney(d.sold_amount)}</strong><small>${escapeHtml(d.sold_on)} &middot; ${escapeHtml(trainerName(trainerIdFromRemote(d.trainer_id)) || "Trainer")}</small></div>
+    <div class="deal-schedule">${dp.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${p.sequence}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(p.due_on)}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>
+    <div class="deal-balance"><span>Balance due</span><strong>${fmtMoney(d.balance_due)}</strong></div>`;
+  }).join("")}</section>`;
+}
+
+async function submitDealFromForm() {
+  const f = dealForm();
+  state.dealForm = { ...f, busy: true, error: "", ok: "" }; render();
+  try {
+    const token = await window.LDTT_PORTAL?.accessToken?.();
+    if (!token) throw new Error("Sign in again to submit a deal.");
+    const response = await fetch("/api/submit-deal", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ lead_id: f.lead_id, client_name: f.client_name, dog_name: f.dog_name, program: f.program, sold_amount: f.sold_amount, collected_amount: f.collected_amount || 0, plan_type: f.plan_type, installments: f.installments, sold_on: f.sold_on, custom_dates: f.custom_dates, notes: f.notes })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) throw new Error(result.message || `The deal could not be saved (${response.status}).`);
+    state.dealForm = { ok: `Saved. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
+    showToast("Deal submitted");
+    await reloadRemoteData();
+  } catch (error) {
+    state.dealForm = { ...f, busy: false, error: error.message || String(error) };
+  }
+  render();
+}
+
+function trainerIdFromRemote(remoteId) {
+  const t = (state.trainers || []).find(item => item.remoteId === remoteId);
+  return t ? t.id : "";
+}
+
 function salesTrainerLine(lead) {
   const id = String(lead?.trainerId || "").trim();
   if (id && id !== "unassigned") {
@@ -6895,27 +7096,41 @@ function testLeadNotice() {
 }
 
 function salesPipelineView() {
-  const rows = allLeadRows();
+  const rows = salesPipelineRows();
+  const deals = (state.deals || []).filter(d => d.status !== "cancelled");
   const buckets = new Map(SALES_STAGES.map(([id]) => [id, []]));
   rows.forEach(lead => buckets.get(salesStageFor(lead))?.push(lead));
 
-  const won = buckets.get("won") || [];
+  const wonLeads = buckets.get("won") || [];
   const lost = buckets.get("lost") || [];
   const winback = buckets.get("winback") || [];
-  const decided = won.length + lost.length;
-  const closeRate = decided ? Math.round((won.length / decided) * 100) : 0;
+  const wonCount = wonLeads.length + deals.filter(d => !wonLeads.some(l => l.remoteId && l.remoteId === d.lead_id)).length;
+  const decided = wonCount + lost.length;
+  const closeRate = decided ? Math.round((wonCount / decided) * 100) : 0;
   const booked = (buckets.get("booked") || []).length + (buckets.get("confirmed") || []).length + (buckets.get("evaluated") || []).length;
+  const soldTotal = deals.reduce((sum, d) => sum + Number(d.sold_amount || 0), 0);
+  const collectedTotal = deals.reduce((sum, d) => sum + Number(d.collected_amount || 0), 0);
 
   const metrics = metricGrid([
-    ["lead", "In Pipeline", rows.length, "Test records excluded", ""],
+    ["lead", "In Pipeline", rows.length, "Bot-handled leads only", ""],
     ["calendar", "Evaluations Booked", booked, "Past marketing, in sales", booked ? "up" : ""],
-    ["trophy", "Won", won.length, "Payment confirmed", won.length ? "up" : ""],
-    ["report", "Close Rate", `${closeRate}%`, `${won.length} won of ${decided} decided`, closeRate >= 50 ? "up" : "down"]
+    ["trophy", "Won", wonCount, `${fmtMoney(collectedTotal)} collected of ${fmtMoney(soldTotal)}`, wonCount ? "up" : ""],
+    ["report", "Close Rate", `${closeRate}%`, `${wonCount} won of ${decided} decided`, closeRate >= 50 ? "up" : "down"]
   ]);
 
   const columns = SALES_STAGES.map(([id, label, tone]) => {
     const items = buckets.get(id) || [];
-    const cards = items.slice(0, 25).map(lead => `
+    const dealCards = id !== "won" ? "" : deals.filter(d => !items.some(l => l.remoteId && l.remoteId === d.lead_id)).slice(0, 25).map(d => {
+      const pays = paymentsForDeal(d.id);
+      const nextDue = pays.find(p => p.status === "scheduled");
+      return `<article class="sales-card deal-card" data-open-deal="${escapeHtml(d.id)}">
+        <header><span class="source-badge trainer" aria-hidden="true">${SOURCE_MARKS.trainer.svg}</span><strong>${escapeHtml(d.client_name)}</strong></header>
+        <small>${escapeHtml(d.program)}${d.dog_name ? ` &middot; ${escapeHtml(d.dog_name)}` : ""}</small>
+        <small class="sales-card-trainer">${escapeHtml(trainerName(trainerIdFromRemote(d.trainer_id)) || "Trainer")}</small>
+        <small class="deal-money">${fmtMoney(d.collected_amount)} of ${fmtMoney(d.sold_amount)}${Number(d.balance_due) > 0 ? ` &middot; ${fmtMoney(d.balance_due)} due${nextDue ? ` by ${escapeHtml(nextDue.due_on)}` : ""}` : " &middot; paid"}</small>
+      </article>`;
+    }).join("");
+    const cards = dealCards + items.slice(0, 25).map(lead => `
       <article class="sales-card" data-open-lead="${escapeHtml(lead.id)}">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
         <small>${escapeHtml(lead.dog || "Dog pending")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}</small>
@@ -6924,8 +7139,8 @@ function salesPipelineView() {
       </article>`).join("");
     const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more</p>` : "";
     return `<section class="sales-column ${tone}">
-      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${items.length}</span></header>
-      <div class="sales-column-body">${cards || `<p class="sales-empty">Nothing here.</p>`}${more}</div>
+      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${id === "won" ? wonCount : items.length}</span></header>
+      <div class="sales-column-body">${cards || `<p class="sales-empty">Empty &mdash; ready for testing.</p>`}${more}</div>
     </section>`;
   }).join("");
 
@@ -6942,8 +7157,11 @@ function salesPipelineView() {
 
   const sourceTable = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Source</th><th>Leads</th><th>Won</th><th>Close Rate</th></tr></thead><tbody>${sourceRows || `<tr><td colspan="4">No leads yet.</td></tr>`}</tbody></table></div>`;
 
+  const intro = rows.length || deals.length
+    ? ""
+    : `<p class="panel-copy sales-intro">This board fills as the bot carries paid-ad leads and as trainers submit deals from their portal. The Leads tab and its numbers are separate and untouched.</p>`;
   return `${testLeadNotice()}${metrics}
-    ${panel("Sales Pipeline", "", `<div class="sales-board">${columns}</div><p class="panel-copy sales-rule">Marketing owns a lead until the evaluation is booked and the trainer has made contact. After that it is sales. A lead is not assigned to anyone until the customer picks a trainer or the market's lead trainer hands it out. Win-back holds ${winback.length} lead${winback.length === 1 ? "" : "s"} that are still recoverable &mdash; nothing is archived before 90 days.</p>`, "pad")}
+    ${panel("Sales Pipeline", "", `${intro}${sourceLegend()}<div class="sales-board">${columns}</div><p class="panel-copy sales-rule">Marketing owns a lead until the evaluation is booked and the trainer has made contact. After that it is sales. A lead is not assigned to anyone until the customer picks a trainer or the market's lead trainer hands it out. Win-back holds ${winback.length} lead${winback.length === 1 ? "" : "s"} that are still recoverable &mdash; nothing is archived before 90 days.</p>`, "pad")}
     <br>${panel("Close Rate by Source", "", sourceTable, "pad")}${leadDetailPanel()}`;
 }
 
@@ -7002,7 +7220,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -8766,7 +8984,7 @@ function consentSelect(clientId, type, current) {
 function clientDetailPanel() {
   const client = state.clients.find(item => item.id === state.selectedClientId);
   if (!client) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-client aria-label="Close">×</button><span class="portal-tag">Client Record</span><h2>${escapeHtml(client.name)}</h2><p>${escapeHtml(client.dog || "Dog pending")} · ${escapeHtml(client.breed || "Breed pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(client.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(client.email || "—")}</strong></div><div><span>Trainer</span><strong>${escapeHtml(trainerName(client.trainerId))}</strong></div><div><span>Imported Source</span><strong>${escapeHtml(client.importedSource || "Manual")}</strong></div></div><label>Status${clientStatusSelect(client)}</label><label>Date started<input class="select-pill" type="date" data-client-date-started="${escapeHtml(client.id)}" value="${escapeHtml(client.dateStarted || "")}"></label><label>Last contacted<input class="select-pill" type="date" data-client-last-contacted="${escapeHtml(client.id)}" value="${escapeHtml(client.lastContacted || "")}"></label><label>SMS consent${consentSelect(client.id, "sms", client.smsConsent || "Unknown")}</label><label>Email consent${consentSelect(client.id, "email", client.emailConsent || "Unknown")}</label><label>Client record summary<textarea data-client-note="${escapeHtml(client.id)}">${escapeHtml(client.notes || "")}</textarea></label><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("client", client.remoteId)}<textarea data-new-office-note="${escapeHtml(client.remoteId || "")}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="client" data-entity-id="${escapeHtml(client.remoteId || "")}">Add Office Note</button></section><div class="row-actions"><button class="btn btn-red" type="button" data-save-client="${escapeHtml(client.id)}">Save Client Record</button><button class="btn btn-outline" type="button" data-archive-client="${escapeHtml(client.id)}">Archive Client</button>${permanentDeleteButton("client", client)}</div></aside><div class="lead-detail-scrim" data-close-client></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-client aria-label="Close">×</button><span class="portal-tag">Client Record</span><h2>${escapeHtml(client.name)}</h2><p>${escapeHtml(client.dog || "Dog pending")} · ${escapeHtml(client.breed || "Breed pending")}</p>${clientPaymentsSection(client)}<div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(client.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(client.email || "—")}</strong></div><div><span>Trainer</span><strong>${escapeHtml(trainerName(client.trainerId))}</strong></div><div><span>Imported Source</span><strong>${escapeHtml(client.importedSource || "Manual")}</strong></div></div><label>Status${clientStatusSelect(client)}</label><label>Date started<input class="select-pill" type="date" data-client-date-started="${escapeHtml(client.id)}" value="${escapeHtml(client.dateStarted || "")}"></label><label>Last contacted<input class="select-pill" type="date" data-client-last-contacted="${escapeHtml(client.id)}" value="${escapeHtml(client.lastContacted || "")}"></label><label>SMS consent${consentSelect(client.id, "sms", client.smsConsent || "Unknown")}</label><label>Email consent${consentSelect(client.id, "email", client.emailConsent || "Unknown")}</label><label>Client record summary<textarea data-client-note="${escapeHtml(client.id)}">${escapeHtml(client.notes || "")}</textarea></label><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("client", client.remoteId)}<textarea data-new-office-note="${escapeHtml(client.remoteId || "")}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="client" data-entity-id="${escapeHtml(client.remoteId || "")}">Add Office Note</button></section><div class="row-actions"><button class="btn btn-red" type="button" data-save-client="${escapeHtml(client.id)}">Save Client Record</button><button class="btn btn-outline" type="button" data-archive-client="${escapeHtml(client.id)}">Archive Client</button>${permanentDeleteButton("client", client)}</div></aside><div class="lead-detail-scrim" data-close-client></div>`;
 }
 
 function importInput() {
@@ -10307,6 +10525,10 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
+  if (dealCustomAdd) { const f = dealForm(); state.dealForm = { ...f, custom_dates: [...f.custom_dates, ""] }; render(); return; }
+  const dealCustomRemove = event.target.closest("[data-deal-custom-remove]");
+  if (dealCustomRemove) { const f = dealForm(); const i = Number(dealCustomRemove.dataset.dealCustomRemove); state.dealForm = { ...f, custom_dates: f.custom_dates.filter((_, k) => k !== i) }; render(); return; }
   const openLead = event.target.closest("[data-open-lead]");
   // The guard below stops a ROW click from firing when someone uses a control inside that
   // row (status dropdown, archive button). But the dashboard's "Open / Add Note" IS a button
@@ -12870,3 +13092,34 @@ async function applyEnvironmentBadge() {
 document.addEventListener("DOMContentLoaded", () => enhancePasswordFields(document));
 enhancePasswordFields(document);
 applyEnvironmentBadge().finally(() => bootstrapApplication());
+
+// ---- Submit Deal form: live field edits + submit ----
+document.addEventListener("input", event => {
+  const field = event.target.closest("[data-deal-field]");
+  if (field) {
+    const key = field.dataset.dealField; const f = dealForm();
+    const value = field.type === "number" ? field.value : field.value;
+    state.dealForm = { ...f, [key]: value, error: "", ok: "" };
+    // Amount/plan changes redraw ONLY the balance + preview block. The inputs are
+    // never re-rendered while typing, so the caret stays where the trainer left it.
+    if (["sold_amount", "collected_amount", "plan_type", "installments", "sold_on"].includes(key)) refreshDealDerived();
+    return;
+  }
+  const custom = event.target.closest("[data-deal-custom]");
+  if (custom) {
+    const i = Number(custom.dataset.dealCustom); const f = dealForm();
+    const dates = [...f.custom_dates]; dates[i] = custom.value;
+    state.dealForm = { ...f, custom_dates: dates, error: "", ok: "" };
+    return;
+  }
+});
+document.addEventListener("change", event => {
+  const custom = event.target.closest("[data-deal-custom]");
+  if (custom) render();
+});
+document.addEventListener("submit", event => {
+  const form = event.target.closest("[data-deal-form]");
+  if (!form) return;
+  event.preventDefault();
+  submitDealFromForm();
+});

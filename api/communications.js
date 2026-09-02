@@ -526,7 +526,7 @@ async function leadAction(access, body) {
   const lead = rows?.[0];
   if (!lead) throw Object.assign(new Error("This lead is no longer available."), { status: 404 });
   const closedStatuses = new Set([
-    "archived", "do_not_contact", "bad_lead", "became_client", "first_session_payment",
+    "archived", "do_not_contact", "bad_lead", "became_client",
     "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
     "lost_client_complaint", "lost_no_trainer_area"
   ]);
