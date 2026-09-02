@@ -1839,7 +1839,11 @@ async function saveEditableOfficeNote(entityType, entityId, noteId, note) {
     note_id: existing.id,
     note: String(note).trim()
   });
-  await reloadRemoteData();
+  if (result?.record) {
+    remoteOfficeNotes = remoteOfficeNotes.map(item => String(item.id) === String(existing.id)
+      ? { ...item, note: result.record.note ?? String(note).trim(), updated_at: result.record.updated_at || new Date().toISOString() }
+      : item);
+  }
   return result.record || null;
 }
 
@@ -1862,7 +1866,13 @@ async function addOfficeNote(entityType, entityId, note) {
     entity_id: entityId,
     note: note.trim()
   });
-  await reloadRemoteData();
+  // The server hands back the saved note with everything the timeline needs
+  // (entity_type, entity_id, created_by, timestamps). Paint it now; the
+  // 30-second background refresh reconciles anything else. Reloading the whole
+  // dashboard here was what made "Save note" feel slow.
+  if (result?.record && !remoteOfficeNotes.some(item => String(item.id) === String(result.record.id))) {
+    remoteOfficeNotes = [result.record, ...remoteOfficeNotes];
+  }
   return result.record || null;
 }
 
@@ -10400,7 +10410,8 @@ document.addEventListener("click", async event => {
     if (!note) { showToast("A note cannot be empty."); return; }
     runRemoteMutation("Office note edit saved with history", () => saveEditableOfficeNote(saveNoteEdit.dataset.entityType, saveNoteEdit.dataset.entityId, noteId, note), {
       type: "Office Note",
-      detail: `${currentActorLabel()} edited an office note; the prior version was preserved.`
+      detail: `${currentActorLabel()} edited an office note; the prior version was preserved.`,
+      reload: false
     });
     return;
   }
@@ -10424,7 +10435,7 @@ document.addEventListener("click", async event => {
       entity_type: deleteNote.dataset.entityType,
       entity_id: deleteNote.dataset.entityId,
       summary: `${currentActorLabel()} deleted their own note`
-    }), { type: "Office Note", detail: `${currentActorLabel()} deleted a note they wrote.` });
+    }), { type: "Office Note", detail: `${currentActorLabel()} deleted a note they wrote.`, reload: false });
     if (!removed) {
       // The server refused. Put it back rather than leaving a lie on screen.
       remoteOfficeNotes = snapshot;
