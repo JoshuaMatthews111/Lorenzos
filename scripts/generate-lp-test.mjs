@@ -9,19 +9,86 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const SOURCE = "dog-training-cleveland-oh.html";
-const SLUG = "lp-test-cleveland-oh";
+/* One entry per market we want to test this layout in. Everything that is
+   market-specific lives here; the layout below never changes. */
+const MARKETS = {
+  pensacola: {
+    source: "dog-training-pensacola-fl.html",
+    slug: "lp-test-pensacola-fl",
+    title: "Pensacola Dog Training | Free Evaluation | Lorenzo's Dog Training Team",
+    description: "Barking, leash pulling, or aggression? Book a free Pensacola dog training evaluation. Three local trainers, published pricing, and a 90-day guarantee.",
+    heroBg: "assets/get-started-premium-hero.jpg",
+    h1: "Expert Dog Training in Pensacola &amp; Northwest Florida",
+    pain: "Feeling overwhelmed by barking, leash pulling, aggression, or a dog who simply will not listen?",
+    gain: "Take back your walks, your front door, and your living room &mdash; with three Lorenzo's trainers living right here in Pensacola, Navarre, and Crestview.",
+    trust: ["&#9733; 600+ Google reviews", "3 trainers living here", "90-day guarantee", "Free evaluation"],
+    challengesTitle: "Common challenges Pensacola dog owners bring us",
+    challenges: [
+      ["Aggression and reactivity", "Lunging, growling, or biting turns every walk and every visitor into a risk you have to manage."],
+      ["Leash pulling", "Escambia County keeps dogs leashed under 8 feet at the dog beach &mdash; in the water too. A dog who drags you makes that miserable."],
+      ["Barking and jumping", "The door, the mail, the neighbour. Noise you apologise for and guests you brace for."],
+      ["Unsettled after a move", "A PCS move or new base housing throws a dog off: anxiety, barking, and backsliding on things they already knew."],
+      ["No recall", "A dog who will not come when called is a safety problem the moment a door is left open."]
+    ],
+    whyTitle: "Why Pensacola families choose Lorenzo&rsquo;s",
+    why: [
+      ["Three trainers who live here", "Clark Patton in Pensacola, Michael King in Navarre, Daniel Bainbridge in Crestview. Your evaluation is with someone who works this area, not a call centre."],
+      ["We publish our prices", "Most trainers in this market make you call for a quote. Ours are on this page, above."],
+      ["A written 90-day guarantee", "We put the promise in writing. The other trainers here do not."],
+      ["Owner coaching built in", "The dog learns and so do you. Handoff lessons are part of every program, because results have to survive after we leave."],
+      ["Board &amp; train", "Your dog trains daily with a professional and comes home with real skills &mdash; owner handoff included."]
+    ]
+  },
+  cleveland: {
+    source: "dog-training-cleveland-oh.html",
+    slug: "lp-test-cleveland-oh",
+    title: "Cleveland Dog Training | Free Evaluation | Lorenzo's Dog Training Team",
+    description: "Aggression, leash pulling, or a new puppy? Book a free Cleveland dog training evaluation with Lorenzo's Dog Training Team. Published pricing and a 90-day guarantee.",
+    heroBg: "assets/facility-exterior-main.jpg",
+    h1: "Expert Dog Training in Cleveland &amp; Northeast Ohio",
+    pain: "Feeling overwhelmed by aggression, biting, leash pulling, or a dog who simply will not listen?",
+    gain: "Take back your walks, your front door, and your living room &mdash; with trainers certified at our 17,000 sq ft Cleveland headquarters.",
+    trust: ["&#9733; 600+ Google reviews", "17,000 sq ft HQ", "90-day guarantee", "Free evaluation"],
+    challengesTitle: "Common challenges Cleveland dog owners bring us",
+    challenges: [
+      ["Aggression and reactivity", "Lunging, growling, or biting turns every walk and every visitor into a risk you have to manage."],
+      ["Leash pulling", "A dog who drags you down the street makes the walk something you start skipping."],
+      ["Barking and jumping", "The door, the mail, the neighbour. Noise you apologise for and guests you brace for."],
+      ["A new puppy", "Potty training, crating, chewing, and biting hands. The habits set now are the ones you live with."],
+      ["No recall", "A dog who will not come when called is a safety problem the moment a door is left open."]
+    ],
+    whyTitle: "Why Cleveland families choose Lorenzo&rsquo;s",
+    why: [
+      ["Trainers certified at our HQ", "Cleveland is where Lorenzo's began. Trainers from across the country come here to certify &mdash; and your dog trains at that same facility."],
+      ["Harley McGrew and Brady DeRemer", "Two named Northeast Ohio trainers, not a call centre. Your evaluation is with a person who works this area."],
+      ["Owner coaching built in", "The dog learns and so do you. Handoff lessons are part of every program, because results have to survive after we leave."],
+      ["Board &amp; train on campus", "Your dog lives and learns on site, then comes home with real skills and an owner handoff."],
+      ["A written 90-day guarantee", "We put the promise in writing. Most trainers do not."]
+    ]
+  }
+};
+
+const TARGET = process.argv[2] || "pensacola";
+const M = MARKETS[TARGET];
+if (!M) throw new Error(`unknown market "${TARGET}" — try: ${Object.keys(MARKETS).join(", ")}`);
+const SOURCE = M.source;
+const SLUG = M.slug;
 const src = readFileSync(resolve(SOURCE), "utf8");
 
 const head = src.slice(src.indexOf("<head>"), src.indexOf("</head>"));
-const tail = src.slice(src.indexOf('    (function(){\n      document.addEventListener'), src.lastIndexOf("</body>"));
+/* The closing block carries UTM capture, the Supabase lead write and the
+   conversion fire. Anchor on the supabase tag and walk back to the inline
+   script that precedes it — the exact indentation varies between pages. */
+const scriptsAt = src.indexOf('<script src="supabase-config.js"');
+if (scriptsAt < 0) throw new Error("closing script block not found in " + SOURCE);
+const tail = src.slice(src.lastIndexOf("<script>", scriptsAt), src.indexOf("</body>"));
 
 /* Hidden inputs carry trainer routing and ad attribution. Taken verbatim so the
    office record is identical, with source_page repointed at the test slug so
    Tim can tell the two layouts apart in the leads table. */
 const formBlock = src.slice(src.indexOf('<form class="ad-form-card ad-form-card-v2 contact-intake"'));
 const hidden = (formBlock.slice(0, formBlock.indexOf("</form>")).match(/<input type="hidden"[^>]*>/g) || [])
-  .map(tag => tag.replace('name="source_page" value="dog-training-cleveland-oh"', `name="source_page" value="${SLUG}"`))
+  .map(tag => tag.replace(/name="source_page" value="[^"]*"/, `name="source_page" value="${SLUG}"`))
   .map(tag => tag.replace('value="Paid ads market page"', 'value="Paid ads market page (quiz layout test)"'))
   .join("\n              ");
 if (!hidden.includes(SLUG)) throw new Error("source_page hidden input not rewritten");
@@ -30,8 +97,8 @@ const PHONE = "(866) 436-4959";
 const TEL = "+18664364959";
 
 const newHead = head
-  .replace(/<title>[\s\S]*?<\/title>/, "<title>Cleveland Dog Training | Free Evaluation | Lorenzo's Dog Training Team</title>")
-  .replace(/<meta name="description" content="[^"]*">/, '<meta name="description" content="Aggression, leash pulling, or a new puppy? Book a free Cleveland dog training evaluation with Lorenzo\'s Dog Training Team. Published pricing and a 90-day guarantee.">')
+  .replace(/<title>[\s\S]*?<\/title>/, `<title>${M.title}</title>`)
+  .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${M.description}">`)
   .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="https://www.lorenzosdogtrainingteam.com/${SLUG}">`)
   /* noindex: this is an A/B test of the live Cleveland page. Letting Google
      index both would split rankings and create duplicate content. */
@@ -169,22 +236,6 @@ function css() {
   }`;
 }
 
-const CHALLENGES = [
-  ["Aggression and reactivity", "Lunging, growling, or biting turns every walk and every visitor into a risk you have to manage."],
-  ["Leash pulling", "A dog who drags you down the street makes the walk something you start skipping."],
-  ["Barking and jumping", "The door, the mail, the neighbour. Noise you apologise for and guests you brace for."],
-  ["A new puppy", "Potty training, crating, chewing, and biting hands. The habits set now are the ones you live with."],
-  ["No recall", "A dog who will not come when called is a safety problem the moment a door is left open."]
-];
-
-const WHY = [
-  ["Trainers certified at our HQ", "Cleveland is where Lorenzo's began. Trainers from across the country come here to certify — and your dog trains at that same facility."],
-  ["Harley McGrew and Brady DeRemer", "Two named Northeast Ohio trainers, not a call centre. Your evaluation is with a person who works this area."],
-  ["Owner coaching built in", "The dog learns and so do you. Handoff lessons are part of every program, because results have to survive after we leave."],
-  ["Board &amp; train on campus", "Your dog lives and learns on site, then comes home with real skills and an owner handoff."],
-  ["A written 90-day guarantee", "We put the promise in writing. Most trainers do not."]
-];
-
 const quizHead = `<div class="lp-quiz-head">
             <p>Tell us about your dog and request your free evaluation in <em>under 30 seconds</em>.</p>
           </div>
@@ -203,18 +254,15 @@ ${newHead}</head>
   </header>
 
   <section class="lp-hero">
-    <div class="lp-hero-bg" style="background-image:url('assets/facility-exterior-main.jpg')"></div>
+    <div class="lp-hero-bg" style="background-image:url('${M.heroBg}')"></div>
     <div class="lp-wrap">
       <div>
-        <h1>Expert Dog Training in Cleveland &amp; Northeast Ohio</h1>
+        <h1>${M.h1}</h1>
         <div class="lp-rule"></div>
-        <p class="lp-pain">Feeling overwhelmed by aggression, biting, leash pulling, or a dog who simply will not listen?</p>
-        <p class="lp-gain">Take back your walks, your front door, and your living room &mdash; with trainers certified at our 17,000 sq ft Cleveland headquarters.</p>
+        <p class="lp-pain">${M.pain}</p>
+        <p class="lp-gain">${M.gain}</p>
         <ul class="lp-trust">
-          <li>&#9733; 600+ Google reviews</li>
-          <li>17,000 sq ft HQ</li>
-          <li>90-day guarantee</li>
-          <li>Free evaluation</li>
+          ${M.trust.map(t => `<li>${t}</li>`).join('\n          ')}
         </ul>
       </div>
 
@@ -332,10 +380,10 @@ ${newHead}</head>
 
   <section class="lp-sec">
     <div class="lp-wrap lp-center">
-      <h2>Common challenges Cleveland dog owners bring us</h2>
+      <h2>${M.challengesTitle}</h2>
       <p class="lead">If you recognise your dog here, this is fixable &mdash; and it is what we do every day.</p>
       <div class="lp-cards">
-        ${CHALLENGES.map(([h, p], i) => `<article class="lp-card"><span class="lp-num">${i + 1}</span><h3>${h}</h3><p>${p}</p></article>`).join("\n        ")}
+        ${M.challenges.map(([h, p], i) => `<article class="lp-card"><span class="lp-num">${i + 1}</span><h3>${h}</h3><p>${p}</p></article>`).join("\n        ")}
       </div>
     </div>
   </section>
@@ -352,9 +400,9 @@ ${newHead}</head>
 
   <section class="lp-sec">
     <div class="lp-wrap lp-center">
-      <h2>Why Cleveland families choose Lorenzo&rsquo;s</h2>
+      <h2>${M.whyTitle}</h2>
       <div class="lp-cards">
-        ${WHY.map(([h, p]) => `<article class="lp-card"><h3>${h}</h3><p>${p}</p></article>`).join("\n        ")}
+        ${M.why.map(([h, p]) => `<article class="lp-card"><h3>${h}</h3><p>${p}</p></article>`).join("\n        ")}
       </div>
     </div>
   </section>
