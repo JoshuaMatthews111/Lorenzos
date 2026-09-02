@@ -54,6 +54,27 @@ const CLIENT_COLUMNS = [
 ].join(",");
 const CLIENT_PAGE_LIMIT = 500;
 
+// site_events and lifecycle_events are ~12,000 rows each and every row carries a
+// raw_payload with user agents, full URLs and form echoes the portal never shows.
+// The dashboard reads only these keys (see siteEventRows / reportLifecycleRows),
+// so everything else stays on the server. referrer and user_agent are never read.
+const SITE_EVENT_COLUMNS = [
+  "id", "trainer_id", "event_type", "page_path", "created_at", "trainer_slug", "assigned_trainer_name",
+  "visitor_id", "session_id", "utm_source", "utm_medium", "utm_campaign",
+  "trainer_market", "trainer_city", "trainer_state", "raw_payload"
+].join(",");
+const SITE_EVENT_PAYLOAD_KEYS = ["qa", "page_url", "time_on_page_seconds", "landing_page_type", "ad_market", "timestamp"];
+const LIFECYCLE_PAYLOAD_KEYS = ["qa", "page_url"];
+
+function slimPayload(row, keys) {
+  const raw = row && row.raw_payload && typeof row.raw_payload === "object" ? row.raw_payload : {};
+  const kept = {};
+  for (const key of keys) if (raw[key] !== undefined) kept[key] = raw[key];
+  return { ...row, raw_payload: kept };
+}
+const slimSiteEvents = rows => (Array.isArray(rows) ? rows.map(row => slimPayload(row, SITE_EVENT_PAYLOAD_KEYS)) : rows);
+const slimLifecycleEvents = rows => (Array.isArray(rows) ? rows.map(row => slimPayload(row, LIFECYCLE_PAYLOAD_KEYS)) : rows);
+
 // Exact row count without transferring the rows themselves.
 async function countRows(table) {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1`, {
@@ -69,14 +90,45 @@ async function countRows(table) {
   return Number.isFinite(total) ? total : 0;
 }
 
+// Pages used to be fetched one after another: a 12,000-row table meant thirteen
+// round trips in series before the portal could paint. Now the first page also
+// returns the exact row count, and every remaining page is requested together.
+const PAGE_CONCURRENCY = 6;
+
+async function supabaseFetchPage(path, separator, pageSize, offset, withCount) {
+  const response = await fetch(`${SUPABASE_URL}${path}${separator}limit=${pageSize}&offset=${offset}`, {
+    headers: {
+      apikey: SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      "Content-Type": "application/json",
+      ...(withCount ? { Prefer: "count=exact" } : {})
+    }
+  });
+  const text = await response.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+  if (!response.ok) {
+    const message = data?.message || data?.error || `Supabase request failed (${response.status})`;
+    throw Object.assign(new Error(message), { status: response.status, detail: data });
+  }
+  const range = response.headers.get("content-range") || "";
+  const total = Number(String(range).split("/")[1]);
+  return { data, total: Number.isFinite(total) ? total : null };
+}
+
 async function supabaseFetchAll(path, pageSize = 1000, maxRows = 100000) {
-  const rows = [];
   const separator = path.includes("?") ? "&" : "?";
-  for (let offset = 0; offset < maxRows; offset += pageSize) {
-    const page = await supabaseFetch(`${path}${separator}limit=${pageSize}&offset=${offset}`);
-    if (!Array.isArray(page)) return page;
-    rows.push(...page);
-    if (page.length < pageSize) break;
+  const first = await supabaseFetchPage(path, separator, pageSize, 0, true);
+  if (!Array.isArray(first.data)) return first.data;
+  const rows = [...first.data];
+  if (first.data.length < pageSize) return rows;
+  const total = Math.min(first.total ?? maxRows, maxRows);
+  const offsets = [];
+  for (let offset = pageSize; offset < total; offset += pageSize) offsets.push(offset);
+  for (let i = 0; i < offsets.length; i += PAGE_CONCURRENCY) {
+    const batch = offsets.slice(i, i + PAGE_CONCURRENCY);
+    const pages = await Promise.all(batch.map(offset => supabaseFetchPage(path, separator, pageSize, offset, false)));
+    for (const page of pages) if (Array.isArray(page.data)) rows.push(...page.data);
   }
   return rows;
 }
@@ -224,14 +276,14 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     supabaseFetchAll("/rest/v1/dogs?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/trainer_applications?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/content_submissions?select=*&order=created_at.desc"),
-    supabaseFetchAll("/rest/v1/site_events?select=*&order=created_at.desc"),
+    supabaseFetchAll(`/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}&order=created_at.desc`).then(slimSiteEvents),
     supabaseFetchAll("/rest/v1/portal_users?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/office_notes?select=*&order=created_at.desc"),
     optionalSupabaseFetchAll("/rest/v1/audit_events?select=*&order=created_at.desc", "audit_events", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_note_revisions?select=*&order=created_at.desc", "office_note_revisions", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/form_delivery_attempts?select=*&order=created_at.desc", "form_delivery_attempts", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/review_publications?select=*&order=updated_at.desc", "review_publications", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/lifecycle_events?select=*&order=occurred_at.desc", "lifecycle_events", unavailableCapabilities),
+    optionalSupabaseFetchAll("/rest/v1/lifecycle_events?select=*&order=occurred_at.desc", "lifecycle_events", unavailableCapabilities).then(slimLifecycleEvents),
     optionalSupabaseFetchAll("/rest/v1/office_leads_sheet?select=*&order=received_at.desc", "office_leads_sheet", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_clients_sheet?select=*&order=created_at.desc", "office_clients_sheet", unavailableCapabilities),
@@ -273,7 +325,7 @@ async function loadTrainerOperationalData(portalUser, unavailableCapabilities) {
     supabaseFetchAll(`/rest/v1/trainer_pages?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=updated_at.desc`),
     supabaseFetchAll(`/rest/v1/leads?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`),
     supabaseFetchAll(`/rest/v1/content_submissions?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`),
-    optionalSupabaseFetchAll(`/rest/v1/site_events?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`, "site_events", unavailableCapabilities)
+    optionalSupabaseFetchAll(`/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`, "site_events", unavailableCapabilities).then(slimSiteEvents)
   ]);
   if (!trainers[0]) throw new Error("Trainer profile was not found for this portal account.");
   const leadIds = leads.map(row => row.id);
