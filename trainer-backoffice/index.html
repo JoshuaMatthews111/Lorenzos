@@ -19,7 +19,7 @@
         <button class="active" type="button" data-login-mode="trainer">Trainer</button>
       </div>
       <p class="login-mode-help" id="loginModeHelp">Trainers sign in with their assigned trainer email and temporary or permanent password.</p>
-      <form id="loginForm" class="login-form">
+      <form id="loginForm" class="login-form" method="post" action="/trainer-backoffice/" autocomplete="on">
         <label>Username or Email<input required name="username" placeholder="Username or email" autocomplete="username"></label>
         <label>Password<input required name="password" type="password" placeholder="Password" autocomplete="current-password"></label>
         <label class="login-persistence"><input type="checkbox" name="remember"><span>Keep me signed in on this device</span></label>
