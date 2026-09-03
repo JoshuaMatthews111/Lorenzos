@@ -7071,8 +7071,8 @@ async function submitDealFromForm() {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok) throw new Error(result.message || `The deal could not be saved (${response.status}).`);
-    state.dealForm = { ok: `Saved. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
-    showToast("Deal submitted");
+    state.dealForm = { ok: `${result.sandbox ? "Saved to the sandbox practice layer" : "Saved"}. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
+    showToast(result.sandbox ? "Practice deal submitted (sandbox)" : "Deal submitted");
     await reloadRemoteData();
   } catch (error) {
     state.dealForm = { ...f, busy: false, error: error.message || String(error) };

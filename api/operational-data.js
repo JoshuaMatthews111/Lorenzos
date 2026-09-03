@@ -396,6 +396,14 @@ module.exports = async function handler(req, res) {
     if (isSandbox()) {
       try {
         sandboxStore.applyOps(data, await sandboxStore.readOps());
+        // Practice deals belong to whoever submitted them. A trainer sees only
+        // their own, exactly as on live.
+        if (access.portalUser.role === "trainer" && Array.isArray(data.deals)) {
+          const mine = String(access.portalUser.trainer_id || "");
+          data.deals = data.deals.filter(deal => String(deal.trainer_id || "") === mine);
+          const ids = new Set(data.deals.map(deal => String(deal.id)));
+          data.dealPayments = (data.dealPayments || []).filter(payment => ids.has(String(payment.deal_id)));
+        }
       } catch (error) {
         console.error("Sandbox practice layer could not be applied", error);
       }

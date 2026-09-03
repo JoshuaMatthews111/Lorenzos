@@ -10,7 +10,8 @@
 // the existing trigger turns into a client record.
 
 const crypto = require("crypto");
-const { blockedInSandbox } = require("../lib/sandbox");
+const { isSandbox } = require("../lib/sandbox");
+const sandboxStore = require("../lib/sandbox-store");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -100,7 +101,6 @@ module.exports = async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured." });
-  if (blockedInSandbox(res, "Submitting a deal")) return;
 
   try {
     const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
@@ -134,6 +134,30 @@ module.exports = async function handler(req, res) {
     // Optional links back to the lead / client this deal closes.
     const leadId = clean(body.lead_id, 60) || null;
     const clientId = clean(body.client_id, 60) || null;
+
+    // Sandbox: same rules, same shape, but the deal and its payments go into
+    // the shared practice layer and the lead status flip is a practice op too.
+    // Nothing reaches the real tables; every tester sees the practice deal.
+    if (isSandbox()) {
+      const stamp = new Date().toISOString();
+      const deal = {
+        id: `sbx-${crypto.randomUUID()}`, lead_id: leadId, client_id: clientId, trainer_id: trainerId, submitted_by: auth.user.id,
+        client_name: clientName, dog_name: clean(body.dog_name, 120) || null, program,
+        sold_amount: sold, collected_amount: collected, balance_due: balance,
+        plan_type: balance > 0 ? planType : "paid_in_full", installments: schedule.length, sold_on: soldOn,
+        status: balance > 0 ? "open" : "paid", notes: clean(body.notes, 2000) || null,
+        raw_payload: { source: "trainer_portal", sandbox: true, submitted_email: auth.portalUser.email || auth.user.email },
+        created_at: stamp, updated_at: stamp
+      };
+      const payments = [
+        ...(collected > 0 ? [{ id: `sbx-${crypto.randomUUID()}`, deal_id: deal.id, sequence: 0, amount: collected, due_on: soldOn, paid_on: soldOn, paid_amount: collected, status: "collected", created_at: stamp, updated_at: stamp }] : []),
+        ...schedule.map((p, i) => ({ id: `sbx-${crypto.randomUUID()}`, deal_id: deal.id, sequence: i + 1, amount: p.amount, due_on: p.due_on, status: "scheduled", created_at: stamp, updated_at: stamp }))
+      ];
+      await sandboxStore.appendOp({ operation: "create", entity_type: "deal", record: deal, actor: auth.portalUser.email });
+      for (const payment of payments) await sandboxStore.appendOp({ operation: "create", entity_type: "deal_payment", record: payment, actor: auth.portalUser.email });
+      if (leadId) await sandboxStore.appendOp({ operation: "update", entity_type: "lead", id: leadId, changes: { status: "became_client", updated_at: stamp }, actor: auth.portalUser.email });
+      return res.status(200).json({ ok: true, sandbox: true, deal, payments, balance_due: balance });
+    }
 
     const [deal] = await supabaseFetch("/rest/v1/deals", {
       method: "POST", headers: { Prefer: "return=representation" },
