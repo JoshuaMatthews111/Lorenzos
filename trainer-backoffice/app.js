@@ -889,7 +889,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     safeTrainerAssetUrl(content.bio_photo_url),
     safeTrainerAssetUrl(existing.landingBioPhoto)
   ], headshotCandidates) || rosterLandingPhoto;
-  return {
+  const merged = {
     ...existing,
     remoteId: remoteTrainer.id,
     isOfficeDraft: false,
@@ -984,6 +984,12 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     sentToLiveByName: remotePage?.sent_to_live_by_name || "",
     fromPracticeCopy: remotePage?.draft_content?._sent_from_practice || null
   };
+  // onboarding: keep ONE object per trainer across reloads. Every save reloads the
+  // portal payload and this used to hand back a brand-new object, so a handler that
+  // was still awaiting an upload wrote the result into the old object (lost) and the
+  // next auto-save carried a stale updated_at ("Live record refreshed…" instead of
+  // "Saved live"). Same object, same references, no stale copies.
+  return existing && existing.remoteId ? Object.assign(existing, merged) : merged;
 }
 
 // Which form the person actually filled in. The badge says which network sent
