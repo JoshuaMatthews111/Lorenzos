@@ -1592,6 +1592,12 @@ function refreshDraftTrainerIdentity(trainer, changedKey = "") {
   const displayName = String(trainer.profileName || trainer.name || "").trim();
   if (displayName && displayName !== "New Trainer Draft" && displayName !== "New Trainer") {
     trainer.name = displayName;
+    // onboarding: while the page is still a draft, the web address follows the
+    // name. It used to stick to the FIRST name typed, so a draft renamed after a
+    // duplicate-name refusal kept the colliding address and could never save.
+    // A published page keeps its address (links to it are already out).
+    const renamed = ["name", "profileName"].includes(changedKey) && isDraftTrainer(trainer) && !trainer.locked;
+    if (renamed) trainer.slug = slugify(displayName) || trainer.slug;
     if (isDraftTrainer(trainer) || changedKey === "name" || changedKey === "profileName") {
       trainer.slug = trainerDisplaySlug(trainer);
       trainer.pageSlug = trainerPublicSlug(trainer);
