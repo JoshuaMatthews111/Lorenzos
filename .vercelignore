@@ -15,6 +15,7 @@ release-reports/
 .vercel/
 output/
 scripts/
+tests/
 supabase/
 tmp/
 ASSET_CONTENT_MAP.md

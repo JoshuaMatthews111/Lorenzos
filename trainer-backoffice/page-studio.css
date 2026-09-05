@@ -42,6 +42,12 @@ body.ps-builder-fullscreen.ps-rail-hidden .page-editor-shell.fullscreen-builder 
 .ps-pill.published{background:#e8f6ee;color:#08743a}
 .ps-pill.draft{background:#fff4e5;color:#a35a00}
 .ps-pill.static{background:#eef3f9;color:#3d5170}
+/* send-to-live */
+.ps-pill.practice{background:#ede7ff;color:#4b2fbf}
+.ps-sent-live{color:#08743a;font-weight:800}
+.ps-send-live{background:#071f44;color:#fff;border:0;border-radius:999px;padding:8px 14px;font-weight:800;cursor:pointer}
+.ps-send-live:disabled{opacity:.45;cursor:not-allowed}
+#psSendLive{display:inline-flex;align-items:center;gap:8px}
 .ps-empty{padding:28px;border:2px dashed #b9c9dc;border-radius:16px;background:#f7fbff;color:#53677f;text-align:center;font-size:1rem}
 
 /* ───────── the full-screen overlay editor ───────── */

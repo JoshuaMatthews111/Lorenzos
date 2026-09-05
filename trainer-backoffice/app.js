@@ -977,7 +977,10 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     version: Number(remoteTrainer.version || 1),
     updatedAt: remoteTrainer.updated_at || remoteTrainer.created_at || "",
     pageVersion: Number(remotePage?.revision || 1),
-    pageUpdatedAt: remotePage?.updated_at || remotePage?.created_at || ""
+    pageUpdatedAt: remotePage?.updated_at || remotePage?.created_at || "",
+    // send-to-live: stamped by the practice layer on the sandbox / by the live draft row
+    sentToLiveAt: remotePage?.sent_to_live_at || "",
+    fromPracticeCopy: remotePage?.draft_content?._sent_from_practice || null
   };
 }
 
@@ -2904,13 +2907,73 @@ function mergePublishedTrainer(pair) {
   return merged;
 }
 
-function showToast(message) {
+function showToast(message, duration = 1800) {
   const toast = document.getElementById("toast");
   if (!toast) return;
   toast.textContent = message;
   toast.classList.add("show");
   clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => toast.classList.remove("show"), 1800);
+  showToast.timer = setTimeout(() => toast.classList.remove("show"), duration);
+}
+
+// ---------------------------------------------------------------------------
+// send-to-live
+//
+// Sandbox only. The office builds a page on the practice copy; this pushes its
+// current practice state to the LIVE database as a DRAFT. Publishing stays on
+// the live portal. The API answers 404 anywhere but the sandbox.
+// ---------------------------------------------------------------------------
+const SEND_TO_LIVE_CONFIRM = "This copies the page to the live portal as a DRAFT. It will not be public until someone presses Publish on the live portal. Continue?";
+
+function canSendToLive() {
+  return session.role === "admin" && ["super_admin", "office_admin"].includes(portalPermissionValue(portalUser));
+}
+window.LDTT_CAN_SEND_TO_LIVE = canSendToLive;
+
+function sentToLiveLabel(at) {
+  if (!at) return "";
+  const date = new Date(at);
+  return `Sent to live ✓ at ${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+}
+
+function sendToLiveControls(trainer) {
+  if (!window.LDTT_IS_SANDBOX) {
+    // Live side: say where a draft came from so the office knows to review it before publishing.
+    const from = trainer?.fromPracticeCopy;
+    return from ? `<span class="practice-copy-tag" title="${escapeHtml(`Sent from the practice copy by ${from.by || "the office"} ${from.at ? `at ${new Date(from.at).toLocaleString()}` : ""}`)}">From practice copy</span>` : "";
+  }
+  const allowed = canSendToLive();
+  const title = allowed ? "Copy this page to the live portal as a draft" : "Only a Super Admin or Office Admin can send a page to live";
+  return `<button class="btn btn-navy" type="button" data-send-to-live="${escapeHtml(trainer?.id || "")}" title="${escapeHtml(title)}" ${allowed ? "" : "disabled"}>Send to live</button>${trainer?.sentToLiveAt ? `<span class="send-live-note">${escapeHtml(sentToLiveLabel(trainer.sentToLiveAt))}</span>` : ""}`;
+}
+
+// In-page confirm (same dialog style as the other portal confirmations) so the
+// wording is always the plain sentence above and it can be screenshotted.
+function confirmSendToLive() {
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "action-confirmation-dialog send-to-live-dialog";
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">→</div><h2>Send to live?</h2><p>${escapeHtml(SEND_TO_LIVE_CONFIRM)}</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-send-live-cancel>Not yet</button><button type="button" class="btn btn-red" data-send-live-go>Send to live as a draft</button></div>`;
+    document.body.appendChild(dialog);
+    const done = value => { dialog.close(); dialog.remove(); resolve(value); };
+    dialog.querySelector("[data-send-live-go]").addEventListener("click", () => done(true));
+    dialog.querySelectorAll(".action-confirmation-close,[data-send-live-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
+    dialog.addEventListener("click", event => { if (event.target === dialog) done(false); });
+    dialog.addEventListener("cancel", () => done(false));
+    dialog.showModal();
+  });
+}
+
+async function sendPageToLive(payload) {
+  const token = window.LDTT_PORTAL?.accessToken?.() || "";
+  const response = await fetch("/api/send-to-live", {
+    method: "POST", cache: "no-store",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.ok === false) throw new Error(result.message || `Send to live failed (${response.status}).`);
+  return result;
 }
 
 function actionConfirmationList(items = []) {
@@ -7791,7 +7854,7 @@ function trainerPageEditor() {
   return `<section class="page-editor-shell pro-builder fullscreen-builder">
     <header class="page-editor-topbar">
       <div><p class="portal-tag">Full-Screen Site Builder</p><h2>${escapeHtml(builderSurfaces().find(item => item.id === state.builderSurface)?.label || "Site Builder")}</h2><p>Use Browse to click around like a visitor. Turn Edit Overlay on only when the office wants to select and edit content.</p></div>
-      <div class="row-actions"><button class="btn btn-outline" data-view="trainerPages">Back To Trainer Network</button><button class="btn btn-outline" data-editor-save="draft">Save Draft</button>${state.builderSurface === "trainer" ? `<button class="btn btn-red" data-editor-save="publish">Publish & Lock Trainer Page</button>` : `<button class="btn btn-red" data-editor-save="draft">Save Workspace Changes</button>`}</div>
+      <div class="row-actions"><button class="btn btn-outline" data-view="trainerPages">Back To Trainer Network</button><button class="btn btn-outline" data-editor-save="draft">Save Draft</button>${state.builderSurface === "trainer" ? `<button class="btn btn-red" data-editor-save="publish">Publish & Lock Trainer Page</button>` : `<button class="btn btn-red" data-editor-save="draft">Save Workspace Changes</button>`}${state.builderSurface === "trainer" ? sendToLiveControls(trainer) : ""}</div>
     </header>
     <nav class="builder-toolbar">
       <label><span>Edit Target</span><select data-builder-surface>${builderSurfaces().map(surface => `<option value="${surface.id}" ${surface.id === state.builderSurface ? "selected" : ""}>${surface.label}</option>`).join("")}</select></label>
@@ -11530,6 +11593,26 @@ document.addEventListener("click", async event => {
       });
     }
     else saveState("Trainer profile saved by office");
+    return;
+  }
+  // send-to-live: copy this trainer page from the practice copy to live as a DRAFT.
+  const sendToLive = event.target.closest("[data-send-to-live]");
+  if (sendToLive) {
+    if (sendToLive.disabled) return;
+    const trainer = trainerById(sendToLive.dataset.sendToLive) || trainerById();
+    if (!trainer) { showToast("Pick a trainer page first."); return; }
+    if (!(await confirmSendToLive())) return;
+    sendToLive.disabled = true;
+    try {
+      const result = await sendPageToLive({ kind: "trainer_page", id: trainer.pageId || "", slug: trainerDisplaySlug(trainer) });
+      trainer.sentToLiveAt = result.sent_at || new Date().toISOString();
+      showToast(result.message || "Sent to live as a draft. Open the live portal → Trainer Network to publish it.", 6000);
+      if (remoteReady) await reloadRemoteData().catch(() => {});
+      render();
+    } catch (error) {
+      showToast(`Not sent: ${error.message}`, 6000);
+      sendToLive.disabled = false;
+    }
     return;
   }
   const editorSave = event.target.closest("[data-editor-save]");

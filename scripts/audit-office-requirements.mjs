@@ -29,6 +29,8 @@ const adPageTemplateSource = read("lib/ad-page-template.js");
 const adPageRoute = read("api/ad-page.js");
 const adPagesApi = read("api/ad-pages.js");
 const pageStudio = read("trainer-backoffice/page-studio.js");
+const sendToLive = read("api/send-to-live.js");
+const sandboxStoreSource = read("lib/sandbox-store.js");
 const adPageTemplate = (await import("../lib/ad-page-template.js")).default;
 const sampleAdPage = adPageTemplate.marketToContent(adPageTemplate.markets[0]);
 const formlessChecklist = adPageTemplate.publishChecklist(sampleAdPage, { html: "<html><head></head><body><h1>Test</h1></body></html>" });
@@ -142,7 +144,12 @@ const checks = [
   ["ad page content is sanitised before it is stored", /template\.normalizeContent\(body\.content\)/.test(adPagesApi) && /const safeUrl = /.test(adPageTemplateSource) && /escapeHtml\(hero\.h1\)/.test(adPageTemplateSource)],
   ["Page Studio edits full screen with autosave state and one-click restore", /position:fixed;inset:0;z-index:9500/.test(read("trainer-backoffice/page-studio.css")) && /Not saved — click to retry/.test(pageStudio) && /Saving…/.test(pageStudio) && /data-ps-act="restore"/.test(pageStudio) && /data-ps-act="duplicate"/.test(pageStudio) && /FONTS\.map/.test(pageStudio)],
   ["the trainer page builder gets a true full-screen mode without forking its data model", /body\.ps-builder-fullscreen \.page-editor-shell\.fullscreen-builder\{\s*position:fixed;inset:0/.test(read("trainer-backoffice/page-studio.css")) && /data-ps-builder-fullscreen/.test(pageStudio) && app.includes("pageStudio() { // page-studio")],
-  ["/ads/<slug> is rewritten to the ad page route", vercel.rewrites?.some(row => row.source === "/ads/:slug" && row.destination === "/api/ad-page?slug=:slug")]
+  ["/ads/<slug> is rewritten to the ad page route", vercel.rewrites?.some(row => row.source === "/ads/:slug" && row.destination === "/api/ad-page?slug=:slug")],
+  ["send-to-live answers 404 outside the sandbox, before auth", /if \(!isSandbox\(\)\) return res\.status\(404\)/.test(sendToLive) && sendToLive.indexOf("return res.status(404)") < sendToLive.indexOf("await verifyOfficeUser(token)")],
+  ["send-to-live never writes published_content, never publishes, never touches auth users", !/published_content:/.test(sendToLive) && !/published_revision:/.test(sendToLive) && !/published_at:/.test(sendToLive) && /FORBIDDEN_KEYS = new Set\(\["published_content", "published_revision", "published_at", "auth_user_id"\]\)/.test(sendToLive) && /if \(options\.body\) assertDraftOnly\(JSON\.parse\(options\.body\)\)/.test(sendToLive) && !/ensure-trainer-user|resend|twilio|\/auth\/v1\/admin/i.test(sendToLive)],
+  ["send-to-live is office-only and every send is logged to the practice layer", /\["super_admin", "office_admin"\]\.includes/.test(sendToLive) && /appendOp\(\{ operation: "send_to_live"/.test(sendToLive) && /op\.operation === "send_to_live"/.test(sandboxStoreSource)],
+  ["every other write API still calls blockedInSandbox first", /blockedInSandbox\(res, "Publishing an ad page"\)/.test(adPagesApi) && /blockedInSandbox/.test(read("api/ensure-trainer-user.js"))],
+  ["the portal only shows Send to live on the sandbox, with the plain-words confirm and toast", /window\.LDTT_IS_SANDBOX/.test(app) && app.includes("This copies the page to the live portal as a DRAFT. It will not be public until someone presses Publish on the live portal. Continue?") && pageStudio.includes("This copies the page to the live portal as a DRAFT.") && /data-send-to-live/.test(app) && /data-ps-send-live/.test(pageStudio) && /From practice copy/.test(app) && /From practice copy/.test(pageStudio)]
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260905ps1";
+  const VERSION = "20260905stl1";
   const API = "/api/ad-pages";
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js"];
   const store = { pages: null, markets: [], sandbox: false, loading: false, error: "" };
@@ -43,6 +43,44 @@
     el.classList.add("show");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => el.classList.remove("show"), ms);
+  }
+
+  // ───────────────────────── send-to-live ─────────────────────────
+  // Sandbox only: copy a practice page to the live database as a DRAFT.
+  // Publishing stays on the live portal. Live side: tag drafts that came in this way.
+  const SEND_TO_LIVE_CONFIRM = "This copies the page to the live portal as a DRAFT. It will not be public until someone presses Publish on the live portal. Continue?";
+  const canSendToLive = () => (typeof window.LDTT_CAN_SEND_TO_LIVE === "function" ? window.LDTT_CAN_SEND_TO_LIVE() : true);
+  const sentToLiveLabel = at => (at ? `Sent to live ✓ at ${dateLabel(at)}` : "");
+  const isFromPractice = page => !window.LDTT_IS_SANDBOX && /from practice copy/i.test(String(page?.updated_by || ""));
+  const practiceTag = page => (isFromPractice(page) ? `<span class="ps-pill practice" title="This draft was sent here from the practice copy. Review it, then publish.">From practice copy</span>` : "");
+  const sentToLiveMeta = page => (window.LDTT_IS_SANDBOX && page?.sent_to_live_at ? `<span class="ps-meta ps-sent-live">${esc(sentToLiveLabel(page.sent_to_live_at))}</span>` : "");
+  function sendToLiveButton(page, cls = "btn btn-navy") {
+    if (!window.LDTT_IS_SANDBOX) return "";
+    const allowed = canSendToLive();
+    const title = allowed ? "Copy this page to the live portal as a draft" : "Only a Super Admin or Office Admin can send a page to live";
+    return `<button class="${cls}" type="button" data-ps-send-live="${esc(page.id)}" title="${esc(title)}" ${allowed ? "" : "disabled"}>Send to live</button>`;
+  }
+  function confirmSendToLive() {
+    return new Promise(resolve => {
+      const m = modal(`<h3>Send to live?</h3><p class="ps-help">${esc(SEND_TO_LIVE_CONFIRM)}</p><div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Send to live as a draft</button></div>`);
+      m.querySelector("[data-ps-close]").addEventListener("click", () => { m.remove(); resolve(false); });
+      m.querySelector("[data-ps-go]").addEventListener("click", () => { m.remove(); resolve(true); });
+      m.addEventListener("click", event => { if (event.target === m) resolve(false); });
+    });
+  }
+  async function sendToLiveFlow(pageId) {
+    if (!(await confirmSendToLive())) return;
+    if (editor && editor.id === pageId) await flushSave();
+    const response = await fetch("/api/send-to-live", {
+      method: "POST", cache: "no-store",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+      body: JSON.stringify({ kind: "ad_page", id: pageId })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(data.message || `Send to live failed (${response.status}).`);
+    toast(data.message || "Sent to live as a draft. Open the live portal → Page Studio to publish it.", 6000);
+    if (editor && editor.id === pageId) { editor.page.sent_to_live_at = data.sent_at || new Date().toISOString(); paintTop(); }
+    loadPages(true);
   }
 
   function loadCss() {
@@ -114,10 +152,12 @@
         <strong>${esc(page.market || page.slug)}</strong>
         <span class="ps-addr">/ads/${esc(page.slug)}</span>
         <span class="ps-meta">Updated ${esc(dateLabel(page.updated_at))}${page.updated_by ? ` by ${esc(page.updated_by)}` : ""}${page.published_at ? ` · Published ${esc(dateLabel(page.published_at))}` : ""}</span>
+        ${practiceTag(page)}${sentToLiveMeta(page)}
         <div class="ps-actions">
           <button class="btn btn-red" type="button" data-ps-open="${esc(page.id)}">Edit full screen</button>
           ${page.status === "published" ? `<a class="btn btn-outline" href="/ads/${esc(page.slug)}" target="_blank" rel="noopener">Open live page</a>` : ""}
           <button class="btn btn-outline" type="button" data-ps-duplicate-page="${esc(page.id)}">Duplicate</button>
+          ${sendToLiveButton(page)}
         </div>
       </article>`).join("");
     const statics = (store.markets || []).map(market => `<article class="ps-page-card">
@@ -223,6 +263,7 @@
         <div class="ps-title"><strong id="psTitle"></strong><span id="psAddr"></span></div>
         <span class="ps-status" id="psStatus">Saved</span>
         <div class="ps-seg"><button type="button" data-ps-device="desktop" class="active">Desktop</button><button type="button" data-ps-device="mobile">Mobile</button></div>
+        <span id="psSendLive"></span>
         <button type="button" data-ps-act="preview">Preview draft</button>
         <button type="button" class="ps-primary" data-ps-act="publish" id="psPublishBtn">Publish</button>
       </header>
@@ -254,6 +295,9 @@
     const publish = $("#psPublishBtn");
     publish.disabled = editor.sandbox;
     publish.textContent = editor.sandbox ? "Publish (off on sandbox)" : editor.page.status === "published" ? "Publish changes" : "Publish";
+    // send-to-live: sandbox gets the button (+ last sent time); live gets the origin tag.
+    const sendSlot = $("#psSendLive");
+    if (sendSlot) sendSlot.innerHTML = editor.sandbox ? `${sendToLiveButton(editor.page, "ps-send-live")}${editor.page.sent_to_live_at ? `<small class="ps-sent-live">${esc(sentToLiveLabel(editor.page.sent_to_live_at))}</small>` : ""}` : practiceTag(editor.page);
     paintStatus();
   }
 
@@ -777,6 +821,14 @@
     if (dupMarket) { newPageFlow({ duplicateMarket: dupMarket.dataset.psDuplicateMarket }); return; }
     const dupPage = event.target.closest("[data-ps-duplicate-page]");
     if (dupPage) { newPageFlow({ duplicatePage: dupPage.dataset.psDuplicatePage }); return; }
+    const sendLive = event.target.closest("[data-ps-send-live]");
+    if (sendLive) {
+      if (sendLive.disabled) return;
+      sendLive.disabled = true;
+      try { await sendToLiveFlow(sendLive.dataset.psSendLive); } catch (error) { toast(`Not sent: ${error.message}`, 6000); }
+      finally { sendLive.disabled = false; }
+      return;
+    }
     if (event.target.closest("[data-ps-builder-fullscreen]")) { setBuilderFullscreen(!document.body.classList.contains("ps-builder-fullscreen")); return; }
     if (event.target.closest("[data-ps-builder-rail]")) { document.body.classList.toggle("ps-rail-hidden"); setBuilderFullscreen(document.body.classList.contains("ps-builder-fullscreen")); return; }
   });

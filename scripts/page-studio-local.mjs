@@ -22,11 +22,21 @@ process.env.LDTT_SANDBOX = process.env.LDTT_SANDBOX || "";
 const adPages = require("../api/ad-pages.js");
 const adPage = require("../api/ad-page.js");
 const environment = require("../api/environment.js");
+// send-to-live: the sandbox → live draft copy, proven here against the same
+// in-memory tables plus an in-memory practice layer. Start with LDTT_SANDBOX=1
+// to see the sandbox side; GET /__local/sandbox?on=0 flips the same process to
+// "live" so the "From practice copy" tag can be seen on the rows that arrived.
+const sendToLive = require("../api/send-to-live.js");
+const sandboxStore = require("../lib/sandbox-store.js");
+const practiceOps = [];
+sandboxStore.readOps = async () => practiceOps.slice();
+sandboxStore.appendOp = async op => { practiceOps.push({ ...op, at: new Date().toISOString() }); return op; };
+sandboxStore.clearOps = async () => { practiceOps.length = 0; };
 
 // ---------------------------------------------------------------------------
 // In-memory Supabase: just enough PostgREST for these two routes.
 // ---------------------------------------------------------------------------
-const db = { ad_pages: [], ad_page_revisions: [], portal_users: [
+const db = { ad_pages: [], ad_page_revisions: [], trainers: [], trainer_pages: [], trainer_page_versions: [], portal_users: [
   { user_id: "local-office", role: "admin", permission_level: "super_admin", active: true, access_status: "active", email: "office@local.test", display_name: "Local Office", first_name: "Local", last_name: "Office" }
 ] };
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -70,6 +80,11 @@ async function fakeSupabase(url, options = {}) {
   return json(405, { message: "nope" });
 }
 adPages.deps.fetch = fakeSupabase;
+sendToLive.deps.fetch = fakeSupabase;
+// A live trainer + page so the demo trainer editor (offline roster data) has a
+// live row to send to, matched by slug.
+db.trainers.push({ id: randomUUID(), slug: "karemela-sefferin", full_name: "Karemela Sefferin", status: "active", access_status: "active", created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+db.trainer_pages.push({ id: randomUUID(), trainer_id: db.trainers[0].id, slug: "karemela-sefferin", page_status: "published", locked: true, revision: 2, published_revision: 2, headline: "Live headline", draft_content: { trainer_name: "Karemela Sefferin" }, published_content: { trainer_name: "Karemela Sefferin" }, style_settings: {}, section_order: ["hero"], created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
 
 // ---------------------------------------------------------------------------
 // Tiny Vercel-style req/res shim + static files (cleanUrls) + the rewrite.
@@ -99,6 +114,9 @@ const server = createServer(async (req, res) => {
     return handler(request, shimRes(res));
   };
   if (path === "/api/ad-pages") return call(adPages, url.searchParams);
+  if (path === "/api/send-to-live") return call(sendToLive, url.searchParams);
+  if (path === "/__local/sandbox") { process.env.LDTT_SANDBOX = url.searchParams.get("on") === "1" ? "1" : ""; res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ sandbox: process.env.LDTT_SANDBOX === "1" })); }
+  if (path === "/__local/state") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ sandbox: process.env.LDTT_SANDBOX === "1", ops: practiceOps, db: { ad_pages: db.ad_pages, ad_page_revisions: db.ad_page_revisions, trainers: db.trainers, trainer_pages: db.trainer_pages, trainer_page_versions: db.trainer_page_versions } })); }
   if (path === "/api/ad-page") return call(adPage, url.searchParams, { forceAuth: url.searchParams.get("preview") === "1" });
   if (path === "/api/environment") return call(environment, url.searchParams, { forceAuth: false });
   const ads = path.match(/^\/ads\/([^/]+)$/);

@@ -5499,3 +5499,9 @@ body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shar
 .lead-card-who .source-badge { width: 20px; height: 20px; }
 .lead-card-who .source-badge svg { width: 12px; height: 12px; }
 .lead-card-who strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* send-to-live */
+[data-send-to-live]{white-space:nowrap}
+[data-send-to-live]:disabled{opacity:.45;cursor:not-allowed}
+.send-live-note{display:inline-flex;align-items:center;white-space:nowrap;color:#08743a;font-size:.8rem;font-weight:800;margin-left:6px}
+.practice-copy-tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:#ede7ff;color:#4b2fbf;font-size:.72rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}

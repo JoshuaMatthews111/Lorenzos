@@ -85,6 +85,11 @@ function overlay(rows, ops) {
       const row = list.find(item => String(item.id) === String(op.id));
       if (row) Object.assign(row, op.changes || {});
     }
+    if (op.operation === "send_to_live") {
+      // send-to-live: the card and the editor show when this page last went to live.
+      const row = list.find(item => String(item.id) === String(op.id) || (op.slug && item.slug === op.slug));
+      if (row) { row.sent_to_live_at = op.at; row.sent_to_live_by = op.actor || null; }
+    }
   });
   return list;
 }
