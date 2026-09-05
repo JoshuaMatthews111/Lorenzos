@@ -167,7 +167,7 @@ Verification additions:
     Publishing on the real site stays on the live portal only.
 
 Verification additions:
-- `node --test tests/` (9 tests, fake two-schema Supabase + fake Storage copy) passes.
+- `node --test tests/*.test.mjs` (9 tests, fake two-schema Supabase + fake Storage copy) passes.
 - `node scripts/audit-office-requirements.mjs` carries the practice-copy checks (117 total):
   every server client on the schema switch, the blocked list above, send-to-live never
   writes published_content, reset is sandbox + super-admin only, the migration is additive.
