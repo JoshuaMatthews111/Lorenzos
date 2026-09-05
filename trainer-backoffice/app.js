@@ -4066,7 +4066,7 @@ function renderTopbar() {
     dashboard: ["Admin Dashboard", "Network performance, lead outcomes, and conversion reporting."],
     trainerPages: ["Trainer Landing Pages", "Three approved designs, page performance, publishing, and locking."],
     pageEditor: ["Full Site Builder", "Edit trainer pages, main website pages, and trainer portal screens with a real-time preview."],
-    pageStudio: ["Page Studio", "Ad landing pages edited full screen. Publish goes live in a minute with no code deploy."], // page-studio
+    pageStudio: ["Page Studio", "Site pages, landing pages and ad pages edited full screen. Publish goes live in a minute with no code deploy."], // page-studio + site-builder
     trainers: ["Trainer Onboarding", "Collect the trainer's account, media, credentials, reviews, SEO, and approved design."],
     leads: ["Leads", "Office-managed funnel from inquiry to paying client."],
     sales: ["Sales Pipeline", "Super Admin view of where revenue is and where it stalled. Test records are never counted."],

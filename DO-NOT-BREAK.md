@@ -222,3 +222,53 @@ Verification additions:
 - `node scripts/audit-office-requirements.mjs` = 122 checks (name gates server + UI, four places the name is kept, Edge flag, browser switch-off).
 - On the preview with the practice testing login: `scripts/practice-names-proof.mjs dialogs send livetag reset`.
 - Read-only SQL after a practice-site form submit: `select count(*) from public.leads` / `public.trainer_applications` unchanged and no row with the test email.
+
+## Site Builder (added 2026-09-05, Claude, branch feat/site-builder)
+
+21. **One table, three page types.** `ad_pages` keeps its name and gains `page_type`
+    (`ad` | `site` | `landing`, default `ad`) + `title`; `site_settings` (key `theme`,
+    key `navigation`) holds the site-wide look and menus. Both schemas (`public`,
+    `practice`) carry the same structure (`20260905230000_site_builder.sql`, additive).
+    `api/pages.js` is the one staff API for every type; `api/ad-pages.js` stays as a
+    3-line alias so nothing that calls the old route breaks.
+22. **Block pages never store HTML the office typed.** `lib/site-page-template.js`
+    `normalizeSitePage()` keeps only the fields each block renders and escapes every
+    string; the one rich-text field goes through `lib/html-sanitize.js`
+    `sanitizeRichText()`, which rebuilds the fragment from an allow-list (p, br, strong,
+    em, u, s, a[href], ul, ol, li, h2–h4, blockquote, img[src,alt]) and drops script /
+    style / iframe / svg / math / form with their content. `tests/site-builder.test.mjs`
+    runs 14 XSS payloads through it; the audit runs six live. Never add `dangerouslyHtml`
+    or a raw-HTML block.
+23. **A published Site Builder page wins over a static file ONLY through
+    `middleware.js`.** Rewrites in vercel.json run after the filesystem, so the clean-path
+    takeover (`/about`, `/contact`, `/services`…) is Edge Middleware that asks
+    `/api/pages-manifest` (published `site`/`landing` slugs, edge-cached 60 s) and rewrites
+    only those to `/api/ad-page?slug=…&via=site`. It fails OPEN (any error or > 900 ms →
+    the request continues to the static site). It never touches `/api`, `/trainer-backoffice`,
+    `/assets`, `/lib`, `/ads`, `/p`, anything with a dot, or the reserved paths. Unpublish
+    removes the slug from the manifest and the static file serves again within a minute.
+    The static files are never deleted or rewritten by the importer (`lib/static-page-importer.js`
+    only reads).
+24. **The ten `trainer-opportunity-*` recruiting pages are untouchable**: not importable,
+    not in any starter, never mentioned by the builder, middleware or the manifest. The
+    audit checks the generator still lists 10 and regenerates with zero diff.
+25. **Entrances are strict**: `/ads/<slug>` serves only `page_type = ad`; `/p/<slug>` and
+    clean paths serve only `site`/`landing`; anything not `status = published` with
+    `published_content` answers 404; draft preview needs a staff bearer token.
+26. **Every served block page carries the shared head**: Meta pixel + Google Ads tag from
+    `lib/ad-page-template.js` (`metaPixelHead`, `googleAdsHead`), canonical, OG, the site
+    `styles.css`, the site header/footer (saved menus, static menus when nothing is saved)
+    and the `contact-intake` form markup identical to contact.html (so `script.js`, the
+    Lead event and the practice-copy switch-off apply unchanged).
+
+Verification additions:
+- `node --test tests/*.test.mjs` (22 tests: 12 send-to-live + 10 site builder).
+- `node scripts/audit-office-requirements.mjs` = 133 checks (11 new: sanitiser live, /p 404 rules,
+  middleware fail-open + manifest filter, recruiting pages untouched, importer read-only,
+  shared head, 17 blocks / 20+ fonts / contrast warnings / nav fallback, full-screen studio,
+  migration additive + alias + includeFiles, sitemap fallback).
+- `node scripts/page-studio-local.mjs` then `node scripts/site-builder-proof.mjs <dir>` (Playwright,
+  in-memory stand-in): 30 PASS lines, 22 screenshots.
+- On a deployment: `/api/pages` → 403 without a login; `/p/<unpublished>` → 404; `/about` still
+  the static file while its Site Builder twin is a draft; `/ericbeck` and
+  `/trainer-opportunity-cleveland-oh` unchanged; `/sitemap.xml` → 200 XML.
