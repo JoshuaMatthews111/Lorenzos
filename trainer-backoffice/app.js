@@ -1806,9 +1806,22 @@ async function ensureTrainerPortalAccount(trainer) {
 }
 
 async function publishTrainerPageWorkflow(trainer, publish) {
+  // onboarding: the login check runs BEFORE the page goes public. It used to run
+  // after the publish RPC, so a refused login (staff email, someone else's email)
+  // left the page published while the office saw "Could not save".
+  if (publish && trainer?.remoteId) {
+    try {
+      await ensureTrainerPortalAccount(trainer);
+    } catch (error) {
+      trainer.pageStatus = "Draft";
+      trainer.locked = false;
+      throw error;
+    }
+  }
   const savedTrainer = await persistTrainerRecord(trainer, { publish });
   if (publish) {
-    await ensureTrainerPortalAccount(savedTrainer || trainer);
+    if (!trainer.remoteId) await ensureTrainerPortalAccount(savedTrainer || trainer);
+    else if (savedTrainer && savedTrainer !== trainer) savedTrainer.portalInviteStatus = trainer.portalInviteStatus;
     const published = await window.LDTT_PORTAL.loadPublishedTrainer((savedTrainer || trainer).slug, { includeDraft: false });
     if (!published?.page?.published_content || Number(published.page.published_revision || 0) < 1) {
       throw new Error("The public trainer revision could not be confirmed after publishing.");
