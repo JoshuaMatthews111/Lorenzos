@@ -1,19 +1,22 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { insertRows, selectRows } from "../_shared/rest.ts";
+import { requestSchema, type Schema } from "../_shared/practice.ts";
 
 function clean(value: unknown) {
   return String(value ?? "").trim();
 }
 
-async function tooManyRecent(email: string) {
+async function tooManyRecent(schema: Schema, email: string) {
   const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const rows = await selectRows({ table: "trainer_applications", select: "id", filters: { email: `eq.${email}`, created_at: `gte.${since}` }, limit: 4 });
+  const rows = await selectRows({ schema, table: "trainer_applications", select: "id", filters: { email: `eq.${email}`, created_at: `gte.${since}` }, limit: 4 });
   return Array.isArray(rows) && rows.length >= 4;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  // Practice copy: x-ldtt-practice: 1 → every table call below goes to the practice schema.
+  const schema: Schema = requestSchema(req);
 
   try {
     const payload = await req.json();
@@ -33,9 +36,10 @@ Deno.serve(async (req) => {
     if (!firstName || !lastName || !email || !phone) {
       return jsonResponse({ error: "Missing required application fields" }, 400);
     }
-    if (await tooManyRecent(email)) return jsonResponse({ error: "Please wait before sending another application" }, 429);
+    if (await tooManyRecent(schema, email)) return jsonResponse({ error: "Please wait before sending another application" }, 429);
 
     const inserted = await insertRows({
+        schema,
       table: "trainer_applications",
       onConflict: sourceSubmissionId ? "source_submission_id" : undefined,
       body: {
@@ -67,6 +71,7 @@ Deno.serve(async (req) => {
 
     const application = Array.isArray(inserted) ? inserted[0] : null;
     if (application?.id) await insertRows({
+        schema,
       table: "lifecycle_events",
       onConflict: "event_key",
       ignoreDuplicates: true,

@@ -95,7 +95,7 @@ const publicTrainerProfilesPromise=(async()=>{
   try{
     const base=String(config.projectUrl).replace(/\/$/,'');
     // Practice copy: the public roster reads the practice schema there, so a trainer published on the practice copy shows up on its own find-a-trainer page.
-    const env=await fetch('/api/environment',{cache:'no-store'}).then(r=>r.ok?r.json():{}).catch(()=>({}));
+    const env=await publicEnvironment;
     const headers={apikey:config.publishableKey,...(env?.schema&&env.schema!=='public'?{'Accept-Profile':env.schema}:{})};
     const [trainerResponse,pageResponse]=await Promise.all([
       fetch(`${base}/rest/v1/trainers?select=id,slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active`,{headers}),
@@ -336,12 +336,80 @@ const submitEmailRelay=async (endpoint,entries,subject)=>{
   return result;
 };
 
+// ---------------------------------------------------------------------------
+// Practice copy (public pages)
+//
+// The practice deployment is a full copy of live (schema `practice`). Its public
+// pages must never create a real lead, application, review or tracking row. Two
+// layers:
+//   1. Every call to a Supabase Edge Function from the practice copy carries the
+//      header x-ldtt-practice: 1; the functions then write the practice schema
+//      (supabase/functions/_shared/practice.ts). Live pages never send it.
+//   2. Until that Edge Function change is DEPLOYED, the practice copy switches its
+//      public forms off (visible notice, submit disabled, tracking skipped) so a
+//      test lead cannot reach public.leads through the old functions.
+// TODO(edge-deploy): set LDTT_EDGE_PRACTICE_FLAG_DEPLOYED to true in the SAME
+// commit that deploys the four Edge Functions with the flag; that removes the
+// notice and lets the practice forms save into the practice schema.
+// ---------------------------------------------------------------------------
+const LDTT_PRACTICE_HEADER='x-ldtt-practice';
+const LDTT_EDGE_PRACTICE_FLAG_DEPLOYED=false;
+const PRACTICE_FORM_OFF_MESSAGE='PRACTICE COPY — this form is switched off here. Nothing typed here reaches the office or creates a lead. Use the live website to send a real request.';
+const publicEnvironment=fetch('/api/environment',{cache:'no-store'}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(env=>{
+  const sandbox=Boolean(env?.sandbox);
+  window.LDTT_IS_SANDBOX=sandbox;
+  window.LDTT_DB_SCHEMA=env?.schema||'public';
+  window.LDTT_EDGE_PRACTICE_FLAG_DEPLOYED=LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
+  if(sandbox) document.body.classList.add('is-practice-copy');
+  return {sandbox,schema:window.LDTT_DB_SCHEMA};
+});
+window.LDTT_PUBLIC_ENV=publicEnvironment;
+const practiceFormsOff=env=>Boolean(env?.sandbox)&&!LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
+const practiceHeaders=env=>(env?.sandbox?{[LDTT_PRACTICE_HEADER]:'1'}:{});
+window.LDTT_PRACTICE_HEADERS=practiceHeaders;
+// Visible notice on every public form + submit disabled + submit swallowed at
+// the document (capture) level, so forms wired by market-landing.js / ad-funnel.js
+// and forms added later are covered too.
+const switchOffPracticeForm=form=>{
+  if(form.dataset.practiceOff==='1'||form.closest('#publicSite')) return;
+  form.dataset.practiceOff='1';
+  const notice=document.createElement('div');
+  notice.className='practice-form-notice';
+  notice.setAttribute('role','alert');
+  notice.textContent=PRACTICE_FORM_OFF_MESSAGE;
+  form.prepend(notice);
+  form.querySelectorAll('button[type="submit"],input[type="submit"],button:not([type])').forEach(button=>{button.setAttribute('disabled','disabled');button.title='Switched off on the practice copy';});
+};
+const switchOffPracticeForms=()=>document.querySelectorAll('form').forEach(switchOffPracticeForm);
+publicEnvironment.then(env=>{
+  if(!practiceFormsOff(env)) return;
+  document.addEventListener('submit',event=>{
+    const form=event.target.closest('form');
+    if(!form) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    switchOffPracticeForm(form);
+    const status=form.querySelector('.form-status');
+    if(status){status.className='form-status error';status.textContent=PRACTICE_FORM_OFF_MESSAGE;}
+  },true);
+  switchOffPracticeForms();
+  document.addEventListener('DOMContentLoaded',switchOffPracticeForms);
+  window.addEventListener('load',switchOffPracticeForms);
+  new MutationObserver(switchOffPracticeForms).observe(document.documentElement,{childList:true,subtree:true});
+});
+
 const submitPublicFormToSupabase=async (functionName,entries)=>{
   const config=window.LDTT_SUPABASE;
   if(!config?.enabled||!config.functionsBaseUrl) return {skipped:true};
+  const env=await publicEnvironment;
+  if(practiceFormsOff(env)){
+    // Tracking is simply dropped on the practice copy; a form is refused in plain words.
+    if(functionName==='track-site-event') return {skipped:true,practice:true};
+    throw new Error(PRACTICE_FORM_OFF_MESSAGE);
+  }
   const response=await fetch(`${config.functionsBaseUrl.replace(/\/$/,'')}/${functionName}`,{
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json',...practiceHeaders(env)},
     body:JSON.stringify(entries)
   });
   if(!response.ok){
@@ -733,9 +801,11 @@ const submitReviewToOfficeQueue=async payload=>{
   }catch(apiError){
     const config=window.LDTT_SUPABASE||{};
     if(!config.enabled||!config.functionsBaseUrl) throw apiError;
+    const env=await publicEnvironment;
+    if(practiceFormsOff(env)) throw new Error(PRACTICE_FORM_OFF_MESSAGE);
     const response=await fetch(`${config.functionsBaseUrl.replace(/\/$/,'')}/submit-content-review`,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json',...practiceHeaders(env)},
       body:JSON.stringify(payload)
     });
     const text=await response.text();

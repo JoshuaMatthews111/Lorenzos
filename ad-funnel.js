@@ -36,7 +36,7 @@
     return value;
   })();
 
-  const trackStandaloneAdEvent = (eventType, extra = {}) => {
+  const trackStandaloneAdEvent = async (eventType, extra = {}) => {
     if (!isStandaloneAdPage || !functionsBaseUrl) return;
     const payload = {
       event_id: `${isReleaseQaHost ? "qa-release-" : ""}${crypto?.randomUUID?.() || `event-${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
@@ -66,14 +66,19 @@
       ...extra
     };
     const url = `${functionsBaseUrl.replace(/\/$/, "")}/track-site-event`;
+    // Practice copy (script.js): tracking is dropped until the Edge Function flag is
+    // deployed, then it carries x-ldtt-practice: 1 so it lands in the practice schema.
+    const env = await (window.LDTT_PUBLIC_ENV || Promise.resolve({}));
+    if (env?.sandbox && !window.LDTT_EDGE_PRACTICE_FLAG_DEPLOYED) return;
+    const practiceHeaders = window.LDTT_PRACTICE_HEADERS ? window.LDTT_PRACTICE_HEADERS(env) : {};
     try {
-      if (eventType === "market_page_time" && navigator.sendBeacon) {
+      if (eventType === "market_page_time" && navigator.sendBeacon && !env?.sandbox) {
         navigator.sendBeacon(url, new Blob([JSON.stringify(payload)], { type: "application/json" }));
         return;
       }
       fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...practiceHeaders },
         body: JSON.stringify(payload),
         keepalive: eventType === "market_page_time"
       }).catch(() => {});

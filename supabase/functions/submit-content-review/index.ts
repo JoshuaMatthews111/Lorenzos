@@ -1,5 +1,6 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { insertRows, selectRows } from "../_shared/rest.ts";
+import { bucketFor, requestSchema, type Schema } from "../_shared/practice.ts";
 
 function clean(value: unknown) {
   return String(value ?? "").trim();
@@ -62,7 +63,7 @@ function serviceHeaders(serviceRoleKey: string, extra: Record<string, string> = 
   return headers;
 }
 
-async function uploadSubmissionFile(trainerId: string, file: Record<string, unknown> | null) {
+async function uploadSubmissionFile(schema: Schema, trainerId: string, file: Record<string, unknown> | null) {
   if (!file) return "";
   const dataUrl = clean(file.data_url);
   const name = clean(file.name) || "review-upload";
@@ -74,7 +75,7 @@ async function uploadSubmissionFile(trainerId: string, file: Record<string, unkn
   const safeName = name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "review-upload";
   const path = `${trainerId || "public"}/${Date.now()}-${safeName}`;
   const { supabaseUrl, serviceRoleKey } = storageCredentials();
-  const response = await fetch(`${supabaseUrl}/storage/v1/object/trainer-submissions/${path}`, {
+  const response = await fetch(`${supabaseUrl}/storage/v1/object/${bucketFor("trainer-submissions", schema)}/${path}`, {
     method: "POST",
     headers: serviceHeaders(serviceRoleKey, {
       "Content-Type": type,
@@ -90,6 +91,8 @@ async function uploadSubmissionFile(trainerId: string, file: Record<string, unkn
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  // Practice copy: x-ldtt-practice: 1 → every table call below goes to the practice schema.
+  const schema: Schema = requestSchema(req);
 
   try {
     const payload = await req.json();
@@ -108,6 +111,7 @@ Deno.serve(async (req) => {
     }
 
     const trainerRows = await selectRows({
+      schema,
       table: "trainers",
       select: "id,slug,full_name",
       filters: { slug: `eq.${trainerSlug}` },
@@ -115,7 +119,7 @@ Deno.serve(async (req) => {
     });
     const trainer = Array.isArray(trainerRows) ? trainerRows[0] : null;
     const trainerId = trainer?.id || clean(payload.trainer_id);
-    const fileUrl = await uploadSubmissionFile(trainerId, payload.file || null);
+    const fileUrl = await uploadSubmissionFile(schema, trainerId, payload.file || null);
     const mediaUrl = fileUrl || reviewVideoUrl;
     const notes = [
       `Public landing page submission for ${clean(payload.trainer_name) || trainer?.full_name || trainerSlug}.`,
@@ -127,6 +131,7 @@ Deno.serve(async (req) => {
     ].filter(Boolean).join("\n");
 
     const inserted = await insertRows({
+        schema,
       table: "content_submissions",
       body: {
         trainer_id: trainerId || null,

@@ -2732,3 +2732,7 @@ body.review-modal-open{overflow:hidden}
 
 /* review cards with no image and no quote were rendering as 2px slivers in the rail */
 .review-shot-card:empty,.review-shot-card>*:only-child:empty{display:none}
+
+/* Practice copy: public forms are switched off until the Edge Function flag deploys (script.js) */
+.practice-form-notice{display:block;border:2px solid #c8102e;border-radius:12px;padding:13px 15px;background:#fff1f2;color:#7a0a1c;font-weight:800;line-height:1.45}
+form[data-practice-off="1"] button[disabled]{opacity:.45;cursor:not-allowed}

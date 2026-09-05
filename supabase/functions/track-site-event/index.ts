@@ -1,5 +1,6 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { insertRows, selectRows } from "../_shared/rest.ts";
+import { requestSchema, type Schema } from "../_shared/practice.ts";
 
 function clean(value: unknown, max = 500) {
   return String(value ?? "").trim().slice(0, max);
@@ -8,6 +9,8 @@ function clean(value: unknown, max = 500) {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  // Practice copy: x-ldtt-practice: 1 → every table call below goes to the practice schema.
+  const schema: Schema = requestSchema(req);
 
   try {
     const payload = await req.json();
@@ -18,6 +21,7 @@ Deno.serve(async (req) => {
     if (!eventType || !allowedEventTypes.has(eventType)) return jsonResponse({ error: "Unsupported event type" }, 400);
 
     const trainerRows = trainerSlug ? await selectRows({
+      schema,
       table: "trainers",
       select: "id,slug,full_name",
       filters: { slug: `eq.${trainerSlug}` },
@@ -25,6 +29,7 @@ Deno.serve(async (req) => {
     }) : [];
     const trainer = Array.isArray(trainerRows) ? trainerRows[0] : null;
     await insertRows({
+        schema,
       table: "site_events",
       returning: "minimal",
       body: {
@@ -52,6 +57,7 @@ Deno.serve(async (req) => {
     const lifecycleType = isQaEvent ? "qa_release_check" : /click/i.test(eventType) ? "cta_click" : "site_visit";
     const eventKey = clean(payload.event_id, 240) || `${lifecycleType}:${clean(payload.session_id, 160)}:${clean(payload.page_path, 500)}:${clean(payload.timestamp, 80)}`;
     await insertRows({
+        schema,
       table: "lifecycle_events",
       onConflict: "event_key",
       ignoreDuplicates: true,

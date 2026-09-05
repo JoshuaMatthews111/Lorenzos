@@ -1,5 +1,8 @@
+import { schemaHeaders, type Schema } from "./practice.ts";
+
 type InsertOptions = {
   table: string;
+  schema?: Schema; // "practice" only when the request carried x-ldtt-practice: 1
   body: Record<string, unknown> | Record<string, unknown>[];
   returning?: "minimal" | "representation";
   onConflict?: string;
@@ -23,7 +26,7 @@ function serviceHeaders(serviceRoleKey: string, extra: Record<string, string> = 
   return headers;
 }
 
-export async function insertRows({ table, body, returning = "representation", onConflict, ignoreDuplicates = false }: InsertOptions) {
+export async function insertRows({ table, body, returning = "representation", onConflict, ignoreDuplicates = false, schema }: InsertOptions) {
   const { supabaseUrl, serviceRoleKey } = credentials();
   const prefer = [`return=${returning}`];
   if (onConflict) prefer.push(ignoreDuplicates ? "resolution=ignore-duplicates" : "resolution=merge-duplicates");
@@ -33,7 +36,8 @@ export async function insertRows({ table, body, returning = "representation", on
     method: "POST",
     headers: serviceHeaders(serviceRoleKey, {
       "Content-Type": "application/json",
-      Prefer: prefer.join(",")
+      Prefer: prefer.join(","),
+      ...schemaHeaders(schema)
     }),
     body: JSON.stringify(body)
   });
@@ -48,17 +52,18 @@ export async function insertRows({ table, body, returning = "representation", on
   return data;
 }
 
-export async function selectRows({ table, select = "*", filters = {}, limit = 20 }: {
+export async function selectRows({ table, select = "*", filters = {}, limit = 20, schema }: {
   table: string;
   select?: string;
   filters?: Record<string, string>;
   limit?: number;
+  schema?: Schema;
 }) {
   const { supabaseUrl, serviceRoleKey } = credentials();
   const params = new URLSearchParams({ select, limit: String(limit) });
   Object.entries(filters).forEach(([key, value]) => params.set(key, value));
   const response = await fetch(`${supabaseUrl}/rest/v1/${table}?${params}`, {
-    headers: serviceHeaders(serviceRoleKey)
+    headers: serviceHeaders(serviceRoleKey, schemaHeaders(schema))
   });
   const text = await response.text();
   if (!response.ok) throw new Error(`${table} select failed: ${response.status} ${text}`);

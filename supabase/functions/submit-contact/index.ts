@@ -1,19 +1,22 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { insertRows, selectRows } from "../_shared/rest.ts";
+import { requestSchema, type Schema } from "../_shared/practice.ts";
 
 function clean(value: unknown) {
   return String(value ?? "").trim();
 }
 
-async function tooManyRecent(table: "leads" | "trainer_applications", email: string) {
+async function tooManyRecent(schema: Schema, table: "leads" | "trainer_applications", email: string) {
   const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const rows = await selectRows({ table, select: "id", filters: { email: `eq.${email}`, created_at: `gte.${since}` }, limit: 4 });
+  const rows = await selectRows({ schema, table, select: "id", filters: { email: `eq.${email}`, created_at: `gte.${since}` }, limit: 4 });
   return Array.isArray(rows) && rows.length >= 4;
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+  // Practice copy: x-ldtt-practice: 1 → every table call below goes to the practice schema.
+  const schema: Schema = requestSchema(req);
 
   try {
     const payload = await req.json();
@@ -37,15 +40,16 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Missing required contact fields" }, 400);
     }
 
-    if (await tooManyRecent(trainerInterest ? "trainer_applications" : "leads", email)) {
+    if (await tooManyRecent(schema, trainerInterest ? "trainer_applications" : "leads", email)) {
       return jsonResponse({ error: "Please wait before sending another request" }, 429);
     }
 
-    const trainerRows = trainerSlug ? await selectRows({ table: "trainers", select: "id,slug,full_name", filters: { slug: `eq.${trainerSlug}` }, limit: 1 }) : [];
+    const trainerRows = trainerSlug ? await selectRows({ schema, table: "trainers", select: "id,slug,full_name", filters: { slug: `eq.${trainerSlug}` }, limit: 1 }) : [];
     const trainer = Array.isArray(trainerRows) ? trainerRows[0] : null;
 
     if (trainerInterest) {
       const insertedApplications = await insertRows({
+        schema,
         table: "trainer_applications",
         onConflict: sourceSubmissionId ? "source_submission_id" : undefined,
         body: {
@@ -76,6 +80,7 @@ Deno.serve(async (req) => {
       });
       const application = Array.isArray(insertedApplications) ? insertedApplications[0] : null;
       if (application?.id) await insertRows({
+        schema,
         table: "lifecycle_events",
         onConflict: "event_key",
         ignoreDuplicates: true,
@@ -95,6 +100,7 @@ Deno.serve(async (req) => {
     }
 
     const inserted = await insertRows({
+        schema,
       table: "leads",
       onConflict: sourceSubmissionId ? "source_submission_id" : undefined,
       body: {
@@ -129,6 +135,7 @@ Deno.serve(async (req) => {
     if (lead?.id) {
       const existingEvents = sourceSubmissionId
         ? await selectRows({
+      schema,
             table: "lead_events",
             select: "id",
             filters: {
@@ -139,6 +146,7 @@ Deno.serve(async (req) => {
           })
         : [];
       if (!Array.isArray(existingEvents) || existingEvents.length === 0) await insertRows({
+        schema,
         table: "lead_events",
         returning: "minimal",
         body: {
@@ -149,6 +157,7 @@ Deno.serve(async (req) => {
         }
       });
       await insertRows({
+        schema,
         table: "lifecycle_events",
         onConflict: "event_key",
         ignoreDuplicates: true,
