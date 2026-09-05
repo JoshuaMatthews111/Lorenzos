@@ -1232,9 +1232,19 @@ function remoteClientToUi(row, dogs) {
 
 function mergeRemoteOperationalData(data) {
   const pagesByTrainer = new Map((data.pages || []).map(page => [page.trainer_id, page]));
-  state.trainers = (data.trainers || []).map(trainer => remoteTrainerToUi(trainer, pagesByTrainer.get(trainer.id)));
+  // onboarding: a draft the office just added is still being created (or a poll
+  // that started before the create answered without it). Keep it in the list
+  // instead of dropping it, otherwise the wizard below silently rebinds to the
+  // first trainer alphabetically and the office types the new trainer's details
+  // into a REAL trainer's record (Aryson Whorley, practice copy, 2026-09-05).
+  const remoteIds = new Set((data.trainers || []).map(trainer => String(trainer.id)));
+  const pendingDrafts = state.trainers.filter(trainer => trainer.isOfficeDraft && !remoteIds.has(String(trainer.remoteId || "")));
+  state.trainers = [...pendingDrafts, ...(data.trainers || []).map(trainer => remoteTrainerToUi(trainer, pagesByTrainer.get(trainer.id)))];
   if (!state.trainers.some(trainer => trainer.id === state.selectedTrainerId)) {
-    state.selectedTrainerId = state.trainers[0]?.id || "";
+    // onboarding: never jump the selection to another trainer while the office is
+    // inside the wizard or the page editor; an empty selection shows "Select a
+    // trainer" there, which is honest. Other screens fall back as before.
+    state.selectedTrainerId = ["trainers", "pageEditor"].includes(state.activeView) && session.role === "admin" ? "" : (state.trainers[0]?.id || "");
   }
   state.leads = (data.leads || []).map(remoteLeadToUi);
   state.applications = (data.applications || []).map(remoteApplicationToUi);
@@ -1427,9 +1437,16 @@ function trainerDisplaySlug(trainer) {
   const current = slugify(trainer?.slug || "");
   const nameSlug = slugify(trainer?.profileName || trainer?.name || "");
   const draftLikeSlugs = new Set(["", "new-trainer", "new-trainer-draft", "newtrainerdraft", "trainer", "draft-trainer", "office-draft"]);
-  if (nameSlug && !["new-trainer", "trainer"].includes(nameSlug) && (trainer?.isOfficeDraft || draftLikeSlugs.has(current) || /^office-draft-\d+$/.test(current))) {
+  // onboarding: an unnamed draft keeps its own office-draft-<time> slug. Every
+  // new draft used to be saved as "new-trainer-draft", and trainers.slug is
+  // unique, so the second "+ Add New Trainer" before the first was named failed
+  // with a raw database error ("duplicate key value violates unique constraint").
+  const placeholderName = !nameSlug || draftLikeSlugs.has(nameSlug);
+  if (!placeholderName && (trainer?.isOfficeDraft || draftLikeSlugs.has(current) || /^office-draft-\d+$/.test(current))) {
     return nameSlug;
   }
+  if (placeholderName && /^office-draft-\d+$/.test(current)) return current;
+  if (placeholderName && !current) return `office-draft-${Date.now()}`;
   return current || nameSlug || `office-draft-${Date.now()}`;
 }
 
@@ -3113,6 +3130,9 @@ function trainerById(id = state.selectedTrainerId) {
   const trainer = findTrainer(id);
   if (trainer) return trainer;
   if (arguments.length > 0 && id) return null;
+  // onboarding: the wizard and the page editor bind to the trainer the office
+  // picked, never to "whoever is first in the list" (see mergeRemoteOperationalData).
+  if (session.role === "admin" && ["trainers", "pageEditor"].includes(state.activeView)) return null;
   const fallback = state.trainers[0] || null;
   if (fallback) state.selectedTrainerId = fallback.id;
   return fallback;
@@ -3439,6 +3459,7 @@ function renderMediaLibrary(trainer) {
 
 function markBuilderDraftDirty(message = "Builder change saved to draft", detail = "") {
   const trainer = trainerById();
+  if (!trainer) return; // onboarding: nothing is selected to save into
   if (state.builderSurface === "trainer") {
     trainer.pageStatus = "Draft";
     trainer.locked = false;
@@ -7860,7 +7881,7 @@ function builderPreviewConfig(trainer) {
 
 function trainerPageEditor() {
   const trainer = trainerById();
-  if (!trainer) return panel("Page Editor", "", "<p>No trainer profile is available.</p>", "pad");
+  if (!trainer) return panel("Page Editor", `<button class="btn btn-outline" type="button" data-view="trainerPages">Open Trainer Network</button>`, "<p>Pick a trainer in Trainer Network first (Edit Trainer &amp; Landing Page), then come back here.</p>", "pad"); // onboarding
   const style = trainer.styleSettings || {};
   const field = (label, name, value, options = {}) => `<label class="${options.wide ? "wide" : ""}"><span>${escapeHtml(label)}</span>${options.area
     ? `<textarea data-editor-field="${name}">${escapeHtml(value || "")}</textarea>`
