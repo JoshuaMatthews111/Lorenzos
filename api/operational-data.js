@@ -415,9 +415,7 @@ async function loadAdminOperationalData(unavailableCapabilities) {
       unavailableCapabilities.push("lifecycle_events");
       return [];
     }),
-    // perf/portal-speed: sheets.leads was never read by the portal (the Leads
-    // export builds its own CSV), so the 0.45 MB leads sheet is no longer fetched.
-    Promise.resolve([]),
+    optionalSupabaseFetchAll("/rest/v1/office_leads_sheet?select=*&order=received_at.desc", "office_leads_sheet", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
     Promise.resolve(null),
     optionalSupabaseFetchAll("/rest/v1/deals?select=*&order=sold_on.desc,created_at.desc", "deals", unavailableCapabilities),
@@ -648,9 +646,7 @@ module.exports = async function handler(req, res) {
       reviewPublications,
       lifecycleEvents,
       sheets: {
-        // perf/portal-speed: never read by the portal (exportOperationalSheet
-        // hands "leads" to exportLeadsCsv before touching sheets); 0.5 MB saved per poll.
-        leads: [],
+        leads: completeSheetRows(leads, leadsSheet),
         applications: completeSheetRows(applications, applicationsSheet),
         clients: completeClientSheetRows(clients, clientsSheet)
       }
