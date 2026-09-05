@@ -1752,7 +1752,9 @@ async function ensureTrainerPortalAccount(trainer) {
   trainer.email = email;
   trainer.username = email;
   trainer.temporaryPassword = TRAINER_TEMP_PASSWORD_NOTICE;
-  trainer.portalInviteStatus = result.created ? "New trainer login created" : "Existing trainer login enabled";
+  trainer.portalInviteStatus = result.created ? "New trainer login created" : result.sandbox && !result.user_id ? "Practice copy: enabled, no login created" : "Existing trainer login enabled";
+  // Practice copy: no auth user is ever created there; say what happened instead.
+  if (result.sandbox && result.message) showToast(result.message, 9000);
   return result;
 }
 
@@ -2924,6 +2926,7 @@ function showToast(message, duration = 1800) {
 // the live portal. The API answers 404 anywhere but the sandbox.
 // ---------------------------------------------------------------------------
 const SEND_TO_LIVE_CONFIRM = "This copies the page to the live portal as a DRAFT. It will not be public until someone presses Publish on the live portal. Continue?";
+const SEND_TO_LIVE_WARNING = "You are copying this to the LIVE portal. It arrives as a DRAFT and is not public until someone presses Publish on the live portal. One page per click.";
 
 function canSendToLive() {
   return session.role === "admin" && ["super_admin", "office_admin"].includes(portalPermissionValue(portalUser));
@@ -2953,7 +2956,7 @@ function confirmSendToLive() {
   return new Promise(resolve => {
     const dialog = document.createElement("dialog");
     dialog.className = "action-confirmation-dialog send-to-live-dialog";
-    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">→</div><h2>Send to live?</h2><p>${escapeHtml(SEND_TO_LIVE_CONFIRM)}</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-send-live-cancel>Not yet</button><button type="button" class="btn btn-red" data-send-live-go>Send to live as a draft</button></div>`;
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">→</div><h2>Send to live?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>${escapeHtml(SEND_TO_LIVE_WARNING)}</div><p>${escapeHtml(SEND_TO_LIVE_CONFIRM)}</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-send-live-cancel>Not yet</button><button type="button" class="btn btn-red" data-send-live-go>Send to live as a draft</button></div>`;
     document.body.appendChild(dialog);
     const done = value => { dialog.close(); dialog.remove(); resolve(value); };
     dialog.querySelector("[data-send-live-go]").addEventListener("click", () => done(true));
@@ -5602,13 +5605,32 @@ function liveDataReferenceLinks() {
   </section>`;
 }
 
+// Practice copy only: "Reset practice copy to match live" (api/practice-reset.js).
+function practiceResetPanel() {
+  if (!window.LDTT_IS_SANDBOX || !isSuperAdmin()) return "";
+  return `<section class="practice-reset-panel"><h3>Reset practice copy to match live</h3><p>This is the practice copy. Everything anyone has done here — trainers, pages, uploads, leads moved, notes, deals, Page Studio pages — is wiped and replaced with an exact copy of the live portal as it is right now. The live portal is not touched.</p><button class="btn btn-red" type="button" data-practice-reset>Reset practice copy to match live</button></section>`;
+}
+
+async function resetPracticeCopy() {
+  const dialogText = "Reset the practice copy? EVERY practice change will be wiped — every trainer, page, upload, lead move, note, deal and Page Studio page anyone made here — and replaced with a fresh copy of live. The live portal is not touched. This cannot be undone.";
+  if (!window.confirm(dialogText)) return;
+  const token = window.LDTT_PORTAL?.accessToken?.() || "";
+  showToast("Resetting the practice copy…", 8000);
+  const response = await fetch("/api/practice-reset", { method: "POST", cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.message || `Reset failed (${response.status}).`);
+  showToast(data.message || "Practice copy reset to match live.", 8000);
+  if (remoteReady) await reloadRemoteData().catch(() => {});
+  render();
+}
+
 function portalAccessScreen() {
   if (!isSuperAdmin()) return panel("Portal Access", "", `<p class="panel-copy">This section is available only to Super Admin accounts.</p>`, "pad");
   const rows = portalAccessRows();
   const activeRows = rows.filter(portalUserHasAccess);
   const disabledRows = rows.filter(user => !portalUserHasAccess(user));
   const superAdmins = rows.filter(user => portalPermissionValue(user) === "super_admin");
-  return `${panel("Add a Staff Login", "", `
+  return `${practiceResetPanel()}${panel("Add a Staff Login", "", `
     <p class="panel-copy">Create a login for someone in the office. They can sign in straight away with the email and password you set here.</p>
     <form class="communications-form" data-create-account-form>
       <label>First name<input name="first_name" placeholder="Jasmine"></label>
@@ -7176,8 +7198,8 @@ async function submitDealFromForm() {
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok) throw new Error(result.message || `The deal could not be saved (${response.status}).`);
-    state.dealForm = { ok: `${result.sandbox ? "Saved to the sandbox practice layer" : "Saved"}. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
-    showToast(result.sandbox ? "Practice deal submitted (sandbox)" : "Deal submitted");
+    state.dealForm = { ok: `${result.sandbox ? "Saved on the practice copy" : "Saved"}. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
+    showToast(result.sandbox ? "Deal submitted (practice copy)" : "Deal submitted");
     await reloadRemoteData();
   } catch (error) {
     state.dealForm = { ...f, busy: false, error: error.message || String(error) };
@@ -10560,7 +10582,7 @@ document.addEventListener("click", async event => {
     if (!note) { showToast("That note could not be found."); return; }
     if (!ownsOfficeNote(note)) { showToast("You can only delete a note you typed yourself."); return; }
     if (!window.confirm(window.LDTT_IS_SANDBOX
-      ? "Delete this note? Everyone testing sees it go. The real live note is not touched."
+      ? "Delete this note? Everyone on the practice copy sees it go. The live portal is not touched."
       : "Delete this note? Only you typed it, and it cannot be brought back.")) return;
     // Take it off the screen now. The office complained that note changes only
     // appeared after a manual refresh, so remove locally and repaint first.
@@ -10797,6 +10819,13 @@ document.addEventListener("click", async event => {
     if (!window.confirm("Clear the local activity log on this device?")) return;
     state.activityLog = [];
     saveState("Activity log cleared");
+    return;
+  }
+  const practiceReset = event.target.closest("[data-practice-reset]");
+  if (practiceReset) {
+    practiceReset.disabled = true;
+    try { await resetPracticeCopy(); } catch (error) { showToast(`Not reset: ${error.message}`, 8000); }
+    finally { practiceReset.disabled = false; }
     return;
   }
   const portalAccessAction = event.target.closest("[data-portal-access-action]");
@@ -13231,12 +13260,13 @@ document.addEventListener("input", event => {
 });
 
 // ---------------------------------------------------------------------------
-// Sandbox banner
+// Practice copy banner
 //
-// The sandbox runs this same code against the same live Supabase, so the office
-// sees their real logins and their real leads. It is not allowed to change any
-// of them. Say so loudly and permanently, because a copy that looks exactly
-// like the live portal is otherwise indistinguishable from it.
+// The practice copy runs this same code with the same logins against a full
+// copy of the live database (the `practice` schema) and practice-* buckets.
+// Everything works there; nothing there reaches the website or real people.
+// Say so loudly and permanently, because a copy that looks exactly like the
+// live portal is otherwise indistinguishable from it.
 // ---------------------------------------------------------------------------
 async function applyEnvironmentBadge() {
   try {
@@ -13244,7 +13274,7 @@ async function applyEnvironmentBadge() {
     const info = await response.json().catch(() => ({}));
     if (!info?.sandbox) return;
     window.LDTT_IS_SANDBOX = true;
-    window.LDTT_PORTAL?.lockForSandbox?.();
+    window.LDTT_DB_SCHEMA = info.schema || "practice";
     document.body.classList.add("is-sandbox");
     // Testers are going to reload this thing all day and redeploys land under
     // them. Tick "keep me signed in" for them so a refresh, a new tab or a fresh
@@ -13256,16 +13286,16 @@ async function applyEnvironmentBadge() {
     banner.id = "sandboxBanner";
     banner.className = "sandbox-banner";
     banner.setAttribute("role", "status");
-    banner.innerHTML = `<strong>SANDBOX</strong><span>Real live records, practice copy. Changes here stick and the whole team sees them — move a lead and Missy sees it moved — but they live in a practice layer only. The real site never changes, and Joshua can wipe the practice layer to start fresh.</span>`;
+    banner.innerHTML = `<strong>PRACTICE COPY</strong><span>PRACTICE COPY — a full copy of live. Everything works here. Nothing here reaches the website or real people. Use Send to live when a page is ready.</span>`;
     document.body.prepend(banner);
   } catch (error) {
     console.warn("LDTT environment check failed", error);
   }
 }
 
-// Wait for the answer before booting. The sandbox flag decides whether the
-// forced password gates apply and whether direct Supabase writes are locked, so
-// starting the portal before we know would leave a gap where a write could land.
+// Wait for the answer before booting. The practice flag decides whether the
+// forced password gates apply and which schema the direct Supabase calls use,
+// so starting the portal before we know would leave a gap.
 document.addEventListener("DOMContentLoaded", () => enhancePasswordFields(document));
 enhancePasswordFields(document);
 applyEnvironmentBadge().finally(() => bootstrapApplication());

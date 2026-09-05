@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../lib/sandbox");
+const { blockedInSandbox, supabaseRequest } = require("../lib/sandbox");
 // Self-serve password reset for the staff portal.
 //
 // Why this does not use Supabase's own emailed recovery link: that route needs
@@ -54,13 +54,15 @@ function signatureIsValid(email, code, expiresAt, signature) {
 }
 
 async function supabaseFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...target.headers
     }
   });
   const text = await response.text();

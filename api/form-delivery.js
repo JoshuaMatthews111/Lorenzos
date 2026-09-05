@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../lib/sandbox");
+const { blockedInSandbox, supabaseRequest } = require("../lib/sandbox");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -70,13 +70,15 @@ function allowedOrigin(req) {
 }
 
 async function supabaseFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...target.headers
     }
   });
   const text = await response.text();

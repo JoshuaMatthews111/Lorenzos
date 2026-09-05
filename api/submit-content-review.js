@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../lib/sandbox");
+const { supabaseRequest } = require("../lib/sandbox");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 
@@ -73,13 +73,16 @@ async function uploadSubmissionFile(trainerId, file) {
   const safeName = originalName.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "review-upload";
   const folder = trainerId || "public";
   const path = `${folder}/${Date.now()}-${safeName}`;
-  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/trainer-submissions/${path}`, {
+  // Practice copy: lands in practice-trainer-submissions (lib/sandbox.js).
+  const target = supabaseRequest(`/storage/v1/object/trainer-submissions/${path}`);
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     method: "POST",
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": contentType,
-      "x-upsert": "false"
+      "x-upsert": "false",
+      ...target.headers
     },
     body: bytes
   });
@@ -91,10 +94,12 @@ async function uploadSubmissionFile(trainerId, file) {
 async function findTrainerId(payload) {
   const slug = clean(payload.trainer_slug, 160);
   if (!slug) return null;
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/trainers?select=id&slug=eq.${encodeURIComponent(slug)}&limit=1`, {
+  const target = supabaseRequest(`/rest/v1/trainers?select=id&slug=eq.${encodeURIComponent(slug)}&limit=1`);
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     headers: {
       apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${SERVICE_ROLE_KEY}`
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      ...target.headers
     }
   });
   if (!response.ok) return null;
@@ -103,8 +108,7 @@ async function findTrainerId(payload) {
 }
 
 module.exports = async function handler(req, res) {
-  // The sandbox reads live records but is never allowed to change them.
-  if (blockedInSandbox(res, "Submitting this for review")) return;
+  // Practice copy: the review lands in practice.content_submissions, nothing else.
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
@@ -164,13 +168,14 @@ module.exports = async function handler(req, res) {
       office_notes: null
     };
 
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/content_submissions?select=id`, {
+    const insertTarget = supabaseRequest("/rest/v1/content_submissions?select=id", { Prefer: "return=representation" });
+    const response = await fetch(`${SUPABASE_URL}${insertTarget.path}`, {
       method: "POST",
       headers: {
         apikey: SERVICE_ROLE_KEY,
         Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
         "Content-Type": "application/json",
-        Prefer: "return=representation"
+        ...insertTarget.headers
       },
       body: JSON.stringify(insertPayload)
     });

@@ -1,8 +1,7 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const crypto = require("node:crypto");
-const { isSandbox } = require("../lib/sandbox");
-const sandboxStore = require("../lib/sandbox-store");
+const { isSandbox, supabaseRequest } = require("../lib/sandbox");
 
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -12,13 +11,15 @@ function cors(response) {
 }
 
 async function supabaseFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...target.headers
     }
   });
   const text = await response.text();
@@ -138,12 +139,13 @@ async function countRows(table) {
 const PAGE_CONCURRENCY = 6;
 
 async function supabaseFetchPage(path, separator, pageSize, offset, withCount) {
-  const response = await fetch(`${SUPABASE_URL}${path}${separator}limit=${pageSize}&offset=${offset}`, {
+  const target = supabaseRequest(`${path}${separator}limit=${pageSize}&offset=${offset}`, withCount ? { Prefer: "count=exact" } : {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(withCount ? { Prefer: "count=exact" } : {})
+      ...target.headers
     }
   });
   const text = await response.text();
@@ -527,23 +529,21 @@ module.exports = async function handler(req, res) {
     const data = access.portalUser.role === "trainer"
       ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities)
       : await loadAdminOperationalData(unavailableCapabilities);
-    // The sandbox lays every tester's practice edits over the live rows, so the
-    // whole team sees the same picture without a single real record changing.
-    let sandboxOps = [];
+    // Practice copy: every row above already came from the practice schema.
+    // The only extra is the "Sent to live ✓" stamp per trainer page, kept in
+    // practice.send_to_live_log by api/send-to-live.js.
+    let sendToLiveLog = [];
     if (isSandbox()) {
       try {
-        sandboxOps = await sandboxStore.readOps();
-        sandboxStore.applyOps(data, sandboxOps);
-        // Practice deals belong to whoever submitted them. A trainer sees only
-        // their own, exactly as on live.
-        if (access.portalUser.role === "trainer" && Array.isArray(data.deals)) {
-          const mine = String(access.portalUser.trainer_id || "");
-          data.deals = data.deals.filter(deal => String(deal.trainer_id || "") === mine);
-          const ids = new Set(data.deals.map(deal => String(deal.id)));
-          data.dealPayments = (data.dealPayments || []).filter(payment => ids.has(String(payment.deal_id)));
-        }
+        sendToLiveLog = await supabaseFetch("/rest/v1/send_to_live_log?select=entity_id,slug,sent_at,sent_by&entity_type=eq.trainer_page&order=sent_at.desc&limit=500") || [];
+        const stamps = new Map();
+        sendToLiveLog.forEach(row => [row.entity_id, row.slug].filter(Boolean).forEach(key => { if (!stamps.has(key)) stamps.set(key, row); }));
+        (data.pages || []).forEach(page => {
+          const hit = stamps.get(String(page.id)) || stamps.get(String(page.slug));
+          if (hit) { page.sent_to_live_at = hit.sent_at; page.sent_to_live_by = hit.sent_by || null; }
+        });
       } catch (error) {
-        console.error("Sandbox practice layer could not be applied", error);
+        console.error("Practice send-to-live stamps could not be read", error);
       }
     }
     let {
@@ -581,7 +581,7 @@ module.exports = async function handler(req, res) {
         .flat().map(rowStamp).sort().join("|"),
       `events:${events.length}:${events[0]?.id || ""}`,
       `lifecycle:${lifecycleEvents.length}:${lifecycleEvents[0]?.id || ""}`,
-      `sandbox:${sandboxOps.length}:${sandboxOps[sandboxOps.length - 1]?.at || ""}`,
+      `sent:${sendToLiveLog.length}:${sendToLiveLog[0]?.sent_at || ""}`,
       `clientsTotal:${data.clientsTotal ?? ""}`
     ].join("||");
     const serverRevision = crypto.createHash("sha256").update(revisionInput).digest("hex").slice(0, 20);

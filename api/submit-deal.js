@@ -10,8 +10,7 @@
 // the existing trigger turns into a client record.
 
 const crypto = require("crypto");
-const { isSandbox } = require("../lib/sandbox");
-const sandboxStore = require("../lib/sandbox-store");
+const { isSandbox, supabaseRequest } = require("../lib/sandbox");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -45,13 +44,15 @@ function addMonths(iso, months) {
 }
 
 async function supabaseFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...target.headers
     }
   });
   const text = await response.text();
@@ -135,30 +136,7 @@ module.exports = async function handler(req, res) {
     const leadId = clean(body.lead_id, 60) || null;
     const clientId = clean(body.client_id, 60) || null;
 
-    // Sandbox: same rules, same shape, but the deal and its payments go into
-    // the shared practice layer and the lead status flip is a practice op too.
-    // Nothing reaches the real tables; every tester sees the practice deal.
-    if (isSandbox()) {
-      const stamp = new Date().toISOString();
-      const deal = {
-        id: `sbx-${crypto.randomUUID()}`, lead_id: leadId, client_id: clientId, trainer_id: trainerId, submitted_by: auth.user.id,
-        client_name: clientName, dog_name: clean(body.dog_name, 120) || null, program,
-        sold_amount: sold, collected_amount: collected, balance_due: balance,
-        plan_type: balance > 0 ? planType : "paid_in_full", installments: schedule.length, sold_on: soldOn,
-        status: balance > 0 ? "open" : "paid", notes: clean(body.notes, 2000) || null,
-        raw_payload: { source: "trainer_portal", sandbox: true, submitted_email: auth.portalUser.email || auth.user.email },
-        created_at: stamp, updated_at: stamp
-      };
-      const payments = [
-        ...(collected > 0 ? [{ id: `sbx-${crypto.randomUUID()}`, deal_id: deal.id, sequence: 0, amount: collected, due_on: soldOn, paid_on: soldOn, paid_amount: collected, status: "collected", created_at: stamp, updated_at: stamp }] : []),
-        ...schedule.map((p, i) => ({ id: `sbx-${crypto.randomUUID()}`, deal_id: deal.id, sequence: i + 1, amount: p.amount, due_on: p.due_on, status: "scheduled", created_at: stamp, updated_at: stamp }))
-      ];
-      await sandboxStore.appendOp({ operation: "create", entity_type: "deal", record: deal, actor: auth.portalUser.email });
-      for (const payment of payments) await sandboxStore.appendOp({ operation: "create", entity_type: "deal_payment", record: payment, actor: auth.portalUser.email });
-      if (leadId) await sandboxStore.appendOp({ operation: "update", entity_type: "lead", id: leadId, changes: { status: "became_client", updated_at: stamp }, actor: auth.portalUser.email });
-      return res.status(200).json({ ok: true, sandbox: true, deal, payments, balance_due: balance });
-    }
-
+    // Practice copy: identical path against the practice schema (lib/sandbox.js).
     const [deal] = await supabaseFetch("/rest/v1/deals", {
       method: "POST", headers: { Prefer: "return=representation" },
       body: JSON.stringify({
@@ -188,7 +166,7 @@ module.exports = async function handler(req, res) {
       }).catch(() => {});
     }
 
-    return res.status(200).json({ ok: true, deal, payments: paymentRows, balance_due: balance });
+    return res.status(200).json({ ok: true, sandbox: isSandbox(), deal, payments: paymentRows, balance_due: balance });
   } catch (error) {
     const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;
     return res.status(status).json({ ok: false, message: error.message || "The deal could not be saved.", detail: error.detail || null });

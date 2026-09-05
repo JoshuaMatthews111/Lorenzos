@@ -1,7 +1,8 @@
 // Tells the portal in the browser which deployment it is running on, so the
-// sandbox can put a banner up and refuse writes before they are even attempted.
-// Read-only and public: it reveals nothing but a boolean.
-const { isSandbox } = require("../lib/sandbox");
+// practice copy can put its banner up and point its direct Supabase calls at
+// the practice schema and buckets. Read-only and public: it reveals nothing
+// but the deployment kind and the schema name.
+const { isSandbox, dbSchema } = require("../lib/sandbox");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -9,6 +10,8 @@ module.exports = async function handler(req, res) {
   return res.status(200).json({
     ok: true,
     sandbox: isSandbox(),
-    label: isSandbox() ? "SANDBOX" : "LIVE"
+    schema: dbSchema(),
+    bucketPrefix: isSandbox() ? "practice-" : "",
+    label: isSandbox() ? "PRACTICE COPY" : "LIVE"
   });
 };

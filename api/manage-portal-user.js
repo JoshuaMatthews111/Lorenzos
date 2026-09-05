@@ -1,4 +1,4 @@
-const { blockedInSandbox, blockedOutsideSandbox } = require("../lib/sandbox");
+const { blockedInSandbox, blockedOutsideSandbox, supabaseRequest } = require("../lib/sandbox");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 
@@ -18,13 +18,15 @@ function isMissingColumnError(error) {
 }
 
 async function supabaseFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...target.headers
     }
   });
   const text = await response.text();
@@ -108,8 +110,6 @@ async function findAuthUserByEmail(email) {
 }
 
 module.exports = async function handler(req, res) {
-  // The sandbox reads live records but is never allowed to change them.
-  if (blockedInSandbox(res, "Changing this login")) return;
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
@@ -127,6 +127,10 @@ module.exports = async function handler(req, res) {
     // it builds the identity records a login needs, which writing the tables by
     // hand does not, and that is why hand-made accounts cannot sign in.
     if (clean(body.action, 40) === "create-account") {
+      // Practice copy: a new account would be a REAL login (auth.users is shared
+      // with live), so this one action stays off. Role, disable, restore and
+      // profile changes below only touch practice.portal_users and work.
+      if (blockedInSandbox(res, "Creating a new login")) return;
       const newEmail = clean(body.email, 254).toLowerCase();
       const password = String(body.password || "");
       const permission = ["super_admin", "office_admin", "trainer"].includes(clean(body.permission_level, 40))

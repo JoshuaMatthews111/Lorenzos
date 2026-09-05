@@ -12,6 +12,29 @@
 
   const enabled = Boolean(config.enabled && config.projectUrl && config.publishableKey);
   const baseUrl = String(config.projectUrl || "").replace(/\/$/, "");
+
+  // ---- Practice copy -----------------------------------------------------
+  // The practice deployment (LDTT_SANDBOX=1) keeps the same logins but reads
+  // and writes the `practice` schema and the practice-* buckets. /api/environment
+  // says which one this page is on; every direct Supabase call below waits for
+  // that answer, then adds the PostgREST profile headers and the bucket prefix.
+  // On live the answer is "public" and nothing is added.
+  let schema = "public";
+  let bucketPrefix = "";
+  const environmentReady = (async () => {
+    try {
+      const response = await fetch("/api/environment", { cache: "no-store" });
+      const info = await response.json();
+      if (info?.schema) schema = String(info.schema);
+      if (info?.bucketPrefix) bucketPrefix = String(info.bucketPrefix);
+      window.LDTT_DB_SCHEMA = schema;
+      window.LDTT_BUCKET_PREFIX = bucketPrefix;
+    } catch {
+      // Not served from the deployment (a local file, an old cache): live defaults.
+    }
+  })();
+  const bucketFor = bucket => (bucketPrefix && !String(bucket).startsWith(bucketPrefix) ? `${bucketPrefix}${bucket}` : String(bucket));
+  const schemaHeaders = path => (schema !== "public" && String(path).startsWith("/rest/v1/") ? { "Accept-Profile": schema, "Content-Profile": schema } : {});
   let refreshPromise = null;
   let persistSession = Boolean(readStoredSession(localStorage));
 
@@ -111,6 +134,7 @@
       retryAuth = true,
       ...fetchOptions
     } = options;
+    await environmentReady;
     const currentSession = readSession();
     if (
       requestedSession !== null &&
@@ -124,6 +148,7 @@
       ...fetchOptions,
       headers: {
         ...authHeaders(requestedSession),
+        ...schemaHeaders(path),
         ...(options.headers || {})
       }
     });
@@ -208,6 +233,10 @@
   }
 
   async function changePassword(password, profile = {}) {
+    // Logins are shared with live, so a password change on the practice copy
+    // would change a real password. This is the one thing the practice copy refuses.
+    await environmentReady;
+    if (schema !== "public") throw new Error(PRACTICE_PASSWORD_MESSAGE);
     const result = await request("/auth/v1/user", {
       method: "PUT",
       body: JSON.stringify({ password })
@@ -273,14 +302,14 @@
   }
 
   function storageObjectUrl(bucket, path) {
-    return `${baseUrl}/storage/v1/object/${bucket}/${path.split("/").map(encodeURIComponent).join("/")}`;
+    return `${baseUrl}/storage/v1/object/${bucketFor(bucket)}/${path.split("/").map(encodeURIComponent).join("/")}`;
   }
 
   function signedUploadUrlFromResponse(result, bucket, path) {
     if (result?.signedUrl || result?.signedURL) return result.signedUrl || result.signedURL;
     if (result?.token) {
       const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-      return `${baseUrl}/storage/v1/object/upload/sign/${encodeURIComponent(bucket)}/${encodedPath}?token=${encodeURIComponent(result.token)}`;
+      return `${baseUrl}/storage/v1/object/upload/sign/${encodeURIComponent(bucketFor(bucket))}/${encodedPath}?token=${encodeURIComponent(result.token)}`;
     }
     return "";
   }
@@ -357,7 +386,8 @@
     return { signed: true, path: signed.path || path, bucket: signed.bucket || bucket, publicUrl: signed.publicUrl || publicStorageUrl(bucket, path) };
   }
 
-  function uploadWithProgress(bucket, path, file, options = {}, retryAuth = true) {
+  async function uploadWithProgress(bucket, path, file, options = {}, retryAuth = true) {
+    await environmentReady;
     return new Promise((resolve, reject) => {
       const session = readSession();
       const xhr = new XMLHttpRequest();
@@ -411,6 +441,7 @@
       return uploadWithProgress(bucket, path, file, options);
     }
     async function uploadOnce(retryAuth = true) {
+      await environmentReady;
       const session = readSession();
       const response = await fetch(storageObjectUrl(bucket, path), {
         method: "POST",
@@ -439,7 +470,7 @@
   async function signedStorageUrl(bucket, path, expiresIn = 43200) {
     if (!path || /^(data:|blob:|https?:|\/)/i.test(path)) return path || "";
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-    const result = await request(`/storage/v1/object/sign/${encodeURIComponent(bucket)}/${encodedPath}`, {
+    const result = await request(`/storage/v1/object/sign/${encodeURIComponent(bucketFor(bucket))}/${encodedPath}`, {
       method: "POST",
       body: JSON.stringify({ expiresIn })
     });
@@ -451,7 +482,7 @@
   function publicStorageUrl(bucket, path) {
     if (!path) return "";
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-    return `${baseUrl}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodedPath}`;
+    return `${baseUrl}/storage/v1/object/public/${encodeURIComponent(bucketFor(bucket))}/${encodedPath}`;
   }
 
   // perf/portal-speed: `ifNoneMatch` is the serverRevision the portal already
@@ -531,7 +562,8 @@
     });
     realtimeClient.realtime.setAuth(session.access_token);
     const tables = ["leads", "trainer_applications", "clients", "office_notes", "audit_events", "review_publications"];
-    const channel = tables.reduce((current, table) => current.on("postgres_changes", { event: "*", schema: "public", table }, payload => onChange(payload)), realtimeClient.channel(`office-sync-${session.user?.id || "staff"}-${Date.now()}`));
+    // Practice copy: listen to the practice schema, which is where its rows change.
+    const channel = tables.reduce((current, table) => current.on("postgres_changes", { event: "*", schema, table }, payload => onChange(payload)), realtimeClient.channel(`office-sync-${session.user?.id || "staff"}-${Date.now()}`));
     channel.subscribe();
     return () => { realtimeClient.removeChannel(channel).catch(() => {}); };
   }
@@ -564,27 +596,17 @@
     return { trainer, page: pages?.[0] || null };
   }
 
-  // ---- Sandbox lock -------------------------------------------------------
-  // Everything the portal saves through /api is refused server-side on the
-  // sandbox deployment. These calls, though, talk straight to Supabase from the
-  // browser, so they need their own stop or the sandbox could still change a
-  // real record. app.js turns this on after asking /api/environment.
-  const SANDBOX_WRITE_METHODS = ["insert", "update", "updateBy", "remove", "rpc", "upload", "changePassword"];
-  const SANDBOX_MESSAGE = "Sandbox: this was not saved. The sandbox shows the real live records so you can check the layout and the numbers, but it is not allowed to change them.";
-  let sandboxLocked = false;
-
-  function lockForSandbox() {
-    if (sandboxLocked) return;
-    sandboxLocked = true;
-    SANDBOX_WRITE_METHODS.forEach(name => {
-      window.LDTT_PORTAL[name] = async () => { throw new Error(SANDBOX_MESSAGE); };
-    });
-  }
+  // ---- Practice copy: the one browser write that stays off -----------------
+  // Every other direct call (insert, update, upload, rpc…) now simply lands in
+  // the practice schema / practice-* bucket through the headers above.
+  const PRACTICE_PASSWORD_MESSAGE = "Changing a password is switched off on the practice copy, so nothing was saved. Logins are shared with the live portal, so this would change a real password. Do it on the live portal.";
 
   window.LDTT_PORTAL = {
     enabled,
-    lockForSandbox,
-    sandboxMessage: SANDBOX_MESSAGE,
+    environmentReady,
+    currentSchema: () => schema,
+    bucketFor,
+    practicePasswordMessage: PRACTICE_PASSWORD_MESSAGE,
     readSession,
     signIn,
     signOut,

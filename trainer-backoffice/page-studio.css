@@ -149,3 +149,7 @@ body.ps-open{overflow:hidden}
   .ps-rail{position:fixed;left:0;top:64px;bottom:0;width:min(420px,92vw);z-index:5;box-shadow:0 0 60px rgba(0,0,0,.35)}
   .ps-top .ps-title span{display:none}
 }
+
+/* Send to live: the red warning box on the confirm dialog (practice copy). */
+.ps-warning{display:grid;gap:4px;margin:0 0 14px;padding:12px 14px;border:2px solid #c8102e;border-radius:10px;background:#fff1f2;color:#7a0a1c;font-size:.92rem;line-height:1.45;font-weight:600}
+.ps-warning strong{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#c8102e}

@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../lib/sandbox");
+const { isSandbox, supabaseRequest } = require("../lib/sandbox");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const TRAINER_TEMP_PASSWORD = process.env.LDTT_TRAINER_TEMP_PASSWORD || "doglovers26";
@@ -19,13 +19,15 @@ function validEmail(value) {
 }
 
 async function supabaseFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...target.headers
     }
   });
   const text = await response.text();
@@ -98,8 +100,6 @@ async function createOrEnableAuthUser(email, displayName) {
 }
 
 module.exports = async function handler(req, res) {
-  // The sandbox reads live records but is never allowed to change them.
-  if (blockedInSandbox(res, "Creating this trainer login")) return;
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
@@ -120,23 +120,32 @@ module.exports = async function handler(req, res) {
     const trainers = await supabaseFetch(`/rest/v1/trainers?select=id,auth_user_id&status=neq.deleted&id=eq.${encodeURIComponent(trainerId)}&limit=1`);
     if (!trainers?.[0]) return res.status(404).json({ ok: false, message: "Trainer record was not found." });
 
+    // Practice copy: the trainer row and the practice portal_users row are
+    // written like on live, but NO auth user is ever created or changed here —
+    // logins are shared with live, so a practice trainer login would be a real
+    // login. If this email already has a login (the office testing one, or a
+    // real trainer's), the practice portal row points at it and they can sign
+    // in to the practice copy with the password they already have. Otherwise
+    // the trainer is enabled without a login and the office is told so.
     const authResult = trainers[0].auth_user_id
       ? { userId: trainers[0].auth_user_id, created: false }
-      : await createOrEnableAuthUser(email, displayName);
-    if (!authResult.userId) throw new Error("Trainer auth user could not be created.");
+      : isSandbox()
+        ? await findAuthUserByEmail(email).then(user => ({ userId: user?.id || null, created: false, practiceNoLogin: !user?.id }))
+        : await createOrEnableAuthUser(email, displayName);
+    if (!authResult.userId && !isSandbox()) throw new Error("Trainer auth user could not be created.");
 
     await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(trainerId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
       body: JSON.stringify({
-        auth_user_id: authResult.userId,
+        ...(authResult.userId ? { auth_user_id: authResult.userId } : {}),
         email,
         access_status: "active",
         status: "active"
       })
     });
 
-    await supabaseFetch("/rest/v1/portal_users?on_conflict=user_id", {
+    if (authResult.userId) await supabaseFetch("/rest/v1/portal_users?on_conflict=user_id", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: JSON.stringify({
@@ -151,11 +160,15 @@ module.exports = async function handler(req, res) {
 
     return res.status(200).json({
       ok: true,
+      sandbox: isSandbox(),
       trainer_id: trainerId,
       email,
       user_id: authResult.userId,
       created: authResult.created,
-      temporary_password: authResult.created ? TRAINER_TEMP_PASSWORD : ""
+      temporary_password: authResult.created ? TRAINER_TEMP_PASSWORD : "",
+      ...(isSandbox() ? { message: authResult.practiceNoLogin
+        ? "Practice copy: the trainer is enabled and their page can be published here, but no login was created — logins are real and shared with live. Create the login on the live portal when the trainer is real."
+        : "Practice copy: the trainer is enabled here and can sign in to the practice copy with the password that email already has. No login was created or changed." } : {})
     });
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message || "Trainer portal access could not be prepared." });

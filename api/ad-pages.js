@@ -6,14 +6,12 @@
 // re-runs the same checklist the browser showed, so nothing incomplete can go
 // live. Every publish writes an ad_page_revisions row.
 //
-// Sandbox (DO-NOT-BREAK #5): publish is blocked with 423. Drafts, new pages,
-// restores and archives go into the shared practice layer instead of the
-// table, so the office can try Page Studio on the sandbox and every tester
-// sees the same practice pages.
+// Practice copy (LDTT_SANDBOX=1): identical behaviour against the `practice`
+// schema (lib/sandbox.js supabaseRequest()), so the office can build, publish
+// and open /ads/<slug> there without a single live row changing. Send to live
+// (api/send-to-live.js) copies a practice page to live as a draft.
 
-const crypto = require("crypto");
-const { isSandbox, blockedInSandbox } = require("../lib/sandbox");
-const sandboxStore = require("../lib/sandbox-store");
+const { isSandbox, supabaseRequest } = require("../lib/sandbox");
 const template = require("../lib/ad-page-template.js");
 const imageAspects = require("../lib/ad-page-image-aspects.js");
 
@@ -36,15 +34,17 @@ const clean = (v, max = 200) => String(v ?? "").trim().slice(0, max);
 const fail = (status, message) => Object.assign(new Error(message), { status });
 
 async function supabaseFetch(path, options = {}) {
-  const response = await deps.fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await deps.fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
-    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json", ...(options.headers || {}) }
+    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json", ...target.headers }
   });
   const text = await response.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = { message: text.slice(0, 200) }; }
   if (!response.ok) {
-    const message = /relation "public\.ad_pages" does not exist|Could not find the table 'public\.ad_pages'/i.test(text)
+    const message = /relation "(public|practice)\.ad_pages" does not exist|Could not find the table '(public|practice)\.ad_pages'/i.test(text)
       ? "The ad_pages table is not in the database yet. Apply supabase/migrations/20260905120000_ad_pages.sql, then try again."
       : data?.message || `Supabase ${response.status}`;
     throw Object.assign(new Error(message), { status: response.status === 404 ? 503 : response.status, detail: data });
@@ -72,52 +72,39 @@ const imageAspect = path => imageAspects[path] || null;
 const renderOptions = slug => ({ base: "/", publicPath: `/ads/${slug}`, imageAspect });
 
 // ---------------------------------------------------------------------------
-// Storage: live table, or the practice layer on the sandbox.
+// Storage
 // ---------------------------------------------------------------------------
-async function practiceOps() {
-  return (await sandboxStore.readOps()).filter(op => op.entity_type === "ad_page");
-}
-function overlay(rows, ops) {
-  const list = rows.map(row => ({ ...row }));
-  ops.forEach(op => {
-    if (op.operation === "create" && op.record) list.unshift({ ...op.record });
-    if (op.operation === "update") {
-      const row = list.find(item => String(item.id) === String(op.id));
-      if (row) Object.assign(row, op.changes || {});
-    }
-    if (op.operation === "send_to_live") {
-      // send-to-live: the card and the editor show when this page last went to live.
-      const row = list.find(item => String(item.id) === String(op.id) || (op.slug && item.slug === op.slug));
-      if (row) { row.sent_to_live_at = op.at; row.sent_to_live_by = op.actor || null; }
-    }
+// Practice copy: "Sent to live ✓ at <time>" comes from practice.send_to_live_log.
+async function sentToLiveStamps() {
+  if (!isSandbox()) return new Map();
+  const rows = await supabaseFetch("/rest/v1/send_to_live_log?select=entity_id,slug,sent_at,sent_by&entity_type=eq.ad_page&order=sent_at.desc&limit=500").catch(() => []);
+  const stamps = new Map();
+  (rows || []).forEach(row => {
+    [row.entity_id, row.slug].filter(Boolean).forEach(key => { if (!stamps.has(key)) stamps.set(key, row); });
   });
-  return list;
+  return stamps;
+}
+function stampRow(row, stamps) {
+  const hit = stamps.get(String(row.id)) || stamps.get(String(row.slug));
+  return hit ? { ...row, sent_to_live_at: hit.sent_at, sent_to_live_by: hit.sent_by || null } : row;
 }
 
 async function listPages() {
-  const rows = await supabaseFetch(`/rest/v1/ad_pages?select=${PAGE_COLUMNS}&status=neq.archived&order=updated_at.desc`).catch(error => {
-    if (isSandbox() && error.status === 503) return [];
-    throw error;
-  });
-  const pages = isSandbox() ? overlay(rows, await practiceOps()) : rows;
-  return pages.filter(row => row.status !== "archived").map(row => {
-    const { draft_content, published_content, _revisions, ...summary } = row;
+  const [rows, stamps] = await Promise.all([
+    supabaseFetch(`/rest/v1/ad_pages?select=${PAGE_COLUMNS}&status=neq.archived&order=updated_at.desc`),
+    sentToLiveStamps()
+  ]);
+  return rows.map(row => {
+    const { draft_content, published_content, ...summary } = stampRow(row, stamps);
     return summary;
   });
 }
 
 async function loadPage(id) {
-  if (isSandbox()) {
-    const ops = await practiceOps();
-    const live = /^sbx-/.test(id) ? [] : await supabaseFetch(`/rest/v1/ad_pages?select=*&id=eq.${encodeURIComponent(id)}&limit=1`).catch(() => []);
-    const row = overlay(live, ops).find(item => String(item.id) === String(id));
-    if (!row) throw fail(404, "That page no longer exists.");
-    const revisions = Array.isArray(row._revisions) ? row._revisions : (/^sbx-/.test(id) ? [] : await loadRevisions(id));
-    return { page: row, revisions };
-  }
   const rows = await supabaseFetch(`/rest/v1/ad_pages?select=*&id=eq.${encodeURIComponent(id)}&limit=1`);
   if (!rows?.[0]) throw fail(404, "That page no longer exists.");
-  return { page: rows[0], revisions: await loadRevisions(id) };
+  const [revisions, stamps] = await Promise.all([loadRevisions(id), sentToLiveStamps()]);
+  return { page: stampRow(rows[0], stamps), revisions };
 }
 
 async function loadRevisions(pageId) {
@@ -138,12 +125,6 @@ async function createPage(content, auth) {
   const clone = template.normalizeContent(content);
   if (!clone.slug) throw fail(400, "Give the page a web address, like dog-training-toledo-oh.");
   if (await slugTaken(clone.slug)) throw fail(409, `The address /${clone.slug} is already used. Pick another.`);
-  const now = stamp();
-  if (isSandbox()) {
-    const record = { id: `sbx-${crypto.randomUUID()}`, slug: clone.slug, market: clone.market, city: clone.city, state: clone.state, status: "draft", draft_content: clone, published_content: null, draft_revision: 1, published_revision: 0, published_at: null, created_by: auth.actor, updated_by: auth.actor, created_at: now, updated_at: now, _revisions: [] };
-    await sandboxStore.appendOp({ operation: "create", entity_type: "ad_page", record, actor: auth.actor });
-    return record;
-  }
   const [row] = await supabaseFetch("/rest/v1/ad_pages", {
     method: "POST", headers: { Prefer: "return=representation" },
     body: JSON.stringify({ slug: clone.slug, market: clone.market, city: clone.city, state: clone.state, status: "draft", draft_content: clone, created_by: auth.actor, updated_by: auth.actor })
@@ -152,14 +133,6 @@ async function createPage(content, auth) {
 }
 
 async function updatePage(id, changes, auth, revision) {
-  const now = stamp();
-  if (isSandbox()) {
-    const { page } = await loadPage(id);
-    const next = { ...changes, updated_by: auth.actor, updated_at: now };
-    if (revision) next._revisions = [{ id: `sbx-${crypto.randomUUID()}`, created_at: now, created_by: auth.actor, ...revision }, ...(page._revisions || [])].slice(0, 60);
-    await sandboxStore.appendOp({ operation: "update", entity_type: "ad_page", id, changes: next, actor: auth.actor });
-    return { ...page, ...next };
-  }
   const [row] = await supabaseFetch(`/rest/v1/ad_pages?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH", headers: { Prefer: "return=representation" },
     body: JSON.stringify({ ...changes, updated_by: auth.actor })
@@ -172,12 +145,6 @@ async function updatePage(id, changes, auth, revision) {
 }
 
 async function loadRevisionContent(pageId, revisionId) {
-  if (isSandbox()) {
-    const { page } = await loadPage(pageId);
-    const hit = (page._revisions || []).find(item => String(item.id) === String(revisionId));
-    if (!hit) throw fail(404, "That version could not be found.");
-    return hit.content;
-  }
   const rows = await supabaseFetch(`/rest/v1/ad_page_revisions?select=content&id=eq.${encodeURIComponent(revisionId)}&page_id=eq.${encodeURIComponent(pageId)}&limit=1`);
   if (!rows?.[0]) throw fail(404, "That version could not be found.");
   return rows[0].content;
@@ -220,7 +187,7 @@ module.exports = async function handler(req, res) {
         // full content object; the server never trusts anything but the fields
         // the template knows.
         const row = await createPage(body.content, auth);
-        return res.status(200).json({ ok: true, sandbox: isSandbox(), page: row, message: isSandbox() ? "Practice page created on the sandbox." : "Page created." });
+        return res.status(200).json({ ok: true, sandbox: isSandbox(), page: row, message: isSandbox() ? "Page created on the practice copy." : "Page created." });
       }
       case "save_draft": {
         if (!id) throw fail(400, "Which page?");
@@ -229,10 +196,9 @@ module.exports = async function handler(req, res) {
         if (content.slug !== page.slug && await slugTaken(content.slug, id)) throw fail(409, `The address /${content.slug} is already used. Pick another.`);
         const row = await updatePage(id, { slug: content.slug, market: content.market, city: content.city, state: content.state, draft_content: content, draft_revision: Number(page.draft_revision || 0) + 1 }, auth,
           body.snapshot === true ? { revision: Number(page.draft_revision || 0) + 1, kind: "draft", content } : null);
-        return res.status(200).json({ ok: true, sandbox: isSandbox(), page: { ...row, draft_content: undefined, published_content: undefined, _revisions: undefined }, saved_at: row.updated_at, draft_revision: row.draft_revision });
+        return res.status(200).json({ ok: true, sandbox: isSandbox(), page: { ...row, draft_content: undefined, published_content: undefined }, saved_at: row.updated_at, draft_revision: row.draft_revision });
       }
       case "publish": {
-        if (blockedInSandbox(res, "Publishing an ad page")) return;
         if (!id) throw fail(400, "Which page?");
         const { page } = await loadPage(id);
         const content = template.normalizeContent(body.content || page.draft_content);
@@ -242,7 +208,7 @@ module.exports = async function handler(req, res) {
         const revision = Number(page.published_revision || 0) + 1;
         const row = await updatePage(id, { slug: content.slug, market: content.market, city: content.city, state: content.state, draft_content: content, draft_revision: Number(page.draft_revision || 0) + 1, published_content: content, published_revision: revision, status: "published", published_at: stamp() }, auth,
           { revision, kind: "published", content });
-        return res.status(200).json({ ok: true, page: { ...row, draft_content: undefined, published_content: undefined }, url: `/ads/${content.slug}`, revision, checklist, message: `Published. Live at /ads/${content.slug}.` });
+        return res.status(200).json({ ok: true, sandbox: isSandbox(), page: { ...row, draft_content: undefined, published_content: undefined }, url: `/ads/${content.slug}`, revision, checklist, message: isSandbox() ? `Published on the practice copy. Open /ads/${content.slug} here to see it. Use Send to live when it is ready for the real site.` : `Published. Live at /ads/${content.slug}.` });
       }
       case "restore": {
         if (!id) throw fail(400, "Which page?");
@@ -254,14 +220,13 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ ok: true, sandbox: isSandbox(), content, draft_revision: row.draft_revision, message: "That version is back in the draft. Publish when you are happy with it." });
       }
       case "unpublish": {
-        if (blockedInSandbox(res, "Taking an ad page offline")) return;
         if (!id) throw fail(400, "Which page?");
         await updatePage(id, { status: "draft", published_content: null }, auth, null);
         return res.status(200).json({ ok: true, message: "The page is offline. The draft is kept." });
       }
       case "archive": {
         if (!id) throw fail(400, "Which page?");
-        if (!isSandbox() && !auth.isSuperAdmin) throw fail(403, "Only a Super Admin can remove a page.");
+        if (!auth.isSuperAdmin) throw fail(403, "Only a Super Admin can remove a page.");
         await updatePage(id, { status: "archived", published_content: null }, auth, null);
         return res.status(200).json({ ok: true, sandbox: isSandbox(), message: "Page removed. It is off the site and out of the list." });
       }

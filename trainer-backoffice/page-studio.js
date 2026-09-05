@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260905stl1";
+  const VERSION = "20260905practice";
   const API = "/api/ad-pages";
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js"];
   const store = { pages: null, markets: [], sandbox: false, loading: false, error: "" };
@@ -49,6 +49,7 @@
   // Sandbox only: copy a practice page to the live database as a DRAFT.
   // Publishing stays on the live portal. Live side: tag drafts that came in this way.
   const SEND_TO_LIVE_CONFIRM = "This copies the page to the live portal as a DRAFT. It will not be public until someone presses Publish on the live portal. Continue?";
+  const SEND_TO_LIVE_WARNING = "You are copying this to the LIVE portal. It arrives as a DRAFT and is not public until someone presses Publish on the live portal. One page per click.";
   const canSendToLive = () => (typeof window.LDTT_CAN_SEND_TO_LIVE === "function" ? window.LDTT_CAN_SEND_TO_LIVE() : true);
   const sentToLiveLabel = at => (at ? `Sent to live ✓ at ${dateLabel(at)}` : "");
   const isFromPractice = page => !window.LDTT_IS_SANDBOX && /from practice copy/i.test(String(page?.updated_by || ""));
@@ -62,7 +63,7 @@
   }
   function confirmSendToLive() {
     return new Promise(resolve => {
-      const m = modal(`<h3>Send to live?</h3><p class="ps-help">${esc(SEND_TO_LIVE_CONFIRM)}</p><div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Send to live as a draft</button></div>`);
+      const m = modal(`<h3>Send to live?</h3><div class="ps-warning" role="alert"><strong>Warning</strong>${esc(SEND_TO_LIVE_WARNING)}</div><p class="ps-help">${esc(SEND_TO_LIVE_CONFIRM)}</p><div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Send to live as a draft</button></div>`);
       m.querySelector("[data-ps-close]").addEventListener("click", () => { m.remove(); resolve(false); });
       m.querySelector("[data-ps-go]").addEventListener("click", () => { m.remove(); resolve(true); });
       m.addEventListener("click", event => { if (event.target === m) resolve(false); });
@@ -293,8 +294,10 @@
     $$("[data-ps-device]").forEach(btn => btn.classList.toggle("active", btn.dataset.psDevice === editor.device));
     $$("[data-ps-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.psTab === editor.tab));
     const publish = $("#psPublishBtn");
-    publish.disabled = editor.sandbox;
-    publish.textContent = editor.sandbox ? "Publish (off on sandbox)" : editor.page.status === "published" ? "Publish changes" : "Publish";
+    // Practice copy: publishing works there too — it publishes the practice
+    // page at /ads/<slug> on the practice deployment, never on the real site.
+    publish.disabled = false;
+    publish.textContent = editor.page.status === "published" ? "Publish changes" : editor.sandbox ? "Publish (practice copy)" : "Publish";
     // send-to-live: sandbox gets the button (+ last sent time); live gets the origin tag.
     const sendSlot = $("#psSendLive");
     if (sendSlot) sendSlot.innerHTML = editor.sandbox ? `${sendToLiveButton(editor.page, "ps-send-live")}${editor.page.sent_to_live_at ? `<small class="ps-sent-live">${esc(sentToLiveLabel(editor.page.sent_to_live_at))}</small>` : ""}` : practiceTag(editor.page);
@@ -703,7 +706,6 @@
 
   async function publishFlow() {
     if (!editor) return;
-    if (editor.sandbox) { toast("Publishing is switched off on the sandbox. Drafts here are practice only."); return; }
     await flushSave();
     const result = template.publishChecklist(editor.draft, { base: "/", publicPath: `/ads/${editor.draft.slug}`, imageAspect });
     const list = `<div class="ps-checklist">${result.checks.map(c => `<div class="ps-check ${c.ok ? "ok" : "bad"}">${esc(c.ok ? c.label : c.fix)}</div>`).join("")}</div>`;

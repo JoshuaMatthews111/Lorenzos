@@ -1,4 +1,4 @@
-const { blockedInSandbox } = require("../../lib/sandbox");
+const { supabaseRequest } = require("../../lib/sandbox");
 // Daily lead archiving (office request, 2026-08-17).
 //
 // Old inbound enquiries were piling up in the live pipeline and skewing the board.
@@ -27,13 +27,15 @@ const PROTECTED_STATUSES = [
 ];
 
 async function supabaseFetch(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, {
+  // Practice copy: schema profile headers / practice-* bucket (lib/sandbox.js).
+  const target = supabaseRequest(path, options.headers || {});
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     ...options,
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       "Content-Type": "application/json",
-      ...(options.headers || {})
+      ...target.headers
     }
   });
   const raw = await response.text();
@@ -52,7 +54,7 @@ function authorized(req) {
 
 module.exports = async function handler(req, res) {
   // The sandbox reads live records but is never allowed to change them.
-  if (blockedInSandbox(res, "The nightly archive job")) return;
+  // Practice copy: archives practice rows only (Vercel crons never run on previews anyway).
   res.setHeader("Cache-Control", "no-store");
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Server is not configured." });
   if (!authorized(req)) return res.status(403).json({ ok: false, message: "Forbidden." });

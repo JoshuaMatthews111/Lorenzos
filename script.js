@@ -94,7 +94,9 @@ const publicTrainerProfilesPromise=(async()=>{
   if(!config.enabled||!config.projectUrl||!config.publishableKey) return new Map();
   try{
     const base=String(config.projectUrl).replace(/\/$/,'');
-    const headers={apikey:config.publishableKey};
+    // Practice copy: the public roster reads the practice schema there, so a trainer published on the practice copy shows up on its own find-a-trainer page.
+    const env=await fetch('/api/environment',{cache:'no-store'}).then(r=>r.ok?r.json():{}).catch(()=>({}));
+    const headers={apikey:config.publishableKey,...(env?.schema&&env.schema!=='public'?{'Accept-Profile':env.schema}:{})};
     const [trainerResponse,pageResponse]=await Promise.all([
       fetch(`${base}/rest/v1/trainers?select=id,slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active`,{headers}),
       fetch(`${base}/rest/v1/trainer_pages?select=trainer_id,slug,page_status,locked,published_content&page_status=eq.published&locked=eq.true`,{headers})

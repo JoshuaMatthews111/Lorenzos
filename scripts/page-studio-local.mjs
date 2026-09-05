@@ -22,23 +22,23 @@ process.env.LDTT_SANDBOX = process.env.LDTT_SANDBOX || "";
 const adPages = require("../api/ad-pages.js");
 const adPage = require("../api/ad-page.js");
 const environment = require("../api/environment.js");
-// send-to-live: the sandbox → live draft copy, proven here against the same
-// in-memory tables plus an in-memory practice layer. Start with LDTT_SANDBOX=1
-// to see the sandbox side; GET /__local/sandbox?on=0 flips the same process to
+// send-to-live: the practice → live draft copy, proven here against TWO
+// in-memory schemas (public and practice) picked by the PostgREST profile
+// headers exactly as the real project does. Start with LDTT_SANDBOX=1 to see
+// the practice side; GET /__local/sandbox?on=0 flips the same process to
 // "live" so the "From practice copy" tag can be seen on the rows that arrived.
 const sendToLive = require("../api/send-to-live.js");
-const sandboxStore = require("../lib/sandbox-store.js");
-const practiceOps = [];
-sandboxStore.readOps = async () => practiceOps.slice();
-sandboxStore.appendOp = async op => { practiceOps.push({ ...op, at: new Date().toISOString() }); return op; };
-sandboxStore.clearOps = async () => { practiceOps.length = 0; };
+const practiceReset = require("../api/practice-reset.js");
 
 // ---------------------------------------------------------------------------
 // In-memory Supabase: just enough PostgREST for these two routes.
 // ---------------------------------------------------------------------------
-const db = { ad_pages: [], ad_page_revisions: [], trainers: [], trainer_pages: [], trainer_page_versions: [], portal_users: [
-  { user_id: "local-office", role: "admin", permission_level: "super_admin", active: true, access_status: "active", email: "office@local.test", display_name: "Local Office", first_name: "Local", last_name: "Office" }
-] };
+const officeUser = { user_id: "local-office", role: "admin", permission_level: "super_admin", active: true, access_status: "active", email: "office@local.test", display_name: "Local Office", first_name: "Local", last_name: "Office" };
+const blank = () => ({ ad_pages: [], ad_page_revisions: [], trainers: [], trainer_pages: [], trainer_page_versions: [], portal_users: [{ ...officeUser }], send_to_live_log: [] });
+const schemas = { public: blank(), practice: blank() };
+// `db` is the live side; the practice side is a full copy of it (like practice.reset_from_live()).
+const db = schemas.public;
+const copied = [];
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 function applyFilters(rows, params) {
@@ -62,18 +62,25 @@ async function fakeSupabase(url, options = {}) {
   if (u.pathname === "/auth/v1/user") {
     return auth === "Bearer local-demo" ? json(200, { id: "local-office", email: "office@local.test" }) : json(401, { message: "bad token" });
   }
+  if (u.pathname === "/storage/v1/object/copy") { copied.push(JSON.parse(options.body)); return json(200, { Key: "ok" }); }
+  if (u.pathname === "/storage/v1/bucket") return json(200, [{ id: "practice-trainer-page-assets" }, { id: "trainer-page-assets" }]);
+  if (u.pathname.startsWith("/storage/v1/object/list/")) return json(200, []);
+  // Which in-memory schema: the profile header, else the deployment's default.
+  const profile = options.headers?.["Accept-Profile"] || options.headers?.["Content-Profile"] || (process.env.LDTT_SANDBOX === "1" ? "practice" : "public");
+  const store = schemas[profile] || schemas.public;
   const table = u.pathname.replace("/rest/v1/", "");
-  if (!db[table]) return json(404, { message: `Could not find the table 'public.${table}'` });
+  if (table === "rpc/reset_from_live") { Object.assign(schemas.practice, JSON.parse(JSON.stringify(schemas.public)), { send_to_live_log: [] }); return json(200, { reset_at: new Date().toISOString(), rows: {} }); }
+  if (!store[table]) return json(404, { message: `Could not find the table '${profile}.${table}'` });
   const body = options.body ? JSON.parse(options.body) : null;
-  if (method === "GET") return json(200, applyFilters(db[table], u.searchParams));
+  if (method === "GET") return json(200, applyFilters(store[table], u.searchParams));
   if (method === "POST") {
     const rows = (Array.isArray(body) ? body : [body]).map(row => ({ id: randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), draft_revision: 1, published_revision: 0, published_at: null, ...row }));
-    if (table === "ad_pages" && rows.some(r => db.ad_pages.some(x => x.slug === r.slug))) return json(409, { message: "duplicate key value violates unique constraint" });
-    db[table].push(...rows);
+    if (table === "ad_pages" && rows.some(r => store.ad_pages.some(x => x.slug === r.slug))) return json(409, { message: "duplicate key value violates unique constraint" });
+    store[table].push(...rows);
     return json(201, rows);
   }
   if (method === "PATCH") {
-    const targets = applyFilters(db[table], u.searchParams);
+    const targets = applyFilters(store[table], u.searchParams);
     targets.forEach(row => Object.assign(row, body, { updated_at: new Date().toISOString() }));
     return json(200, targets);
   }
@@ -81,10 +88,13 @@ async function fakeSupabase(url, options = {}) {
 }
 adPages.deps.fetch = fakeSupabase;
 sendToLive.deps.fetch = fakeSupabase;
+practiceReset.deps.fetch = fakeSupabase;
 // A live trainer + page so the demo trainer editor (offline roster data) has a
 // live row to send to, matched by slug.
 db.trainers.push({ id: randomUUID(), slug: "karemela-sefferin", full_name: "Karemela Sefferin", status: "active", access_status: "active", created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
 db.trainer_pages.push({ id: randomUUID(), trainer_id: db.trainers[0].id, slug: "karemela-sefferin", page_status: "published", locked: true, revision: 2, published_revision: 2, headline: "Live headline", draft_content: { trainer_name: "Karemela Sefferin" }, published_content: { trainer_name: "Karemela Sefferin" }, style_settings: {}, section_order: ["hero"], created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+// The practice copy starts as a full copy of live.
+Object.assign(schemas.practice, JSON.parse(JSON.stringify(schemas.public)), { send_to_live_log: [] });
 
 // ---------------------------------------------------------------------------
 // Tiny Vercel-style req/res shim + static files (cleanUrls) + the rewrite.
@@ -115,8 +125,9 @@ const server = createServer(async (req, res) => {
   };
   if (path === "/api/ad-pages") return call(adPages, url.searchParams);
   if (path === "/api/send-to-live") return call(sendToLive, url.searchParams);
+  if (path === "/api/practice-reset") return call(practiceReset, url.searchParams);
   if (path === "/__local/sandbox") { process.env.LDTT_SANDBOX = url.searchParams.get("on") === "1" ? "1" : ""; res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ sandbox: process.env.LDTT_SANDBOX === "1" })); }
-  if (path === "/__local/state") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ sandbox: process.env.LDTT_SANDBOX === "1", ops: practiceOps, db: { ad_pages: db.ad_pages, ad_page_revisions: db.ad_page_revisions, trainers: db.trainers, trainer_pages: db.trainer_pages, trainer_page_versions: db.trainer_page_versions } })); }
+  if (path === "/__local/state") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ sandbox: process.env.LDTT_SANDBOX === "1", copied, live: { ad_pages: schemas.public.ad_pages, trainer_pages: schemas.public.trainer_pages, trainers: schemas.public.trainers }, practice: { ad_pages: schemas.practice.ad_pages, trainer_pages: schemas.practice.trainer_pages, trainers: schemas.practice.trainers, send_to_live_log: schemas.practice.send_to_live_log } })); }
   if (path === "/api/ad-page") return call(adPage, url.searchParams, { forceAuth: url.searchParams.get("preview") === "1" });
   if (path === "/api/environment") return call(environment, url.searchParams, { forceAuth: false });
   const ads = path.match(/^\/ads\/([^/]+)$/);

@@ -1,4 +1,3 @@
-const { blockedInSandbox } = require("../lib/sandbox");
 const crypto = require("node:crypto");
 const communications = require("./communications");
 
@@ -10,8 +9,7 @@ function page(res, status, title, message) {
 }
 
 module.exports = async function handler(req, res) {
-  // The sandbox reads live records but is never allowed to change them.
-  if (blockedInSandbox(res, "This opt-out")) return;
+  // Practice copy: flips email_consent on the practice client row only.
   if (req.method !== "GET" && req.method !== "POST") return page(res, 405, "Request not accepted", "This link only supports unsubscribe requests.");
   try {
     const email = clean(req.query?.email || req.body?.email, 254).toLowerCase();

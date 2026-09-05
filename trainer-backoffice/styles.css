@@ -5505,3 +5505,10 @@ body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shar
 [data-send-to-live]:disabled{opacity:.45;cursor:not-allowed}
 .send-live-note{display:inline-flex;align-items:center;white-space:nowrap;color:#08743a;font-size:.8rem;font-weight:800;margin-left:6px}
 .practice-copy-tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:#ede7ff;color:#4b2fbf;font-size:.72rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+
+/* Send to live: the red warning box on the confirm dialog (practice copy). */
+.send-live-warning{display:grid;gap:4px;margin:0 0 14px;padding:12px 14px;border:2px solid #c8102e;border-radius:10px;background:#fff1f2;color:#7a0a1c;font-size:.92rem;line-height:1.45;font-weight:600;text-align:left}
+.send-live-warning strong{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#c8102e}
+.practice-reset-panel{border:2px solid #c8102e;border-radius:14px;padding:16px 18px;background:#fff7f7;margin-bottom:18px}
+.practice-reset-panel h3{margin:0 0 6px;color:#c8102e}
+.practice-reset-panel p{margin:0 0 12px;color:#5b2a33;line-height:1.5}
