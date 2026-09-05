@@ -149,9 +149,12 @@ module.exports = async function handler(req, res) {
       })
     });
 
+    // Every row carries the same keys: PostgREST refuses a bulk insert whose
+    // objects differ ("All object keys must match"). Found on the practice copy
+    // 2026-09-05 — the first deal with money down AND a payment plan hit it.
     const payments = [
       ...(collected > 0 ? [{ deal_id: deal.id, sequence: 0, amount: collected, due_on: soldOn, paid_on: soldOn, paid_amount: collected, status: "collected" }] : []),
-      ...schedule.map((p, i) => ({ deal_id: deal.id, sequence: i + 1, amount: p.amount, due_on: p.due_on, status: "scheduled" }))
+      ...schedule.map((p, i) => ({ deal_id: deal.id, sequence: i + 1, amount: p.amount, due_on: p.due_on, paid_on: null, paid_amount: null, status: "scheduled" }))
     ];
     const paymentRows = payments.length
       ? await supabaseFetch("/rest/v1/deal_payments", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify(payments) })
