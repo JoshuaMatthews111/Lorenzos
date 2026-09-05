@@ -18,10 +18,10 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260905names";
-  const API = "/api/ad-pages";
-  const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js"];
-  const store = { pages: null, markets: [], sandbox: false, loading: false, error: "" };
+  const VERSION = "20260905site";
+  const API = "/api/pages"; // site-builder: one API for ad, site and landing pages (api/ad-pages.js is an alias)
+  const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
+  const store = { pages: null, markets: [], starters: [], importable: [], sandbox: false, loading: false, error: "" };
   let template = null;
   let editor = null;
   let toastTimer = null;
@@ -117,7 +117,7 @@
     if (template) return template;
     for (const src of LIB_SCRIPTS) await loadScript(src);
     template = window.LDTT_AD_PAGE_TEMPLATE;
-    if (!template) throw new Error("The page template did not load. Refresh and try again.");
+    if (!template || !window.LDTT_SITE_PAGE_TEMPLATE) throw new Error("The page template did not load. Refresh and try again.");
     return template;
   }
 
@@ -146,7 +146,7 @@
     paintLauncher();
     try {
       const data = await api({ operation: "list" }, "GET");
-      store.pages = data.pages || []; store.markets = data.markets || []; store.sandbox = Boolean(data.sandbox);
+      store.pages = data.pages || []; store.markets = data.markets || []; store.starters = data.starters || []; store.importable = data.importable || []; store.sandbox = Boolean(data.sandbox);
     } catch (error) {
       store.error = error.message; store.pages = store.pages || [];
     } finally {
@@ -160,45 +160,63 @@
     return `<div id="pageStudioRoot" class="ps-launcher">${launcherHtml()}</div>`;
   }
 
-  function launcherHtml() {
-    const pages = store.pages || [];
-    const cards = pages.map(page => `<article class="ps-page-card">
-        <div><span class="ps-pill ${page.status === "published" ? "published" : "draft"}">${page.status === "published" ? "Live" : "Draft"}</span></div>
-        <strong>${esc(page.market || page.slug)}</strong>
-        <span class="ps-addr">/ads/${esc(page.slug)}</span>
+  // site-builder: the studio home. Every page type in one list; the Site
+  // Builder itself is full screen (window.LDTT_SITE_BUILDER).
+  const TYPE_LABEL = { ad: "Ad landing page", site: "Site page", landing: "Landing page" };
+  function pageCard(page) {
+    const type = page.page_type || "ad";
+    const path = page.public_path || (type === "ad" ? `/ads/${page.slug}` : `/${page.slug}`);
+    return `<article class="ps-page-card" data-ps-type="${esc(type)}">
+        <div><span class="ps-pill ${page.status === "published" ? "published" : "draft"}">${page.status === "published" ? "Live" : "Draft"}</span> <span class="ps-pill static">${esc(TYPE_LABEL[type] || type)}</span></div>
+        <strong>${esc(page.title || page.market || page.slug)}</strong>
+        <span class="ps-addr">${esc(path)}</span>
         <span class="ps-meta">Updated ${esc(dateLabel(page.updated_at))}${page.updated_by ? ` by ${esc(page.updated_by)}` : ""}${page.published_at ? ` · Published ${esc(dateLabel(page.published_at))}` : ""}</span>
         ${practiceTag(page)}${sentToLiveMeta(page)}
         <div class="ps-actions">
-          <button class="btn btn-red" type="button" data-ps-open="${esc(page.id)}">Edit full screen</button>
-          ${page.status === "published" ? `<a class="btn btn-outline" href="/ads/${esc(page.slug)}" target="_blank" rel="noopener">Open live page</a>` : ""}
-          <button class="btn btn-outline" type="button" data-ps-duplicate-page="${esc(page.id)}">Duplicate</button>
+          <button class="btn btn-red" type="button" ${type === "ad" ? `data-ps-open="${esc(page.id)}"` : `data-sb-open="${esc(page.id)}"`}>Edit full screen</button>
+          ${page.status === "published" ? `<a class="btn btn-outline" href="${esc(path)}" target="_blank" rel="noopener">Open live page</a>` : ""}
+          ${type === "ad" ? `<button class="btn btn-outline" type="button" data-ps-duplicate-page="${esc(page.id)}">Duplicate</button>` : `<button class="btn btn-outline" type="button" data-sb-duplicate="${esc(page.id)}">Duplicate</button>`}
           ${sendToLiveButton(page)}
         </div>
-      </article>`).join("");
+      </article>`;
+  }
+  function launcherHtml() {
+    const pages = store.pages || [];
+    const sitePages = pages.filter(p => p.page_type === "site");
+    const landingPages = pages.filter(p => p.page_type === "landing");
+    const adPages = pages.filter(p => !p.page_type || p.page_type === "ad");
     const statics = (store.markets || []).map(market => `<article class="ps-page-card">
         <div><span class="ps-pill static">Built into the site</span></div>
         <strong>${esc(market.market)}</strong>
         <span class="ps-addr">/${esc(market.slug)}</span>
-        <span class="ps-meta">Static page from the build. Duplicate it to edit a copy here.</span>
+        <span class="ps-meta">Static ad page from the build. Duplicate it to edit a copy here.</span>
         <div class="ps-actions">
           <a class="btn btn-outline" href="/${esc(market.slug)}" target="_blank" rel="noopener">Open</a>
           <button class="btn btn-outline" type="button" data-ps-duplicate-market="${esc(market.slug)}">Duplicate into Page Studio</button>
         </div>
       </article>`).join("");
+    const grid = (list, empty) => (list.length ? `<div class="ps-page-grid">${list.map(pageCard).join("")}</div>` : `<div class="ps-empty">${empty}</div>`);
     return `
       <section class="ps-launcher-hero">
-        <div><p class="portal-tag" style="color:#ffd166">Page Studio</p><h2>Ad landing pages, edited full screen. Live in a minute, no code deploy.</h2>
-        <p>Pick a market, get a finished page in the same format as the ones already running, change the words, font and sections, and publish. Every publish keeps a version you can put back.${store.sandbox ? " <b>Sandbox:</b> drafts are practice only and Publish is switched off here." : ""}</p></div>
+        <div><p class="portal-tag" style="color:#ffd166">Page Studio · Site Builder</p><h2>Your whole website, edited full screen. Publish goes live in a minute, no code deploy.</h2>
+        <p>Site pages (About, Services, Contact, anything), landing pages and ad pages. Pick fonts and colours for the whole site, build pages from blocks, set the menus, and publish. Every publish keeps a version you can put back.${store.sandbox ? " <b>Practice copy:</b> everything here is practice; use Send to live when a page is ready." : ""}</p></div>
         <div style="display:grid;gap:10px">
-          <button class="ps-big-btn" type="button" data-ps-new>+ New ad page</button>
-          <button class="ps-big-btn ghost on-dark" type="button" data-ps-refresh>Refresh list</button>
+          <button class="ps-big-btn" type="button" data-sb-studio>⛶ Open the Site Builder</button>
+          <button class="ps-big-btn ghost on-dark" type="button" data-sb-new>+ New page</button>
+          <button class="ps-big-btn ghost on-dark" type="button" data-ps-new>+ New ad page</button>
         </div>
       </section>
       ${store.error ? `<div class="ps-empty" style="color:#8a0b1f;border-color:#f1c2ca;background:#fff1f3">${esc(store.error)}</div>` : ""}
-      <section class="panel pad"><div class="panel-head"><h2>Your ad pages</h2></div>
-        ${store.loading && !pages.length ? `<div class="ps-empty">Loading…</div>` : pages.length ? `<div class="ps-page-grid">${cards}</div>` : `<div class="ps-empty">No Page Studio pages yet. Click <b>+ New ad page</b> to make the first one — it takes about a minute.</div>`}
+      <section class="panel pad"><div class="panel-head"><h2>Site pages</h2><button class="btn btn-outline" type="button" data-sb-studio="theme">Site theme (fonts + colours)</button> <button class="btn btn-outline" type="button" data-sb-studio="nav">Menus</button></div>
+        ${store.loading && !pages.length ? `<div class="ps-empty">Loading…</div>` : grid(sitePages, "No site pages yet. Press <b>+ New page</b> and start from a template, or import About / Contact / Facility from the current website.")}
       </section>
-      <section class="panel pad"><div class="panel-head"><h2>Market pages built into the site</h2></div>
+      <section class="panel pad"><div class="panel-head"><h2>Landing pages</h2></div>
+        ${grid(landingPages, "No block-built landing pages yet. <b>+ New page</b> → Market landing or Recruiting landing.")}
+      </section>
+      <section class="panel pad"><div class="panel-head"><h2>Ad pages</h2></div>
+        ${grid(adPages, "No Page Studio ad pages yet. Click <b>+ New ad page</b> to make the first one — it takes about a minute.")}
+      </section>
+      <section class="panel pad"><div class="panel-head"><h2>Market ad pages built into the site</h2></div>
         ${statics ? `<div class="ps-page-grid">${statics}</div>` : `<div class="ps-empty">${store.loading ? "Loading…" : "The built-in market list loads with the page list."}</div>`}
       </section>`;
   }
@@ -633,7 +651,7 @@
       case "preview": {
         try {
           btn.disabled = true;
-          const data = await api({ operation: "preview", content: d });
+          const data = await api({ operation: "preview", page_type: "ad", content: d });
           const w = window.open("", "_blank");
           if (!w) throw new Error("Your browser blocked the preview window. Allow pop-ups for this site.");
           w.document.open(); w.document.write(data.html); w.document.close();
@@ -757,7 +775,7 @@
     if (!store.pages) await loadPages();
     const marketOptions = template.markets.map(m => `<option value="${esc(m.slug)}" ${m.slug === (preset.templateSlug || "dog-training-columbus-oh") ? "selected" : ""}>${esc(m.market)} (${esc(m.arch)})</option>`).join("");
     const dupOptions = [
-      ...(store.pages || []).map(p => `<option value="page:${esc(p.id)}">${esc(p.market || p.slug)} — Page Studio</option>`),
+      ...(store.pages || []).filter(p => !p.page_type || p.page_type === "ad").map(p => `<option value="page:${esc(p.id)}">${esc(p.market || p.slug)} — Page Studio</option>`),
       ...template.markets.map(m => `<option value="market:${esc(m.slug)}" ${preset.duplicateMarket === m.slug ? "selected" : ""}>${esc(m.market)} — built-in page</option>`)
     ].join("");
     const mode = preset.duplicateMarket || preset.duplicatePage ? "dup" : "market";
@@ -815,7 +833,7 @@
           }
         }
         if (get("slug")) content.slug = template.safeSlug(get("slug"));
-        const data = await api({ operation: "create", content });
+        const data = await api({ operation: "create", page_type: "ad", content });
         m.remove();
         toast(data.message || "Page created.");
         store.pages = null;
@@ -850,7 +868,7 @@
   });
 
   document.addEventListener("keydown", event => {
-    if (event.key !== "Escape") return;
+    if (event.key !== "Escape" || document.body.classList.contains("sb-open")) return; // site-builder handles its own keys
     if ($(".ps-modal")) { $$(".ps-modal").pop().remove(); return; }
     if (editor) { closeEditor(); return; }
     if (document.body.classList.contains("ps-builder-fullscreen")) setBuilderFullscreen(false);
@@ -876,5 +894,7 @@
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", observe); else observe();
 
-  window.LDTT_PAGE_STUDIO = { screen, open: openEditor, newPage: newPageFlow, reload: () => loadPages(true), version: VERSION };
+  // site-builder: shared helpers for trainer-backoffice/site-builder.js (same API, toast, modal, template loader, Send to live).
+  window.LDTT_PAGE_STUDIO = { screen, open: openEditor, newPage: newPageFlow, reload: () => loadPages(true), version: VERSION,
+    shared: { api, toast, modal, ensureTemplate, loadCss, token, esc, dateLabel, timeLabel, debounce, clone, store, loadPages, sendToLiveFlow, sendToLiveButton, practiceTag, sentToLiveMeta, sentToLiveLabel, fullNameOrEmpty, field, photoChoices, get hasAdEditor() { return Boolean(editor); }, closeAdEditor: closeEditor } };
 })();

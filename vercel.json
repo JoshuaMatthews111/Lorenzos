@@ -23,6 +23,10 @@
       "destination": "/api/ad-page?slug=:slug"
     },
     {
+      "source": "/p/:slug",
+      "destination": "/api/ad-page?slug=:slug&via=site"
+    },
+    {
       "source": "/trainer-bio-:slug",
       "destination": "/trainer-profile?trainer=:slug"
     },
@@ -65,5 +69,13 @@
       "path": "/api/cron/archive-leads",
       "schedule": "0 8 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "api/pages.js": {
+      "includeFiles": "*.html"
+    },
+    "api/sitemap.js": {
+      "includeFiles": "sitemap.xml"
+    }
+  }
 }
