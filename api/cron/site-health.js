@@ -21,10 +21,18 @@
 //              that WOULD have been sent are returned as `dsn_payloads`.
 //   ?base=…    check a different deployment (default: the live site on
 //              production, this deployment's URL on a preview).
+//
+// Numbers cross-check (2026-09-05): the same run also loads
+// trainer-backoffice/metrics.js (the portal's one source of truth for every
+// figure) over the live leads / deals / trainer_applications rows and compares
+// each key figure with a plain count of the raw rows (lib/metrics-crosscheck.js).
+// A disagreement files ONE approval per figure, "LDTT: numbers disagree: <figure>",
+// capped at 5, and the result lands under site_health.numbers. Dry-run posts nothing.
 const { readFileSync, existsSync } = require("node:fs");
 const { resolve } = require("node:path");
 const { supabaseRequest, isSandbox } = require("../../lib/sandbox");
 const durability = require("../../lib/page-durability.js");
+const crosscheck = require("../../lib/metrics-crosscheck.js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -42,6 +50,7 @@ async function supabaseFetch(path, options = {}) {
 }
 
 function authorized(req) {
+  // NOTE (auth review 2026-09-05): header PRESENCE is trusted, its value is not checked. Vercel strips a spoofed x-vercel-cron from outside requests, so this is left as is.
   if (req.headers["x-vercel-cron"]) return true;
   const bearer = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   const secret = process.env.CRON_SECRET || "";
@@ -81,11 +90,14 @@ module.exports = async function handler(req, res) {
     const renderHash = async row => durability.sha256((await durability.renderThroughRoute(row.slug, ["site", "landing"].includes(row.page_type) ? row.page_type : "ad")).body || "");
     const report = await durability.runSiteHealth({ pages, base, fetchImpl: deps.fetch, exportIndex, renderHash });
     const dsnPayloads = report.broken.map(page => durability.dsnApprovalPayload(page, { base, ranAt: report.ran_at }));
-    const summary = { ...report, dryRun, sandbox: isSandbox(), export_index: exportIndex ? { exported_at: exportIndex.exported_at, pages: exportIndex.pages?.length || 0, schema: exportIndex.schema } : null, dsn_payloads: dsnPayloads, dsn_results: [] };
+    // Numbers: metrics.js (what the portal shows) vs a plain count of the rows. Read-only.
+    const numbers = await crosscheck.runNumbersCrossCheck({ supabaseFetch, ranAt: report.ran_at });
+    const numberPayloads = numbers.approvals || [];
+    const summary = { ...report, dryRun, sandbox: isSandbox(), export_index: exportIndex ? { exported_at: exportIndex.exported_at, pages: exportIndex.pages?.length || 0, schema: exportIndex.schema } : null, numbers, dsn_payloads: [...dsnPayloads, ...numberPayloads], dsn_results: [] };
     if (dryRun) return res.status(200).json(summary);
 
     // The studio reads this (site_settings.site_health) for the "Where this page lives" panel.
-    await supabaseFetch("/rest/v1/site_settings?on_conflict=key", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ key: "site_health", value: { ok: report.ok, ran_at: report.ran_at, base, checked: report.checked, broken: report.broken, stale: report.stale, pages: report.pages.map(p => ({ slug: p.slug, ok: p.ok, problems: p.problems, warnings: p.warnings, export: p.export })) }, updated_by: "site health check", updated_at: report.ran_at }) }).catch(error => console.error("site_health write failed", error));
+    await supabaseFetch("/rest/v1/site_settings?on_conflict=key", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ key: "site_health", value: { ok: report.ok, ran_at: report.ran_at, base, checked: report.checked, broken: report.broken, stale: report.stale, pages: report.pages.map(p => ({ slug: p.slug, ok: p.ok, problems: p.problems, warnings: p.warnings, export: p.export })), numbers }, updated_by: "site health check", updated_at: report.ran_at }) }).catch(error => console.error("site_health write failed", error));
 
     if (report.broken.length) {
       await supabaseFetch("/rest/v1/audit_events", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({
@@ -96,6 +108,8 @@ module.exports = async function handler(req, res) {
       // Joshua only, through DSN Command; never on the practice copy.
       if (!isSandbox()) for (const payload of dsnPayloads) summary.dsn_results.push({ title: payload.title, ...(await postApproval(payload)) });
     }
+    // Numbers that disagree: Joshua only, one approval per figure (capped), never on the practice copy.
+    if (numberPayloads.length && !isSandbox()) for (const payload of numberPayloads) summary.dsn_results.push({ title: payload.title, ...(await postApproval(payload)) });
     return res.status(200).json(summary);
   } catch (error) {
     console.error("site health failed", error);

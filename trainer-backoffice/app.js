@@ -761,6 +761,10 @@ const leadStatusToDb = {
 };
 const leadStatusFromDb = Object.fromEntries(Object.entries(leadStatusToDb).map(([label, value]) => [value, label]));
 leadStatusFromDb.follow_up_call_needed = "Office Contacted";
+// numbers (2026-09-05): every figure on every panel comes from metrics.js,
+// loaded before this file. The nightly cross-check runs the same file in Node.
+const METRICS = window.LDTT_METRICS;
+if (!METRICS) throw new Error("trainer-backoffice/metrics.js must load before app.js");
 const applicationStatusToDb = {
   "New Application": "new_application",
   "Under Review": "reviewing",
@@ -1037,7 +1041,9 @@ function remoteLeadToUi(row) {
   const raw = row.raw_payload || {};
   // Test/bot rows are stamped raw_payload.qa === true, the same convention
   // siteEventRows() already uses. Real form handlers stamp qa:false.
-  const isTestRow = raw.qa === true;
+  // isTest / inSalesPipeline / dbStatus / status / submitted are decided by
+  // metrics.js so the browser and the nightly cross-check agree.
+  const normalized = METRICS.normalizeLeadRow(row, { statusFallback: normalizeLeadStatus });
   const trainer = state.trainers.find(item => item.remoteId === row.trainer_id || item.slug === row.trainer_slug);
   const clientNote = row.comments || raw.comments || "";
   const derivedMarket = deriveLeadMarket({
@@ -1049,15 +1055,15 @@ function remoteLeadToUi(row) {
   const city = cleanLocationValue(row.city) || derivedMarket.city;
   const stateValue = cleanLocationValue(row.state) || derivedMarket.state;
   return {
+    ...normalized,
     id: row.id,
     remoteId: row.id,
-    isTest: isTestRow,
     rawSource: row.lead_source || "",
     utmSource: String(raw.utm_source || "").trim().toLowerCase(),
     originLabel: leadOriginLabel(row, raw),
-    // Only leads the bot handled belong on the Sales board. Everything else
-    // stays exactly where it is on the Leads tab; its numbers do not move.
-    inSalesPipeline: raw.sales_pipeline === true,
+    // Only leads the bot handled belong on the Sales board (inSalesPipeline,
+    // from metrics.js). Everything else stays exactly where it is on the
+    // Leads tab; its numbers do not move.
     first_name: row.first_name || raw.first_name || "",
     last_name: row.last_name || raw.last_name || "",
     owner: `${row.first_name || ""} ${row.last_name || ""}`.trim() || "Website Contact",
@@ -1085,8 +1091,6 @@ function remoteLeadToUi(row) {
     claimedAt: row.claimed_at || "",
     firstResponseAt: row.first_response_at || "",
     communicationsEscalatedAt: row.communications_escalated_at || "",
-    dbStatus: row.status || "",
-    status: leadStatusFromDb[row.status] || normalizeLeadStatus(row.status),
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || row.created_at || "",
     version: Number(row.version || 1),
@@ -1108,8 +1112,7 @@ function remoteLeadToUi(row) {
     delivery_email: raw.delivery_email || "attempted",
     delivery_supabase: "confirmed",
     rawPayload: raw,
-    visits: 1,
-    submitted: row.status !== "site_visit"
+    visits: 1
   };
 }
 
@@ -1117,6 +1120,7 @@ function remoteApplicationToUi(row) {
   const raw = row.raw_payload || {};
   return {
     ...raw,
+    ...METRICS.normalizeApplicationRow(row),
     id: row.id,
     remoteId: row.id,
     createdAt: row.created_at,
@@ -4129,7 +4133,8 @@ async function bootstrapApplication() {
 }
 
 function adminNav() {
-  const newLeadCount = allLeadRows().filter(lead => (lead.status || "New Inquiry") === "New Inquiry").length;
+  const badges = METRICS.navBadgeCounts({ leads: allLeadRows(), applications: applicationRows(), pendingReviews: pendingReviewSubmissions() });
+  const newLeadCount = badges.newLeads;
   const items = [
     ["dashboard", "Dashboard", "dashboard"],
     ["trainerPages", "Trainer Pages", "globe"],
@@ -4138,9 +4143,9 @@ function adminNav() {
     ["trainers", "Trainers", "users"],
     ["leads", "Leads", "lead", newLeadCount],
     ["sales", "Sales", "trophy"],
-    ["applications", "Applications", "message", applicationRows().filter(applicationNeedsAction).length],
+    ["applications", "Applications", "message", badges.applicationsNeedAction],
     ["clients", "Clients", "users"],
-    ["approvals", "Reviews", "star", pendingReviewSubmissions().length],
+    ["approvals", "Reviews", "star", badges.pendingReviews],
     ["communications", "Communications", "message"],
     ["reports", "Reports", "report"],
     ["adLandingPages", "Ad Landing Pages", "monitor"],
@@ -4166,14 +4171,21 @@ function canAccessAdminView(view) {
 }
 
 function trainerNav() {
+  const badges = METRICS.navBadgeCounts({
+    trainerLeads: filteredLeadRows(trainerLeads(), { useWorkspaceFilters: false }),
+    payments: state.dealPayments || [],
+    mediaSubmissions: trainerMediaSubmissions(),
+    reviewSubmissions: trainerReviewSubmissions(),
+    today: new Date().toISOString().slice(0, 10)
+  });
   return [
     ["dashboard", "Dashboard", "dashboard"],
-    ["leads", "My Leads", "lead", filteredLeadRows(trainerLeads(), { useWorkspaceFilters: false }).filter(l => !["Archived", "Became a Client"].includes(l.status)).length],
-    ["deals", "My Deals", "trophy", (state.dealPayments || []).filter(p => p.status === "scheduled" && p.due_on <= new Date().toISOString().slice(0, 10)).length],
+    ["leads", "My Leads", "lead", badges.myLeads],
+    ["deals", "My Deals", "trophy", badges.paymentsDue],
     ["myPage", "My Trainer Page", "monitor"],
     ["performance", "Performance", "report"],
-    ["submitMedia", "Submit Photos/Videos", "media", trainerMediaSubmissions().filter(s => s.status === "Pending").length],
-    ["submitReviews", "Submit Reviews", "star", trainerReviewSubmissions().filter(s => s.status === "Pending").length],
+    ["submitMedia", "Submit Photos/Videos", "media", badges.mediaPending],
+    ["submitReviews", "Submit Reviews", "star", badges.reviewsPending],
     ["communications", "Communications", "message"],
     ["settings", "Settings", "settings"]
   ];
@@ -5653,13 +5665,13 @@ const adminScreens = {
     return salesPipelineView();
   },
   applications() {
-    const apps = applicationRows();
-    const needsAction = apps.filter(applicationNeedsAction).length;
+    const tiles = METRICS.applicationTiles(applicationRows());
+    const needsAction = tiles.needsAction;
     return `${metricGrid([
-      ["message", "Applications", apps.length, "Website submissions", ""],
+      ["message", "Applications", tiles.total, "Website submissions", ""],
       ["lead", "Needs Action", needsAction, "No office action yet", needsAction ? "down" : "up"],
-      ["calendar", "Discovery Call Inquiry", apps.filter(app => app.status === "Discovery Call Inquiry").length, "Recruiting action", "up"],
-      ["trophy", "Moved Forward", apps.filter(app => app.status === "Moved Forward").length, "Qualified", "up"]
+      ["calendar", "Discovery Call Inquiry", tiles.discovery, "Recruiting action", "up"],
+      ["trophy", "Moved Forward", tiles.movedForward, "Qualified", "up"]
     ])}${applicationStatusFilterBar()}${panel("Trainer Application Pipeline", `<button class="btn btn-outline" type="button" data-application-mode="sheet">View Sheet</button><button class="btn btn-outline" type="button" data-application-mode="summary">View Data In Charts</button><button class="btn btn-outline" type="button" data-export-applications>Download Sheet</button>`, applicationPipelineBoard(), "pad")}<br>${panel("Application Sheet, Charts & Export", "", trainerApplicationGoogleFormPanel(), "pad")}<br>${panel("Trainer Application Records", "", applicationTable(), "pad")}${applicationDetailPanel()}`;
   },
   clients() {
@@ -5715,14 +5727,13 @@ const adminScreens = {
 const trainerScreens = {
   dashboard() {
     const trainer = trainerById(currentTrainerId());
-    const leads = trainerLeads(trainer.id);
-    const won = leads.filter(l => conversionStatuses().includes(l.status)).length;
+    const figures = METRICS.trainerDashboard(trainerLeads(trainer.id), trainerSubmissions());
     return `
       ${metricGrid([
-        ["lead", "Assigned Leads", leads.length, "Office-managed", ""],
-        ["calendar", "Evaluations Scheduled", leads.filter(l => l.status === "Evaluation Scheduled").length, "From office", "up"],
-        ["trophy", "Became Client / Paid", won, "True conversion", "up"],
-        ["media", "Pending Submissions", trainerSubmissions().filter(s => s.status === "Pending").length, "Awaiting approval", ""]
+        ["lead", "Assigned Leads", figures.assigned, "Office-managed", ""],
+        ["calendar", "Evaluations Scheduled", figures.evalScheduled, "From office", "up"],
+        ["trophy", "Became Client / Paid", figures.won, "True conversion", "up"],
+        ["media", "Pending Submissions", figures.pendingSubmissions, "Awaiting approval", ""]
       ])}
       <div class="dashboard-grid">
         ${panel("My Locked Trainer Page", `<a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Page</a>`, lockedPageCard(trainer), "pad")}
@@ -5745,13 +5756,12 @@ const trainerScreens = {
   },
   performance() {
     const trainer = trainerById(currentTrainerId());
-    const leads = filteredLeadRows(trainerLeads(trainer.id), { useWorkspaceFilters: false });
-    const trueConversions = leads.filter(l => conversionStatuses().includes(l.status)).length;
+    const figures = METRICS.trainerPerformance(filteredLeadRows(trainerLeads(trainer.id), { useWorkspaceFilters: false }), realTrainerStats(trainer, { allTime: true }).forms);
     return `${metricGrid([
-      ["lead", "Leads In Range", leads.length, leadRangeLabel(), ""],
-      ["calendar", "Evaluation Complete", leads.filter(l => l.status === "Evaluation Complete").length, "Office status", "up"],
-      ["trophy", "Won / Paid", trueConversions, "True conversion", "up"],
-      ["monitor", "Page Forms", realTrainerStats(trainer, { allTime: true }).forms, "Canonical total", ""]
+      ["lead", "Leads In Range", figures.inRange, leadRangeLabel(), ""],
+      ["calendar", "Evaluation Complete", figures.evalComplete, "Office status", "up"],
+      ["trophy", "Won / Paid", figures.won, "True conversion", "up"],
+      ["monitor", "Page Forms", figures.pageForms, "Canonical total", ""]
     ])}${panel("Lead Performance By Date Range", "", leadPipelineTable(false), "pad")}${panel("Performance Notes", "", `<p class="panel-copy">These numbers are read-only for trainers. Lorenzo's office owns lead statuses and conversion rules, while this tab lets the trainer review lead activity by last 7 days, last 30 days, last 60 days, or a custom date range.</p>`, "pad")}`;
   },
   submitMedia() {
@@ -6145,7 +6155,7 @@ function formSubmissionBucketRows() {
 }
 
 function dashboardLostLeadRows(leadRows = filteredReportLeadRows()) {
-  return leadRows.filter(lead => boardStatus(lead.status) === "Lost");
+  return METRICS.lostLeadRows(leadRows);
 }
 
 function dashboardSubmittedLeadRows() {
@@ -6176,23 +6186,14 @@ const DASHBOARD_BUCKET_COLORS = {
   "New Trainer Applications": "#8b5cf6"       // purple
 };
 
+// The classifiers metrics.js needs for the three submission buckets.
+function dashboardBucketOptions() {
+  return { isPaidAd: isPaidAdLandingPageLead, isEbook: isEbookRequestLead };
+}
+
+// Only the stages that actually have leads in them (metrics.js leadSummary).
 function dashboardBucketRows() {
-  const leadRows = dashboardSubmittedLeadRows();
-  const appRows = filteredReportApplicationRows();
-  const byStatus = status => leadRows.filter(lead => lead.status === status).length;
-  const buckets = new Map([
-    ["Contact Us forms", dashboardContactFormRows(leadRows).length],
-    ["Paid Ad Submitted Inquiries", dashboardPaidAdSubmittedInquiryRows(leadRows).length],
-    ["Ebook requests", dashboardEbookRequestRows(leadRows).length],
-    ["Eval Scheduled", byStatus("Evaluation Scheduled")],
-    ["Eval Complete", byStatus("Evaluation Complete")],
-    ["Became a Client", byStatus("Became a Client")],
-    ["Lost", dashboardLostLeadRows(leadRows).length],
-    ["Archived", byStatus("Archived")],
-    ["New Trainer Applications", appRows.length]
-  ]);
-  // Only show stages that actually have leads in them.
-  return Array.from(buckets.entries()).filter(([, value]) => value > 0);
+  return METRICS.leadSummary(dashboardSubmittedLeadRows(), filteredReportApplicationRows(), dashboardBucketOptions()).buckets;
 }
 
 function reportLifecycleRows() {
@@ -6205,40 +6206,25 @@ function reportLifecycleRows() {
 }
 
 function getMetrics() {
-  const lifecycle = reportLifecycleRows().filter(event => isWithinWindow(event.occurred_at || event.created_at, "report"));
-  const count = type => new Set(lifecycle
-    .filter(event => event.event_type === type)
-    .map(event => `${event.entity_type || "event"}:${event.entity_id || event.event_key || event.id}`)).size;
-  const leadRows = dashboardSubmittedLeadRows();
-  const appRows = filteredReportApplicationRows();
-  const bucketCounts = Object.fromEntries(dashboardBucketRows());
-  return {
-    visits: count("site_visit") + count("cta_click"),
-    forms: leadRows.length,
-    contactForms: bucketCounts["Contact Us forms"] || 0,
-    paidAdSubmittedInquiries: bucketCounts["Paid Ad Submitted Inquiries"] || 0,
-    ebookRequests: bucketCounts["Ebook requests"] || 0,
-    evalScheduled: leadRows.filter(lead => lead.status === "Evaluation Scheduled").length,
-    evalCompleted: leadRows.filter(lead => lead.status === "Evaluation Complete").length,
-    clientWon: leadRows.filter(lead => lead.status === "Became a Client").length,
-    trueConversions: leadRows.filter(lead => lead.status === "Became a Client").length,
-    lostNoResponse: leadRows.filter(lead => lead.status === "Lost / No Response").length,
-    lostLeads: dashboardLostLeadRows(leadRows).length,
-    newTrainerApplications: appRows.length,
-    officeNotes: filteredReportOfficeNoteRows().length
-  };
+  return METRICS.dashboardMetrics({
+    leadRows: dashboardSubmittedLeadRows(),
+    appRows: filteredReportApplicationRows(),
+    lifecycle: reportLifecycleRows().filter(event => isWithinWindow(event.occurred_at || event.created_at, "report")),
+    officeNotes: filteredReportOfficeNoteRows(),
+    ...dashboardBucketOptions()
+  });
 }
 
 // Test/bot leads never reach the numbers. Toggle them on from the Leads panel
 // to inspect them; every count, chart and export uses the filtered list.
 function excludeTestLeads(rows) {
   if (state.showTestLeads) return rows;
-  return rows.filter(lead => lead?.isTest !== true);
+  return METRICS.excludeQa(rows, METRICS.isQaLead);
 }
 
 function testLeadRows() {
   const rows = remoteReady ? state.leads : [...contactSubmissionRows(), ...state.leads];
-  return rows.filter(lead => lead?.isTest === true);
+  return rows.filter(lead => METRICS.isQaLead(lead));
 }
 
 function allLeadRows() {
@@ -6272,10 +6258,7 @@ function realTrainerStats(trainer, options = {}) {
   const leadsBase = options.allTime ? realLeadRows() : filteredReportLeadRows();
   const events = eventsBase.filter(event => sameTrainerEvent(event, trainer));
   const leads = leadsBase.filter(lead => lead.trainerId === trainer.id || lead.trainerId === trainer.slug || lead.trainerId === trainer.pageSlug);
-  const clicks = events.filter(event => event.event_type === "trainer_page_view").length;
-  const forms = leads.filter(lead => lead.submitted).length;
-  const conversions = leads.filter(lead => conversionStatuses().includes(lead.status)).length;
-  return { clicks, forms, conversions, leads };
+  return METRICS.trainerStats(events, leads);
 }
 
 function sameTrainerEvent(event, trainer) {
@@ -6784,10 +6767,10 @@ function filteredLeadRows(rows, options = {}) {
 }
 
 function leadFilterCount(rows, overrides = {}, options = {}) {
-  return filteredLeadRows(rows, {
+  return METRICS.count(filteredLeadRows(rows, {
     ...options,
     overrides: { ...(options.overrides || {}), ...overrides }
-  }).length;
+  }));
 }
 
 function leadOptionLabel(label, count) {
@@ -6806,18 +6789,19 @@ function activeLeadFilterLabels(admin = true) {
 }
 
 function leadResultCountText(rows, baseRows, admin = true) {
-  const dateTotal = filteredLeadRows(baseRows, {
+  const dateTotal = METRICS.count(filteredLeadRows(baseRows, {
     useWorkspaceFilters: false,
     overrides: {
       leadDateRange: state.leadDateRange,
       customLeadStart: state.customLeadStart,
       customLeadEnd: state.customLeadEnd
     }
-  }).length;
+  }));
+  const shown = METRICS.count(rows);
   const filters = activeLeadFilterLabels(admin);
-  const noun = rows.length === 1 ? "lead" : "leads";
-  if (!filters.length) return `Showing ${rows.length} ${noun} from ${leadRangeLabel()}.`;
-  return `Showing ${rows.length} of ${dateTotal} ${dateTotal === 1 ? "lead" : "leads"} from ${leadRangeLabel()}. Active filters: ${filters.join("; ")}.`;
+  const noun = shown === 1 ? "lead" : "leads";
+  if (!filters.length) return `Showing ${shown} ${noun} from ${leadRangeLabel()}.`;
+  return `Showing ${shown} of ${dateTotal} ${dateTotal === 1 ? "lead" : "leads"} from ${leadRangeLabel()}. Active filters: ${filters.join("; ")}.`;
 }
 
 function leadDateControls(baseRows = allLeadRows(), options = {}) {
@@ -7164,7 +7148,9 @@ function sourceLegend() {
 // The Sales board only holds leads the bot carried, plus every trainer deal.
 // It starts empty on purpose: the Leads tab and its counts are untouched.
 function salesPipelineRows() {
-  return allLeadRows().filter(lead => lead.inSalesPipeline === true);
+  // allLeadRows() already applied the QA hold-out (or the office toggled test
+  // leads on); metrics.js only keeps the bot-handled leads (rule 2).
+  return METRICS.salesPipelineRows(allLeadRows(), { keepQa: state.showTestLeads });
 }
 
 function dealsForLead(lead) {
@@ -7181,15 +7167,8 @@ function fmtMoney(n) {
   return `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-const SALES_STAGES = [
-  ["captured",  "Captured & Responded",   "marketing", ["new_inquiry", "office_contacted", "engaged_no_outcome"]],
-  ["booked",    "Booked",                 "marketing", ["evaluation_scheduled"]],
-  ["confirmed", "Confirmed",              "marketing", ["site_visit"]],
-  ["evaluated", "In the Trainer's Hands", "sales",     ["evaluation_complete"]],
-  ["won",       "Won",                    "won",       ["became_client"]],
-  ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead"]],
-  ["winback",   "Win-back",               "winback",   ["lost_no_response", "follow_up_call_needed", "evaluation_cancelled", "lost_no_trainer_area"]]
-];
+// The stage list lives in metrics.js (the cron reads the same one).
+const SALES_STAGES = METRICS.SALES_STAGES;
 
 // What the bot does, in order, and what it says at each step. `wording` holds
 // Angela and Tim's approved copy once they supply it; until then the step shows
@@ -7254,9 +7233,7 @@ function leadJourneyTimeline(lead) {
 }
 
 function salesStageFor(lead) {
-  const db = String(lead?.dbStatus || "").trim();
-  const found = SALES_STAGES.find(([, , , statuses]) => statuses.includes(db));
-  return found ? found[0] : "captured";
+  return METRICS.salesStageFor(lead, SALES_STAGES);
 }
 
 // A lead belongs to nobody until the customer picks a trainer in the booking
@@ -7362,13 +7339,9 @@ function refreshDealDerived() {
 
 function trainerDealsView() {
   const trainer = trainerById(currentTrainerId());
-  const deals = (state.deals || []).filter(d => d.trainer_id === trainer?.remoteId && d.status !== "cancelled");
   const today = new Date().toISOString().slice(0, 10);
-  const pays = (state.dealPayments || []).filter(p => deals.some(d => d.id === p.deal_id));
-  const sold = deals.reduce((a, d) => a + Number(d.sold_amount || 0), 0);
-  const collected = deals.reduce((a, d) => a + Number(d.collected_amount || 0), 0);
-  const dueNow = pays.filter(p => p.status === "scheduled" && p.due_on <= today);
-  const upcoming = pays.filter(p => p.status === "scheduled" && p.due_on > today).sort((a, b) => a.due_on.localeCompare(b.due_on));
+  const figures = METRICS.trainerDeals((state.deals || []).filter(d => d.trainer_id === trainer?.remoteId), state.dealPayments || [], today);
+  const { deals, sold, collected, dueNow, upcoming } = figures;
   const rows = deals.map(d => {
     const dp = paymentsForDeal(d.id); const next = dp.find(p => p.status === "scheduled");
     return `<tr><td>${escapeHtml(d.sold_on)}</td><td><strong>${escapeHtml(d.client_name)}</strong>${d.dog_name ? `<small>${escapeHtml(d.dog_name)}</small>` : ""}</td><td>${escapeHtml(d.program)}</td><td class="amt">${fmtMoney(d.sold_amount)}</td><td class="amt">${fmtMoney(d.collected_amount)}</td><td class="amt">${fmtMoney(d.balance_due)}</td><td>${next ? `${escapeHtml(next.due_on)} &middot; ${fmtMoney(next.amount)}` : (Number(d.balance_due) > 0 ? "&mdash;" : `<span class="status won">Paid</span>`)}</td></tr>`;
@@ -7376,9 +7349,9 @@ function trainerDealsView() {
   const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Client</th><th>Program</th><th>Sold</th><th>Collected</th><th>Balance</th><th>Next payment</th></tr></thead><tbody>${rows || `<tr><td colspan="7">No deals yet. Your first one goes in above.</td></tr>`}</tbody></table></div>`;
   const reminders = dueNow.length ? `<section class="source-record-note"><span class="status draft">${dueNow.length} balance payment${dueNow.length === 1 ? "" : "s"} due now</span><p>${dueNow.slice(0, 5).map(p => { const d = deals.find(x => x.id === p.deal_id); return `${escapeHtml(d?.client_name || "Client")} &middot; ${fmtMoney(p.amount)} due ${escapeHtml(p.due_on)}`; }).join("<br>")}</p></section>` : "";
   return `${metricGrid([
-    ["trophy", "Deals", deals.length, "Submitted by you", ""],
+    ["trophy", "Deals", figures.count, "Submitted by you", ""],
     ["report", "Sold", fmtMoney(sold), "Total program value", ""],
-    ["lead", "Collected", fmtMoney(collected), `${sold ? Math.round((collected / sold) * 100) : 0}% of sold`, collected ? "up" : ""],
+    ["lead", "Collected", fmtMoney(collected), `${figures.collectedPercent}% of sold`, collected ? "up" : ""],
     ["calendar", "Due Now", dueNow.length, upcoming[0] ? `Next: ${upcoming[0].due_on}` : "Nothing scheduled", dueNow.length ? "down" : ""]
   ])}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Deals", "", table, "pad")}`;
 }
@@ -7444,22 +7417,15 @@ function testLeadNotice() {
 
 function salesPipelineView() {
   const rows = salesPipelineRows();
-  const deals = (state.deals || []).filter(d => d.status !== "cancelled");
-  const buckets = new Map(SALES_STAGES.map(([id]) => [id, []]));
-  rows.forEach(lead => buckets.get(salesStageFor(lead))?.push(lead));
-
-  const wonLeads = buckets.get("won") || [];
-  const lost = buckets.get("lost") || [];
+  const deals = METRICS.activeDeals(state.deals || []);
+  const buckets = METRICS.salesBuckets(rows, SALES_STAGES);
+  const totals = METRICS.salesTotals(rows, deals, SALES_STAGES);
+  const columnCounts = new Map(METRICS.salesColumnCounts(rows, deals, SALES_STAGES));
+  const { won: wonCount, decided, closeRate, booked, soldTotal, collectedTotal } = totals;
   const winback = buckets.get("winback") || [];
-  const wonCount = wonLeads.length + deals.filter(d => !wonLeads.some(l => l.remoteId && l.remoteId === d.lead_id)).length;
-  const decided = wonCount + lost.length;
-  const closeRate = decided ? Math.round((wonCount / decided) * 100) : 0;
-  const booked = (buckets.get("booked") || []).length + (buckets.get("confirmed") || []).length + (buckets.get("evaluated") || []).length;
-  const soldTotal = deals.reduce((sum, d) => sum + Number(d.sold_amount || 0), 0);
-  const collectedTotal = deals.reduce((sum, d) => sum + Number(d.collected_amount || 0), 0);
 
   const metrics = metricGrid([
-    ["lead", "In Pipeline", rows.length, "Bot-handled leads only", ""],
+    ["lead", "In Pipeline", totals.inPipeline, "Bot-handled leads only", ""],
     ["calendar", "Evaluations Booked", booked, "Past marketing, in sales", booked ? "up" : ""],
     ["trophy", "Won", wonCount, `${fmtMoney(collectedTotal)} collected of ${fmtMoney(soldTotal)}`, wonCount ? "up" : ""],
     ["report", "Close Rate", `${closeRate}%`, `${wonCount} won of ${decided} decided`, closeRate >= 50 ? "up" : "down"]
@@ -7467,7 +7433,7 @@ function salesPipelineView() {
 
   const columns = SALES_STAGES.map(([id, label, tone]) => {
     const items = buckets.get(id) || [];
-    const dealCards = id !== "won" ? "" : deals.filter(d => !items.some(l => l.remoteId && l.remoteId === d.lead_id)).slice(0, 25).map(d => {
+    const dealCards = id !== "won" ? "" : METRICS.dealsWithoutLead(deals, items).slice(0, 25).map(d => {
       const pays = paymentsForDeal(d.id);
       const nextDue = pays.find(p => p.status === "scheduled");
       return `<article class="sales-card deal-card" data-open-deal="${escapeHtml(d.id)}">
@@ -7486,19 +7452,13 @@ function salesPipelineView() {
       </article>`).join("");
     const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more</p>` : "";
     return `<section class="sales-column ${tone}">
-      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${id === "won" ? wonCount : items.length}</span></header>
+      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${columnCounts.get(id) ?? items.length}</span></header>
       <div class="sales-column-body">${cards || `<p class="sales-empty">Empty &mdash; ready for testing.</p>`}${more}</div>
     </section>`;
   }).join("");
 
-  const sourceRows = Object.entries(rows.reduce((acc, lead) => {
-    const key = lead.rawSource || lead.source || "Other";
-    acc[key] = acc[key] || { total: 0, won: 0, sample: lead };
-    acc[key].total += 1;
-    if (salesStageFor(lead) === "won") acc[key].won += 1;
-    return acc;
-  }, {})).sort((a, b) => b[1].total - a[1].total).map(([source, stat]) => {
-    const rate = stat.total ? Math.round((stat.won / stat.total) * 100) : 0;
+  const sourceRows = METRICS.salesSourceRows(rows, SALES_STAGES).map(([source, stat]) => {
+    const rate = stat.rate;
     return `<tr><td><div class="source-cell">${leadSourceBadge(stat.sample)}<strong>${escapeHtml(source)}</strong></div></td><td>${stat.total}</td><td>${stat.won}</td><td><span class="status ${rate ? "won" : "draft"}">${rate}%</span></td></tr>`;
   }).join("");
 
@@ -7550,10 +7510,10 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
   return `<div class="lead-workspace-controls"><button class="btn ${myAssignedActive ? "btn-red" : "btn-outline"} lead-owner-toggle" type="button" data-lead-owner-quick="toggle">My Assigned Leads <span>${myAssignedCount}</span></button><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
-const boardColumns = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"];
-function boardStatus(status) { return /^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status; }
+const boardColumns = METRICS.BOARD_COLUMNS;
+function boardStatus(status) { return METRICS.boardStatus(status); }
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${boardColumns.map(column => { const cards = rows.filter(l => boardStatus(l.status) === column); return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who">${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small>${leadAssignmentLine(lead)}</article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who">${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small>${leadAssignmentLine(lead)}</article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -7575,12 +7535,11 @@ function statusSelect(lead) {
 }
 
 function leadStatusCounts(rows) {
-  return ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client"].map(status => [status, rows.filter(lead => lead.status === status).length]);
+  return METRICS.leadStatusCounts(rows);
 }
 
 function leadSummary() {
-  const labels = dashboardBucketRows();
-  const total = labels.reduce((sum, [, value]) => sum + value, 0);
+  const { buckets: labels, total } = METRICS.leadSummary(dashboardSubmittedLeadRows(), filteredReportApplicationRows(), dashboardBucketOptions());
   // Colours are tied to the bucket name, never to its position, so adding or
   // reordering a slice can never silently repaint the others.
   const colors = labels.map(([name]) => DASHBOARD_BUCKET_COLORS[name] || "#64748b");
@@ -7609,53 +7568,18 @@ function leadSummary() {
 // (b) is the safety net for records that predate lifecycle logging.
 // ---------------------------------------------------------------------------
 
-const CONVERSION_STAGE_RANK = {
-  "New Inquiry": 1,
-  "Office Contacted": 2,
-  "Engaged Lead: No Outcome": 2,
-  "Evaluation Scheduled": 3,
-  "Evaluation Cancelled": 3,
-  "Evaluation Complete": 4,
-  "Became a Client": 5
-};
-
-const CONVERSION_STAGES = [
-  { key: "leads", rank: 1, event: "form_received", label: "Leads came in", color: "#246bfe", help: "Everyone who filled in a form" },
-  { key: "scheduled", rank: 3, event: "evaluation_scheduled", label: "Booked an eval", color: "#d80f35", help: "Of those, this many booked" },
-  { key: "completed", rank: 4, event: "evaluation_completed", label: "Eval actually happened", color: "#4ac26b", help: "Of those, this many showed up" },
-  { key: "clients", rank: 5, event: "became_client", label: "Paid and became a client", color: "#0c9b58", help: "Of those, this many paid" }
-];
+const CONVERSION_STAGE_RANK = METRICS.CONVERSION_STAGE_RANK;
+const CONVERSION_STAGES = METRICS.CONVERSION_STAGES;
 
 // Lifecycle events keyed by "<entity_type>:<entity_id>" so a lead can be matched
 // to its own history without depending on the current status column.
 function conversionLifecycleIndex(applyReportWindow = true) {
-  const index = new Map();
-  reportLifecycleRows()
-    .filter(event => !applyReportWindow || isWithinWindow(event.occurred_at || event.created_at, "report"))
-    .forEach(event => {
-      const key = `${event.entity_type || "lead"}:${event.entity_id || ""}`;
-      if (!index.has(key)) index.set(key, new Set());
-      index.get(key).add(event.event_type);
-    });
-  return index;
+  return METRICS.lifecycleIndex(reportLifecycleRows()
+    .filter(event => !applyReportWindow || isWithinWindow(event.occurred_at || event.created_at, "report")));
 }
 
 function companyConversionCounts() {
-  const leadRows = dashboardSubmittedLeadRows();
-  const lifecycle = conversionLifecycleIndex();
-  const counts = Object.fromEntries(CONVERSION_STAGES.map(stage => [stage.key, 0]));
-  leadRows.forEach(lead => {
-    const events = lifecycle.get(`lead:${lead.remoteId || lead.id}`) || new Set();
-    const rank = CONVERSION_STAGE_RANK[lead.status] || 1;
-    CONVERSION_STAGES.forEach(stage => {
-      if (events.has(stage.event) || rank >= stage.rank) counts[stage.key] += 1;
-    });
-  });
-  return {
-    ...counts,
-    lost: dashboardLostLeadRows(leadRows).length,
-    archived: leadRows.filter(lead => lead.status === "Archived").length
-  };
+  return METRICS.companyConversionCounts(dashboardSubmittedLeadRows(), conversionLifecycleIndex());
 }
 
 function companyConversionChart() {
@@ -7700,12 +7624,7 @@ function companyConversionChart() {
 // funnel stage. "Reached" is sticky: a lead that became a client still counts as
 // having reached Eval Scheduled.
 function leadReachedStage(lead, stageKey, lifecycleIndex = null) {
-  const stage = CONVERSION_STAGES.find(item => item.key === stageKey);
-  if (!stage) return true;
-  const index = lifecycleIndex || conversionLifecycleIndex(false);
-  const events = index.get(`lead:${lead.remoteId || lead.id}`) || new Set();
-  const rank = CONVERSION_STAGE_RANK[lead.status] || 1;
-  return events.has(stage.event) || rank >= stage.rank;
+  return METRICS.leadReachedStage(lead, stageKey, lifecycleIndex || conversionLifecycleIndex(false));
 }
 
 function conversionStageLabel(stageKey) {
@@ -7765,37 +7684,13 @@ function marketKey(market) {
 // seeing. Everywhere else rolls into one line, because with real data the tail
 // is fifty towns holding one lead apiece plus a few junk entries.
 function marketConversionTable() {
-  const leadRows = dashboardSubmittedLeadRows();
-  const lifecycle = conversionLifecycleIndex();
   const adPages = adLandingPageConfigs().filter(page => page.slug.startsWith("dog-training-"));
-  const pagesByKey = new Map(adPages.map(page => [marketKey(page.market), page]));
-
-  const blank = () => ({ leads: 0, scheduled: 0, completed: 0, clients: 0, lost: 0 });
-  const adMarkets = new Map(adPages.map(page => [marketKey(page.market), { label: page.market, page, ...blank() }]));
-  const other = { label: "Everywhere else (no ad running)", ...blank() };
-  const otherPlaces = new Map();
-
-  leadRows.forEach(lead => {
-    const label = leadMarketLabel(lead) || "Market pending";
-    const key = marketKey(label) || label;
-    const row = adMarkets.get(key) || other;
-    row.leads += 1;
-    if (leadReachedStage(lead, "scheduled", lifecycle)) row.scheduled += 1;
-    if (leadReachedStage(lead, "completed", lifecycle)) row.completed += 1;
-    if (leadReachedStage(lead, "clients", lifecycle)) row.clients += 1;
-    if (boardStatus(lead.status) === "Lost") row.lost += 1;
-    if (row === other) otherPlaces.set(key, (otherPlaces.get(key) || 0) + 1);
+  const { rows: sorted, other, otherPlaces, totals } = METRICS.marketConversionTable(dashboardSubmittedLeadRows(), {
+    adMarkets: adPages.map(page => ({ key: marketKey(page.market), label: page.market, page })),
+    marketKeyOf: lead => { const label = leadMarketLabel(lead) || "Market pending"; return marketKey(label) || label; },
+    lifecycle: conversionLifecycleIndex()
   });
-
-  const rate = (part, whole) => (whole ? `${Math.round((part / whole) * 100)}%` : "—");
-  const sorted = [...adMarkets.values()].sort((a, b) => b.leads - a.leads || a.label.localeCompare(b.label));
-  const totals = [...sorted, other].reduce((sum, value) => ({
-    leads: sum.leads + value.leads,
-    scheduled: sum.scheduled + value.scheduled,
-    completed: sum.completed + value.completed,
-    clients: sum.clients + value.clients,
-    lost: sum.lost + value.lost
-  }), blank());
+  const rate = METRICS.rate;
 
   const line = (value, extra = "") => `<tr${value.leads ? "" : ' class="market-row-empty"'}>
       <td><strong>${escapeHtml(value.label)}</strong>${extra}</td>
@@ -8385,8 +8280,11 @@ function saveApplicationOverride(id, changes) {
   return overrides[id];
 }
 
+// Every application figure (tiles, board, nav badge, sheet, CSV) starts here.
+// metrics.js holds QA rows out (raw_payload.qa, or a qa-/qa_ name or email)
+// and sorts newest first, the same as the Leads tab has always done.
 function applicationRows() {
-  if (remoteReady) return [...state.applications].sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
+  if (remoteReady) return METRICS.applicationRows(state.applications);
   const overrides = applicationOverrides();
   const imported = IMPORTED_APPLICATION_RESPONSES.map(row => ({
     ...row,
@@ -8424,7 +8322,7 @@ function applicationRows() {
     delivery_supabase: row.delivery_supabase || "not_connected",
     note: row.office_note || row.note || row.dog_description || row.additional_training || row.owned_dogs_description || "Submitted from the website trainer application."
   }));
-  return dedupe([...imported, ...stored, ...state.applications]);
+  return METRICS.applicationRows(dedupe([...imported, ...stored, ...state.applications]));
 }
 
 function updateApplicationRecord(id, changes) {
@@ -8490,10 +8388,8 @@ function trainerApplicationGoogleFormPanel() {
   const mode = state.applicationViewMode || "sheet";
   const activeFilter = currentApplicationFilter();
   const allRows = applicationRows();
-  const search = state.applicationSearch || "";
-  const rows = allRows.filter(app => activeFilter === "All" || (app.status || "New Application") === activeFilter)
-    .filter(app => recordMatchesSearch(applicationSearchValues(app), search))
-    .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
+  // Same rows as the sheet filter (was a second copy of filteredApplicationRows).
+  const rows = filteredApplicationRows();
   const body = mode === "sheet" ? applicationSheetView(rows) : mode === "individual" ? applicationIndividualView(rows) : applicationSummaryCharts(rows);
   const modes = [
     ["sheet", "View Sheet"],
@@ -8866,7 +8762,7 @@ function applicationStatusSelect(app) {
 }
 
 function applicationNeedsAction(app) {
-  return (app.status || "New Application") === "New Application";
+  return METRICS.applicationNeedsAction(app);
 }
 
 function applicationInquiryTypeLabel(app = {}) {
@@ -8880,12 +8776,10 @@ function applicationDisplayName(app) {
 }
 
 function applicationPipelineBoard() {
-  const columns = ["New Application", "Under Review", "Discovery Call Inquiry", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
-  const rows = applicationRows()
-    .sort((a, b) => timestampValue(b.receivedAt || b.createdAt) - timestampValue(a.receivedAt || a.createdAt));
-  return `<div class="application-sheet-actions"><span class="status ${rows.some(applicationNeedsAction) ? "pending" : "live"}">${rows.filter(applicationNeedsAction).length} need action</span><p>Drag applications through the recruiting flow. Once a card is moved out of New Application, the notification count clears because the office has taken action.</p></div>
-    <div class="lead-kanban application-kanban">${columns.map(column => {
-      const columnRows = rows.filter(app => (app.status || "New Application") === column);
+  const rows = applicationRows();
+  const needsAction = METRICS.applicationTiles(rows).needsAction;
+  return `<div class="application-sheet-actions"><span class="status ${needsAction ? "pending" : "live"}">${needsAction} need action</span><p>Drag applications through the recruiting flow. Once a card is moved out of New Application, the notification count clears because the office has taken action.</p></div>
+    <div class="lead-kanban application-kanban">${METRICS.applicationColumns(rows, METRICS.APPLICATION_COLUMNS).map(([column, columnRows]) => {
       return `<section class="kanban-column application-column" data-drop-application-status="${escapeHtml(column)}"><header><strong>${escapeHtml(column)}</strong><span>${columnRows.length}</span></header><div class="kanban-cards">${columnRows.map(app => applicationPipelineCard(app)).join("") || `<div class="empty-column">Drop applications here</div>`}</div></section>`;
     }).join("")}</div>`;
 }
@@ -8900,6 +8794,20 @@ function applicationPipelineCard(app) {
   </article>`;
 }
 
+// One download path for every sheet (was copied three times).
+function downloadCsv(filename, csv) {
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+// The application sheet: the same rows as the tiles and the board (QA held out).
 function exportApplicationsCsv() {
   const applicationRecords = applicationRows();
   const fields = [
@@ -8907,18 +8815,8 @@ function exportApplicationsCsv() {
     { key: "status", label: "Recruiting Status" },
     { key: "note", label: "Office Notes" }
   ];
-  const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const rows = applicationRecords.map(app => fields.map(field => escapeCsv(applicationFieldValue(app, field.key, field.label))).join(","));
-  const csv = [fields.map(field => escapeCsv(field.label)).join(","), ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `ldtt-trainer-applications-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  const { csv } = METRICS.csvDocument(fields, applicationRecords, (app, field) => applicationFieldValue(app, field.key, field.label));
+  downloadCsv(`ldtt-trainer-applications-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 function exportOperationalSheet(kind) {
@@ -8942,21 +8840,10 @@ function exportOperationalSheet(kind) {
     Object.keys(row || {}).forEach(key => keys.add(key));
     return keys;
   }, new Set()));
-  const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
   const displayValue = (key, value) => /(?:received_at|created_at|updated_at)$/i.test(key) && value ? formatDateTime(value) : typeof value === "object" && value !== null ? JSON.stringify(value) : value;
-  const csv = [
-    fields.map(field => escapeCsv(field.replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase()))).join(","),
-    ...flattenedRows.map(row => fields.map(field => escapeCsv(displayValue(field, row[field]))).join(","))
-  ].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `ldtt-${kind}-sheet-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  const columns = fields.map(field => ({ key: field, label: field.replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase()) }));
+  const { csv } = METRICS.csvDocument(columns, flattenedRows, (row, field) => displayValue(field.key, row[field.key]));
+  downloadCsv(`ldtt-${kind}-sheet-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 function exportLeadsCsv() {
@@ -8966,18 +8853,8 @@ function exportLeadsCsv() {
     return;
   }
   const fields = leadSheetFields(leadRecords);
-  const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
-  const rows = leadRecords.map(lead => fields.map(field => escapeCsv(leadSubmittedFieldValue(lead, field.key, field.label))).join(","));
-  const csv = [fields.map(field => escapeCsv(field.label)).join(","), ...rows].join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `ldtt-leads-detailed-sheet-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  const { csv } = METRICS.csvDocument(fields, leadRecords, (lead, field) => leadSubmittedFieldValue(lead, field.key, field.label));
+  downloadCsv(`ldtt-leads-detailed-sheet-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 function applicationDetailGrid(app) {
@@ -9291,18 +9168,18 @@ function filteredClientRows(options = {}) {
 // The browser holds the most recent clients only; the rest live on the server and
 // are reached by search. Say so plainly rather than looking like records vanished.
 function clientLoadNotice() {
-  const total = Number(remoteClientsTotal || 0);
-  if (!total || total <= (state.clients || []).length) return "";
-  return `<div class="source-record-note"><span class="status live">Client database</span><p>Showing the ${(state.clients || []).length.toLocaleString()} most recent of <strong>${total.toLocaleString()}</strong> clients. Everyone else is still on file — use the search when sending a message, or download the full client sheet.</p></div>`;
+  const counts = METRICS.clientCounts(state.clients || [], [], remoteClientsTotal);
+  if (!counts.moreOnServer) return "";
+  return `<div class="source-record-note"><span class="status live">Client database</span><p>Showing the ${counts.loaded.toLocaleString()} most recent of <strong>${counts.total.toLocaleString()}</strong> clients. Everyone else is still on file — use the search when sending a message, or download the full client sheet.</p></div>`;
 }
 
 function clientFilterBar() {
-  const rows = filteredClientRows();
+  const counts = METRICS.clientCounts(state.clients, filteredClientRows(), remoteClientsTotal);
   const searchNote = state.clientSearch ? ` matching "${escapeHtml(state.clientSearch)}"` : "";
   return `<section class="client-filter-shell">
     <div class="filter-bar">${clientStatuses.map(status => `<button class="btn ${state.clientFilter === status ? "btn-red" : "btn-outline"}" data-client-filter="${escapeHtml(status)}">${escapeHtml(status)}</button>`).join("")}</div>
     <input class="select-pill client-search" data-client-search value="${escapeHtml(state.clientSearch || "")}" placeholder="Search clients by name, dog, phone, email, trainer, notes...">
-    <p class="panel-copy lead-result-count"><strong>${rows.length} of ${state.clients.length} client records shown${searchNote}.</strong></p>
+    <p class="panel-copy lead-result-count"><strong>${counts.shown} of ${counts.loaded} client records shown${searchNote}.</strong></p>
   </section>`;
 }
 
