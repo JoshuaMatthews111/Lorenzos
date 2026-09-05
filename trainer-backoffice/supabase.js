@@ -470,9 +470,15 @@
   async function signedStorageUrl(bucket, path, expiresIn = 43200) {
     if (!path || /^(data:|blob:|https?:|\/)/i.test(path)) return path || "";
     const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-    const result = await request(`/storage/v1/object/sign/${encodeURIComponent(bucketFor(bucket))}/${encodedPath}`, {
-      method: "POST",
-      body: JSON.stringify({ expiresIn })
+    await environmentReady;
+    const sign = name => request(`/storage/v1/object/sign/${encodeURIComponent(name)}/${encodedPath}`, { method: "POST", body: JSON.stringify({ expiresIn }) });
+    // onboarding: on the practice copy a submission row copied from live still
+    // points at a file that only exists in the LIVE bucket (the reset copies rows,
+    // not files). Try the practice bucket first, then READ the live file. Reading
+    // never changes anything; every write still goes to practice-*.
+    const result = await sign(bucketFor(bucket)).catch(error => {
+      if (bucketPrefix && bucketFor(bucket) !== String(bucket)) return sign(String(bucket));
+      throw error;
     });
     const signedPath = result?.signedURL || result?.signedUrl || "";
     if (!signedPath) return "";

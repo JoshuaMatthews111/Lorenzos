@@ -9,6 +9,22 @@ let cards=[...document.querySelectorAll('.trainer-card')];
 const count=document.querySelector('#trainerCount');
 let filter='';
 
+// onboarding: declared up here on purpose. The trainer roster below awaits publicEnvironment as soon as the
+// script runs; when this sat further down, `const` was still in its temporal dead zone and every visit to
+// Find a Trainer threw "Cannot access 'publicEnvironment' before initialization" — so the live profile sync
+// (names, cities, newly published trainers) silently never ran.
+const LDTT_PRACTICE_HEADER='x-ldtt-practice';
+const LDTT_EDGE_PRACTICE_FLAG_DEPLOYED=false;
+const PRACTICE_FORM_OFF_MESSAGE='PRACTICE COPY — this form is switched off here. Nothing typed here reaches the office or creates a lead. Use the live website to send a real request.';
+const publicEnvironment=fetch('/api/environment',{cache:'no-store'}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(env=>{
+  const sandbox=Boolean(env?.sandbox);
+  window.LDTT_IS_SANDBOX=sandbox;
+  window.LDTT_DB_SCHEMA=env?.schema||'public';
+  window.LDTT_EDGE_PRACTICE_FLAG_DEPLOYED=LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
+  if(sandbox) document.body.classList.add('is-practice-copy');
+  return {sandbox,schema:window.LDTT_DB_SCHEMA};
+});
+window.LDTT_PUBLIC_ENV=publicEnvironment;
 const escapePublicText=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const publicReviewMediaUrl=value=>{
   const url=String(value||'').trim();
@@ -352,18 +368,6 @@ const submitEmailRelay=async (endpoint,entries,subject)=>{
 // commit that deploys the four Edge Functions with the flag; that removes the
 // notice and lets the practice forms save into the practice schema.
 // ---------------------------------------------------------------------------
-const LDTT_PRACTICE_HEADER='x-ldtt-practice';
-const LDTT_EDGE_PRACTICE_FLAG_DEPLOYED=false;
-const PRACTICE_FORM_OFF_MESSAGE='PRACTICE COPY — this form is switched off here. Nothing typed here reaches the office or creates a lead. Use the live website to send a real request.';
-const publicEnvironment=fetch('/api/environment',{cache:'no-store'}).then(r=>r.ok?r.json():{}).catch(()=>({})).then(env=>{
-  const sandbox=Boolean(env?.sandbox);
-  window.LDTT_IS_SANDBOX=sandbox;
-  window.LDTT_DB_SCHEMA=env?.schema||'public';
-  window.LDTT_EDGE_PRACTICE_FLAG_DEPLOYED=LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
-  if(sandbox) document.body.classList.add('is-practice-copy');
-  return {sandbox,schema:window.LDTT_DB_SCHEMA};
-});
-window.LDTT_PUBLIC_ENV=publicEnvironment;
 const practiceFormsOff=env=>Boolean(env?.sandbox)&&!LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
 const practiceHeaders=env=>(env?.sandbox?{[LDTT_PRACTICE_HEADER]:'1'}:{});
 window.LDTT_PRACTICE_HEADERS=practiceHeaders;

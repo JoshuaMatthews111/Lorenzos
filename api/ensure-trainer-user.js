@@ -134,9 +134,26 @@ module.exports = async function handler(req, res) {
         : await createOrEnableAuthUser(email, displayName);
     if (!authResult.userId && !isSandbox()) throw new Error("Trainer auth user could not be created.");
 
-    await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(trainerId)}`, {
+    // onboarding: if that email already signs in as STAFF, stop. The upsert below
+    // would have turned the staff member's portal row into a trainer row (role,
+    // trainer_id) and locked them out of the office portal — on live too.
+    if (authResult.userId && !trainers[0].auth_user_id) {
+      const existingRows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,trainer_id,display_name&user_id=eq.${encodeURIComponent(authResult.userId)}&limit=1`);
+      const existing = existingRows?.[0];
+      if (existing && existing.role === "admin") {
+        return res.status(409).json({ ok: false, staffLogin: true, message: `${email} is a staff login (${existing.display_name || "office"}), not a trainer. Give the trainer their own email, then publish again.` });
+      }
+      if (existing && existing.role === "trainer" && existing.trainer_id && String(existing.trainer_id) !== String(trainerId)) {
+        return res.status(409).json({ ok: false, message: `${email} already belongs to another trainer's login. Each trainer needs their own email.` });
+      }
+    }
+
+    // onboarding: hand back the row's new version/updated_at so the portal's next
+    // save (the publish itself) does not trip its own "updated by another staff
+    // member" check.
+    const updatedTrainers = await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(trainerId)}`, {
       method: "PATCH",
-      headers: { Prefer: "return=minimal" },
+      headers: { Prefer: "return=representation" },
       body: JSON.stringify({
         ...(authResult.userId ? { auth_user_id: authResult.userId } : {}),
         email,
@@ -144,6 +161,7 @@ module.exports = async function handler(req, res) {
         status: "active"
       })
     });
+    const updatedTrainer = updatedTrainers?.[0] || null;
 
     if (authResult.userId) await supabaseFetch("/rest/v1/portal_users?on_conflict=user_id", {
       method: "POST",
@@ -165,6 +183,7 @@ module.exports = async function handler(req, res) {
       email,
       user_id: authResult.userId,
       created: authResult.created,
+      trainer: updatedTrainer ? { version: updatedTrainer.version || null, updated_at: updatedTrainer.updated_at || null } : null,
       temporary_password: authResult.created ? TRAINER_TEMP_PASSWORD : "",
       ...(isSandbox() ? { message: authResult.practiceNoLogin
         ? "Practice copy: the trainer is enabled and their page can be published here, but no login was created — logins are real and shared with live. Create the login on the live portal when the trainer is real."

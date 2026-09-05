@@ -889,7 +889,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     safeTrainerAssetUrl(content.bio_photo_url),
     safeTrainerAssetUrl(existing.landingBioPhoto)
   ], headshotCandidates) || rosterLandingPhoto;
-  return {
+  const merged = {
     ...existing,
     remoteId: remoteTrainer.id,
     isOfficeDraft: false,
@@ -940,6 +940,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     pageStatus: pageStatusFromDb(remotePage?.page_status),
     locked: Boolean(remotePage?.locked),
     accessStatus: remoteTrainer.access_status === "disabled" ? "Disabled" : "Active",
+    archived: remoteTrainer.status === "archived", // onboarding: Delete Draft archives; hidden from the office lists
     specialties: Array.isArray(remoteTrainer.specialties) && remoteTrainer.specialties.length ? remoteTrainer.specialties : (existing.specialties || []),
     profileSpecialtiesText: Array.isArray(remoteTrainer.specialties) ? remoteTrainer.specialties.join("\n") : "",
     publicSpecialtiesText: Array.isArray(remoteTrainer.specialties) ? remoteTrainer.specialties.join("\n") : "",
@@ -983,6 +984,22 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     sentToLiveByName: remotePage?.sent_to_live_by_name || "",
     fromPracticeCopy: remotePage?.draft_content?._sent_from_practice || null
   };
+  // onboarding: keep ONE object per trainer across reloads. Every save reloads the
+  // portal payload and this used to hand back a brand-new object, so a handler that
+  // was still awaiting an upload wrote the result into the old object (lost) and the
+  // next auto-save carried a stale updated_at ("Live record refreshed…" instead of
+  // "Saved live"). Same object, same references, no stale copies.
+  if (existing && existing.remoteId) {
+    // Edited since the last save started: keep every field the office is working on
+    // and take only the bookkeeping from the server. The queued save carries the edits.
+    if (Number(existing._editedAt || 0) > Number(existing._savedAt || 0)) {
+      const keep = ["remoteId", "id", "pageId", "version", "updatedAt", "pageVersion", "pageUpdatedAt", "revision", "publishedRevision", "sentToLiveAt", "sentToLiveByName", "fromPracticeCopy", "archived", "accessStatus"];
+      keep.forEach(key => { existing[key] = merged[key]; });
+      return existing;
+    }
+    return Object.assign(existing, merged);
+  }
+  return merged;
 }
 
 // Which form the person actually filled in. The badge says which network sent
@@ -1232,9 +1249,20 @@ function remoteClientToUi(row, dogs) {
 
 function mergeRemoteOperationalData(data) {
   const pagesByTrainer = new Map((data.pages || []).map(page => [page.trainer_id, page]));
-  state.trainers = (data.trainers || []).map(trainer => remoteTrainerToUi(trainer, pagesByTrainer.get(trainer.id)));
+  // onboarding: a draft the office just added is still being created (or a poll
+  // that started before the create answered without it). Keep it in the list
+  // instead of dropping it, otherwise the wizard below silently rebinds to the
+  // first trainer alphabetically and the office types the new trainer's details
+  // into a REAL trainer's record (Aryson Whorley, practice copy, 2026-09-05).
+  const remoteIds = new Set((data.trainers || []).map(trainer => String(trainer.id)));
+  const inWizard = session.role === "admin" && ["trainers", "pageEditor"].includes(state.activeView);
+  const pendingDrafts = state.trainers.filter(trainer => (trainer.isOfficeDraft || (inWizard && trainer.id === state.selectedTrainerId)) && !remoteIds.has(String(trainer.remoteId || trainer.id || "")));
+  state.trainers = [...pendingDrafts, ...(data.trainers || []).map(trainer => remoteTrainerToUi(trainer, pagesByTrainer.get(trainer.id)))];
   if (!state.trainers.some(trainer => trainer.id === state.selectedTrainerId)) {
-    state.selectedTrainerId = state.trainers[0]?.id || "";
+    // onboarding: never jump the selection to another trainer while the office is
+    // inside the wizard or the page editor; an empty selection shows "Select a
+    // trainer" there, which is honest. Other screens fall back as before.
+    state.selectedTrainerId = ["trainers", "pageEditor"].includes(state.activeView) && session.role === "admin" ? "" : (state.trainers.find(trainer => !trainer.archived)?.id || state.trainers[0]?.id || "");
   }
   state.leads = (data.leads || []).map(remoteLeadToUi);
   state.applications = (data.applications || []).map(remoteApplicationToUi);
@@ -1346,6 +1374,16 @@ function workspaceHasTypedInput() {
   const workspace = document.getElementById("workspaceView");
   if (!workspace) return false;
   if (isTypingField(document.activeElement) && workspace.contains(document.activeElement)) return true;
+  // onboarding: the page editor's preview is an iframe. Someone editing text
+  // inside it (Edit Overlay) has focus on the IFRAME, not on a text box, so the
+  // poll's redraw used to rebuild the preview under them and drop the sentence.
+  const frame = document.getElementById("pageEditorPreview");
+  if (frame && document.activeElement === frame) {
+    const inner = frame.contentDocument?.activeElement;
+    if (inner && (inner.isContentEditable || isTypingField(inner))) return true;
+  }
+  // onboarding: a chosen file is "typed input" too — it cannot be put back after a redraw.
+  if ([...workspace.querySelectorAll('input[type="file"]')].some(field => field.files && field.files.length)) return true;
   return [...workspace.querySelectorAll("input, textarea")].some(field =>
     isTypingField(field) && String(field.value || "").trim() && String(field.value) !== String(field.defaultValue || ""));
 }
@@ -1427,9 +1465,16 @@ function trainerDisplaySlug(trainer) {
   const current = slugify(trainer?.slug || "");
   const nameSlug = slugify(trainer?.profileName || trainer?.name || "");
   const draftLikeSlugs = new Set(["", "new-trainer", "new-trainer-draft", "newtrainerdraft", "trainer", "draft-trainer", "office-draft"]);
-  if (nameSlug && !["new-trainer", "trainer"].includes(nameSlug) && (trainer?.isOfficeDraft || draftLikeSlugs.has(current) || /^office-draft-\d+$/.test(current))) {
+  // onboarding: an unnamed draft keeps its own office-draft-<time> slug. Every
+  // new draft used to be saved as "new-trainer-draft", and trainers.slug is
+  // unique, so the second "+ Add New Trainer" before the first was named failed
+  // with a raw database error ("duplicate key value violates unique constraint").
+  const placeholderName = !nameSlug || draftLikeSlugs.has(nameSlug);
+  if (!placeholderName && (trainer?.isOfficeDraft || draftLikeSlugs.has(current) || /^office-draft-\d+$/.test(current))) {
     return nameSlug;
   }
+  if (placeholderName && /^office-draft-\d+$/.test(current)) return current;
+  if (placeholderName && !current) return `office-draft-${Date.now()}`;
   return current || nameSlug || `office-draft-${Date.now()}`;
 }
 
@@ -1566,6 +1611,12 @@ function refreshDraftTrainerIdentity(trainer, changedKey = "") {
   const displayName = String(trainer.profileName || trainer.name || "").trim();
   if (displayName && displayName !== "New Trainer Draft" && displayName !== "New Trainer") {
     trainer.name = displayName;
+    // onboarding: while the page is still a draft, the web address follows the
+    // name. It used to stick to the FIRST name typed, so a draft renamed after a
+    // duplicate-name refusal kept the colliding address and could never save.
+    // A published page keeps its address (links to it are already out).
+    const renamed = ["name", "profileName"].includes(changedKey) && isDraftTrainer(trainer) && !trainer.locked;
+    if (renamed) trainer.slug = slugify(displayName) || trainer.slug;
     if (isDraftTrainer(trainer) || changedKey === "name" || changedKey === "profileName") {
       trainer.slug = trainerDisplaySlug(trainer);
       trainer.pageSlug = trainerPublicSlug(trainer);
@@ -1638,8 +1689,27 @@ function trainerPagePayload(trainer) {
   };
 }
 
+// onboarding: one save at a time per trainer. Uploads, the debounced editor
+// auto-save and the Save/Publish buttons all call this; running two at once made
+// the later one fail the expected_updated_at check.
+const trainerSaveChains = new Map();
 async function persistTrainerRecord(trainer, options = {}) {
   if (!remoteReady || session.role !== "admin") return trainer;
+  const chainKey = String(trainer?.remoteId || trainer?.id || "trainer");
+  cancelScheduledRemoteSave(`builder-${trainer?.id}`);
+  if (trainer?.remoteId) cancelScheduledRemoteSave(`builder-${trainer.remoteId}`);
+  const previous = trainerSaveChains.get(chainKey) || Promise.resolve();
+  const run = previous.catch(() => {}).then(() => persistTrainerRecordNow(trainer, options));
+  trainerSaveChains.set(chainKey, run);
+  try {
+    return await run;
+  } finally {
+    if (trainerSaveChains.get(chainKey) === run) trainerSaveChains.delete(chainKey);
+  }
+}
+
+async function persistTrainerRecordNow(trainer, options = {}) {
+  trainer._savedAt = Date.now(); // onboarding: edits after this survive this save's reload
   trainer.title ||= "Team Trainer";
   const normalizedLocation = normalizeTrainerLocation(trainer.profileMarket || trainer.market, trainer.profileState || trainer.state);
   trainer.market = normalizedLocation.market;
@@ -1724,6 +1794,9 @@ async function persistTrainerRecord(trainer, options = {}) {
       await window.LDTT_PORTAL.rpc("publish_trainer_page", { target_page_id: trainer.pageId });
     }
   }
+  // onboarding: this is the ONE reload after a trainer save. Callers that wrap
+  // this in runRemoteMutation pass { reload: false } so the 20 MB portal payload
+  // is not downloaded twice per click (it was, on every wizard step).
   await reloadRemoteData();
   return findTrainer(trainer.remoteId) || trainer;
 }
@@ -1753,6 +1826,10 @@ async function ensureTrainerPortalAccount(trainer) {
   trainer.email = email;
   trainer.username = email;
   trainer.temporaryPassword = TRAINER_TEMP_PASSWORD_NOTICE;
+  // onboarding: the API just changed the trainers row; keep our version in step so
+  // the publish save that follows is not refused as "updated by another staff member".
+  if (result.trainer?.version) trainer.version = Number(result.trainer.version);
+  if (result.trainer?.updated_at) trainer.updatedAt = result.trainer.updated_at;
   trainer.portalInviteStatus = result.created ? "New trainer login created" : result.sandbox && !result.user_id ? "Practice copy: enabled, no login created" : "Existing trainer login enabled";
   // Practice copy: no auth user is ever created there; say what happened instead.
   if (result.sandbox && result.message) showToast(result.message, 9000);
@@ -1760,9 +1837,22 @@ async function ensureTrainerPortalAccount(trainer) {
 }
 
 async function publishTrainerPageWorkflow(trainer, publish) {
+  // onboarding: the login check runs BEFORE the page goes public. It used to run
+  // after the publish RPC, so a refused login (staff email, someone else's email)
+  // left the page published while the office saw "Could not save".
+  if (publish && trainer?.remoteId) {
+    try {
+      await ensureTrainerPortalAccount(trainer);
+    } catch (error) {
+      trainer.pageStatus = "Draft";
+      trainer.locked = false;
+      throw error;
+    }
+  }
   const savedTrainer = await persistTrainerRecord(trainer, { publish });
   if (publish) {
-    await ensureTrainerPortalAccount(savedTrainer || trainer);
+    if (!trainer.remoteId) await ensureTrainerPortalAccount(savedTrainer || trainer);
+    else if (savedTrainer && savedTrainer !== trainer) savedTrainer.portalInviteStatus = trainer.portalInviteStatus;
     const published = await window.LDTT_PORTAL.loadPublishedTrainer((savedTrainer || trainer).slug, { includeDraft: false });
     if (!published?.page?.published_content || Number(published.page.published_revision || 0) < 1) {
       throw new Error("The public trainer revision could not be confirmed after publishing.");
@@ -2763,6 +2853,22 @@ async function resetPortalUserPassword(user, password) {
 
 async function persistTrainerSocialRecord(trainer) {
   if (!remoteReady || !trainer?.pageId) return;
+  // onboarding: a trainer cannot use the admin-only mutation API (every save answered
+  // "Active Admin or Office Admin access required"). Their own endpoint writes the
+  // links to their own trainer; the office keeps the audited admin path.
+  if (session.role !== "admin") {
+    const token = window.LDTT_PORTAL?.accessToken?.() || "";
+    const response = await fetch("/api/trainer-social-links", {
+      method: "POST", cache: "no-store",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ facebook: trainer.socials?.facebook || "", instagram: trainer.socials?.instagram || "", tiktok: trainer.socials?.tiktok || "" })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok === false) throw new Error(result.message || `Your links could not be saved (${response.status}).`);
+    if (result.page_updated_at) trainer.pageUpdatedAt = result.page_updated_at;
+    showToast("Social links saved");
+    return;
+  }
   await window.LDTT_PORTAL.operationalMutation({
     operation: "update",
     entity_type: "trainer_page",
@@ -2894,6 +3000,14 @@ function scheduleRemoteSave(key, action, delay = 650) {
     remoteSaveTimers.delete(key);
     runRemoteMutation("", action, { reload: false, render: false });
   }, delay));
+}
+// onboarding: a Save Draft / Publish click supersedes the debounced auto-save
+// that the last keystroke or upload scheduled; without this the two saves ran
+// side by side and the second one lost on expected_updated_at ("Live record
+// refreshed to the latest saved version." instead of "Saved live").
+function cancelScheduledRemoteSave(key) {
+  window.clearTimeout(remoteSaveTimers.get(key));
+  remoteSaveTimers.delete(key);
 }
 
 function mergePublishedTrainer(pair) {
@@ -3113,6 +3227,9 @@ function trainerById(id = state.selectedTrainerId) {
   const trainer = findTrainer(id);
   if (trainer) return trainer;
   if (arguments.length > 0 && id) return null;
+  // onboarding: the wizard and the page editor bind to the trainer the office
+  // picked, never to "whoever is first in the list" (see mergeRemoteOperationalData).
+  if (session.role === "admin" && ["trainers", "pageEditor"].includes(state.activeView)) return null;
   const fallback = state.trainers[0] || null;
   if (fallback) state.selectedTrainerId = fallback.id;
   return fallback;
@@ -3156,12 +3273,19 @@ function trainerBioHref(trainerOrId) {
   return trainer ? `/trainer-bio-${trainerDisplaySlug(trainer)}` : "/find-a-trainer";
 }
 
+// onboarding: on the practice copy the page lives on the practice deployment,
+// not on lorenzosdogtrainingteam.com (where it does not exist yet). Links and
+// the invite text point at the site the office is actually looking at.
+function publicSiteOrigin() {
+  return window.LDTT_IS_SANDBOX ? window.location.origin : PUBLIC_SITE_ORIGIN;
+}
+
 function trainerPublicUrl(trainer) {
-  return `${PUBLIC_SITE_ORIGIN}/${trainerPublicSlug(trainer)}`;
+  return `${publicSiteOrigin()}/${trainerPublicSlug(trainer)}`;
 }
 
 function staffPortalUrl() {
-  return `${PUBLIC_SITE_ORIGIN}/staff`;
+  return `${publicSiteOrigin()}/staff`;
 }
 
 function builderPages() {
@@ -3439,6 +3563,7 @@ function renderMediaLibrary(trainer) {
 
 function markBuilderDraftDirty(message = "Builder change saved to draft", detail = "") {
   const trainer = trainerById();
+  if (!trainer) return; // onboarding: nothing is selected to save into
   if (state.builderSurface === "trainer") {
     trainer.pageStatus = "Draft";
     trainer.locked = false;
@@ -4171,7 +4296,10 @@ function typedFieldKey(field) {
     // whose attribute is missing gets an empty key, is never captured, and so is
     // wiped (text, focus and caret) by any redraw that lands mid-sentence. That
     // is exactly what happened to the office-note boxes (Melissa, 2026-09-04).
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair)).join("|");
+    // onboarding: the trainer editor boxes were missing here — the page editor
+    // (data-editor-field), the profile editor (data-profile-field), the trainer's
+    // social links, video links and the Send-to-live name box.
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair)).join("|");
   return own ? `${formKey}::${own}` : "";
 }
 
@@ -7657,7 +7785,7 @@ function approvedLayoutCards() {
 }
 
 function trainerPageCards() {
-  return `<div class="trainer-card-grid">${state.trainers.map(trainer => {
+  return `<div class="trainer-card-grid">${state.trainers.filter(trainer => !trainer.archived).map(trainer => {
     const stats = realTrainerStats(trainer);
     const canDelete = isDraftTrainer(trainer) && !trainer.locked;
     return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt="${escapeHtml(trainer.name || "Trainer Draft")} headshot"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Edit Trainer & Landing Page</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">${trainer.pageStatus === "Published" ? "View Published Page" : "Preview Draft"}</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? "Return To Draft" : "Publish Landing Page"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
@@ -7810,7 +7938,13 @@ function trainerAdminForm() {
   const mediaPreview = (src, fallback, alt) => `<div class="wizard-media-preview"><img src="${escapeHtml(src || fallback)}" alt="${escapeHtml(alt)}"></div>`;
   const textField = (key, label, opts = {}) => `<div class="field ${opts.wide ? "wide" : ""}"><label>${label}${opts.area ? `<textarea name="admin-trainer-${key}" placeholder="${escapeHtml(opts.placeholder || "")}">${escapeHtml(t[key] || "")}</textarea>` : `<input ${opts.type ? `type="${opts.type}"` : ""} name="admin-trainer-${key}" value="${escapeHtml(t[key] || "")}" placeholder="${escapeHtml(opts.placeholder || "")}">`}</label>${opts.help ? `<small class="field-help">${escapeHtml(opts.help)}</small>` : ""}</div>`;
   let content = "";
-  if (step === 1) content = `<div class="form-grid">${textField("name", "Trainer Name")}${textField("title", "Professional Title", { placeholder: "Team Trainer" })}${textField("email", "Email / Username", { type: "email", help: "This email identifies the trainer's portal account." })}${textField("temporaryPassword", "Temporary Password", { help: "Use the office-issued temporary password for first login. The trainer must replace it immediately." })}${textField("phone", "Public Phone")}${textField("market", "City / Market")}${textField("state", "State / Region")}</div>`;
+  // onboarding: the old "Temporary Password" box saved nowhere (anything typed
+  // there was thrown away). The login is created when the page is published, so
+  // say that instead of showing a dead field.
+  const loginNote = `<div class="field"><label>Trainer login<div class="field-static">${escapeHtml(window.LDTT_IS_SANDBOX
+    ? "Practice copy: publishing enables the trainer here but never creates a real login. Create the login on the live portal when the trainer is real."
+    : "Created automatically when you publish the landing page, using the email above. The office gives the trainer the temporary password privately; they must change it on first sign-in.")}</div></label></div>`;
+  if (step === 1) content = `<div class="form-grid">${textField("name", "Trainer Name")}${textField("title", "Professional Title", { placeholder: "Team Trainer" })}${textField("email", "Email / Username", { type: "email", help: "This email identifies the trainer's portal account." })}${loginNote}${textField("phone", "Public Phone")}${textField("market", "City / Market")}${textField("state", "State / Region")}</div>`;
   if (step === 2) content = `<div class="wizard-template-choice">${approvedLayouts.map(layout => `<label class="wizard-template-option ${t.layout === layout.id ? "selected" : ""}"><input type="radio" name="admin-trainer-layout" value="${layout.id}" ${t.layout === layout.id ? "checked" : ""}><img src="${layout.preview}" alt="${escapeHtml(layout.name)}"><span><strong>${escapeHtml(layout.name)}</strong><small>${escapeHtml(layout.tag)}</small></span></label>`).join("")}</div><div class="brand-lock-note">The office chooses one approved design. Lorenzo's colors, affiliation, office phone number, and required conversion sections stay locked.</div>`;
   if (step === 3) content = `<div class="form-grid">${textField("serviceArea", "Service Area", { wide: true, placeholder: "Cleveland, Garfield Heights, Akron, and surrounding areas" })}${textField("bio", "Office-Approved Trainer Bio", { wide: true, area: true, placeholder: "Tell the trainer's story, approach, and experience." })}${textField("tagline", "Page Tagline", { wide: true })}${textField("heroHeadline", "Hero Headline", { wide: true })}${textField("seoTitle", "SEO Page Title", { wide: true, help: "Use trainer name, dog training service, and city/state." })}${textField("seoDescription", "SEO Description", { wide: true, area: true, help: "Describe obedience training, behavior modification, service area, and Lorenzo affiliation in 150-160 characters." })}</div>`;
   if (step === 4) content = `<div class="wizard-media-purpose"><div><span class="step-label">Photos: each one has one job</span><h3>Pick the right photo for each place</h3><p><strong>Headshot</strong> shows only on Find a Trainer cards. <strong>Bio Photo</strong> shows when someone clicks View Bio and in the landing-page bio section. Save & Publish sends the Bio Photo to the front end.</p></div></div><div class="wizard-upload-grid image-role-grid">${trainerImageUploadCard(t, { key: "profilePhoto", frameKey: "profilePhotoFrame", positionKey: "profilePhotoPosition", fitKey: "profilePhotoFit", scaleKey: "profilePhotoScale", fallbackFit: "contain", fallbackFrame: "portrait", eyebrow: "Find a Trainer only", title: "Headshot", description: "Used only on trainer cards. It does not control the View Bio photo.", button: "Upload Headshot", contain: true })}${trainerImageUploadCard(t, { key: "heroTrainerPhoto", frameKey: "heroPhotoFrame", positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale", eyebrow: "Landing page top", title: "Top Landing Photo", description: "The first trainer image on the landing page.", button: "Upload Top Landing Photo" })}${trainerImageUploadCard(t, { key: "landingBioPhoto", frameKey: "bioPhotoFrame", positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", fallbackFit: "cover", fallbackFrame: "tight", eyebrow: "View Bio + landing bio", title: "Bio Photo", description: "Used when visitors click View Bio and beside the bio on the landing page.", button: "Upload Bio Photo" })}${trainerImageUploadCard(t, { key: "image", eyebrow: "Page background", title: "Hero Background", description: "The wide background behind the headline and consultation form.", button: "Upload Background Photo" })}${trainerImageUploadCard(t, { key: "companyLogo", eyebrow: "Optional", title: "Company Logo", description: "Leave the Lorenzo logo or upload an approved local logo.", button: "Upload Company Logo", contain: true })}${trainerVideoUploadCard(t)}</div><section class="hero-library"><div><span class="step-label">Background only</span><h3>Choose a page background</h3><p>This changes only the wide background. It never replaces the headshot or Bio Photo.</p></div><div class="hero-option-grid">${heroImageOptions.map(option => `<button type="button" class="hero-option ${t.image === option.src ? "selected" : ""}" data-hero-image="${escapeHtml(option.src)}"><img src="${escapeHtml(option.src)}" alt="${escapeHtml(option.label)}"><span>${escapeHtml(option.label)}</span></button>`).join("")}</div></section><div class="brand-lock-note">Lorenzo branding and office routing stay protected on every design.</div>`;
@@ -7860,7 +7994,7 @@ function builderPreviewConfig(trainer) {
 
 function trainerPageEditor() {
   const trainer = trainerById();
-  if (!trainer) return panel("Page Editor", "", "<p>No trainer profile is available.</p>", "pad");
+  if (!trainer) return panel("Page Editor", `<button class="btn btn-outline" type="button" data-view="trainerPages">Open Trainer Network</button>`, "<p>Pick a trainer in Trainer Network first (Edit Trainer &amp; Landing Page), then come back here.</p>", "pad"); // onboarding
   const style = trainer.styleSettings || {};
   const field = (label, name, value, options = {}) => `<label class="${options.wide ? "wide" : ""}"><span>${escapeHtml(label)}</span>${options.area
     ? `<textarea data-editor-field="${name}">${escapeHtml(value || "")}</textarea>`
@@ -7901,7 +8035,7 @@ function trainerPageEditor() {
   const sectionControls = state.builderSurface !== "trainer"
     ? `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Section reordering is protected for main website and portal screens. Use Edit Overlay to select text, images, buttons, and cards directly in the preview.</p></div>`
     : `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Reorder or hide approved sections. Header, form routing, and Lorenzo trust elements stay protected.</p><div class="builder-section-list">${sectionOrder.map((section, index) => `<article><strong>${escapeHtml(section)}</strong><label><input type="checkbox" data-section-visible="${escapeHtml(section)}" ${hiddenSections.includes(section) ? "" : "checked"}> Visible</label><div><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Up</button><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="1" ${index === sectionOrder.length - 1 ? "disabled" : ""}>Down</button></div></article>`).join("")}</div></div>`;
-  const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3><label><span>Trainer</span><select data-editor-trainer>${state.trainers.map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio", "bio", trainer.bio, { area: true })}</div>`;
+  const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3><label><span>Trainer</span><select data-editor-trainer>${state.trainers.filter(item => !item.archived || item.id === trainer.id).map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio", "bio", trainer.bio, { area: true })}</div>`;
   const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
   const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
   const controls = {
@@ -8061,12 +8195,13 @@ function trainerProfileEditor(trainer) {
 }
 
 function trainerSelectList() {
-  const groups = [...new Set(state.trainers.map(trainer => trainer.state || "Office Added"))];
-  return `<div class="trainer-roster-summary"><strong>${state.trainers.length} trainers available</strong><span>Select any frontend trainer to populate the office setup wizard with their real bio, location, and photos.</span></div>${groups.map(stateName => `<section class="trainer-state-group"><h3>${escapeHtml(stateName)}</h3><div class="trainer-select-list">${state.trainers.filter(trainer => (trainer.state || "Office Added") === stateName).map(trainer => `<button class="trainer-select ${state.selectedTrainerId === trainer.id ? "active" : ""}" data-select-trainer="${trainer.id}"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt=""><span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)} · ${trainer.pageStatus}${trainer.locked ? " · Locked" : ""}</small></span></button>`).join("")}</div></section>`).join("")}`;
+  const listed = state.trainers.filter(trainer => !trainer.archived); // onboarding
+  const groups = [...new Set(listed.map(trainer => trainer.state || "Office Added"))];
+  return `<div class="trainer-roster-summary"><strong>${listed.length} trainers available</strong><span>Select any frontend trainer to populate the office setup wizard with their real bio, location, and photos.</span></div>${groups.map(stateName => `<section class="trainer-state-group"><h3>${escapeHtml(stateName)}</h3><div class="trainer-select-list">${listed.filter(trainer => (trainer.state || "Office Added") === stateName).map(trainer => `<button class="trainer-select ${state.selectedTrainerId === trainer.id ? "active" : ""}" data-select-trainer="${trainer.id}"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt=""><span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)} · ${trainer.pageStatus}${trainer.locked ? " · Locked" : ""}</small></span></button>`).join("")}</div></section>`).join("")}`;
 }
 
 function trainerReadOnlyDirectory() {
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Trainer</th><th>Market</th><th>Service Area</th><th>Page Status</th><th>Access</th><th>Quick View</th></tr></thead><tbody>${state.trainers.map(trainer => `<tr><td><strong>${escapeHtml(trainer.name)}</strong><small>${escapeHtml(trainer.email || "No email listed")}</small></td><td>${escapeHtml(trainer.market || "—")}</td><td>${escapeHtml(trainer.serviceArea || "—")}</td><td>${pageStatusBadge(trainer)}</td><td><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "live"}">${escapeHtml(trainer.accessStatus || "Active")}</span></td><td><a class="btn btn-outline btn-small" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">Open Landing Page</a></td></tr>`).join("")}</tbody></table></div><p class="panel-copy">Office Admin access is view-only here. Super Admins control trainer profiles, landing pages, publishing, reviews, and page-editor changes.</p>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Trainer</th><th>Market</th><th>Service Area</th><th>Page Status</th><th>Access</th><th>Quick View</th></tr></thead><tbody>${state.trainers.filter(trainer => !trainer.archived).map(trainer => `<tr><td><strong>${escapeHtml(trainer.name)}</strong><small>${escapeHtml(trainer.email || "No email listed")}</small></td><td>${escapeHtml(trainer.market || "—")}</td><td>${escapeHtml(trainer.serviceArea || "—")}</td><td>${pageStatusBadge(trainer)}</td><td><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "live"}">${escapeHtml(trainer.accessStatus || "Active")}</span></td><td><a class="btn btn-outline btn-small" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">Open Landing Page</a></td></tr>`).join("")}</tbody></table></div><p class="panel-copy">Office Admin access is view-only here. Super Admins control trainer profiles, landing pages, publishing, reviews, and page-editor changes.</p>`;
 }
 
 function pageStatusBadge(trainer) {
@@ -8084,7 +8219,10 @@ function lockedPageCard(trainer) {
 }
 
 function lockedPageDetails(trainer) {
-  return `<div class="lock-notice">${icon("shield")}<div><strong>Office-controlled and locked</strong><p>Lorenzo's office manages the bio, photos, reviews, layout, publishing, and page lock. Trainers submit content for approval.</p></div></div><ul class="health-list"><li><span class="check">✓</span> Brand-uniform Lorenzo page</li><li><span class="check">✓</span> Three approved template routes only</li><li><span class="check">✓</span> Safer office consultation CTA</li><li><span class="check">✓</span> No trainer publish controls or DNS access</li></ul>${trainerInviteCard(trainer)}`;
+  // onboarding: the invite message is the OFFICE's copy-and-send text (temporary
+  // password wording included). A trainer looking at "My Trainer Page" does not
+  // need to see it, so it is only drawn for admins.
+  return `<div class="lock-notice">${icon("shield")}<div><strong>Office-controlled and locked</strong><p>Lorenzo's office manages the bio, photos, reviews, layout, publishing, and page lock. Trainers submit content for approval.</p></div></div><ul class="health-list"><li><span class="check">✓</span> Brand-uniform Lorenzo page</li><li><span class="check">✓</span> Three approved template routes only</li><li><span class="check">✓</span> Safer office consultation CTA</li><li><span class="check">✓</span> No trainer publish controls or DNS access</li></ul>${session.role === "admin" ? trainerInviteCard(trainer) : ""}`;
 }
 
 function trainerInviteText(trainer) {
@@ -8124,12 +8262,19 @@ function trainerInviteCard(trainer) {
 function showTrainerInviteDialog(trainer) {
   if (!trainer) return;
   const inviteId = `trainerInviteModal-${Date.now()}`;
+  // onboarding: say what really happened to the login (the practice copy never
+  // creates one) instead of a fixed sentence.
+  const loginLine = trainer.portalInviteStatus
+    ? `Trainer login: ${trainer.portalInviteStatus}`
+    : window.LDTT_IS_SANDBOX
+      ? "Trainer login: none created on the practice copy (logins are real and shared with live)"
+      : "Trainer portal access: created or enabled from the trainer email";
   const publishItems = [
     `Landing page: ${trainerPublicUrl(trainer)}`,
-    `View Bio page: ${PUBLIC_SITE_ORIGIN}${trainerBioHref(trainer)}`,
-    "Find a Trainer: live directory sync will include this published trainer",
+    `View Bio page: ${publicSiteOrigin()}${trainerBioHref(trainer)}`,
+    window.LDTT_IS_SANDBOX ? "Find a Trainer: listed on the practice copy's Find a Trainer page" : "Find a Trainer: live directory sync will include this published trainer",
     "Reviews: approved destinations remain attached to this trainer page",
-    "Trainer portal access: created or enabled from the trainer email"
+    loginLine
   ];
   const dialog = document.createElement("dialog");
   dialog.className = "action-confirmation-dialog trainer-invite-dialog";
@@ -9475,8 +9620,15 @@ function trainerReviewsMarkup(trainer) {
       showLocation: Boolean(review.display?.showLocation)
     }
   })).filter(review => review.copy || review.mediaUrl);
-  if (!approvedReviews.length) return "";
-  return `<div class="trainer-review-carousel" aria-label="Approved trainer reviews">${approvedReviews.map(review => trainerReviewCardMarkup(review)).join("")}</div>`;
+  // onboarding: the three "Optional Manual Testimonial" boxes in the wizard and
+  // the editor were saved but never drawn on the page. They follow the Review
+  // Inbox reviews here.
+  const manualReviews = [1, 2, 3]
+    .map(n => ({ id: `manual-${n}`, author: String(trainer[`review${n}Author`] || "").trim() || "Verified Client", rating: "5", copy: String(trainer[`review${n}Copy`] || "").trim(), location: "", mediaUrl: "", mediaType: "", mediaName: "", display: { showText: true, showMedia: false, showAuthor: true, showRating: true, showLocation: false } }))
+    .filter(review => review.copy);
+  const reviews = [...approvedReviews, ...manualReviews];
+  if (!reviews.length) return "";
+  return `<div class="trainer-review-carousel" aria-label="Approved trainer reviews">${reviews.map(review => trainerReviewCardMarkup(review)).join("")}</div>`;
 }
 
 function publicSubmissionMediaUrl(value) {
@@ -10848,7 +11000,11 @@ document.addEventListener("click", async event => {
     if (remoteReady) {
       try {
         await reloadRemoteData();
-        render();
+        // onboarding: this second redraw landed 1-3 s after the screen opened — right
+        // when a trainer had already chosen a photo. A file picker cannot be restored
+        // by the typing safety net, so the choice vanished and Submit said "Choose a
+        // photo". Draw through the same guard the poll uses.
+        backgroundRender();
       } catch (error) {
         console.error("LDTT shared portal refresh failed", error);
         showToast("Showing the most recently loaded data. Refresh to try again.");
@@ -10966,7 +11122,7 @@ document.addEventListener("click", async event => {
       const ok = await runRemoteMutation(
         publish ? "Trainer page published and locked" : "Trainer page returned to office draft",
         () => publishTrainerPageWorkflow(trainer, publish),
-        {
+        { reload: false, // onboarding: the save already reloaded
           type: "Trainer Page",
           detail: `${trainer.name} ${publish ? "was published and locked" : "was returned to draft"} by ${currentActorLabel()}.`
         }
@@ -11022,7 +11178,7 @@ document.addEventListener("click", async event => {
     trainer.layout = assignLayout.dataset.assignLayout;
     trainer.pageStatus = "Draft";
     trainer.locked = false;
-    if (remoteReady) runRemoteMutation("Approved layout assigned and draft saved", () => persistTrainerRecord(trainer), {
+    if (remoteReady) runRemoteMutation("Approved layout assigned and draft saved", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} layout changed to ${layoutName(trainer.layout)}.`
     });
@@ -11033,7 +11189,7 @@ document.addEventListener("click", async event => {
   if (heroImage) {
     const trainer = trainerById();
     trainer.image = heroImage.dataset.heroImage;
-    if (remoteReady) runRemoteMutation("Approved hero image selected", () => persistTrainerRecord(trainer), {
+    if (remoteReady) runRemoteMutation("Approved hero image selected", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} landing-page hero background was changed.`
     });
@@ -11055,7 +11211,7 @@ document.addEventListener("click", async event => {
     if (remoteReady) runRemoteMutation(
       `${landingKey.replace(/([A-Z])/g, " $1")} synced to landing page`,
       () => persistTrainerRecord(trainer, keepPublished ? { publish: true } : {}),
-      {
+      { reload: false, // onboarding: the save already reloaded
         type: "Trainer Profile",
         detail: `${trainer.name} ${landingKey} was synced from profile editor to landing page.`
       }
@@ -11082,13 +11238,17 @@ document.addEventListener("click", async event => {
   }
   const onboardingStep = event.target.closest("[data-onboarding-step]");
   if (onboardingStep && !onboardingStep.disabled) {
+    const previousStep = state.onboardingStep;
     state.onboardingStep = Number(onboardingStep.dataset.onboardingStep);
     if (remoteReady && session.role === "admin") {
       const trainer = trainerById();
-      runRemoteMutation("Trainer setup progress and draft saved", () => persistTrainerRecord(trainer), {
+      // onboarding: a refused save (duplicate email, slug…) used to move the wizard
+      // on to the next step anyway, so the office thought the step had saved.
+      const ok = await runRemoteMutation("Trainer setup progress and draft saved", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
         type: "Trainer Page",
         detail: `${trainer.name} setup moved to step ${state.onboardingStep}.`
       });
+      if (!ok) { state.onboardingStep = previousStep; render(); }
     } else {
       saveState("Trainer setup progress saved");
     }
@@ -11386,7 +11546,7 @@ document.addEventListener("click", async event => {
       await runRemoteMutation("Trainer review order saved", () => persistTrainerRecord(trainer, {
         skipProfile: true,
         publish: trainer.pageStatus === "Published" && trainer.locked
-      }), {
+      }), { reload: false, // onboarding: the save already reloaded
         type: "Review",
         detail: `${trainer.name} review placement order was updated by ${currentActorLabel()}.`
       });
@@ -11424,7 +11584,7 @@ document.addEventListener("click", async event => {
       await runRemoteMutation("Trainer review placement removed", () => persistTrainerRecord(trainer, {
         skipProfile: true,
         publish: trainer.pageStatus === "Published" && trainer.locked
-      }), {
+      }), { reload: false, // onboarding: the save already reloaded
         type: "Review",
         detail: `Manual review placement removed from ${trainer.name}.`
       });
@@ -11663,7 +11823,7 @@ document.addEventListener("click", async event => {
     state.selectedTrainerId = trainer.id;
     state.activeView = "trainers";
     state.onboardingStep = 1;
-    if (remoteReady) runRemoteMutation("Trainer created as office draft", () => persistTrainerRecord(trainer), {
+    if (remoteReady) runRemoteMutation("Trainer created as office draft", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} was created as an office-controlled draft.`
     });
@@ -11677,7 +11837,7 @@ document.addEventListener("click", async event => {
     }
     if (remoteReady) {
       const trainer = trainerById();
-      runRemoteMutation("Trainer profile and page draft saved by office", () => persistTrainerRecord(trainer), {
+      runRemoteMutation("Trainer profile and page draft saved by office", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
         type: "Trainer Profile",
         detail: `${trainer?.name || "Trainer"} profile and landing-page draft saved by ${currentActorLabel()}.`
       });
@@ -11722,7 +11882,7 @@ document.addEventListener("click", async event => {
     const trainer = trainerById();
     trainer.pageStatus = publish ? "Published" : "Draft";
     trainer.locked = publish;
-    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : "Trainer page draft saved", () => publishTrainerPageWorkflow(trainer, publish), {
+    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : "Trainer page draft saved", () => publishTrainerPageWorkflow(trainer, publish), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} landing page ${publish ? "published and locked" : "saved as draft"} from the page editor.`
     });
@@ -11831,7 +11991,7 @@ document.addEventListener("click", async event => {
     trainer.mediaLibrary.unshift({ type: "video", url, name: `${videoProviderLabel(url)} trainer video`, size: 0, uploadedAt: new Date().toISOString() });
     refreshPageEditorPreview();
     if (remoteReady) {
-      await runRemoteMutation("Trainer video link saved", () => persistTrainerRecord(trainer, { persistProfile: true }), {
+      await runRemoteMutation("Trainer video link saved", () => persistTrainerRecord(trainer, { persistProfile: true }), { reload: false, // onboarding: the save already reloaded
         type: "Trainer Video",
         detail: `${trainer.name} trainer video was set from ${videoProviderLabel(url)} by ${currentActorLabel()}.`
       });
@@ -11856,6 +12016,20 @@ document.addEventListener("click", async event => {
     render();
   }
 });
+
+// onboarding: any edit inside a trainer editor stamps the trainer as edited. A save
+// that was already in flight reloads the portal payload when it finishes, and that
+// reload must not overwrite what the office typed meanwhile (see remoteTrainerToUi).
+const TRAINER_EDITOR_SCOPE = ".trainer-onboarding, .profile-editor-panel, .page-editor-shell, .trainer-social-settings";
+function stampTrainerEdit(event) {
+  const target = event.target;
+  if (!target?.closest?.(TRAINER_EDITOR_SCOPE)) return;
+  const trainer = session.role === "admin" ? trainerById() : trainerById(currentTrainerId());
+  if (trainer) trainer._editedAt = Date.now();
+}
+document.addEventListener("input", stampTrainerEdit, true);
+document.addEventListener("change", stampTrainerEdit, true);
+document.addEventListener("click", event => { if (event.target?.closest?.("[data-hero-image],[data-assign-layout],[data-section-move],[data-use-media],[data-remove-live-edit],[data-reset-live-edits]")) stampTrainerEdit(event); }, true);
 
 document.addEventListener("input", event => {
   const field = event.target;
@@ -12420,7 +12594,7 @@ document.addEventListener("change", async event => {
           trainer.publicPhoto = trainer.profilePhoto;
           trainer.cardPhoto = trainer.profilePhoto;
         }
-        await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer, { persistProfile: upload.dataset.trainerUpload === "profilePhoto" }), {
+        await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer, { persistProfile: upload.dataset.trainerUpload === "profilePhoto" }), { reload: false, // onboarding: the save already reloaded
           type: "Trainer Photo",
           detail: `${trainer.name} ${upload.dataset.trainerUpload} was replaced with ${file.name}.`
         });

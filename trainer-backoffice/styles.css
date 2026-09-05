@@ -2070,6 +2070,8 @@ body.is-logged-in .login-screen { display: none; }
 .onboarding-footer { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
 .onboarding-footer span { color: var(--muted); font-size: .78rem; }
 .onboarding-footer button:disabled { opacity: .4; cursor: not-allowed; }
+/* onboarding: read-only note drawn where a form box would be */
+.field-static { display: block; margin-top: 6px; padding: 10px 12px; border-radius: 10px; background: var(--line-2, #eef2f7); color: var(--muted); font-size: .78rem; font-weight: 600; line-height: 1.45; }
 .field-help { display: block; margin-top: 6px; color: var(--muted); font-size: .72rem; font-weight: 600; }
 .wizard-upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .wizard-upload-grid > section, .review-editor-grid > section { padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: #fbfdff; }

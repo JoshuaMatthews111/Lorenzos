@@ -133,6 +133,36 @@ async function verifyAdmin(accessToken) {
   };
 }
 
+// onboarding: plain words for the two ways a trainer save collides with another
+// trainer. Postgres answers "duplicate key value violates unique constraint
+// \"trainers_slug_key\"" — the office cannot act on that.
+const UNIQUE_MESSAGES = {
+  trainers_slug_key: "Another trainer already uses that web address (slug). Change the trainer's name so the address is different, then save again.",
+  trainer_pages_slug_key: "Another trainer's page already uses that web address (slug). Change the trainer's name so the address is different, then save again.",
+  trainer_pages_trainer_id_key: "This trainer already has a landing page. Open the existing page instead of creating another.",
+  trainers_auth_user_id_key: "That login is already linked to another trainer."
+};
+function plainUniqueError(error) {
+  const text = String(error?.message || "");
+  const key = Object.keys(UNIQUE_MESSAGES).find(name => text.includes(name));
+  if (!key && !/duplicate key value/i.test(text)) return null;
+  const friendly = new Error(key ? UNIQUE_MESSAGES[key] : "That value is already used by another record. Change it and save again.");
+  friendly.status = 409;
+  return friendly;
+}
+// A trainer's email is their portal login, so two trainers must never share one.
+async function assertTrainerEmailFree(entityType, changes, id) {
+  if (entityType !== "trainer") return;
+  const email = String(changes.email || "").trim().toLowerCase();
+  if (!email) return;
+  const rows = await supabaseFetch(`/rest/v1/trainers?select=id,full_name&email=ilike.${encodeURIComponent(email)}&status=neq.archived${id ? `&id=neq.${encodeURIComponent(id)}` : ""}&limit=1`);
+  if (rows?.[0]) {
+    const error = new Error(`Another trainer (${rows[0].full_name || "unnamed"}) already uses ${email}. Each trainer needs their own email because it is their portal login.`);
+    error.status = 409;
+    throw error;
+  }
+}
+
 function filterChanges(config, changes) {
   return Object.fromEntries(
     Object.entries(changes || {}).filter(([key]) => config.fields.has(key))
@@ -202,11 +232,12 @@ async function updateRecord(admin, body, requestId) {
   }
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No supported changes were supplied." } };
+  await assertTrainerEmailFree(entityType, changes, id); // onboarding
   const rows = await supabaseFetch(`/rest/v1/${config.table}?${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(changes)
-  });
+  }).catch(error => { throw plainUniqueError(error) || error; }); // onboarding
   const record = rows?.[0];
   if (!record) return { status: 409, body: { ok: false, conflict: true, message: "The record changed before this save completed." } };
   await audit(admin, clean(body.action, 80) || "updated", entityType, id, before, record, body.summary, requestId);
@@ -236,11 +267,12 @@ async function createRecord(admin, body, requestId) {
   if (!config) return { status: 400, body: { ok: false, message: "Unsupported operational record." } };
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No valid fields were supplied." } };
+  await assertTrainerEmailFree(entityType, changes, ""); // onboarding
   const rows = await supabaseFetch(`/rest/v1/${config.table}`, {
     method: "POST",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify(changes)
-  });
+  }).catch(error => { throw plainUniqueError(error) || error; }); // onboarding
   const record = rows?.[0];
   if (!record) return { status: 500, body: { ok: false, message: "The canonical record was not created." } };
   await audit(admin, clean(body.action, 80) || "created", entityType, record.id, null, record, body.summary || "Record created", requestId);
@@ -469,7 +501,7 @@ module.exports = async function handler(req, res) {
     result.body.request_id = requestId;
     return res.status(result.status).json(result.body);
   } catch (error) {
-    console.error("Operational mutation API error", error);
+    if (!error.status || error.status >= 500) console.error("Operational mutation API error", error); // onboarding: a 409 is an answer, not a crash
     return res.status(error.status || 500).json({ ok: false, message: error.message || "The live record could not be saved." });
   }
 };
