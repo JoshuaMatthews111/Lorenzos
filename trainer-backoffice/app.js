@@ -1284,7 +1284,15 @@ async function prepareRemoteData(data) {
 
 async function reloadRemoteData() {
   if (!window.LDTT_PORTAL?.enabled || !session.loggedIn) return;
-  const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+  // perf/portal-speed: hand the API the revision we already hold; an empty 304
+  // (nothing changed) comes back as null and the records in memory stand.
+  const loaded = await window.LDTT_PORTAL.loadOperationalData({ ifNoneMatch: remoteReady ? remoteServerRevision : "" });
+  if (loaded === null) {
+    remoteSyncedAt = new Date().toISOString();
+    remoteSyncError = "";
+    return;
+  }
+  const data = await prepareRemoteData(loaded);
   mergeRemoteOperationalData(data);
   remoteSyncError = "";
 }
@@ -9037,16 +9045,49 @@ function importPreview() {
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Action</th><th>Client</th><th>Dog</th><th>Status</th><th>Consent</th><th>Warnings</th></tr></thead><tbody>${state.importedPreview.map((row, index) => `<tr><td><select class="select-pill" data-import-action="${index}"><option ${row.action === "Create" ? "selected" : ""}>Create</option><option ${row.action === "Update" ? "selected" : ""}>Update</option><option ${row.action === "Skip" ? "selected" : ""}>Skip</option><option ${row.action === "Merge" ? "selected" : ""}>Merge</option></select></td><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.phone)} · ${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.dog)}<small>${escapeHtml(row.breed)}</small></td><td><span class="status ${clientStatusClass(row.status)}">${escapeHtml(row.status)}</span></td><td>SMS: ${consentBadge(row.smsConsent)}<br>Email: ${consentBadge(row.emailConsent)}</td><td>${row.warnings.map(w => `<span class="warning-pill">${escapeHtml(w)}</span>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table></div><br><button class="btn btn-red" id="confirmImport">Confirm Import</button>`;
 }
 
+// perf/portal-speed: the Excel (880 kB) and PDF (320 kB) readers used to load on every
+// portal visit, before the login box could even be used. Nothing outside client import
+// reads them, so they are fetched the first time an import needs them and then kept.
+const IMPORT_LIBRARIES = {
+  xlsx: { src: "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js", ready: () => Boolean(window.XLSX) },
+  pdf: { src: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", ready: () => Boolean(window.pdfjsLib) }
+};
+const importLibraryLoads = {};
+function loadImportLibrary(name) {
+  const library = IMPORT_LIBRARIES[name];
+  if (!library) return Promise.reject(new Error(`Unknown import library ${name}`));
+  if (library.ready()) return Promise.resolve();
+  if (!importLibraryLoads[name]) {
+    importLibraryLoads[name] = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = library.src;
+      script.async = true;
+      script.onload = () => (library.ready() ? resolve() : reject(new Error(`${name} reader did not initialise`)));
+      script.onerror = () => reject(new Error(`${name} reader could not be downloaded`));
+      document.head.appendChild(script);
+    }).catch(error => {
+      delete importLibraryLoads[name];
+      throw error;
+    });
+  }
+  return importLibraryLoads[name];
+}
+
 async function importFileToCsv(file) {
   const extension = String(file.name || "").split(".").pop().toLowerCase();
-  if (extension === "csv") return file.text();
+  if (extension === "csv") {
+    await loadImportLibrary("xlsx").catch(() => {}); // perf/portal-speed: parseCsv prefers XLSX when present, same as before
+    return file.text();
+  }
   if (["xls", "xlsx"].includes(extension)) {
+    await loadImportLibrary("xlsx").catch(() => {}); // perf/portal-speed
     if (!window.XLSX) throw new Error("The Excel reader is still loading. Try the file again in a moment.");
     const workbook = window.XLSX.read(await file.arrayBuffer(), { type: "array" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     return window.XLSX.utils.sheet_to_csv(sheet);
   }
   if (extension === "pdf") {
+    await loadImportLibrary("pdf").catch(() => {}); // perf/portal-speed
     if (!window.pdfjsLib) throw new Error("The PDF reader is still loading. Try the file again in a moment.");
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
     const documentTask = window.pdfjsLib.getDocument({ data: await file.arrayBuffer() });
@@ -11399,8 +11440,12 @@ document.addEventListener("click", async event => {
   }
   if (event.target.id === "previewImport") {
     state.importDraft = document.getElementById("csvInput")?.value || state.importDraft;
-    state.importedPreview = parseCsv(state.importDraft);
-    saveState("Import preview ready");
+    // perf/portal-speed: the Excel reader is fetched on demand now; parse with it once it
+    // is here so pasted CSV is read exactly as it was when it loaded with the page.
+    loadImportLibrary("xlsx").catch(() => {}).then(() => {
+      state.importedPreview = parseCsv(state.importDraft);
+      saveState("Import preview ready");
+    });
     return;
   }
   if (event.target.id === "loadSampleCsv") {
