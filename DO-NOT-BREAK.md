@@ -178,3 +178,47 @@ Verification additions:
   `practice-trainer-page-assets`), publish, open `/<slug>` on the preview; publish a Page
   Studio page, open `/ads/<slug>` on the preview; move a lead, add a note, submit a deal;
   Reset → `practice.*` counts equal `public.*` again.
+
+## Typed names + practice-copy public forms (added 2026-09-05, Claude, branch feat/practice-copy)
+
+19. **Every action that leaves the practice copy or wipes it carries a typed full name.**
+    Joshua: "ask them to enter the name of who is pushing those changes so it's not a
+    surprise". Logins are shared in the office, so the login email is NOT enough.
+    - Both Send-to-live dialogs (trainer page in `app.js`, Page Studio in `page-studio.js`)
+      and the Reset dialog carry "Your full name" and keep the red button disabled until
+      the box holds at least two words (`fullNameOrEmpty`). The Reset dialog says exactly
+      "This wipes every practice change for everyone. Type your full name to continue."
+    - `api/send-to-live.js` and `api/practice-reset.js` refuse a missing or one-word name
+      with 400 BEFORE anything is read, written or wiped. Never move that check later.
+    - The name is kept in four places and all four must stay: `practice.send_to_live_log.sent_by_name`;
+      the live revision note "Sent from practice copy by <Full Name> (<login>) on <date time> ET"
+      (`trainer_page_versions.content._note` / `ad_page_revisions.created_by`); the live draft's
+      `draft_content._sent_from_practice.name` (trainer pages) or `ad_pages.updated_by =
+      "<Full Name> <login> (from practice copy)"` (Page Studio reads the name back out of it);
+      and the practice stamp "Sent to live ✓ by <Full Name> at <time>". The live tag reads
+      "From practice copy — Sent by <Full Name> on <date>".
+    - Resets go through `practice.reset_from_live_by(name, email)` which calls
+      `reset_from_live()` and writes `practice_private.reset_log`. The log lives in
+      `practice_private` ON PURPOSE: the reset truncates every `practice.*` table, so a log
+      inside `practice` would wipe its own history. Never move it.
+20. **A public form on the practice copy must never create a real lead, application, review
+    or tracking row.** The four public Edge Functions (`submit-contact`,
+    `submit-trainer-application`, `track-site-event`, `submit-content-review`) honour
+    `x-ldtt-practice: 1` (`supabase/functions/_shared/practice.ts`): with it every table call
+    carries `Accept-Profile`/`Content-Profile: practice` and uploads go to `practice-trainer-submissions`;
+    WITHOUT it nothing is added and the request is byte-for-byte what it was. Live pages never
+    send the header. The practice copy's public pages (`script.js`, `trainer-backoffice/app.js`
+    trainer landing pages, `market-landing.js`, `ad-funnel.js`) send it.
+    - Until the functions are DEPLOYED with the flag, `LDTT_EDGE_PRACTICE_FLAG_DEPLOYED` is
+      `false` in `script.js` and `app.js`: the practice copy shows "PRACTICE COPY — this form is
+      switched off here…" on every public form, disables submit, swallows submit at the document
+      (capture) level and drops tracking. Flip it to `true` ONLY in the same commit that deploys
+      the functions (DSN Command approval 1908fe77-39a6-4820-80d5-ed5dd42e62cc).
+    - `api/form-delivery.js` stays 423 on the practice copy (fan-out to real inboxes).
+
+Verification additions:
+- `node --test tests/*.test.mjs` (12 tests: name refused 400 + accepted, name in log / live note / live stamp, reset name 400 + recorded).
+- `deno test --allow-net --allow-env --allow-read supabase/functions/practice-flag.test.ts` (11 tests: with the header every call is practice; without it no profile header and no practice path).
+- `node scripts/audit-office-requirements.mjs` = 122 checks (name gates server + UI, four places the name is kept, Edge flag, browser switch-off).
+- On the preview with the practice testing login: `scripts/practice-names-proof.mjs dialogs send livetag reset`.
+- Read-only SQL after a practice-site form submit: `select count(*) from public.leads` / `public.trainer_applications` unchanged and no row with the test email.
