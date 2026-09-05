@@ -1356,6 +1356,14 @@ function workspaceHasTypedInput() {
   const workspace = document.getElementById("workspaceView");
   if (!workspace) return false;
   if (isTypingField(document.activeElement) && workspace.contains(document.activeElement)) return true;
+  // onboarding: the page editor's preview is an iframe. Someone editing text
+  // inside it (Edit Overlay) has focus on the IFRAME, not on a text box, so the
+  // poll's redraw used to rebuild the preview under them and drop the sentence.
+  const frame = document.getElementById("pageEditorPreview");
+  if (frame && document.activeElement === frame) {
+    const inner = frame.contentDocument?.activeElement;
+    if (inner && (inner.isContentEditable || isTypingField(inner))) return true;
+  }
   return [...workspace.querySelectorAll("input, textarea")].some(field =>
     isTypingField(field) && String(field.value || "").trim() && String(field.value) !== String(field.defaultValue || ""));
 }
@@ -4221,7 +4229,10 @@ function typedFieldKey(field) {
     // whose attribute is missing gets an empty key, is never captured, and so is
     // wiped (text, focus and caret) by any redraw that lands mid-sentence. That
     // is exactly what happened to the office-note boxes (Melissa, 2026-09-04).
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair)).join("|");
+    // onboarding: the trainer editor boxes were missing here — the page editor
+    // (data-editor-field), the profile editor (data-profile-field), the trainer's
+    // social links, video links and the Send-to-live name box.
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair)).join("|");
   return own ? `${formKey}::${own}` : "";
 }
 
