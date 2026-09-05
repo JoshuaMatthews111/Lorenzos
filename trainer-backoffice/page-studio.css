@@ -153,3 +153,10 @@ body.ps-open{overflow:hidden}
 /* Send to live: the red warning box on the confirm dialog (practice copy). */
 .ps-warning{display:grid;gap:4px;margin:0 0 14px;padding:12px 14px;border:2px solid #c8102e;border-radius:10px;background:#fff1f2;color:#7a0a1c;font-size:.92rem;line-height:1.45;font-weight:600}
 .ps-warning strong{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#c8102e}
+
+/* send-to-live: the sender's typed full name (two words) unlocks the button */
+.ps-sender-name{display:grid;gap:6px;margin:0 0 8px;font-weight:800;font-size:.86rem;color:#0f1f3d}
+.ps-sender-name input{width:100%;padding:11px 12px;border:2px solid #c8102e;border-radius:9px;font:inherit;font-size:1rem}
+.ps-sender-name input:focus{outline:none;box-shadow:0 0 0 3px rgba(200,16,46,.18)}
+.ps-sender-help{margin:0 0 10px;color:#7a0a1c;font-weight:600}
+.ps-btn[disabled]{opacity:.45;cursor:not-allowed}

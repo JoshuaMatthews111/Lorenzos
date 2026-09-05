@@ -12,7 +12,16 @@
 //      practice uploads go too (their URLs would dangle otherwise).
 // Nothing here can touch a public table or a live bucket: the RPC is
 // hard-wired to practice.*, and the bucket list is filtered to practice-*.
+//
+// Who pressed it is recorded. The person types their FULL NAME (two words
+// minimum) in the confirm box; a missing or one-word name is a 400 and nothing
+// is wiped. The name and login go to practice_private.reset_log through
+// practice.reset_from_live_by(name, email) (migration 20260905210000). The log
+// lives in practice_private because the reset truncates every practice.* table,
+// so a log inside practice would wipe its own history.
 const { isSandbox, supabaseRequest } = require("../lib/sandbox");
+const { fullNameOrEmpty } = require("./send-to-live");
+const NAME_REQUIRED_MESSAGE = "Type your full name (first and last) to reset the practice copy. Nothing was wiped.";
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -87,16 +96,23 @@ module.exports = async function handler(req, res) {
   const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   const user = await verifySuperAdmin(token);
   if (!user) return res.status(403).json({ ok: false, message: "Super Admin access required." });
+  let body = {};
+  try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {}; } catch { body = {}; }
+  // Who is wiping it. Checked before anything is touched.
+  const resetByName = fullNameOrEmpty(body.reset_by_name);
+  if (!resetByName) return res.status(400).json({ ok: false, message: NAME_REQUIRED_MESSAGE });
   try {
-    // rpc/reset_from_live resolves in the practice schema (Content-Profile: practice).
-    const result = await supabaseFetch("/rest/v1/rpc/reset_from_live", { method: "POST", body: "{}" });
+    // rpc/reset_from_live_by resolves in the practice schema (Content-Profile: practice):
+    // practice.reset_from_live() plus one practice_private.reset_log row, one transaction.
+    const result = await supabaseFetch("/rest/v1/rpc/reset_from_live_by", { method: "POST", body: JSON.stringify({ reset_by_name: resetByName, reset_by_email: String(user.email || "").toLowerCase() || null }) });
     const emptied = await emptyPracticeBuckets();
     return res.status(200).json({
       ok: true,
       reset_at: result?.reset_at || new Date().toISOString(),
+      reset_by_name: resetByName,
       rows: result?.rows || {},
       buckets: emptied,
-      message: "Practice copy reset. Every practice table and every practice upload now matches live exactly."
+      message: `Practice copy reset by ${resetByName}. Every practice table and every practice upload now matches live exactly.`
     });
   } catch (error) {
     console.error("Practice reset failed", error);

@@ -80,9 +80,9 @@ function makeWorld({ tokens = { "office-token": OFFICE, "trainer-token": TRAINER
     const store = schemas[profile];
     if (!store) return json(406, { message: `The schema must be one of the following: public, graphql_public, practice` });
     const table = u.pathname.replace("/rest/v1/", "");
-    if (table.startsWith("rpc/")) { rpcs.push({ profile, name: table.slice(4) }); return json(200, { reset_at: "2026-09-05T11:00:00.000Z", rows: { leads: 174 } }); }
-    if (!store[table]) return json(404, { message: `Could not find the table '${profile}.${table}'` });
     const body = options.body ? JSON.parse(options.body) : null;
+    if (table.startsWith("rpc/")) { rpcs.push({ profile, name: table.slice(4), args: body }); return json(200, { reset_at: "2026-09-05T11:00:00.000Z", rows: { leads: 174 }, reset_by_name: body?.reset_by_name }); }
+    if (!store[table]) return json(404, { message: `Could not find the table '${profile}.${table}'` });
     if (method === "GET") return json(200, filters(store[table], u.searchParams));
     writes.push({ schema: profile, table, method, body, params: Object.fromEntries(u.searchParams) });
     if (method === "POST") {
@@ -106,9 +106,14 @@ function makeWorld({ tokens = { "office-token": OFFICE, "trainer-token": TRAINER
   return { live: schemas.public, practice: schemas.practice, writes, copies, deleted, rpcs, objects };
 }
 
+// Every send/reset in these tests types a full name unless the test says otherwise.
+const NAME = "Angela Office";
 async function call(body, token = "office-token", method = "POST", fn = handler) {
   const res = { statusCode: 200, headers: {}, body: null, setHeader(k, v) { this.headers[k] = v; }, status(code) { this.statusCode = code; return this; }, json(payload) { this.body = payload; return this; }, end() { return this; } };
-  await fn({ method, headers: { authorization: `Bearer ${token}` }, body }, res);
+  const withName = body && typeof body === "object" && !("sent_by_name" in body) && !("reset_by_name" in body)
+    ? { ...body, ...(fn === resetHandler ? { reset_by_name: NAME } : { sent_by_name: NAME }) }
+    : body;
+  await fn({ method, headers: { authorization: `Bearer ${token}` }, body: withName }, res);
   return res;
 }
 
@@ -153,7 +158,9 @@ test("trainer page edited on the practice copy: the LIVE draft changes, publishe
   assert.equal(publishedWrites(writes).length, 0, "never writes published_* / locked / auth_user_id");
   assert.equal(live.trainer_page_versions.length, 1);
   assert.equal(live.trainer_page_versions[0].revision, 4);
-  assert.match(live.trainer_page_versions[0].content._note, /^Sent from practice copy by angela@lorenzosdogtrainingteam.com at 2026-09-05T10:05:00.000Z$/);
+  assert.equal(live.trainer_page_versions[0].content._note, "Sent from practice copy by Angela Office (angela@lorenzosdogtrainingteam.com) on Sep 5, 2026, 6:05 AM ET");
+  assert.equal(row.draft_content._sent_from_practice.name, "Angela Office", "the live draft carries the typed name for the From-practice-copy tag");
+  assert.equal(practice.send_to_live_log[0].sent_by_name, "Angela Office", "the typed name lands in practice.send_to_live_log");
   assert.equal(live.trainers.length, 1, "existing trainer is not duplicated");
   assert.equal(practiceWrites(writes).length, 0, "the practice tables are only read");
   assert.equal(practice.send_to_live_log.length, 1);
@@ -221,10 +228,11 @@ test("ad page from the practice copy: live draft + revision note; second send up
   assert.equal(row.slug, "dog-training-dayton-oh");
   assert.equal(row.draft_content.market, "Dayton, OH");
   assert.equal(row.published_content, undefined);
-  assert.match(row.updated_by, /from practice copy/);
+  assert.equal(row.updated_by, "Angela Office <angela@lorenzosdogtrainingteam.com> (from practice copy)", "Page Studio on live reads the sender's name out of updated_by");
   assert.equal(live.ad_page_revisions.length, 1);
   assert.equal(live.ad_page_revisions[0].kind, "draft");
-  assert.match(live.ad_page_revisions[0].created_by, /^Sent from practice copy by angela@/);
+  assert.equal(live.ad_page_revisions[0].created_by, "Sent from practice copy by Angela Office (angela@lorenzosdogtrainingteam.com) on Sep 5, 2026, 6:05 AM ET");
+  assert.equal(practice.send_to_live_log[0].sent_by_name, "Angela Office");
   assert.equal(publishedWrites(writes).length, 0);
   assert.equal(practiceWrites(writes).length, 0);
   assert.match(res.body.message, /Page Studio/);
@@ -279,8 +287,57 @@ test("practice reset: super admin only, calls practice.reset_from_live() and emp
   assert.equal((await call({}, "", "POST", resetHandler)).statusCode, 403);
   const res = await call({}, "super-token", "POST", resetHandler);
   assert.equal(res.statusCode, 200, JSON.stringify(res.body));
-  assert.deepEqual(rpcs, [{ profile: "practice", name: "reset_from_live" }], "the RPC resolves in the practice schema");
+  assert.deepEqual(rpcs, [{ profile: "practice", name: "reset_from_live_by", args: { reset_by_name: "Angela Office", reset_by_email: SUPER.email } }], "the RPC resolves in the practice schema and carries who reset it");
+  assert.equal(res.body.reset_by_name, "Angela Office");
   assert.deepEqual(deleted.map(d => d.bucket).sort(), ["practice-trainer-page-assets"], "only a practice bucket with files is emptied");
   assert.deepEqual(objects["trainer-page-assets"], ["live/keep.jpg"], "live files are never touched");
   assert.match(res.body.message, /matches live/);
+  assert.match(res.body.message, /by Angela Office/);
+});
+
+test("send to live refuses a missing or one-word name with 400 and writes nothing", async () => {
+  const pageId = randomUUID();
+  const content = { ...template.marketToContent(template.markets[0]), slug: "dog-training-toledo-oh" };
+  const { live, practice, writes, rpcs } = makeWorld({ practice: { ad_pages: [{ id: pageId, slug: content.slug, draft_content: content }] } });
+  for (const bad of [{ sent_by_name: undefined }, { sent_by_name: "" }, { sent_by_name: "Angela" }, { sent_by_name: "   Angela   " }, { sent_by_name: 42 }]) {
+    const res = await call({ kind: "ad_page", id: pageId, ...bad });
+    assert.equal(res.statusCode, 400, JSON.stringify(bad));
+    assert.match(res.body.message, /full name/i);
+  }
+  assert.equal(writes.length, 0, "nothing written to either schema");
+  assert.equal(live.ad_pages.length, 0);
+  assert.equal(practice.send_to_live_log.length, 0);
+  assert.equal(rpcs.length, 0);
+  // Two words (extra spaces tidied) is enough; the name comes back in the response.
+  const ok = await call({ kind: "ad_page", id: pageId, sent_by_name: "  Missy   Office " });
+  assert.equal(ok.statusCode, 200, JSON.stringify(ok.body));
+  assert.equal(ok.body.sent_by_name, "Missy Office");
+  assert.equal(practice.send_to_live_log[0].sent_by_name, "Missy Office");
+  assert.equal(live.ad_pages[0].updated_by, "Missy Office <angela@lorenzosdogtrainingteam.com> (from practice copy)");
+});
+
+test("practice reset refuses a missing or one-word name with 400 and wipes nothing", async () => {
+  const { rpcs, deleted, objects } = makeWorld();
+  objects["practice-trainer-page-assets"] = ["t1/hero.jpg"];
+  for (const bad of [{ reset_by_name: undefined }, { reset_by_name: "" }, { reset_by_name: "Joshua" }]) {
+    const res = await call(bad, "super-token", "POST", resetHandler);
+    assert.equal(res.statusCode, 400, JSON.stringify(bad));
+    assert.match(res.body.message, /full name/i);
+    assert.match(res.body.message, /Nothing was wiped/);
+  }
+  assert.equal(rpcs.length, 0, "the reset RPC never ran");
+  assert.equal(deleted.length, 0, "no bucket was emptied");
+  assert.deepEqual(objects["practice-trainer-page-assets"], ["t1/hero.jpg"]);
+  // A trainer / office admin with a perfect name is still refused (403 before the name check).
+  assert.equal((await call({ reset_by_name: "Angela Office" }, "office-token", "POST", resetHandler)).statusCode, 403);
+});
+
+test("fullNameOrEmpty: two words minimum, whitespace tidied, 200 chars max", () => {
+  const { fullNameOrEmpty } = handler;
+  assert.equal(fullNameOrEmpty("Angela Office"), "Angela Office");
+  assert.equal(fullNameOrEmpty("  Mary   Ann   Smith "), "Mary Ann Smith");
+  assert.equal(fullNameOrEmpty("Angela"), "");
+  assert.equal(fullNameOrEmpty(""), "");
+  assert.equal(fullNameOrEmpty(null), "");
+  assert.equal(fullNameOrEmpty("A".repeat(300) + " B"), "", "a 300-char first word is cut to 200 and is then one word");
 });

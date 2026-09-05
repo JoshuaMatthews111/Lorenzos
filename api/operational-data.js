@@ -535,12 +535,12 @@ module.exports = async function handler(req, res) {
     let sendToLiveLog = [];
     if (isSandbox()) {
       try {
-        sendToLiveLog = await supabaseFetch("/rest/v1/send_to_live_log?select=entity_id,slug,sent_at,sent_by&entity_type=eq.trainer_page&order=sent_at.desc&limit=500") || [];
+        sendToLiveLog = await supabaseFetch("/rest/v1/send_to_live_log?select=entity_id,slug,sent_at,sent_by,sent_by_name&entity_type=eq.trainer_page&order=sent_at.desc&limit=500") || [];
         const stamps = new Map();
         sendToLiveLog.forEach(row => [row.entity_id, row.slug].filter(Boolean).forEach(key => { if (!stamps.has(key)) stamps.set(key, row); }));
         (data.pages || []).forEach(page => {
           const hit = stamps.get(String(page.id)) || stamps.get(String(page.slug));
-          if (hit) { page.sent_to_live_at = hit.sent_at; page.sent_to_live_by = hit.sent_by || null; }
+          if (hit) { page.sent_to_live_at = hit.sent_at; page.sent_to_live_by = hit.sent_by || null; page.sent_to_live_by_name = hit.sent_by_name || null; }
         });
       } catch (error) {
         console.error("Practice send-to-live stamps could not be read", error);

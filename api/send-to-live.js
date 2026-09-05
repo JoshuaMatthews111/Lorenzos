@@ -22,6 +22,12 @@
 //     then slug); it does not make a second row
 //   - every send is logged to practice.send_to_live_log so the practice copy
 //     shows "Sent to live ✓" on that item
+//   - the sender types their FULL NAME (two words minimum) and it is kept: in
+//     the log (sent_by_name), in the live revision note and in the live draft's
+//     _sent_from_practice stamp. The login email is not enough because the
+//     office shares logins (Joshua, 2026-09-05: "ask them to enter the name of
+//     who is pushing those changes so it's not a surprise"). Missing or one-word
+//     name → 400, nothing written.
 //
 // Publishing stays on live only.
 
@@ -40,6 +46,19 @@ const deps = {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const clean = (value, max = 200) => String(value ?? "").trim().slice(0, max);
 const fail = (status, message) => Object.assign(new Error(message), { status });
+
+// The typed name: trimmed, inner whitespace collapsed, at least two words.
+// Returns "" when it does not qualify. Shared with api/practice-reset.js.
+function fullNameOrEmpty(value) {
+  const name = String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  return name.split(" ").filter(Boolean).length >= 2 ? name : "";
+}
+const NAME_REQUIRED_MESSAGE = "Type your full name (first and last) so the live portal shows who sent this.";
+
+// "Sep 5, 2026, 2:32 PM ET" — the office is in Ohio.
+function officeTime(date) {
+  return `${new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", dateStyle: "medium", timeStyle: "short" }).format(date)} ET`;
+}
 
 // Columns a send may set. Anything to do with "published" is deliberately absent.
 const TRAINER_PAGE_DRAFT_FIELDS = [
@@ -124,7 +143,8 @@ async function verifyOfficeUser(token) {
 }
 
 const pick = (source, keys) => Object.fromEntries(keys.filter(key => source[key] !== undefined).map(key => [key, source[key]]));
-const stampNote = (auth, at) => `Sent from practice copy by ${auth.email} at ${at}`;
+// The live revision note. Name first, login in brackets, office-local time.
+const stampNote = (auth, at) => `Sent from practice copy by ${auth.sentByName} (${auth.email}) on ${officeTime(new Date(at))}`;
 
 async function rows(schema, table, filters) {
   const query = filters.map(([column, value]) => `${encodeURIComponent(column)}=eq.${encodeURIComponent(value)}`).join("&");
@@ -219,7 +239,7 @@ async function sendTrainerPage(auth, id, slugHint, copied) {
     if (!target) target = await liveRow("trainer_pages", [["trainer_id", liveTrainerId]]);
   }
 
-  const draftContent = { ...(page.draft_content && typeof page.draft_content === "object" ? page.draft_content : {}), _sent_from_practice: { by: auth.email, name: auth.name, at } };
+  const draftContent = { ...(page.draft_content && typeof page.draft_content === "object" ? page.draft_content : {}), _sent_from_practice: { by: auth.email, name: auth.sentByName, login_name: auth.name, at } };
   const liveRevision = Number(target?.revision || 0);
   const versionRevision = liveRevision + 1;
   const body = await repointPracticeUploads({
@@ -263,7 +283,8 @@ async function sendAdPage(auth, id, slugHint, copied) {
   let target = await liveRow("ad_pages", [["id", page.id]]);
   if (!target) target = await liveRow("ad_pages", [["slug", content.slug]]);
 
-  const updatedBy = `${auth.email} (from practice copy)`;
+  // Page Studio on live reads the name and login back out of this string.
+  const updatedBy = `${auth.sentByName} <${auth.email}> (from practice copy)`;
   const draftRevision = Number(target?.draft_revision || 0) + 1;
   let row;
   if (target) {
@@ -306,6 +327,9 @@ module.exports = async function handler(req, res) {
     const slugHint = clean(body.slug, 120);
     if (!["trainer_page", "ad_page"].includes(kind)) throw fail(400, 'kind must be "trainer_page" or "ad_page".');
     if (!id && !slugHint) throw fail(400, "Which page?");
+    // Who is sending this. Checked before anything is read or written.
+    auth.sentByName = fullNameOrEmpty(body.sent_by_name);
+    if (!auth.sentByName) throw fail(400, NAME_REQUIRED_MESSAGE);
 
     const copied = new Map(); // "bucket/key" → copied | exists
     const result = kind === "trainer_page" ? await sendTrainerPage(auth, id, slugHint, copied) : await sendAdPage(auth, id, slugHint, copied);
@@ -313,13 +337,13 @@ module.exports = async function handler(req, res) {
     // The practice copy shows "Sent to live ✓ at <time>" from this log.
     await practiceFetch("/rest/v1/send_to_live_log", {
       method: "POST", headers: { Prefer: "return=minimal" },
-      body: JSON.stringify({ entity_type: kind, entity_id: result.practice_id || id || result.live_id, slug: result.slug, live_id: result.live_id, sent_by: auth.email, sent_at: result.at })
+      body: JSON.stringify({ entity_type: kind, entity_id: result.practice_id || id || result.live_id, slug: result.slug, live_id: result.live_id, sent_by: auth.email, sent_by_name: auth.sentByName, sent_at: result.at })
     });
 
     const where = kind === "trainer_page" ? "Trainer Network" : "Page Studio";
     const files = [...copied.values()].filter(v => v === "copied").length;
     return res.status(200).json({
-      ok: true, sandbox: true, kind, ...result, sent_at: result.at, files_copied: files,
+      ok: true, sandbox: true, kind, ...result, sent_at: result.at, sent_by_name: auth.sentByName, files_copied: files,
       message: `Sent to live as a draft${files ? ` with ${files} photo${files === 1 ? "" : "s"}` : ""}. Open the live portal → ${where} to publish it.`
     });
   } catch (error) {
@@ -329,3 +353,5 @@ module.exports = async function handler(req, res) {
 };
 module.exports.deps = deps;
 module.exports.assertDraftOnly = assertDraftOnly;
+module.exports.fullNameOrEmpty = fullNameOrEmpty;
+module.exports.NAME_REQUIRED_MESSAGE = NAME_REQUIRED_MESSAGE;

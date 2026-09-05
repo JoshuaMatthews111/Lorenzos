@@ -5509,6 +5509,15 @@ body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shar
 /* Send to live: the red warning box on the confirm dialog (practice copy). */
 .send-live-warning{display:grid;gap:4px;margin:0 0 14px;padding:12px 14px;border:2px solid #c8102e;border-radius:10px;background:#fff1f2;color:#7a0a1c;font-size:.92rem;line-height:1.45;font-weight:600;text-align:left}
 .send-live-warning strong{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:#c8102e}
+.send-live-name{display:grid;gap:6px;margin:0 0 8px;text-align:left;font-weight:800;font-size:.86rem;color:#0f1f3d}
+.send-live-name input{width:100%;padding:11px 12px;border:2px solid #c8102e;border-radius:9px;font:inherit;font-size:1rem}
+.send-live-name input:focus{outline:none;box-shadow:0 0 0 3px rgba(200,16,46,.18)}
+.send-live-name-help{margin:0 0 10px;color:#7a0a1c;font-size:.84rem;font-weight:600;text-align:left}
+.send-to-live-dialog .btn[disabled],.practice-reset-dialog .btn[disabled]{opacity:.45;cursor:not-allowed}
 .practice-reset-panel{border:2px solid #c8102e;border-radius:14px;padding:16px 18px;background:#fff7f7;margin-bottom:18px}
 .practice-reset-panel h3{margin:0 0 6px;color:#c8102e}
 .practice-reset-panel p{margin:0 0 12px;color:#5b2a33;line-height:1.5}
+
+/* Practice copy: public trainer landing form switched off until the Edge Function flag deploys (app.js) */
+.practice-form-notice{display:block;border:2px solid #c8102e;border-radius:12px;padding:13px 15px;margin:0 0 12px;background:#fff1f2;color:#7a0a1c;font-weight:800;line-height:1.45}
+form[data-practice-off="1"] button[type="submit"]{opacity:.45;pointer-events:none}

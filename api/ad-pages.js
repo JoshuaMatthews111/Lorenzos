@@ -77,7 +77,7 @@ const renderOptions = slug => ({ base: "/", publicPath: `/ads/${slug}`, imageAsp
 // Practice copy: "Sent to live ✓ at <time>" comes from practice.send_to_live_log.
 async function sentToLiveStamps() {
   if (!isSandbox()) return new Map();
-  const rows = await supabaseFetch("/rest/v1/send_to_live_log?select=entity_id,slug,sent_at,sent_by&entity_type=eq.ad_page&order=sent_at.desc&limit=500").catch(() => []);
+  const rows = await supabaseFetch("/rest/v1/send_to_live_log?select=entity_id,slug,sent_at,sent_by,sent_by_name&entity_type=eq.ad_page&order=sent_at.desc&limit=500").catch(() => []);
   const stamps = new Map();
   (rows || []).forEach(row => {
     [row.entity_id, row.slug].filter(Boolean).forEach(key => { if (!stamps.has(key)) stamps.set(key, row); });
@@ -86,7 +86,7 @@ async function sentToLiveStamps() {
 }
 function stampRow(row, stamps) {
   const hit = stamps.get(String(row.id)) || stamps.get(String(row.slug));
-  return hit ? { ...row, sent_to_live_at: hit.sent_at, sent_to_live_by: hit.sent_by || null } : row;
+  return hit ? { ...row, sent_to_live_at: hit.sent_at, sent_to_live_by: hit.sent_by || null, sent_to_live_by_name: hit.sent_by_name || null } : row;
 }
 
 async function listPages() {

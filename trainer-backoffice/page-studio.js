@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260905practice";
+  const VERSION = "20260905names";
   const API = "/api/ad-pages";
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js"];
   const store = { pages: null, markets: [], sandbox: false, loading: false, error: "" };
@@ -51,36 +51,50 @@
   const SEND_TO_LIVE_CONFIRM = "This copies the page to the live portal as a DRAFT. It will not be public until someone presses Publish on the live portal. Continue?";
   const SEND_TO_LIVE_WARNING = "You are copying this to the LIVE portal. It arrives as a DRAFT and is not public until someone presses Publish on the live portal. One page per click.";
   const canSendToLive = () => (typeof window.LDTT_CAN_SEND_TO_LIVE === "function" ? window.LDTT_CAN_SEND_TO_LIVE() : true);
-  const sentToLiveLabel = at => (at ? `Sent to live ✓ at ${dateLabel(at)}` : "");
+  // Who sent it and when, on both sides. Logins are shared in the office, so the
+  // dialog asks for the sender's full name (two words) and keeps it.
+  const sentToLiveLabel = (at, name) => (at ? `Sent to live ✓${name ? ` by ${name}` : ""} at ${dateLabel(at)}` : "");
   const isFromPractice = page => !window.LDTT_IS_SANDBOX && /from practice copy/i.test(String(page?.updated_by || ""));
-  const practiceTag = page => (isFromPractice(page) ? `<span class="ps-pill practice" title="This draft was sent here from the practice copy. Review it, then publish.">From practice copy</span>` : "");
-  const sentToLiveMeta = page => (window.LDTT_IS_SANDBOX && page?.sent_to_live_at ? `<span class="ps-meta ps-sent-live">${esc(sentToLiveLabel(page.sent_to_live_at))}</span>` : "");
+  // updated_by is written by api/send-to-live.js as "<Full Name> <login> (from practice copy)".
+  const practiceSender = page => String(page?.updated_by || "").match(/^(.*?)\s*<[^>]*>\s*\(from practice copy\)$/i)?.[1]?.trim() || "";
+  const practiceTag = page => (isFromPractice(page) ? `<span class="ps-pill practice" title="This draft was sent here from the practice copy. Review it, then publish.">From practice copy${practiceSender(page) ? ` — Sent by ${esc(practiceSender(page))} on ${esc(dateLabel(page.updated_at))}` : ""}</span>` : "");
+  const sentToLiveMeta = page => (window.LDTT_IS_SANDBOX && page?.sent_to_live_at ? `<span class="ps-meta ps-sent-live">${esc(sentToLiveLabel(page.sent_to_live_at, page.sent_to_live_by_name))}</span>` : "");
   function sendToLiveButton(page, cls = "btn btn-navy") {
     if (!window.LDTT_IS_SANDBOX) return "";
     const allowed = canSendToLive();
     const title = allowed ? "Copy this page to the live portal as a draft" : "Only a Super Admin or Office Admin can send a page to live";
     return `<button class="${cls}" type="button" data-ps-send-live="${esc(page.id)}" title="${esc(title)}" ${allowed ? "" : "disabled"}>Send to live</button>`;
   }
+  const fullNameOrEmpty = value => { const name = String(value || "").replace(/\s+/g, " ").trim().slice(0, 200); return name.split(" ").filter(Boolean).length >= 2 ? name : ""; };
+  // Resolves with the typed full name, or false when cancelled. The Send button
+  // stays disabled until the box holds at least two words.
   function confirmSendToLive() {
     return new Promise(resolve => {
-      const m = modal(`<h3>Send to live?</h3><div class="ps-warning" role="alert"><strong>Warning</strong>${esc(SEND_TO_LIVE_WARNING)}</div><p class="ps-help">${esc(SEND_TO_LIVE_CONFIRM)}</p><div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Send to live as a draft</button></div>`);
+      const m = modal(`<h3>Send to live?</h3><div class="ps-warning" role="alert"><strong>Warning</strong>${esc(SEND_TO_LIVE_WARNING)}</div><label class="ps-field ps-sender-name"><span>Your full name (who is sending this)</span><input type="text" name="sent_by_name" data-ps-sender-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><p class="ps-help ps-sender-help">The live portal shows who sent this page. Your login is shared, so type your own name — first and last.</p><p class="ps-help">${esc(SEND_TO_LIVE_CONFIRM)}</p><div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go disabled>Send to live as a draft</button></div>`);
+      const input = m.querySelector("[data-ps-sender-name]");
+      const go = m.querySelector("[data-ps-go]");
+      const check = () => { go.disabled = !fullNameOrEmpty(input.value); };
+      input.addEventListener("input", check);
+      input.addEventListener("keydown", event => { if (event.key === "Enter" && !go.disabled) go.click(); });
       m.querySelector("[data-ps-close]").addEventListener("click", () => { m.remove(); resolve(false); });
-      m.querySelector("[data-ps-go]").addEventListener("click", () => { m.remove(); resolve(true); });
+      go.addEventListener("click", () => { const name = fullNameOrEmpty(input.value); if (!name) return; m.remove(); resolve(name); });
       m.addEventListener("click", event => { if (event.target === m) resolve(false); });
+      setTimeout(() => input.focus(), 50);
     });
   }
   async function sendToLiveFlow(pageId) {
-    if (!(await confirmSendToLive())) return;
+    const sentByName = await confirmSendToLive();
+    if (!sentByName) return;
     if (editor && editor.id === pageId) await flushSave();
     const response = await fetch("/api/send-to-live", {
       method: "POST", cache: "no-store",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-      body: JSON.stringify({ kind: "ad_page", id: pageId })
+      body: JSON.stringify({ kind: "ad_page", id: pageId, sent_by_name: sentByName })
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) throw new Error(data.message || `Send to live failed (${response.status}).`);
     toast(data.message || "Sent to live as a draft. Open the live portal → Page Studio to publish it.", 6000);
-    if (editor && editor.id === pageId) { editor.page.sent_to_live_at = data.sent_at || new Date().toISOString(); paintTop(); }
+    if (editor && editor.id === pageId) { editor.page.sent_to_live_at = data.sent_at || new Date().toISOString(); editor.page.sent_to_live_by_name = data.sent_by_name || sentByName; paintTop(); }
     loadPages(true);
   }
 
@@ -300,7 +314,7 @@
     publish.textContent = editor.page.status === "published" ? "Publish changes" : editor.sandbox ? "Publish (practice copy)" : "Publish";
     // send-to-live: sandbox gets the button (+ last sent time); live gets the origin tag.
     const sendSlot = $("#psSendLive");
-    if (sendSlot) sendSlot.innerHTML = editor.sandbox ? `${sendToLiveButton(editor.page, "ps-send-live")}${editor.page.sent_to_live_at ? `<small class="ps-sent-live">${esc(sentToLiveLabel(editor.page.sent_to_live_at))}</small>` : ""}` : practiceTag(editor.page);
+    if (sendSlot) sendSlot.innerHTML = editor.sandbox ? `${sendToLiveButton(editor.page, "ps-send-live")}${editor.page.sent_to_live_at ? `<small class="ps-sent-live">${esc(sentToLiveLabel(editor.page.sent_to_live_at, editor.page.sent_to_live_by_name))}</small>` : ""}` : practiceTag(editor.page);
     paintStatus();
   }
 

@@ -980,6 +980,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     pageUpdatedAt: remotePage?.updated_at || remotePage?.created_at || "",
     // send-to-live: stamped by the practice layer on the sandbox / by the live draft row
     sentToLiveAt: remotePage?.sent_to_live_at || "",
+    sentToLiveByName: remotePage?.sent_to_live_by_name || "",
     fromPracticeCopy: remotePage?.draft_content?._sent_from_practice || null
   };
 }
@@ -2933,37 +2934,53 @@ function canSendToLive() {
 }
 window.LDTT_CAN_SEND_TO_LIVE = canSendToLive;
 
-function sentToLiveLabel(at) {
+// Who sent it and when. Logins are shared in the office, so Send to live asks
+// for the sender's full name (two words) and every stamp shows it.
+function sentToLiveLabel(at, name) {
   if (!at) return "";
   const date = new Date(at);
-  return `Sent to live ✓ at ${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  return `Sent to live ✓${name ? ` by ${name}` : ""} at ${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+}
+function fullNameOrEmpty(value) {
+  const name = String(value || "").replace(/\s+/g, " ").trim().slice(0, 200);
+  return name.split(" ").filter(Boolean).length >= 2 ? name : "";
 }
 
 function sendToLiveControls(trainer) {
   if (!window.LDTT_IS_SANDBOX) {
     // Live side: say where a draft came from so the office knows to review it before publishing.
     const from = trainer?.fromPracticeCopy;
-    return from ? `<span class="practice-copy-tag" title="${escapeHtml(`Sent from the practice copy by ${from.by || "the office"} ${from.at ? `at ${new Date(from.at).toLocaleString()}` : ""}`)}">From practice copy</span>` : "";
+    if (!from) return "";
+    const who = from.name || from.by || "the office";
+    const when = from.at ? new Date(from.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+    return `<span class="practice-copy-tag" title="${escapeHtml(`Sent from the practice copy by ${who}${from.by && from.name ? ` (${from.by})` : ""}${when ? ` on ${when}` : ""}`)}">From practice copy — Sent by ${escapeHtml(who)}${when ? ` on ${escapeHtml(when)}` : ""}</span>`;
   }
   const allowed = canSendToLive();
   const title = allowed ? "Copy this page to the live portal as a draft" : "Only a Super Admin or Office Admin can send a page to live";
-  return `<button class="btn btn-navy" type="button" data-send-to-live="${escapeHtml(trainer?.id || "")}" title="${escapeHtml(title)}" ${allowed ? "" : "disabled"}>Send to live</button>${trainer?.sentToLiveAt ? `<span class="send-live-note">${escapeHtml(sentToLiveLabel(trainer.sentToLiveAt))}</span>` : ""}`;
+  return `<button class="btn btn-navy" type="button" data-send-to-live="${escapeHtml(trainer?.id || "")}" title="${escapeHtml(title)}" ${allowed ? "" : "disabled"}>Send to live</button>${trainer?.sentToLiveAt ? `<span class="send-live-note">${escapeHtml(sentToLiveLabel(trainer.sentToLiveAt, trainer.sentToLiveByName))}</span>` : ""}`;
 }
 
 // In-page confirm (same dialog style as the other portal confirmations) so the
 // wording is always the plain sentence above and it can be screenshotted.
+// Resolves with the typed full name, or false when cancelled. The Send button
+// stays disabled until the name box holds at least two words.
 function confirmSendToLive() {
   return new Promise(resolve => {
     const dialog = document.createElement("dialog");
     dialog.className = "action-confirmation-dialog send-to-live-dialog";
-    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">→</div><h2>Send to live?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>${escapeHtml(SEND_TO_LIVE_WARNING)}</div><p>${escapeHtml(SEND_TO_LIVE_CONFIRM)}</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-send-live-cancel>Not yet</button><button type="button" class="btn btn-red" data-send-live-go>Send to live as a draft</button></div>`;
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">→</div><h2>Send to live?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>${escapeHtml(SEND_TO_LIVE_WARNING)}</div><label class="send-live-name"><span>Your full name (who is sending this)</span><input type="text" name="sent_by_name" data-send-live-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><p class="send-live-name-help">The live portal shows who sent this page. Your login is shared, so type your own name — first and last.</p><p>${escapeHtml(SEND_TO_LIVE_CONFIRM)}</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-send-live-cancel>Not yet</button><button type="button" class="btn btn-red" data-send-live-go disabled>Send to live as a draft</button></div>`;
     document.body.appendChild(dialog);
+    const input = dialog.querySelector("[data-send-live-name]");
+    const go = dialog.querySelector("[data-send-live-go]");
     const done = value => { dialog.close(); dialog.remove(); resolve(value); };
-    dialog.querySelector("[data-send-live-go]").addEventListener("click", () => done(true));
+    input.addEventListener("input", () => { go.disabled = !fullNameOrEmpty(input.value); });
+    input.addEventListener("keydown", event => { if (event.key === "Enter" && !go.disabled) go.click(); });
+    go.addEventListener("click", () => { const name = fullNameOrEmpty(input.value); if (name) done(name); });
     dialog.querySelectorAll(".action-confirmation-close,[data-send-live-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
     dialog.addEventListener("click", event => { if (event.target === dialog) done(false); });
     dialog.addEventListener("cancel", () => done(false));
     dialog.showModal();
+    setTimeout(() => input.focus(), 50);
   });
 }
 
@@ -5608,15 +5625,41 @@ function liveDataReferenceLinks() {
 // Practice copy only: "Reset practice copy to match live" (api/practice-reset.js).
 function practiceResetPanel() {
   if (!window.LDTT_IS_SANDBOX || !isSuperAdmin()) return "";
-  return `<section class="practice-reset-panel"><h3>Reset practice copy to match live</h3><p>This is the practice copy. Everything anyone has done here — trainers, pages, uploads, leads moved, notes, deals, Page Studio pages — is wiped and replaced with an exact copy of the live portal as it is right now. The live portal is not touched.</p><button class="btn btn-red" type="button" data-practice-reset>Reset practice copy to match live</button></section>`;
+  return `<section class="practice-reset-panel"><h3>Reset practice copy to match live</h3><p>This is the practice copy. Everything anyone has done here — trainers, pages, uploads, leads moved, notes, deals, Page Studio pages — is wiped and replaced with an exact copy of the live portal as it is right now. The live portal is not touched. You will be asked to type your full name; it is kept with the reset record.</p><button class="btn btn-red" type="button" data-practice-reset>Reset practice copy to match live</button></section>`;
+}
+
+const PRACTICE_RESET_CONFIRM = "This wipes every practice change for everyone. Type your full name to continue.";
+const PRACTICE_RESET_DETAIL = "EVERY practice change will be wiped — every trainer, page, upload, lead move, note, deal and Page Studio page anyone made here — and replaced with a fresh copy of live. The live portal is not touched. This cannot be undone.";
+
+// Same shape as the Send-to-live confirm: the typed full name (two words)
+// unlocks the red button and is recorded with the reset. Resolves with the
+// name, or false when cancelled.
+function confirmPracticeReset() {
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "action-confirmation-dialog practice-reset-dialog";
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">!</div><h2>Reset practice copy to match live?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>${escapeHtml(PRACTICE_RESET_CONFIRM)}</div><p>${escapeHtml(PRACTICE_RESET_DETAIL)}</p><label class="send-live-name"><span>Your full name (who is resetting this)</span><input type="text" name="reset_by_name" data-practice-reset-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><p class="send-live-name-help">Your login is shared, so type your own name — first and last. It is kept with the reset record.</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-practice-reset-cancel>Not yet</button><button type="button" class="btn btn-red" data-practice-reset-go disabled>Wipe and reset the practice copy</button></div>`;
+    document.body.appendChild(dialog);
+    const input = dialog.querySelector("[data-practice-reset-name]");
+    const go = dialog.querySelector("[data-practice-reset-go]");
+    const done = value => { dialog.close(); dialog.remove(); resolve(value); };
+    input.addEventListener("input", () => { go.disabled = !fullNameOrEmpty(input.value); });
+    input.addEventListener("keydown", event => { if (event.key === "Enter" && !go.disabled) go.click(); });
+    go.addEventListener("click", () => { const name = fullNameOrEmpty(input.value); if (name) done(name); });
+    dialog.querySelectorAll(".action-confirmation-close,[data-practice-reset-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
+    dialog.addEventListener("click", event => { if (event.target === dialog) done(false); });
+    dialog.addEventListener("cancel", () => done(false));
+    dialog.showModal();
+    setTimeout(() => input.focus(), 50);
+  });
 }
 
 async function resetPracticeCopy() {
-  const dialogText = "Reset the practice copy? EVERY practice change will be wiped — every trainer, page, upload, lead move, note, deal and Page Studio page anyone made here — and replaced with a fresh copy of live. The live portal is not touched. This cannot be undone.";
-  if (!window.confirm(dialogText)) return;
+  const resetByName = await confirmPracticeReset();
+  if (!resetByName) return;
   const token = window.LDTT_PORTAL?.accessToken?.() || "";
   showToast("Resetting the practice copy…", 8000);
-  const response = await fetch("/api/practice-reset", { method: "POST", cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+  const response = await fetch("/api/practice-reset", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ reset_by_name: resetByName }) });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.ok === false) throw new Error(data.message || `Reset failed (${response.status}).`);
   showToast(data.message || "Practice copy reset to match live.", 8000);
@@ -9498,7 +9541,7 @@ function heardAboutUsSelect(selected = "") {
 }
 
 function officeLeadFormMarkup(trainer, compact = false) {
-  return `<form class="landing-form-card office-lead-form ${compact ? "compact" : ""}" id="contact" data-trainer-id="${escapeHtml(trainer.id)}">
+  return `<form class="landing-form-card office-lead-form ${compact ? "compact" : ""}" id="contact" data-trainer-id="${escapeHtml(trainer.id)}" ${practicePublicFormsOff() ? 'data-practice-off="1"' : ""}>${practiceFormNotice()}
     <h3>Book your free consultation</h3>
     <p>Tell Lorenzo's office about your dog. Lorenzo's office will review your request and follow up with the next step.</p>
     <input type="hidden" name="trainer_name" value="${escapeHtml(trainer.name)}">
@@ -9914,12 +9957,30 @@ function formEntries(form) {
   return Object.fromEntries(Object.entries(result).map(([key, value]) => [key, Array.isArray(value) ? value.join(", ") : value]));
 }
 
+// Practice copy: the public trainer landing pages run this file. Same rule as
+// script.js on the other public pages — the Edge Functions get x-ldtt-practice: 1
+// from the practice copy, and until that flag is DEPLOYED the practice copy
+// refuses public forms and drops tracking so no real lead is ever created.
+// TODO(edge-deploy): flip to true in the same commit that deploys the flag.
+const LDTT_EDGE_PRACTICE_FLAG_DEPLOYED = false;
+const PRACTICE_FORM_OFF_MESSAGE = "PRACTICE COPY — this form is switched off here. Nothing typed here reaches the office or creates a lead. Use the live website to send a real request.";
+function practicePublicFormsOff() {
+  return Boolean(window.LDTT_IS_SANDBOX) && !LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
+}
+function practiceFormNotice() {
+  return practicePublicFormsOff() ? `<div class="practice-form-notice landing-practice-notice" role="alert">${escapeHtml(PRACTICE_FORM_OFF_MESSAGE)}</div>` : "";
+}
+
 async function submitToSupabase(functionName, entries) {
   const config = window.LDTT_SUPABASE;
   if (!config?.enabled || !config.functionsBaseUrl) return { skipped: true };
+  if (practicePublicFormsOff()) {
+    if (functionName === "track-site-event") return { skipped: true, practice: true };
+    throw new Error(PRACTICE_FORM_OFF_MESSAGE);
+  }
   const response = await fetch(`${config.functionsBaseUrl.replace(/\/$/, "")}/${functionName}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(window.LDTT_IS_SANDBOX ? { "x-ldtt-practice": "1" } : {}) },
     body: JSON.stringify(entries)
   });
   if (!response.ok) {
@@ -11630,11 +11691,13 @@ document.addEventListener("click", async event => {
     if (sendToLive.disabled) return;
     const trainer = trainerById(sendToLive.dataset.sendToLive) || trainerById();
     if (!trainer) { showToast("Pick a trainer page first."); return; }
-    if (!(await confirmSendToLive())) return;
+    const sentByName = await confirmSendToLive();
+    if (!sentByName) return;
     sendToLive.disabled = true;
     try {
-      const result = await sendPageToLive({ kind: "trainer_page", id: trainer.pageId || "", slug: trainerDisplaySlug(trainer) });
+      const result = await sendPageToLive({ kind: "trainer_page", id: trainer.pageId || "", slug: trainerDisplaySlug(trainer), sent_by_name: sentByName });
       trainer.sentToLiveAt = result.sent_at || new Date().toISOString();
+      trainer.sentToLiveByName = result.sent_by_name || sentByName;
       showToast(result.message || "Sent to live as a draft. Open the live portal → Trainer Network to publish it.", 6000);
       if (remoteReady) await reloadRemoteData().catch(() => {});
       render();
@@ -12936,6 +12999,13 @@ document.addEventListener("submit", async event => {
     return;
   }
   if (event.target.classList.contains("office-lead-form")) {
+    if (practicePublicFormsOff()) {
+      // Practice copy: refused before anything is sent (see submitToSupabase).
+      event.preventDefault();
+      const formStatus = event.target.querySelector(".landing-form-status");
+      if (formStatus) { formStatus.className = "landing-form-status error"; formStatus.textContent = PRACTICE_FORM_OFF_MESSAGE; }
+      return;
+    }
     if (event.target.dataset.submitting === "true" || !event.target.reportValidity()) return;
     const submitButton = event.target.querySelector('button[type="submit"]');
     const formStatus = event.target.querySelector(".landing-form-status");
