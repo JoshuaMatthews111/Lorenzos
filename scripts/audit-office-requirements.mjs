@@ -25,6 +25,13 @@ const templateDesignMigration = read("supabase/migrations/20260817172642_communi
 const sendVerificationDropped = read("supabase/migrations/20260817173440_drop_temp_provider_send_verification.sql");
 const smsInbound = read("api/webhooks/sms-inbound.js");
 const trainerOpportunityGenerator = read("scripts/generate-trainer-opportunity-pages.mjs");
+const adPageTemplateSource = read("lib/ad-page-template.js");
+const adPageRoute = read("api/ad-page.js");
+const adPagesApi = read("api/ad-pages.js");
+const pageStudio = read("trainer-backoffice/page-studio.js");
+const adPageTemplate = (await import("../lib/ad-page-template.js")).default;
+const sampleAdPage = adPageTemplate.marketToContent(adPageTemplate.markets[0]);
+const formlessChecklist = adPageTemplate.publishChecklist(sampleAdPage, { html: "<html><head></head><body><h1>Test</h1></body></html>" });
 const trainerOpportunityPages = trainerOpportunityGenerator
   .match(/slug: "(trainer-opportunity-[a-z0-9-]+)"/g)
   .map(row => row.replace(/^slug: "/, "").replace(/"$/, ""))
@@ -119,7 +126,19 @@ const checks = [
   ["the email preview can be opened full size", /data-preview-size/.test(app) && /email-check-frame\.full/.test(styles)],
   ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)],
   ["the trainer recruiting generator emits the Meta pixel itself", /const metaPixelHead = \(\) =>/.test(trainerOpportunityGenerator) && /connect\.facebook\.net/.test(trainerOpportunityGenerator) && /\$\{metaPixelHead\(\)\}/.test(trainerOpportunityGenerator)],
-  ["every trainer recruiting page still carries the Meta pixel", trainerOpportunityPages.length === 10 && trainerOpportunityPages.every(([, html]) => /connect\.facebook\.net\/en_US\/fbevents\.js/.test(html) && /fbq\('init', '3790623554504010'\)/.test(html) && /fbq\('track', 'PageView'\)/.test(html) && /facebook\.com\/tr\?id=3790623554504010/.test(html))]
+  ["every trainer recruiting page still carries the Meta pixel", trainerOpportunityPages.length === 10 && trainerOpportunityPages.every(([, html]) => /connect\.facebook\.net\/en_US\/fbevents\.js/.test(html) && /fbq\('init', '3790623554504010'\)/.test(html) && /fbq\('track', 'PageView'\)/.test(html) && /facebook\.com\/tr\?id=3790623554504010/.test(html))],
+  ["the shared ad page template emits the Meta pixel itself", /fbq\('init', '\$\{metaPixelId\}'\)/.test(adPageTemplateSource) && /connect\.facebook\.net/.test(adPageTemplateSource) && /\$\{metaPixelHead\(\)\}/.test(adPageTemplateSource)],
+  ["a rendered ad page carries pixel, Google tag, lead form and H1", (() => { const html = adPageTemplate.renderAdPage(sampleAdPage); return html.includes("fbq('init', '3790623554504010')") && html.includes("AW-11463464040") && /class="[^"]*contact-intake/.test(html) && /<h1>[^<]+<\/h1>/.test(html); })()],
+  ["the static market generator and the /ads route render through the same template", /require\("\.\.\/lib\/ad-page-template\.js"\)/.test(read("scripts/generate-market-pages.mjs")) && /require\("\.\.\/lib\/ad-page-template\.js"\)/.test(adPageRoute)],
+  ["the /ads route refuses anything that is not published", /row\.status !== "published" \|\| !row\.published_content/.test(adPageRoute) && /This page is not published/.test(adPageRoute)],
+  ["the ads draft preview needs a signed-in office user", /verifyOfficeUser\(token\)/.test(adPageRoute) && /Sign in to the staff portal to preview a draft/.test(adPageRoute)],
+  ["the publish checklist refuses a page with no lead form", formlessChecklist.ok === false && formlessChecklist.failures.some(f => /Lead form/.test(f.label)) && formlessChecklist.failures.some(f => /Meta pixel/.test(f.label))],
+  ["publishing an ad page re-runs the checklist on the server and keeps a revision", /publishChecklist\(content, renderOptions/.test(adPagesApi) && /kind: "published", content/.test(adPagesApi) && /case "restore"/.test(adPagesApi)],
+  ["ad page writes are blocked on the sandbox and drafts use the practice layer", /blockedInSandbox\(res, "Publishing an ad page"\)/.test(adPagesApi) && /sandboxStore\.appendOp\(\{ operation: "create", entity_type: "ad_page"/.test(adPagesApi)],
+  ["ad page content is sanitised before it is stored", /template\.normalizeContent\(body\.content\)/.test(adPagesApi) && /const safeUrl = /.test(adPageTemplateSource) && /escapeHtml\(hero\.h1\)/.test(adPageTemplateSource)],
+  ["Page Studio edits full screen with autosave state and one-click restore", /position:fixed;inset:0;z-index:9500/.test(read("trainer-backoffice/page-studio.css")) && /Not saved — click to retry/.test(pageStudio) && /Saving…/.test(pageStudio) && /data-ps-act="restore"/.test(pageStudio) && /data-ps-act="duplicate"/.test(pageStudio) && /FONTS\.map/.test(pageStudio)],
+  ["the trainer page builder gets a true full-screen mode without forking its data model", /body\.ps-builder-fullscreen \.page-editor-shell\.fullscreen-builder\{\s*position:fixed;inset:0/.test(read("trainer-backoffice/page-studio.css")) && /data-ps-builder-fullscreen/.test(pageStudio) && app.includes("pageStudio() { // page-studio")],
+  ["/ads/<slug> is rewritten to the ad page route", vercel.rewrites?.some(row => row.source === "/ads/:slug" && row.destination === "/api/ad-page?slug=:slug")]
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

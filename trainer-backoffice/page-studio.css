@@ -1,0 +1,145 @@
+/* Page Studio — full-screen ad page editor + full-screen mode for the existing
+   trainer page builder. Loaded by page-studio.js; nothing here touches the
+   portal's own styles.css. Big targets on purpose: the office works on laptops
+   and iPads. */
+
+/* ───────── full-screen mode for the EXISTING trainer page builder ───────── */
+body.ps-builder-fullscreen{overflow:hidden}
+body.ps-builder-fullscreen .page-editor-shell.fullscreen-builder{
+  position:fixed;inset:0;z-index:9000;margin:0;padding:10px 12px;gap:10px;
+  background:#e8eef6;overflow:auto;box-sizing:border-box}
+body.ps-builder-fullscreen .page-editor-shell.fullscreen-builder .page-editor-topbar{padding:12px 18px;top:0}
+body.ps-builder-fullscreen .page-editor-shell.fullscreen-builder .builder-toolbar{top:68px}
+body.ps-builder-fullscreen .page-editor-shell.fullscreen-builder .page-editor-grid{min-height:calc(100vh - 150px)}
+body.ps-builder-fullscreen .page-editor-shell.fullscreen-builder .page-editor-controls{max-height:calc(100vh - 160px)}
+body.ps-builder-fullscreen .page-editor-shell.fullscreen-builder .page-editor-canvas iframe,
+body.ps-builder-fullscreen .page-editor-shell.fullscreen-builder .page-editor-canvas.mobile-device iframe{height:calc(100vh - 190px);min-height:0}
+body.ps-builder-fullscreen.ps-rail-hidden .page-editor-shell.fullscreen-builder .page-editor-grid{grid-template-columns:minmax(0,1fr)}
+body.ps-builder-fullscreen.ps-rail-hidden .page-editor-shell.fullscreen-builder .page-editor-controls{display:none}
+.ps-fs-btn,.ps-rail-btn{min-height:44px;font-weight:900}
+.ps-fs-btn.is-on{background:#082754;color:#fff;border-color:#082754}
+
+/* ───────── Page Studio launcher (inside the portal) ───────── */
+.ps-launcher{display:grid;gap:18px}
+.ps-launcher-hero{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
+  padding:26px 28px;border-radius:20px;background:linear-gradient(135deg,#082754,#0e1430);color:#fff}
+.ps-launcher-hero h2{margin:0 0 6px;font-size:1.7rem}
+.ps-launcher-hero p{margin:0;color:#c9d4ef;max-width:60ch;line-height:1.5}
+.ps-big-btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:56px;padding:0 26px;
+  border:0;border-radius:14px;background:#d80f35;color:#fff;font:900 1.05rem/1 Inter,Arial,sans-serif;cursor:pointer;
+  box-shadow:0 12px 28px rgba(216,15,53,.3);white-space:nowrap}
+.ps-big-btn.ghost{background:#fff;color:#082754;box-shadow:none;border:2px solid #cbd8e8}
+.ps-big-btn.ghost.on-dark{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
+.ps-big-btn:disabled{opacity:.5;cursor:default}
+.ps-page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.ps-page-card{display:grid;gap:10px;padding:18px;border:1px solid #d8e3f0;border-radius:16px;background:#fff}
+.ps-page-card strong{font-size:1.1rem;color:#082754}
+.ps-page-card .ps-addr{font-family:ui-monospace,Menlo,monospace;font-size:.85rem;color:#53677f;word-break:break-all}
+.ps-page-card .ps-meta{font-size:.82rem;color:#64758d}
+.ps-page-card .ps-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.ps-page-card .ps-actions .btn{min-height:44px}
+.ps-pill{display:inline-block;padding:5px 10px;border-radius:999px;font-size:.72rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.ps-pill.published{background:#e8f6ee;color:#08743a}
+.ps-pill.draft{background:#fff4e5;color:#a35a00}
+.ps-pill.static{background:#eef3f9;color:#3d5170}
+.ps-empty{padding:28px;border:2px dashed #b9c9dc;border-radius:16px;background:#f7fbff;color:#53677f;text-align:center;font-size:1rem}
+
+/* ───────── the full-screen overlay editor ───────── */
+.ps-overlay{position:fixed;inset:0;z-index:9500;display:grid;grid-template-rows:auto minmax(0,1fr);
+  background:#dfe6ef;color:#102b4d;font-family:Inter,ui-sans-serif,system-ui,Arial,sans-serif}
+body.ps-open{overflow:hidden}
+.ps-top{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#071f44;color:#fff;flex-wrap:wrap}
+.ps-top .ps-title{display:grid;min-width:0;flex:1}
+.ps-top .ps-title strong{font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ps-top .ps-title span{font-size:.78rem;color:#9fb1d6;font-family:ui-monospace,Menlo,monospace}
+.ps-top .btn,.ps-top button{min-height:46px;border-radius:12px;font-weight:900;font-size:.92rem;cursor:pointer;border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.08);color:#fff;padding:0 16px;display:inline-flex;align-items:center;gap:8px}
+.ps-top button.ps-primary{background:#d80f35;border-color:#d80f35;box-shadow:0 8px 20px rgba(216,15,53,.35)}
+.ps-top button.ps-primary:disabled{opacity:.55;box-shadow:none;cursor:default}
+.ps-top button.active{background:#fff;color:#071f44;border-color:#fff}
+.ps-seg{display:inline-flex;padding:3px;border-radius:12px;background:rgba(255,255,255,.1)}
+.ps-seg button{border:0 !important;background:transparent !important;min-height:40px !important;padding:0 14px !important}
+.ps-seg button.active{background:#fff !important;color:#071f44 !important}
+.ps-status{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;font-weight:900;font-size:.85rem;
+  background:rgba(255,255,255,.1);color:#dfe6ff;white-space:nowrap}
+.ps-status::before{content:"";width:9px;height:9px;border-radius:50%;background:#9fb1d6}
+.ps-status.saved{background:#0d5a2f;color:#dbffe9}.ps-status.saved::before{background:#3ddc84}
+.ps-status.saving{background:#3a4a7a;color:#fff}.ps-status.saving::before{background:#ffd166;animation:ps-pulse 1s infinite}
+.ps-status.dirty{background:#5a3d00;color:#ffe7bd}.ps-status.dirty::before{background:#ffb703}
+.ps-status.error{background:#7a1020;color:#ffd9de;cursor:pointer}.ps-status.error::before{background:#ff4d6d}
+@keyframes ps-pulse{50%{opacity:.3}}
+.ps-body{display:grid;grid-template-columns:380px minmax(0,1fr);min-height:0}
+.ps-overlay.ps-rail-collapsed .ps-body{grid-template-columns:minmax(0,1fr)}
+.ps-overlay.ps-rail-collapsed .ps-rail{display:none}
+.ps-rail{display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;background:#fff;border-right:1px solid #cbd8e8}
+.ps-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px;border-bottom:1px solid #e2e9f2;background:#f5f8fc}
+.ps-tabs button{border:0;border-radius:10px;min-height:44px;background:transparent;color:#556b86;font-size:.82rem;font-weight:900;cursor:pointer}
+.ps-tabs button.active{background:#082754;color:#fff}
+.ps-rail-scroll{overflow:auto;padding:14px 14px 40px;font-size:.95rem}
+.ps-rail h3{margin:6px 0 10px;font-size:1rem;color:#082754}
+.ps-help{margin:0 0 12px;color:#64758d;font-size:.86rem;line-height:1.45}
+.ps-field{display:grid;gap:6px;margin-bottom:12px;color:#082754;font-size:.8rem;font-weight:900}
+.ps-field input,.ps-field textarea,.ps-field select{width:100%;box-sizing:border-box;border:1px solid #cbd8e8;border-radius:10px;padding:11px 12px;
+  background:#fff;color:#102b4d;font:inherit;font-size:.95rem;font-weight:500;min-height:44px}
+.ps-field textarea{min-height:88px;resize:vertical;line-height:1.45}
+.ps-field input[type="color"]{height:46px;padding:4px}
+.ps-field input[type="checkbox"]{width:22px;height:22px;min-height:0}
+.ps-field.inline{grid-template-columns:auto 1fr;align-items:center}
+.ps-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ps-section-list{display:grid;gap:8px}
+.ps-section{border:1px solid #d8e3f0;border-radius:14px;background:#f9fbfe;overflow:hidden}
+.ps-section.selected{border-color:#d80f35;box-shadow:0 0 0 3px rgba(216,15,53,.15)}
+.ps-section-head{display:flex;align-items:center;gap:8px;padding:10px 10px 10px 14px;cursor:pointer;min-height:52px}
+.ps-section-head strong{flex:1;color:#082754;font-size:.95rem}
+.ps-section-head small{color:#64758d;font-weight:700}
+.ps-icon-btn{min-width:40px;min-height:40px;border:1px solid #cbd8e8;border-radius:10px;background:#fff;color:#082754;font-weight:900;cursor:pointer;font-size:1rem}
+.ps-icon-btn:disabled{opacity:.3;cursor:default}
+.ps-icon-btn.danger{color:#b00020;border-color:#f1c2ca}
+.ps-section-body{padding:4px 14px 14px;border-top:1px solid #e2e9f2}
+.ps-section-body .ps-help{margin-top:8px}
+.ps-item{padding:10px;border:1px dashed #c9d6e6;border-radius:12px;margin-bottom:10px;background:#fff}
+.ps-item-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.78rem;font-weight:900;color:#556b86}
+.ps-add-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.ps-add-grid button{min-height:58px;border:2px solid #cbd8e8;border-radius:14px;background:#fff;color:#082754;font-weight:900;font-size:.88rem;cursor:pointer;padding:8px;text-align:left;display:grid;gap:2px}
+.ps-add-grid button small{font-weight:600;color:#64758d;font-size:.72rem}
+.ps-add-grid button:hover{border-color:#082754}
+.ps-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 18px;border-radius:12px;border:2px solid #cbd8e8;background:#fff;color:#082754;font-weight:900;font-size:.92rem;cursor:pointer;width:100%;box-sizing:border-box}
+.ps-btn.red{background:#d80f35;border-color:#d80f35;color:#fff}
+.ps-btn.navy{background:#082754;border-color:#082754;color:#fff}
+.ps-btn:disabled{opacity:.5;cursor:default}
+.ps-btn + .ps-btn{margin-top:8px}
+.ps-photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0 12px}
+.ps-photo-grid button{aspect-ratio:4/3;border:2px solid #cbd8e8;border-radius:10px;background-size:cover;background-position:center;cursor:pointer;padding:0}
+.ps-photo-grid button.selected{border-color:#d80f35;box-shadow:0 0 0 3px rgba(216,15,53,.2)}
+.ps-rev{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border:1px solid #d8e3f0;border-radius:12px;background:#f9fbfe;margin-bottom:8px}
+.ps-rev strong{display:block;color:#082754;font-size:.9rem}
+.ps-rev span{display:block;color:#64758d;font-size:.76rem}
+.ps-rev .ps-btn{width:auto;min-height:44px}
+.ps-canvas{display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;padding:12px}
+.ps-canvas-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 14px;background:#071f44;color:#c9d4ef;font-size:.78rem;border-radius:12px 12px 0 0}
+.ps-canvas-bar b{color:#fff}
+.ps-frame-wrap{min-height:0;background:#fff;border-radius:0 0 12px 12px;overflow:hidden;display:grid;justify-items:center}
+.ps-frame-wrap iframe{width:100%;height:100%;border:0;background:#fff;display:block}
+.ps-canvas.mobile .ps-frame-wrap{background:#c8d2e0;padding:16px 0}
+.ps-canvas.mobile .ps-frame-wrap iframe{width:min(430px,100%);border:12px solid #071f44;border-radius:32px;box-sizing:border-box}
+.ps-checklist{display:grid;gap:8px;margin:10px 0}
+.ps-check{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:#f9fbfe;border:1px solid #d8e3f0;font-size:.9rem}
+.ps-check.ok{color:#08743a}.ps-check.bad{color:#8a0b1f;background:#fff1f3;border-color:#f1c2ca}
+.ps-check::before{content:"✓";font-weight:900}
+.ps-check.bad::before{content:"!"}
+.ps-modal{position:fixed;inset:0;z-index:9800;background:rgba(7,31,68,.6);display:grid;place-items:center;padding:20px}
+.ps-modal-card{width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:18px;padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.ps-modal-card h3{margin:0 0 6px;color:#082754;font-size:1.25rem}
+.ps-modal-card .ps-actions{display:flex;gap:10px;margin-top:16px}
+.ps-modal-card .ps-actions .ps-btn{width:auto;flex:1}
+.ps-start-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+.ps-start-grid button{min-height:80px;border:2px solid #cbd8e8;border-radius:14px;background:#fff;color:#082754;font-weight:900;cursor:pointer;padding:12px;text-align:left;display:grid;gap:4px}
+.ps-start-grid button small{font-weight:600;color:#64758d}
+.ps-start-grid button.active{border-color:#d80f35;background:#fff5f7}
+.ps-toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:9900;background:#071f44;color:#fff;padding:14px 20px;border-radius:14px;font-weight:800;box-shadow:0 16px 40px rgba(0,0,0,.35);max-width:min(640px,92vw);opacity:0;transition:opacity .2s;pointer-events:none}
+.ps-toast.show{opacity:1}
+@media (max-width:900px){
+  .ps-body{grid-template-columns:minmax(0,1fr)}
+  .ps-rail{position:fixed;left:0;top:64px;bottom:0;width:min(420px,92vw);z-index:5;box-shadow:0 0 60px rgba(0,0,0,.35)}
+  .ps-top .ps-title span{display:none}
+}

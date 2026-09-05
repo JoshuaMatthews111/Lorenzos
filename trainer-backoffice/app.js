@@ -775,7 +775,7 @@ const clientStatusToDb = {
   Archived: "archived"
 };
 const clientStatusFromDb = Object.fromEntries(Object.entries(clientStatusToDb).map(([label, value]) => [value, label]));
-const officeAdminViews = ["dashboard", "trainers", "leads", "applications", "clients", "communications", "reports", "settings"];
+const officeAdminViews = ["dashboard", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
 
 function objectHas(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -3870,6 +3870,7 @@ function adminNav() {
     ["dashboard", "Dashboard", "dashboard"],
     ["trainerPages", "Trainer Pages", "globe"],
     ["pageEditor", "Page Editor", "edit"],
+    ["pageStudio", "Page Studio", "monitor"], // page-studio
     ["trainers", "Trainers", "users"],
     ["leads", "Leads", "lead", newLeadCount],
     ["sales", "Sales", "trophy"],
@@ -3960,6 +3961,7 @@ function renderTopbar() {
     dashboard: ["Admin Dashboard", "Network performance, lead outcomes, and conversion reporting."],
     trainerPages: ["Trainer Landing Pages", "Three approved designs, page performance, publishing, and locking."],
     pageEditor: ["Full Site Builder", "Edit trainer pages, main website pages, and trainer portal screens with a real-time preview."],
+    pageStudio: ["Page Studio", "Ad landing pages edited full screen. Publish goes live in a minute with no code deploy."], // page-studio
     trainers: ["Trainer Onboarding", "Collect the trainer's account, media, credentials, reviews, SEO, and approved design."],
     leads: ["Leads", "Office-managed funnel from inquiry to paying client."],
     sales: ["Sales Pipeline", "Super Admin view of where revenue is and where it stalled. Test records are never counted."],
@@ -5348,6 +5350,9 @@ const adminScreens = {
   },
   pageEditor() {
     return trainerPageEditor();
+  },
+  pageStudio() { // page-studio: the screen lives in page-studio.js
+    return window.LDTT_PAGE_STUDIO?.screen?.() || panel("Page Studio", "", "<p class=\"panel-copy\">Page Studio is still loading. Refresh the page if this stays.</p>", "pad");
   },
   trainers() {
     return isOfficeAdmin()

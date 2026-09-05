@@ -19,6 +19,10 @@
   ],
   "rewrites": [
     {
+      "source": "/ads/:slug",
+      "destination": "/api/ad-page?slug=:slug"
+    },
+    {
       "source": "/trainer-bio-:slug",
       "destination": "/trainer-profile?trainer=:slug"
     },
