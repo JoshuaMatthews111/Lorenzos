@@ -25,6 +25,7 @@ const templateDesignMigration = read("supabase/migrations/20260817172642_communi
 const sendVerificationDropped = read("supabase/migrations/20260817173440_drop_temp_provider_send_verification.sql");
 const smsInbound = read("api/webhooks/sms-inbound.js");
 const trainerOpportunityGenerator = read("scripts/generate-trainer-opportunity-pages.mjs");
+const operationalMutation = read("api/operational-mutation.js");
 const trainerOpportunityPages = trainerOpportunityGenerator
   .match(/slug: "(trainer-opportunity-[a-z0-9-]+)"/g)
   .map(row => row.replace(/^slug: "/, "").replace(/"$/, ""))
@@ -123,6 +124,9 @@ const checks = [
   ["the email preview can be opened full size", /data-preview-size/.test(app) && /email-check-frame\.full/.test(styles)],
   ["the temporary send-verification helper was removed again", /drop function if exists public.__provider_send_test/.test(sendVerificationDropped) && /drop extension if exists http/.test(sendVerificationDropped)],
   ["the trainer recruiting generator emits the Meta pixel itself", /const metaPixelHead = \(\) =>/.test(trainerOpportunityGenerator) && /connect\.facebook\.net/.test(trainerOpportunityGenerator) && /\$\{metaPixelHead\(\)\}/.test(trainerOpportunityGenerator)],
+  ["publish guard: the API refuses page_status published without a published page", /function publishGuardViolation/.test(operationalMutation) && /function hasPublishedPage/.test(operationalMutation) && /published_revision \|\| 0\) >= 1/.test(operationalMutation) && (operationalMutation.match(/publishGuardViolation\(entityType, /g) || []).length >= 4 && operationalMutation.includes("This trainer has no published page yet. Publish the page from Trainer Network → Edit Page first.")],
+  ["publish guard: the portal mirrors the rule and never saves published for a page with no revision", /function trainerHasPublishedPage/.test(app) && /page_status: confirmedPublished \? "published" : "draft"/.test(app) && /showToast\(PUBLISH_GUARD_MESSAGE\)/.test(app) && app.includes("This trainer has no published page yet. Publish the page from Trainer Network → Edit Page first.")],
+  ["publish guard: public reads and Find a Trainer only resolve pages with published content", /published_content=not\.is\.null&published_revision=gte\.1/.test(portal) && /published_content=not\.is\.null&published_revision=gte\.1/.test(publicScript) && /if \(!pageRowHasPublishedContent\(pair\.page\)\) return null;/.test(app)],
   ["every trainer recruiting page still carries the Meta pixel", trainerOpportunityPages.length === 10 && trainerOpportunityPages.every(([, html]) => /connect\.facebook\.net\/en_US\/fbevents\.js/.test(html) && /fbq\('init', '3790623554504010'\)/.test(html) && /fbq\('track', 'PageView'\)/.test(html) && /facebook\.com\/tr\?id=3790623554504010/.test(html))]
 ];
 

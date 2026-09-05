@@ -559,7 +559,9 @@
       }) || null;
     }
     if (!trainer) return null;
-    const visibility = options.includeDraft ? "" : "&page_status=eq.published&locked=eq.true";
+    // publish-guard: a public read also needs the page content and revision the
+    // publish RPC writes, so a row marked published by mistake never resolves.
+    const visibility = options.includeDraft ? "" : "&page_status=eq.published&locked=eq.true&published_content=not.is.null&published_revision=gte.1";
     const pages = await select("trainer_pages", `select=*&trainer_id=eq.${encodeURIComponent(trainer.id)}${visibility}&order=updated_at.desc&limit=1`);
     return { trainer, page: pages?.[0] || null };
   }

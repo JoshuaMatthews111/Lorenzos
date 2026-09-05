@@ -138,6 +138,33 @@ function filterChanges(config, changes) {
   );
 }
 
+// publish-guard (2026-09-05, approval ef605d4f). A trainer page may only be
+// marked "published" when a public page actually exists to serve: the row
+// must already carry published_content and a published_revision of 1 or more.
+// Both are set by the publish_trainer_page RPC, which is the one legitimate
+// publisher. Without this, a plain create/update could flip page_status to
+// published on an empty row and the trainer's URL fell through to the generic
+// "Right Trainer, Right Results" page (Giovanni Gutierrez, Tabatha Shelley,
+// Aug 19). Applies to every writer here, service-role included.
+const PUBLISH_GUARD_MESSAGE = "This trainer has no published page yet. Publish the page from Trainer Network → Edit Page first.";
+
+function hasPublishedPage(row) {
+  if (!row) return false;
+  const content = row.published_content;
+  const hasContent = content !== null && content !== undefined && !(typeof content === "object" && !Object.keys(content).length);
+  return hasContent && Number(row.published_revision || 0) >= 1;
+}
+
+// Returns a 400 result when `changes` would mark a trainer page published
+// without a servable page, otherwise null. `before` is the current row (null on
+// create); the check runs against the row as it would look after the write.
+function publishGuardViolation(entityType, before, changes) {
+  if (entityType !== "trainer_page") return null;
+  if (String(changes?.page_status || "") !== "published") return null;
+  if (hasPublishedPage({ ...(before || {}), ...(changes || {}) })) return null;
+  return { status: 400, body: { ok: false, publishGuard: true, message: PUBLISH_GUARD_MESSAGE } };
+}
+
 async function getRecord(table, id, idColumn = "id") {
   const rows = await supabaseFetch(`/rest/v1/${table}?select=*&${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}&limit=1`);
   return rows?.[0] || null;
@@ -201,6 +228,8 @@ async function updateRecord(admin, body, requestId) {
   }
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No supported changes were supplied." } };
+  const guard = publishGuardViolation(entityType, before, changes); // publish-guard
+  if (guard) return guard;
   const rows = await supabaseFetch(`/rest/v1/${config.table}?${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
@@ -235,6 +264,8 @@ async function createRecord(admin, body, requestId) {
   if (!config) return { status: 400, body: { ok: false, message: "Unsupported operational record." } };
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No valid fields were supplied." } };
+  const guard = publishGuardViolation(entityType, null, changes); // publish-guard
+  if (guard) return guard;
   const rows = await supabaseFetch(`/rest/v1/${config.table}`, {
     method: "POST",
     headers: { Prefer: "return=representation" },
@@ -453,6 +484,16 @@ async function sandboxMutation(admin, body) {
     const changes = operation === "archive"
       ? { status: "archived", archived_at: stamp, archived_by: admin.actor.id }
       : Object.fromEntries(Object.entries(body.changes || {}).filter(([key]) => ENTITY_CONFIG[entityType].fields.has(key)));
+    // publish-guard: the practice layer keeps the same rule. A practice edit
+    // is checked against the row as the sandbox currently shows it — the live
+    // row (if any) with the earlier practice ops for that id laid over it.
+    if (entityType === "trainer_page" && String(changes.page_status || "") === "published") {
+      const liveRow = id.startsWith("sbx-") ? null : await getRecord("trainer_pages", id);
+      const priorOps = (await sandboxStore.readOps()).filter(op => op.entity_type === "trainer_page" && String(op.id || op.record?.id) === id);
+      const shown = priorOps.reduce((row, op) => ({ ...row, ...(op.operation === "create" ? op.record : op.changes) }), liveRow || {});
+      const guard = publishGuardViolation(entityType, shown, changes);
+      if (guard) { guard.body.sandbox = true; return guard; }
+    }
     await sandboxStore.appendOp({ operation: "update", entity_type: entityType, id, changes: { ...changes, updated_at: stamp }, actor: admin.actor.email });
     return { status: 200, body: { ok: true, sandbox: true, record: { id, ...changes }, actor: admin.actor, updated_at: stamp, version: 1 } };
   }
@@ -460,6 +501,8 @@ async function sandboxMutation(admin, body) {
     const entityType = clean(body.entity_type, 40);
     if (!ENTITY_CONFIG[entityType]) return { status: 400, body: { ok: false, message: "A record type is required." } };
     const fields = Object.fromEntries(Object.entries(body.record || body.changes || {}).filter(([key]) => ENTITY_CONFIG[entityType].fields.has(key)));
+    const guard = publishGuardViolation(entityType, null, fields); // publish-guard (practice layer too)
+    if (guard) { guard.body.sandbox = true; return guard; }
     const record = { id: `sbx-${crypto.randomUUID()}`, ...fields, created_at: stamp, updated_at: stamp };
     await sandboxStore.appendOp({ operation: "create", entity_type: entityType, record, actor: admin.actor.email });
     return { status: 200, body: { ok: true, sandbox: true, record, actor: admin.actor, updated_at: stamp, version: 1 } };
@@ -553,3 +596,8 @@ module.exports = async function handler(req, res) {
     return res.status(error.status || 500).json({ ok: false, message: error.message || "The live record could not be saved." });
   }
 };
+
+// Exposed for scripts/test-publish-guard.mjs; the handler above is unchanged.
+module.exports.PUBLISH_GUARD_MESSAGE = PUBLISH_GUARD_MESSAGE;
+module.exports.publishGuardViolation = publishGuardViolation;
+module.exports.hasPublishedPage = hasPublishedPage;

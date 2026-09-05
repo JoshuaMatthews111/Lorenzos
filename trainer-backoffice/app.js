@@ -803,6 +803,23 @@ function templateToDb(value) {
   return String(value || "mock-5").replaceAll("-", "_");
 }
 
+// publish-guard: a trainer counts as having a public page only when the
+// trainer_pages row carries published_content and published_revision >= 1
+// (both set by the publish_trainer_page RPC). Mirrors the API rule in
+// api/operational-mutation.js so the portal never claims "Published" for a
+// trainer whose URL would fall through to the generic page.
+const PUBLISH_GUARD_MESSAGE = "This trainer has no published page yet. Publish the page from Trainer Network → Edit Page first.";
+
+function pageRowHasPublishedContent(page) {
+  const content = page?.published_content;
+  const hasContent = content !== null && content !== undefined && !(typeof content === "object" && !Object.keys(content).length);
+  return hasContent && Number(page?.published_revision || 0) >= 1;
+}
+
+function trainerHasPublishedPage(trainer) {
+  return Number(trainer?.publishedRevision || 0) >= 1;
+}
+
 function pageStatusFromDb(value) {
   return {
     published: "Published",
@@ -937,8 +954,9 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     bioPhotoFrame: content.bio_photo_frame || existing.bioPhotoFrame || "tight",
     companyLogo: remotePage?.logo_url || "",
     layout: templateFromDb(remotePage?.template_key),
-    pageStatus: pageStatusFromDb(remotePage?.page_status),
-    locked: Boolean(remotePage?.locked),
+    // publish-guard: "published" without a servable page is shown as Draft, unlocked, so the office sees the truth and can publish it properly.
+    pageStatus: remotePage?.page_status === "published" && !pageRowHasPublishedContent(remotePage) ? "Draft" : pageStatusFromDb(remotePage?.page_status),
+    locked: Boolean(remotePage?.locked) && !(remotePage?.page_status === "published" && !pageRowHasPublishedContent(remotePage)),
     accessStatus: remoteTrainer.access_status === "disabled" ? "Disabled" : "Active",
     specialties: Array.isArray(remoteTrainer.specialties) && remoteTrainer.specialties.length ? remoteTrainer.specialties : (existing.specialties || []),
     profileSpecialtiesText: Array.isArray(remoteTrainer.specialties) ? remoteTrainer.specialties.join("\n") : "",
@@ -1606,12 +1624,18 @@ function trainerDraftContent(trainer) {
 function trainerPagePayload(trainer) {
   const slug = trainerDisplaySlug(trainer);
   const published = trainer.pageStatus === "Published" && trainer.locked;
+  // publish-guard: only a page that already has a confirmed published revision
+  // is saved as "published" here. A first publish is saved as a draft and the
+  // publish_trainer_page RPC (called right after, in persistTrainerRecord)
+  // flips it to published together with the content it publishes. The API
+  // refuses "published" on an empty row, so this keeps the two in step.
+  const confirmedPublished = published && trainerHasPublishedPage(trainer);
   return {
     trainer_id: trainer.remoteId,
     slug,
     template_key: templateToDb(trainer.layout),
-    page_status: published ? "published" : "draft",
-    locked: published,
+    page_status: confirmedPublished ? "published" : "draft",
+    locked: confirmedPublished,
     headline: trainer.heroHeadline || approvedLayouts.find(item => item.id === trainer.layout)?.headline || "",
     subheadline: trainer.tagline || "",
     approved_bio: trainer.bio || "",
@@ -1694,6 +1718,15 @@ async function persistTrainerRecord(trainer, options = {}) {
     trainer.pageSlug = trainerPublicSlug(trainer);
   }
   if (!options.profileOnly) {
+    // publish-guard: a save that would carry "Published" for a trainer with no
+    // public page, without running the publish step, is corrected to Draft and
+    // the office is told why. (A real publish passes options.publish and runs
+    // the publish_trainer_page RPC below, so it is not affected.)
+    if (!options.publish && trainer.pageStatus === "Published" && !trainerHasPublishedPage(trainer)) {
+      trainer.pageStatus = "Draft";
+      trainer.locked = false;
+      showToast(PUBLISH_GUARD_MESSAGE);
+    }
     const pagePayload = trainerPagePayload(trainer);
     if (trainer.pageId) {
       const result = await window.LDTT_PORTAL.operationalMutation({
@@ -2892,6 +2925,7 @@ function scheduleRemoteSave(key, action, delay = 650) {
 
 function mergePublishedTrainer(pair) {
   if (!pair?.trainer || !pair.page) return null;
+  if (!pageRowHasPublishedContent(pair.page)) return null; // publish-guard
   const publishedOnly = {
     ...pair.page,
     draft_content: {},
