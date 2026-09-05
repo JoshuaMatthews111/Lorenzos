@@ -505,7 +505,13 @@
         ...(revision ? { "If-None-Match": `"${revision}"` } : {})
       }
     });
-    if (response.status === 304 && revision) return null;
+    if (response.status === 304 && revision) {
+      // freshness (QA 2026-09-05): nothing changed, but the office still wants to
+      // know WHEN the server last confirmed that. Use the server's Date header,
+      // never this machine's clock (a wrong laptop clock used to show as "Synced").
+      const serverDate = Date.parse(response.headers.get("date") || "");
+      return { notModified: true, syncedAt: Number.isNaN(serverDate) ? "" : new Date(serverDate).toISOString() };
+    }
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.ok || !data?.canonical) {
       throw new Error(data?.message || "Live staff records are temporarily unavailable. No cached records were shown.");

@@ -454,6 +454,11 @@ let communicationsData = {
 let remoteServerRevision = "";
 let remoteSyncedAt = "";
 let remoteSyncError = "";
+// freshness (QA 2026-09-05): when the last GOOD payload arrived (server time) and
+// when the first poll started failing, so the top bar can say "Not updating since".
+let remoteLastGoodAt = "";
+let remoteFailingSince = "";
+let remoteLoading = false;
 let operationalSyncTimer = null;
 let operationalRealtimeUnsubscribe = null;
 let operationalRealtimeDebounce = null;
@@ -793,7 +798,9 @@ const clientStatusToDb = {
   Archived: "archived"
 };
 const clientStatusFromDb = Object.fromEntries(Object.entries(clientStatusToDb).map(([label, value]) => [value, label]));
-const officeAdminViews = ["dashboard", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
+// QA 2026-09-05 roles matrix: office admins also see Trainer Pages and the Page
+// Editor (edit content; publish / lock / add / delete stay Super Admin).
+const officeAdminViews = ["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
 
 function objectHas(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -1341,14 +1348,20 @@ async function reloadRemoteData() {
   // perf/portal-speed: hand the API the revision we already hold; an empty 304
   // (nothing changed) comes back as null and the records in memory stand.
   const loaded = await window.LDTT_PORTAL.loadOperationalData({ ifNoneMatch: remoteReady ? remoteServerRevision : "" });
-  if (loaded === null) {
-    remoteSyncedAt = new Date().toISOString();
+  if (loaded === null || loaded?.notModified) {
+    // Server time from the 304's Date header; if the header is missing keep the
+    // last server stamp rather than inventing one from the client clock.
+    if (loaded?.syncedAt) remoteSyncedAt = loaded.syncedAt;
+    remoteLastGoodAt = remoteSyncedAt;
     remoteSyncError = "";
+    remoteFailingSince = "";
     return;
   }
   const data = await prepareRemoteData(loaded);
   mergeRemoteOperationalData(data);
   remoteSyncError = "";
+  remoteFailingSince = "";
+  remoteLastGoodAt = remoteSyncedAt;
 }
 
 // Live data refreshes itself every half minute, on window focus and whenever another
@@ -1436,10 +1449,99 @@ async function refreshOperationalData(reason = "background") {
     backgroundRender();
   } catch (error) {
     remoteSyncError = error.message || "Live data unavailable";
+    if (!remoteFailingSince) remoteFailingSince = remoteLastGoodAt || remoteSyncedAt || new Date().toISOString();
     console.warn(`LDTT ${reason} refresh failed`, error);
     renderTopbar();
+    // Every panel header says "as of" the last good payload; paint the red note on
+    // them too without a full redraw (a redraw would disturb typing — rule 14).
+    document.querySelectorAll(".panel-asof").forEach(node => { node.textContent = freshnessStampText(); node.classList.add("stale"); });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Freshness (QA 2026-09-05). Office fear #1: "one time the data was not up to
+// date". The top bar always says what the screen is showing:
+//   Loading…                          before the first payload
+//   Live · updated hh:mm:ss           server time of the last confirmed payload
+//   Not updating since hh:mm — reload the moment any poll fails (click reloads)
+// and every panel header carries "as of hh:mm" from the same stamp.
+// ---------------------------------------------------------------------------
+function formatClock(value, { seconds = false } = {}) {
+  const date = parseTimestamp(value);
+  if (!date) return "—";
+  return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}) });
+}
+
+function freshnessState() {
+  if (!session.loggedIn) return { kind: "none" };
+  if (session.demoUsername && !remoteReady) return { kind: "demo" };
+  if (remoteSyncError) return { kind: "stale", since: remoteFailingSince || remoteLastGoodAt || remoteSyncedAt, error: remoteSyncError };
+  if (!remoteReady) return { kind: "loading" };
+  return { kind: "live", at: remoteSyncedAt };
+}
+
+function freshnessChip() {
+  const f = freshnessState();
+  if (f.kind === "none") return "";
+  if (f.kind === "demo") return `<span class="status pending freshness freshness-demo" title="Demo login: built-in sample rows, not live records">Demo data · not live</span>`;
+  if (f.kind === "loading") return `<span class="status pending freshness freshness-loading" aria-live="polite">Loading…</span>`;
+  if (f.kind === "stale") return `<button type="button" class="status lost freshness freshness-stale" data-freshness-reload title="${escapeHtml(f.error)}">Not updating since ${escapeHtml(formatClock(f.since))} — reload</button>`;
+  return `<span class="status live freshness freshness-live" title="Server time of the last confirmed payload · revision ${escapeHtml(remoteServerRevision)}">Live · updated ${escapeHtml(formatClock(f.at, { seconds: true }))}</span>`;
+}
+
+function freshnessStampText() {
+  const f = freshnessState();
+  if (f.kind === "demo") return "demo data";
+  if (f.kind === "loading") return "loading…";
+  if (f.kind === "stale") return `not updating since ${formatClock(f.since)}`;
+  if (f.kind === "live") return `as of ${formatClock(f.at)}`;
+  return "";
+}
+
+function freshnessStamp() {
+  const text = freshnessStampText();
+  if (!text) return "";
+  const f = freshnessState();
+  return `<small class="panel-asof${f.kind === "stale" ? " stale" : ""}">${escapeHtml(text)}</small>`;
+}
+
+// A real login whose first payload never arrived is BLOCKED here: nothing local
+// is shown as if it were live. Retry loads again; Sign out leaves. A demo login
+// (rule 8: admin / doglovers26 works offline) gets an explicit "continue offline".
+function liveDataBlockedNotice() {
+  const demo = Boolean(session.demoUsername);
+  if (demo && state.demoOfflineAccepted) return "";
+  return `<section class="panel pad live-data-blocked" role="alert"><h2>Live data did not load</h2><p>${escapeHtml(remoteSyncError || "The portal could not reach the live records.")}</p><p class="panel-copy">Nothing on this screen is current until the live records load. ${demo ? "This is a demo login: you can continue with the built-in sample rows, which are not live." : "Press Retry; if it keeps failing, sign out and tell Joshua."}</p><div class="row-actions"><button class="btn btn-red" type="button" data-live-data-retry>Retry</button>${demo ? `<button class="btn btn-outline" type="button" data-demo-offline-continue>Continue offline (demo data)</button>` : ""}<button class="btn btn-outline" type="button" id="logoutBtn">Sign out</button></div></section>`;
+}
+
+async function retryLiveData() {
+  remoteLoading = true;
+  remoteSyncError = "";
+  render();
+  try {
+    if (session.demoUsername) {
+      const ok = await hydrateSharedOperationalDataForDemo();
+      if (!ok) remoteSyncError = "The shared operational source could not be loaded.";
+    } else {
+      const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+      mergeRemoteOperationalData(data);
+      remoteFailingSince = "";
+      remoteLastGoodAt = remoteSyncedAt;
+      startOperationalSync();
+    }
+  } catch (error) {
+    remoteSyncError = error.message || "Live data unavailable";
+  } finally {
+    remoteLoading = false;
+    render();
+  }
+}
+
+document.addEventListener("click", event => {
+  if (event.target.closest("[data-freshness-reload]")) { window.location.reload(); return; }
+  if (event.target.closest("[data-live-data-retry]")) { retryLiveData(); return; }
+  if (event.target.closest("[data-demo-offline-continue]")) { state.demoOfflineAccepted = true; render(); }
+});
 
 function startOperationalSync() {
   if (operationalSyncTimer) return;
@@ -2447,9 +2549,13 @@ function portalUserEmail(user) {
 function portalPermissionValue(user) {
   if (user?.role === "trainer") return "trainer";
   if (user?.permission_level) return user.permission_level;
+  if (user?.demo) return "super_admin"; // built-in demo account (rule 8)
   const staff = staffForPortalUser(user);
   if (staff?.permission) return staff.permission;
-  return OFFICE_ADMIN_EMAILS.has(portalUserEmail(user)) ? "office_admin" : "super_admin";
+  // QA 2026-09-05: fail closed. A row with no permission_level is shown as
+  // office admin (least admin power) — the server refuses it outright anyway.
+  if (user?.role === "admin") console.warn("LDTT portal user has no permission_level; treating as office_admin", user?.user_id || user?.email || "");
+  return "office_admin";
 }
 
 function portalPermissionLabel(user) {
@@ -4162,8 +4268,11 @@ function portalEmail() {
 }
 
 function isOfficeAdmin() {
+  if (session.role !== "admin") return false;
   if (portalUser?.permission_level) return portalUser.permission_level === "office_admin";
-  return OFFICE_ADMIN_EMAILS.has(portalEmail());
+  if (portalUser?.demo) return false; // built-in demo account (rule 8)
+  // QA 2026-09-05: fail closed — no permission_level means NOT a super admin.
+  return true;
 }
 
 function canAccessAdminView(view) {
@@ -4269,7 +4378,7 @@ function renderTopbar() {
   document.getElementById("topbar").innerHTML = `
     <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
     <div class="top-actions">
-      ${remoteSyncError ? `<span class="status lost" title="${escapeHtml(remoteSyncError)}">Live data unavailable</span>` : remoteReady ? `<span class="status live" title="Revision ${escapeHtml(remoteServerRevision)}">Synced ${escapeHtml(remoteSyncedAt ? formatDateTime(remoteSyncedAt) : "now")}</span>` : ""}
+      ${freshnessChip()}
       ${isAdmin
         ? profileSetupRequired ? "" : `${isOfficeAdmin() ? "" : `<button class="btn btn-red add-trainer-primary" id="addTrainer">+ Add New Trainer</button>`}${isOfficeAdmin() ? "" : `<button class="btn btn-outline" data-open-client-import>Import Clients</button>`}`
         : passwordSetupRequired
@@ -4296,6 +4405,16 @@ function renderView() {
     state.activeView = "settings";
   }
   if (session.role === "admin" && !canAccessAdminView(state.activeView)) state.activeView = "dashboard";
+  // freshness: no silent local-only mode. A login without a live payload sees the
+  // blocking notice (Retry / Sign out) instead of stale or sample rows.
+  if (session.loggedIn && !remoteReady && !remoteLoading && window.LDTT_PORTAL?.enabled && !(session.demoUsername && state.demoOfflineAccepted)) {
+    target.innerHTML = liveDataBlockedNotice();
+    return;
+  }
+  if (session.loggedIn && !remoteReady && remoteLoading) {
+    target.innerHTML = `<section class="panel pad"><h2>Loading live records…</h2></section>`;
+    return;
+  }
   if (state.activeView === "communications" && session.loggedIn && !communicationsData.loaded && !communicationsData.loading) {
     loadCommunicationsData();
   }
@@ -6050,7 +6169,7 @@ function metricGrid(items) {
 }
 
 function panel(title, action, body, extra = "") {
-  return `<section class="panel ${extra}"><div class="panel-head"><h2>${title}</h2><div class="row-actions">${action || ""}</div></div>${extra === "pad" ? body : `<div>${body}</div>`}</section>`;
+  return `<section class="panel ${extra}"><div class="panel-head"><h2>${title}${freshnessStamp()}</h2><div class="row-actions">${action || ""}</div></div>${extra === "pad" ? body : `<div>${body}</div>`}</section>`;
 }
 
 function parseRecordDate(value) {
