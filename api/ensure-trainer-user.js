@@ -134,6 +134,20 @@ module.exports = async function handler(req, res) {
         : await createOrEnableAuthUser(email, displayName);
     if (!authResult.userId && !isSandbox()) throw new Error("Trainer auth user could not be created.");
 
+    // onboarding: if that email already signs in as STAFF, stop. The upsert below
+    // would have turned the staff member's portal row into a trainer row (role,
+    // trainer_id) and locked them out of the office portal — on live too.
+    if (authResult.userId && !trainers[0].auth_user_id) {
+      const existingRows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,trainer_id,display_name&user_id=eq.${encodeURIComponent(authResult.userId)}&limit=1`);
+      const existing = existingRows?.[0];
+      if (existing && existing.role === "admin") {
+        return res.status(409).json({ ok: false, staffLogin: true, message: `${email} is a staff login (${existing.display_name || "office"}), not a trainer. Give the trainer their own email, then publish again.` });
+      }
+      if (existing && existing.role === "trainer" && existing.trainer_id && String(existing.trainer_id) !== String(trainerId)) {
+        return res.status(409).json({ ok: false, message: `${email} already belongs to another trainer's login. Each trainer needs their own email.` });
+      }
+    }
+
     await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(trainerId)}`, {
       method: "PATCH",
       headers: { Prefer: "return=minimal" },
