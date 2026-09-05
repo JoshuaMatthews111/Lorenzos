@@ -17,7 +17,7 @@ import { randomUUID } from "node:crypto";
 const require = createRequire(import.meta.url);
 const root = resolve(import.meta.dirname, "..");
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "local-stand-in-key";
-process.env.SUPABASE_URL = "http://supabase.local";
+process.env.SUPABASE_URL = "https://supabase.local"; // https: the templates only keep https photo URLs (safeSrc)
 process.env.LDTT_SANDBOX = process.env.LDTT_SANDBOX || "";
 const adPages = require("../api/pages.js"); // site-builder: one API for every page type (api/ad-pages.js is an alias)
 const pagesManifest = require("../api/pages-manifest.js");
@@ -42,6 +42,8 @@ const schemas = { public: blank(), practice: blank() };
 const db = schemas.public;
 const copied = [];
 const uploads = [];
+const objects = {}; // durability: uploaded bytes by "<bucket>/<key>"
+const knobs = { readbackFails: false }; // durability: /__local/knob?readback=1 makes the publish read-back come back empty (rollback proof)
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 function applyFilters(rows, params) {
@@ -67,7 +69,10 @@ async function fakeSupabase(url, options = {}) {
     return auth === "Bearer local-demo" ? json(200, { id: "local-office", email: "office@local.test" }) : json(401, { message: "bad token" });
   }
   if (u.pathname === "/storage/v1/object/copy") { copied.push(JSON.parse(options.body)); return json(200, { Key: "ok" }); }
-  if (method === "POST" && /^\/storage\/v1\/object\/[a-z-]+\/site\//.test(u.pathname)) { uploads.push(u.pathname); return json(200, { Key: u.pathname.replace("/storage/v1/object/", "") }); }
+  // durability: uploads keep their bytes and answer GET/HEAD on the public URL, so the
+  // publish-time photo check (lib/page-durability.js) can be exercised here.
+  if (method === "POST" && /^\/storage\/v1\/object\/[a-z-]+\/(site|pages)\//.test(u.pathname)) { const key = u.pathname.replace("/storage/v1/object/", ""); objects[key] = Buffer.from(await new Response(options.body).arrayBuffer()); uploads.push(u.pathname); return json(200, { Key: key }); }
+  if (u.pathname.startsWith("/storage/v1/object/public/")) { const key = decodeURIComponent(u.pathname.replace("/storage/v1/object/public/", "")); return objects[key] ? new Response(method === "HEAD" ? null : objects[key], { status: 200, headers: { "content-type": "image/png" } }) : new Response("", { status: 404 }); }
   if (u.pathname === "/storage/v1/bucket") return json(200, [{ id: "practice-trainer-page-assets" }, { id: "trainer-page-assets" }]);
   if (u.pathname.startsWith("/storage/v1/object/list/")) return json(200, []);
   // Which in-memory schema: the profile header, else the deployment's default.
@@ -77,6 +82,7 @@ async function fakeSupabase(url, options = {}) {
   if (table === "rpc/reset_from_live") { Object.assign(schemas.practice, JSON.parse(JSON.stringify(schemas.public)), { send_to_live_log: [] }); return json(200, { reset_at: new Date().toISOString(), rows: {} }); }
   if (!store[table]) return json(404, { message: `Could not find the table '${profile}.${table}'` });
   const body = options.body ? JSON.parse(options.body) : null;
+  if (method === "GET" && table === "ad_pages" && knobs.readbackFails && String(u.searchParams.get("select") || "").startsWith("slug,page_type,status,published_revision")) return json(200, []); // durability knob
   if (method === "GET") return json(200, applyFilters(store[table], u.searchParams));
   if (method === "POST") {
     if (table === "site_settings" && u.searchParams.get("on_conflict") === "key") { const hit = store.site_settings.find(r => r.key === body.key); if (hit) { Object.assign(hit, body); return json(200, [hit]); } store.site_settings.push({ ...body }); return json(201, [body]); }
@@ -90,6 +96,7 @@ async function fakeSupabase(url, options = {}) {
     targets.forEach(row => Object.assign(row, body, { updated_at: new Date().toISOString() }));
     return json(200, targets);
   }
+  if (method === "DELETE") { const targets = applyFilters(store[table], u.searchParams); store[table] = store[table].filter(row => !targets.includes(row)); return json(200, targets); } // durability: publish rollback removes its revision row
   return json(405, { message: "nope" });
 }
 adPages.deps.fetch = fakeSupabase;
@@ -142,6 +149,9 @@ const server = createServer(async (req, res) => {
   if (path === "/__local/state") { res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ sandbox: process.env.LDTT_SANDBOX === "1", copied, uploads, site_settings: schemas.public.site_settings, practice_site_settings: schemas.practice.site_settings, live: { ad_pages: schemas.public.ad_pages, trainer_pages: schemas.public.trainer_pages, trainers: schemas.public.trainers }, practice: { ad_pages: schemas.practice.ad_pages, trainer_pages: schemas.practice.trainer_pages, trainers: schemas.practice.trainers, send_to_live_log: schemas.practice.send_to_live_log } })); }
   if (path === "/api/ad-page") return call(adPage, url.searchParams, { forceAuth: url.searchParams.get("preview") === "1" });
   if (path === "/api/environment") return call(environment, url.searchParams, { forceAuth: false });
+  if (path.startsWith("/storage/v1/object/public/")) { const key = decodeURIComponent(path.replace("/storage/v1/object/public/", "")); if (!objects[key]) { res.writeHead(404); return res.end("no such object"); } res.writeHead(200, { "content-type": "image/png" }); return res.end(objects[key]); } // durability
+  if (path === "/__local/knob") { knobs.readbackFails = url.searchParams.get("readback") === "1"; res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify(knobs)); } // durability
+  if (path === "/__local/rows") { const schema = process.env.LDTT_SANDBOX === "1" ? "practice" : "public"; res.writeHead(200, { "content-type": "application/json" }); return res.end(JSON.stringify({ ad_pages: schemas[schema].ad_pages, ad_page_revisions: schemas[schema].ad_page_revisions, site_settings: schemas[schema].site_settings })); } // durability: a --rows dump for export-pages.mjs / site-health.mjs
   const ads = path.match(/^\/ads\/([^/]+)$/);
   if (ads) return call(adPage, new URLSearchParams({ slug: ads[1] }), { forceAuth: false });
   if (path.startsWith("/api/")) { res.writeHead(404, { "content-type": "application/json" }); return res.end(JSON.stringify({ ok: false, message: "not mounted locally" })); }
