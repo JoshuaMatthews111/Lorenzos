@@ -1655,8 +1655,26 @@ function trainerPagePayload(trainer) {
   };
 }
 
+// onboarding: one save at a time per trainer. Uploads, the debounced editor
+// auto-save and the Save/Publish buttons all call this; running two at once made
+// the later one fail the expected_updated_at check.
+const trainerSaveChains = new Map();
 async function persistTrainerRecord(trainer, options = {}) {
   if (!remoteReady || session.role !== "admin") return trainer;
+  const chainKey = String(trainer?.remoteId || trainer?.id || "trainer");
+  cancelScheduledRemoteSave(`builder-${trainer?.id}`);
+  if (trainer?.remoteId) cancelScheduledRemoteSave(`builder-${trainer.remoteId}`);
+  const previous = trainerSaveChains.get(chainKey) || Promise.resolve();
+  const run = previous.catch(() => {}).then(() => persistTrainerRecordNow(trainer, options));
+  trainerSaveChains.set(chainKey, run);
+  try {
+    return await run;
+  } finally {
+    if (trainerSaveChains.get(chainKey) === run) trainerSaveChains.delete(chainKey);
+  }
+}
+
+async function persistTrainerRecordNow(trainer, options = {}) {
   trainer.title ||= "Team Trainer";
   const normalizedLocation = normalizeTrainerLocation(trainer.profileMarket || trainer.market, trainer.profileState || trainer.state);
   trainer.market = normalizedLocation.market;
@@ -1741,6 +1759,9 @@ async function persistTrainerRecord(trainer, options = {}) {
       await window.LDTT_PORTAL.rpc("publish_trainer_page", { target_page_id: trainer.pageId });
     }
   }
+  // onboarding: this is the ONE reload after a trainer save. Callers that wrap
+  // this in runRemoteMutation pass { reload: false } so the 20 MB portal payload
+  // is not downloaded twice per click (it was, on every wizard step).
   await reloadRemoteData();
   return findTrainer(trainer.remoteId) || trainer;
 }
@@ -2911,6 +2932,14 @@ function scheduleRemoteSave(key, action, delay = 650) {
     remoteSaveTimers.delete(key);
     runRemoteMutation("", action, { reload: false, render: false });
   }, delay));
+}
+// onboarding: a Save Draft / Publish click supersedes the debounced auto-save
+// that the last keystroke or upload scheduled; without this the two saves ran
+// side by side and the second one lost on expected_updated_at ("Live record
+// refreshed to the latest saved version." instead of "Saved live").
+function cancelScheduledRemoteSave(key) {
+  window.clearTimeout(remoteSaveTimers.get(key));
+  remoteSaveTimers.delete(key);
 }
 
 function mergePublishedTrainer(pair) {
@@ -10987,7 +11016,7 @@ document.addEventListener("click", async event => {
       const ok = await runRemoteMutation(
         publish ? "Trainer page published and locked" : "Trainer page returned to office draft",
         () => publishTrainerPageWorkflow(trainer, publish),
-        {
+        { reload: false, // onboarding: the save already reloaded
           type: "Trainer Page",
           detail: `${trainer.name} ${publish ? "was published and locked" : "was returned to draft"} by ${currentActorLabel()}.`
         }
@@ -11043,7 +11072,7 @@ document.addEventListener("click", async event => {
     trainer.layout = assignLayout.dataset.assignLayout;
     trainer.pageStatus = "Draft";
     trainer.locked = false;
-    if (remoteReady) runRemoteMutation("Approved layout assigned and draft saved", () => persistTrainerRecord(trainer), {
+    if (remoteReady) runRemoteMutation("Approved layout assigned and draft saved", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} layout changed to ${layoutName(trainer.layout)}.`
     });
@@ -11054,7 +11083,7 @@ document.addEventListener("click", async event => {
   if (heroImage) {
     const trainer = trainerById();
     trainer.image = heroImage.dataset.heroImage;
-    if (remoteReady) runRemoteMutation("Approved hero image selected", () => persistTrainerRecord(trainer), {
+    if (remoteReady) runRemoteMutation("Approved hero image selected", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} landing-page hero background was changed.`
     });
@@ -11076,7 +11105,7 @@ document.addEventListener("click", async event => {
     if (remoteReady) runRemoteMutation(
       `${landingKey.replace(/([A-Z])/g, " $1")} synced to landing page`,
       () => persistTrainerRecord(trainer, keepPublished ? { publish: true } : {}),
-      {
+      { reload: false, // onboarding: the save already reloaded
         type: "Trainer Profile",
         detail: `${trainer.name} ${landingKey} was synced from profile editor to landing page.`
       }
@@ -11106,7 +11135,7 @@ document.addEventListener("click", async event => {
     state.onboardingStep = Number(onboardingStep.dataset.onboardingStep);
     if (remoteReady && session.role === "admin") {
       const trainer = trainerById();
-      runRemoteMutation("Trainer setup progress and draft saved", () => persistTrainerRecord(trainer), {
+      runRemoteMutation("Trainer setup progress and draft saved", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
         type: "Trainer Page",
         detail: `${trainer.name} setup moved to step ${state.onboardingStep}.`
       });
@@ -11407,7 +11436,7 @@ document.addEventListener("click", async event => {
       await runRemoteMutation("Trainer review order saved", () => persistTrainerRecord(trainer, {
         skipProfile: true,
         publish: trainer.pageStatus === "Published" && trainer.locked
-      }), {
+      }), { reload: false, // onboarding: the save already reloaded
         type: "Review",
         detail: `${trainer.name} review placement order was updated by ${currentActorLabel()}.`
       });
@@ -11445,7 +11474,7 @@ document.addEventListener("click", async event => {
       await runRemoteMutation("Trainer review placement removed", () => persistTrainerRecord(trainer, {
         skipProfile: true,
         publish: trainer.pageStatus === "Published" && trainer.locked
-      }), {
+      }), { reload: false, // onboarding: the save already reloaded
         type: "Review",
         detail: `Manual review placement removed from ${trainer.name}.`
       });
@@ -11684,7 +11713,7 @@ document.addEventListener("click", async event => {
     state.selectedTrainerId = trainer.id;
     state.activeView = "trainers";
     state.onboardingStep = 1;
-    if (remoteReady) runRemoteMutation("Trainer created as office draft", () => persistTrainerRecord(trainer), {
+    if (remoteReady) runRemoteMutation("Trainer created as office draft", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} was created as an office-controlled draft.`
     });
@@ -11698,7 +11727,7 @@ document.addEventListener("click", async event => {
     }
     if (remoteReady) {
       const trainer = trainerById();
-      runRemoteMutation("Trainer profile and page draft saved by office", () => persistTrainerRecord(trainer), {
+      runRemoteMutation("Trainer profile and page draft saved by office", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
         type: "Trainer Profile",
         detail: `${trainer?.name || "Trainer"} profile and landing-page draft saved by ${currentActorLabel()}.`
       });
@@ -11743,7 +11772,7 @@ document.addEventListener("click", async event => {
     const trainer = trainerById();
     trainer.pageStatus = publish ? "Published" : "Draft";
     trainer.locked = publish;
-    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : "Trainer page draft saved", () => publishTrainerPageWorkflow(trainer, publish), {
+    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : "Trainer page draft saved", () => publishTrainerPageWorkflow(trainer, publish), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} landing page ${publish ? "published and locked" : "saved as draft"} from the page editor.`
     });
@@ -11852,7 +11881,7 @@ document.addEventListener("click", async event => {
     trainer.mediaLibrary.unshift({ type: "video", url, name: `${videoProviderLabel(url)} trainer video`, size: 0, uploadedAt: new Date().toISOString() });
     refreshPageEditorPreview();
     if (remoteReady) {
-      await runRemoteMutation("Trainer video link saved", () => persistTrainerRecord(trainer, { persistProfile: true }), {
+      await runRemoteMutation("Trainer video link saved", () => persistTrainerRecord(trainer, { persistProfile: true }), { reload: false, // onboarding: the save already reloaded
         type: "Trainer Video",
         detail: `${trainer.name} trainer video was set from ${videoProviderLabel(url)} by ${currentActorLabel()}.`
       });
@@ -12441,7 +12470,7 @@ document.addEventListener("change", async event => {
           trainer.publicPhoto = trainer.profilePhoto;
           trainer.cardPhoto = trainer.profilePhoto;
         }
-        await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer, { persistProfile: upload.dataset.trainerUpload === "profilePhoto" }), {
+        await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer, { persistProfile: upload.dataset.trainerUpload === "profilePhoto" }), { reload: false, // onboarding: the save already reloaded
           type: "Trainer Photo",
           detail: `${trainer.name} ${upload.dataset.trainerUpload} was replaced with ${file.name}.`
         });
