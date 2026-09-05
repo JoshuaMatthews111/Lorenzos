@@ -9542,8 +9542,15 @@ function trainerReviewsMarkup(trainer) {
       showLocation: Boolean(review.display?.showLocation)
     }
   })).filter(review => review.copy || review.mediaUrl);
-  if (!approvedReviews.length) return "";
-  return `<div class="trainer-review-carousel" aria-label="Approved trainer reviews">${approvedReviews.map(review => trainerReviewCardMarkup(review)).join("")}</div>`;
+  // onboarding: the three "Optional Manual Testimonial" boxes in the wizard and
+  // the editor were saved but never drawn on the page. They follow the Review
+  // Inbox reviews here.
+  const manualReviews = [1, 2, 3]
+    .map(n => ({ id: `manual-${n}`, author: String(trainer[`review${n}Author`] || "").trim() || "Verified Client", rating: "5", copy: String(trainer[`review${n}Copy`] || "").trim(), location: "", mediaUrl: "", mediaType: "", mediaName: "", display: { showText: true, showMedia: false, showAuthor: true, showRating: true, showLocation: false } }))
+    .filter(review => review.copy);
+  const reviews = [...approvedReviews, ...manualReviews];
+  if (!reviews.length) return "";
+  return `<div class="trainer-review-carousel" aria-label="Approved trainer reviews">${reviews.map(review => trainerReviewCardMarkup(review)).join("")}</div>`;
 }
 
 function publicSubmissionMediaUrl(value) {
