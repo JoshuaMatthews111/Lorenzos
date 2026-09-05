@@ -3213,12 +3213,19 @@ function trainerBioHref(trainerOrId) {
   return trainer ? `/trainer-bio-${trainerDisplaySlug(trainer)}` : "/find-a-trainer";
 }
 
+// onboarding: on the practice copy the page lives on the practice deployment,
+// not on lorenzosdogtrainingteam.com (where it does not exist yet). Links and
+// the invite text point at the site the office is actually looking at.
+function publicSiteOrigin() {
+  return window.LDTT_IS_SANDBOX ? window.location.origin : PUBLIC_SITE_ORIGIN;
+}
+
 function trainerPublicUrl(trainer) {
-  return `${PUBLIC_SITE_ORIGIN}/${trainerPublicSlug(trainer)}`;
+  return `${publicSiteOrigin()}/${trainerPublicSlug(trainer)}`;
 }
 
 function staffPortalUrl() {
-  return `${PUBLIC_SITE_ORIGIN}/staff`;
+  return `${publicSiteOrigin()}/staff`;
 }
 
 function builderPages() {
@@ -8151,7 +8158,10 @@ function lockedPageCard(trainer) {
 }
 
 function lockedPageDetails(trainer) {
-  return `<div class="lock-notice">${icon("shield")}<div><strong>Office-controlled and locked</strong><p>Lorenzo's office manages the bio, photos, reviews, layout, publishing, and page lock. Trainers submit content for approval.</p></div></div><ul class="health-list"><li><span class="check">✓</span> Brand-uniform Lorenzo page</li><li><span class="check">✓</span> Three approved template routes only</li><li><span class="check">✓</span> Safer office consultation CTA</li><li><span class="check">✓</span> No trainer publish controls or DNS access</li></ul>${trainerInviteCard(trainer)}`;
+  // onboarding: the invite message is the OFFICE's copy-and-send text (temporary
+  // password wording included). A trainer looking at "My Trainer Page" does not
+  // need to see it, so it is only drawn for admins.
+  return `<div class="lock-notice">${icon("shield")}<div><strong>Office-controlled and locked</strong><p>Lorenzo's office manages the bio, photos, reviews, layout, publishing, and page lock. Trainers submit content for approval.</p></div></div><ul class="health-list"><li><span class="check">✓</span> Brand-uniform Lorenzo page</li><li><span class="check">✓</span> Three approved template routes only</li><li><span class="check">✓</span> Safer office consultation CTA</li><li><span class="check">✓</span> No trainer publish controls or DNS access</li></ul>${session.role === "admin" ? trainerInviteCard(trainer) : ""}`;
 }
 
 function trainerInviteText(trainer) {
@@ -8191,12 +8201,19 @@ function trainerInviteCard(trainer) {
 function showTrainerInviteDialog(trainer) {
   if (!trainer) return;
   const inviteId = `trainerInviteModal-${Date.now()}`;
+  // onboarding: say what really happened to the login (the practice copy never
+  // creates one) instead of a fixed sentence.
+  const loginLine = trainer.portalInviteStatus
+    ? `Trainer login: ${trainer.portalInviteStatus}`
+    : window.LDTT_IS_SANDBOX
+      ? "Trainer login: none created on the practice copy (logins are real and shared with live)"
+      : "Trainer portal access: created or enabled from the trainer email";
   const publishItems = [
     `Landing page: ${trainerPublicUrl(trainer)}`,
-    `View Bio page: ${PUBLIC_SITE_ORIGIN}${trainerBioHref(trainer)}`,
-    "Find a Trainer: live directory sync will include this published trainer",
+    `View Bio page: ${publicSiteOrigin()}${trainerBioHref(trainer)}`,
+    window.LDTT_IS_SANDBOX ? "Find a Trainer: listed on the practice copy's Find a Trainer page" : "Find a Trainer: live directory sync will include this published trainer",
     "Reviews: approved destinations remain attached to this trainer page",
-    "Trainer portal access: created or enabled from the trainer email"
+    loginLine
   ];
   const dialog = document.createElement("dialog");
   dialog.className = "action-confirmation-dialog trainer-invite-dialog";
