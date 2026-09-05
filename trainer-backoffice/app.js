@@ -1270,7 +1270,15 @@ async function prepareRemoteData(data) {
 
 async function reloadRemoteData() {
   if (!window.LDTT_PORTAL?.enabled || !session.loggedIn) return;
-  const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+  // perf/portal-speed: hand the API the revision we already hold; an empty 304
+  // (nothing changed) comes back as null and the records in memory stand.
+  const loaded = await window.LDTT_PORTAL.loadOperationalData({ ifNoneMatch: remoteReady ? remoteServerRevision : "" });
+  if (loaded === null) {
+    remoteSyncedAt = new Date().toISOString();
+    remoteSyncError = "";
+    return;
+  }
+  const data = await prepareRemoteData(loaded);
   mergeRemoteOperationalData(data);
   remoteSyncError = "";
 }
