@@ -16,6 +16,8 @@
 // Anything that is not published answers 404 with a plain page. Nothing here
 // ever writes. On the practice copy it reads the practice schema.
 
+const { existsSync, readFileSync } = require("node:fs");
+const { resolve } = require("node:path");
 const { supabaseRequest } = require("../lib/sandbox");
 const template = require("../lib/ad-page-template.js");
 const site = require("../lib/site-page-template.js");
@@ -38,9 +40,28 @@ async function fetchRow(slug, columns) {
   const response = await deps.fetch(`${SUPABASE_URL}${target.path}`, {
     headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, ...target.headers }
   });
-  if (!response.ok) return null;
+  // durability: a database error is not "not published" — it throws, so the
+  // handler can fall back to the exported copy in site/pages/.
+  if (!response.ok) throw Object.assign(new Error(`database answered ${response.status}`), { status: response.status });
   const rows = await response.json().catch(() => []);
   return rows?.[0] || null;
+}
+
+// durability: scripts/export-pages.mjs writes every published page to
+// site/pages/<slug>.html (bundled with this function via vercel.json
+// includeFiles). If the database is unreachable, that copy is served — the
+// same bytes this route produced at export time — instead of a 503.
+function exportedCopy(slug, entrance) {
+  try {
+    const dir = resolve(__dirname, "..", "site", "pages");
+    const html = resolve(dir, `${slug}.html`);
+    const meta = resolve(dir, `${slug}.json`);
+    if (!existsSync(html) || !existsSync(meta)) return null;
+    const info = JSON.parse(readFileSync(meta, "utf8"));
+    const type = info.page_type === "ad" ? "ad" : "site";
+    if ((entrance === "ads") !== (type === "ad")) return null;
+    return { html: readFileSync(html, "utf8"), type: info.page_type, revision: info.revision, published_at: info.published_at };
+  } catch { return null; }
 }
 
 async function render(row, content, { editor = false } = {}) {
@@ -85,7 +106,17 @@ module.exports = async function handler(req, res) {
     return res.status(200).send(html);
   } catch (error) {
     console.error("page render failed", error);
+    // durability: serve the exported copy before admitting defeat.
+    const copy = exportedCopy(slug, entrance);
+    if (copy) {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Cache-Control", "public, max-age=60, s-maxage=120, stale-while-revalidate=600");
+      res.setHeader("X-LDTT-Served-From", `export revision ${copy.revision}`);
+      res.setHeader("X-LDTT-Page-Type", copy.type);
+      return res.status(200).send(copy.html);
+    }
     return notFound(res, "This page is temporarily unavailable.", 503);
   }
 };
 module.exports.deps = deps;
+module.exports.exportedCopy = exportedCopy;

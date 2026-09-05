@@ -28,6 +28,7 @@ const site = require("../lib/site-page-template.js");
 const importer = require("../lib/static-page-importer.js");
 const siteData = require("../lib/site-data.js");
 const imageAspects = require("../lib/ad-page-image-aspects.js");
+const durability = require("../lib/page-durability.js"); // durability: publish verification + "where this page lives"
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -200,6 +201,18 @@ async function updatePage(id, changes, auth, revision) {
   return row;
 }
 
+// durability (1): a publish that did not land is put back exactly as it was —
+// the previous published copy, revision, time, status and address — and the
+// revision row this attempt wrote is removed, so History shows only real versions.
+async function rollbackPublish(id, previous, revision, auth) {
+  try {
+    await supabaseFetch(`/rest/v1/ad_pages?id=eq.${encodeURIComponent(id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ ...previous, updated_by: auth.actor }) });
+  } catch (error) { console.error("publish rollback: page restore failed", error); }
+  try {
+    await supabaseFetch(`/rest/v1/ad_page_revisions?page_id=eq.${encodeURIComponent(id)}&revision=eq.${encodeURIComponent(revision)}&kind=eq.published`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+  } catch (error) { console.error("publish rollback: revision cleanup failed", error); }
+}
+
 async function loadRevisionContent(pageId, revisionId) {
   const rows = await supabaseFetch(`/rest/v1/ad_page_revisions?select=content&id=eq.${encodeURIComponent(revisionId)}&page_id=eq.${encodeURIComponent(pageId)}&limit=1`);
   if (!rows?.[0]) throw fail(404, "That version could not be found.");
@@ -301,9 +314,23 @@ module.exports = async function handler(req, res) {
         const checklist = await checklistFor(type, content, content.slug);
         if (!checklist.ok) return res.status(400).json({ ok: false, checklist, message: `Not published. ${checklist.failures.length} thing${checklist.failures.length === 1 ? "" : "s"} to fix first: ${checklist.failures.map(f => f.fix).join(" ")}` });
         if (content.slug !== page.slug && await slugTaken(content.slug, id, type)) throw fail(409, `The address /${content.slug} is already used. Pick another.`);
+        // durability (1): every photo must really be in THIS deployment's bucket
+        // and answer 200 before anything is written. Practice-bucket, signed and
+        // inline photos are copied to pages/<slug>/… and the URL rewritten.
+        const media = await durability.prepareMedia(content, { slug: content.slug, fetchImpl: deps.fetch, serviceKey: SERVICE_ROLE_KEY });
+        if (media.failure) return res.status(400).json({ ok: false, checklist, verification: { failed: media.failure }, message: `Not published — ${media.failure.message} Nothing changed on the site.` });
         const revision = Number(page.published_revision || 0) + 1;
+        // What to put back if the publish does not land (durability (1) rollback).
+        const previous = { slug: page.slug, title: page.title || "", status: page.status, published_content: page.published_content ?? null, published_revision: Number(page.published_revision || 0), published_at: page.published_at || null };
         const row = await updatePage(id, { slug: content.slug, title: content.title || "", market: content.market || "", city: content.city || "", state: content.state || "", draft_content: content, draft_revision: Number(page.draft_revision || 0) + 1, published_content: content, published_revision: revision, status: "published", published_at: stamp() }, auth,
           { revision, kind: "published", content });
+        // durability (1): read back, serve through the real route, manifest, sitemap.
+        const verification = await durability.verifyPublished({ slug: content.slug, type, revision, supabaseFetch });
+        if (!verification.ok) {
+          await rollbackPublish(id, previous, revision, auth);
+          const failed = verification.failed || { name: "Verification", detail: "" };
+          return res.status(400).json({ ok: false, checklist, verification, message: `Not published — the check "${failed.name}" failed (${failed.detail || "no detail"}). ${previous.status === "published" ? `The previous version (revision ${previous.published_revision}) is still live.` : "The page stays offline."} Try again in a minute; if it keeps failing, tell the developer which check failed.` });
+        }
         const url = publicPathFor(type, content.slug);
         // Publishing can add the page to the header menu in one click (body.add_to_nav).
         let navMessage = "";
@@ -312,7 +339,22 @@ module.exports = async function handler(req, res) {
           const nav = current.header.links.length ? current : site.normalizeNav(site.STATIC_NAV);
           if (!nav.header.links.some(l => l.href === url)) { nav.header.links.push({ label: content.title || content.slug, href: url, children: [] }); await saveSetting("navigation", nav, auth); navMessage = " Added to the header menu."; }
         }
-        return res.status(200).json({ ok: true, sandbox, page: { ...row, draft_content: undefined, published_content: undefined, page_type: type, public_path: url }, url, alt_url: type === "ad" ? null : `/p/${content.slug}`, revision, checklist, message: (sandbox ? `Published on the practice copy. Open ${url} here to see it. Use Send to live when it is ready for the real site.` : `Published. Live at ${url} within about a minute.`) + navMessage });
+        return res.status(200).json({ ok: true, sandbox, page: { ...row, draft_content: undefined, published_content: undefined, page_type: type, public_path: url }, url, alt_url: type === "ad" ? null : `/p/${content.slug}`, revision, checklist, verification: { ok: true, checks: verification.checks, images: media.images, copied: media.copied }, message: (sandbox ? `Published on the practice copy. Open ${url} here to see it. Use Send to live when it is ready for the real site.` : `Published. Live at ${url} within about a minute.`) + (media.copied ? ` ${media.copied} photo${media.copied === 1 ? "" : "s"} copied into the site's own storage.` : "") + navMessage });
+      }
+      case "durability": {
+        // "Where this page lives" (durability): addresses, export file, who
+        // published, revision, every photo with its bucket, last health run.
+        if (!id) throw fail(400, "Which page?");
+        const { page, revisions } = await loadPage(id);
+        const type = page.page_type;
+        const published = revisions.find(r => r.kind === "published" && Number(r.revision) === Number(page.published_revision)) || revisions.find(r => r.kind === "published") || null;
+        const images = durability.collectMedia(JSON.parse(JSON.stringify(page.published_content || page.draft_content || {}))).map(m => ({ url: m.url, bucket: durability.bucketLabel(m.url) }));
+        const buckets = [...new Set(images.map(i => i.bucket))];
+        const health = await getSetting("site_health").catch(() => null);
+        const healthPage = (health?.value?.pages || []).find(p => p.slug === page.slug) || null;
+        const exportIndex = durability.readExportIndex();
+        const exportEntry = exportIndex?.pages?.find(p => p.slug === page.slug) || null;
+        return res.status(200).json({ ok: true, sandbox, schema: isSandbox() ? "practice" : "public", bucket: bucketName("trainer-page-assets"), url: publicPathFor(type, page.slug), alt_url: type === "ad" ? null : `/p/${page.slug}`, export_html: `site/pages/${page.slug}.html`, export_json: `site/pages/${page.slug}.json`, export: exportEntry ? { revision: exportEntry.revision, exported_at: exportIndex.exported_at, matches: Number(exportEntry.revision) === Number(page.published_revision) } : null, status: page.status, revision: Number(page.published_revision || 0), published_at: page.published_at || null, published_by: published?.created_by || (page.status === "published" ? page.updated_by : null) || null, images, buckets, health: healthPage ? { ok: healthPage.ok, ran_at: health.value.ran_at, problems: healthPage.problems, warnings: healthPage.warnings } : (health?.value ? { ok: null, ran_at: health.value.ran_at, problems: [], warnings: ["not in the last health run (published since?)"] } : null) });
       }
       case "restore": {
         if (!id) throw fail(400, "Which page?");

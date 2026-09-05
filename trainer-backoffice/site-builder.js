@@ -124,9 +124,37 @@
     if (local && local.draft_revision === page.draft_revision && JSON.stringify(local.content) !== JSON.stringify(draft) && window.confirm("You have unsaved changes for this page from earlier in this browser. Put them back?")) {
       Object.assign(draft, T.normalizeSitePage(local.content));
     }
-    Object.assign(sb, { pageId: page.id, page, draft, savedJson: JSON.stringify(draft), draftRevision: Number(page.draft_revision || 1), revisions: data.revisions || [], status: "saved", savedAt: page.updated_at, selectedId: null, rightTab: "page", history: [], future: [], insertAt: null, panel: null });
+    Object.assign(sb, { pageId: page.id, page, draft, savedJson: JSON.stringify(draft), draftRevision: Number(page.draft_revision || 1), revisions: data.revisions || [], status: "saved", savedAt: page.updated_at, selectedId: null, rightTab: "page", history: [], future: [], insertAt: null, panel: null, durability: null });
     sb.left = window.innerWidth > 1100 || !sb.right;
     paintAll();
+    loadDurability(page.id); // durability
+  }
+
+  // durability: "Where this page lives" — addresses, export file, who published,
+  // revision, every photo with its bucket, the last nightly health run.
+  async function loadDurability(pageId) {
+    try {
+      const info = await S().api({ operation: "durability", id: pageId });
+      if (sb && sb.pageId === pageId) { sb.durability = info; if (sb.rightTab === "page" && !sb.selectedId) paintRight(); }
+    } catch { /* the panel just says it could not load */ }
+  }
+  function durabilityPanel() {
+    const { esc, dateLabel } = S();
+    const d = sb.durability;
+    const slug = sb.draft.slug || "…";
+    if (!d) return `<h4>Where this page lives</h4><p class="ps-help">Loading…</p>`;
+    const buckets = (d.buckets || []).map(b => `<b>${esc(b)}</b>`).join(", ") || "none";
+    const health = d.health ? (d.health.ok === true ? `✅ Healthy on ${esc(dateLabel(d.health.ran_at))}${d.health.warnings?.length ? ` — note: ${esc(d.health.warnings.join(" "))}` : ""}` : d.health.ok === false ? `⚠️ Broken on ${esc(dateLabel(d.health.ran_at))}: ${esc((d.health.problems || []).join(" "))}` : `Not checked yet (${esc((d.health.warnings || []).join(" "))})`) : "No health check has run yet.";
+    const exportLine = d.export ? (d.export.matches ? `Copy in git is current (revision ${esc(d.export.revision)}, exported ${esc(dateLabel(d.export.exported_at))}).` : `Copy in git is behind (revision ${esc(d.export.revision)} vs ${esc(d.revision)}) — the next deploy re-exports it.`) : "No copy in git yet — it is written by the next deploy (scripts/export-pages.mjs).";
+    return `<h4>Where this page lives</h4>
+      <div class="ps-help sb-durability">
+        <div><b>Address:</b> <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.url)}</a>${d.alt_url ? ` · also <a href="${esc(d.alt_url)}" target="_blank" rel="noopener">${esc(d.alt_url)}</a>` : ""} ${d.status === "published" ? "(live)" : "(not published yet)"}</div>
+        <div><b>Database:</b> ${esc(d.schema)} schema, table ad_pages, revision ${esc(d.revision)}${d.published_at ? `, published ${esc(dateLabel(d.published_at))}` : ""}${d.published_by ? ` by ${esc(d.published_by)}` : ""}</div>
+        <div><b>Copy in git:</b> ${esc(d.export_html)} + .json — ${exportLine}</div>
+        <div><b>Photos:</b> ${d.images.length} in ${buckets}${d.images.some(i => /practice-/.test(i.bucket)) && d.schema === "public" ? " — ⚠️ some still point at the practice copy; Publish copies them into the live bucket." : ""}</div>
+        <div><b>Nightly check:</b> ${health}</div>
+        <div>Photos upload to bucket <b>${esc(d.bucket)}</b> under site/ and pages/${esc(slug)}/. Full guide: docs/SITE-BUILDER.md.</div>
+      </div>`;
   }
 
   const draftJson = () => JSON.stringify(sb.draft);
@@ -462,6 +490,7 @@
       ${colorField("Primary colour", "theme.colors.primary", t.colors.primary, siteCache.theme.colors.primary)}${colorField("Accent colour", "theme.colors.accent", t.colors.accent, siteCache.theme.colors.accent)}${colorField("Page background", "theme.colors.background", t.colors.background, siteCache.theme.colors.background)}${colorField("Text colour", "theme.colors.text", t.colors.text, siteCache.theme.colors.text)}
       ${F("Section spacing", "theme.spacing", t.spacing, { type: "select", options: [["", "Site theme"], ["tight", "Tight"], ["normal", "Normal"], ["roomy", "Roomy"]] })}
       <button type="button" class="ps-btn" data-sb-act="clear-page-theme">Use the site theme for everything</button>
+      ${durabilityPanel()}
       <h4>History</h4>
       <p class="ps-help">Every publish keeps a version. Restore puts it back into the draft; publish again to make it live.</p>
       <button type="button" class="ps-btn navy" data-sb-act="snapshot">Save a version of the draft now</button>
@@ -745,6 +774,7 @@
         const data = await api({ operation: "publish", id: sb.pageId, content: sb.draft, add_to_nav: Boolean(m.querySelector("[data-add-nav]")?.checked) });
         m.remove();
         sb.page.status = "published"; sb.page.slug = sb.draft.slug; sb.savedJson = draftJson(); sb.status = "saved"; sb.savedAt = new Date().toISOString();
+        sb.page.published_revision = data.revision; sb.durability = null; loadDurability(sb.pageId); // durability: refresh "Where this page lives"
         await Promise.all([refreshRevisions().catch(() => {}), loadSite(true).catch(() => {})]);
         S().store.pages = null; S().loadPages(true);
         paintAll();

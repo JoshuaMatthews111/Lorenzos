@@ -23,3 +23,5 @@ PRODUCT.md
 build.py
 skills-lock.json
 DO-NOT-BREAK.md
+docs/
+site/pages/README.md

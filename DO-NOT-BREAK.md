@@ -272,3 +272,67 @@ Verification additions:
 - On a deployment: `/api/pages` → 403 without a login; `/p/<unpublished>` → 404; `/about` still
   the static file while its Site Builder twin is a draft; `/ericbeck` and
   `/trainer-opportunity-cleveland-oh` unchanged; `/sitemap.xml` → 200 XML.
+
+## Site durability (added 2026-09-05, Claude, branch feat/site-durability)
+
+Joshua: "make sure when they make pages it pushes live and actually comes into the storage, so
+things are not broken when they make a new page without me, or unfamiliar to us when we work on
+it for maintenance in the future." Maintainer's guide: `docs/SITE-BUILDER.md`.
+
+27. **A publish only counts when it really landed.** `api/pages.js` `publish`:
+    - BEFORE the write, `lib/page-durability.js prepareMedia()` checks every photo / video /
+      logo URL in the page. A URL that points at a practice bucket, a signed (temporary) link
+      or an inline `data:` image is COPIED into this deployment's own bucket under
+      `pages/<slug>/<hash>-<name>` (new object, never a move or a delete) and the URL rewritten;
+      a `blob:` URL or a link that does not answer 200 refuses the publish in plain words and
+      nothing is written.
+    - AFTER the write, `verifyPublished()` reads the row back (published, new revision, content),
+      runs the real page route in-process (what `/p/<slug>`, `/ads/<slug>` and the clean path
+      execute) and requires 200, requires the slug in `/api/pages-manifest` (site/landing) and
+      the page in `sitemap.xml`. Any failure → `rollbackPublish()` restores the previous
+      `status / published_content / published_revision / published_at / slug / title` and deletes
+      the attempt's `ad_page_revisions` row; the office sees
+      `Not published — the check "<name>" failed (<detail>). The previous version (revision N) is still live.`
+      Never move the media check after the write; never let a failed verification return 200.
+28. **Git always has a copy.** `scripts/export-pages.mjs` writes every PUBLISHED page to
+    `site/pages/<slug>.html` (byte-for-byte the route's output — it runs `api/ad-page.js`
+    in-process) and `site/pages/<slug>.json` (content + theme + menus + title/type/path/
+    published_by/published_at/revision/images), plus `site/pages/index.json`, `INDEX.md`,
+    `site/theme.json`, `site/menus.json`. `scripts/build-release.mjs` runs it before `vercel build`
+    and SKIPS with a note if the database is unreachable — the export must never fail a build.
+    `--check` exits 1 on drift; `--rows dump.json` works with no key; `--schema practice --out <dir>`
+    exports the practice copy anywhere. The files deploy with the site (`vercel.json`
+    `includeFiles: site/pages/**` on `api/ad-page.js`, `api/pages.js`, `api/cron/site-health.js`).
+    Never hand-edit `site/pages/*`; never add `site/` to `.vercelignore`.
+29. **Fallback order is manifest → exported copy → static file, and it still fails OPEN.**
+    `middleware.js`: manifest says published → page route; manifest down / slow / `ok:false` →
+    `/site/pages/index.json` → rewrite to `/site/pages/<slug>`; otherwise the request continues
+    to the static site. The matcher excludes `site/` so the export folder is never rewritten.
+    `api/ad-page.js`: a database ERROR (not "not published") serves `site/pages/<slug>.html`
+    with `X-LDTT-Served-From: export revision N` before answering 503; the `/ads` vs `/p`
+    entrance rule (#25) applies to the exported copy too. A plain "not published" is still 404.
+30. **Nightly health, Joshua only.** `api/cron/site-health.js` (vercel.json cron 08:30 UTC;
+    manual with `Authorization: Bearer $CRON_SECRET`; `?dry=1` checks everything and writes /
+    posts nothing) probes every published page's clean path and `/p/` for 200 from the page
+    route, every image for 200, and compares `site/pages/index.json` (revision + html sha256)
+    with a fresh render. Result → `site_settings.site_health` (the studio's "Where this page
+    lives" panel shows it) and, when a page is BROKEN, one `audit_events` row
+    (`site_page_broken`) plus ONE DSN Command approval per broken page, `type: "other"`,
+    title exactly `LDTT: page <slug> is not serving`, product `bb51502e-eb05-4919-82ce-ed5a39a8d609`,
+    bearer `DSN_AGENT_TOKEN`. A stale export is a warning, never an approval. Never on the
+    practice copy (`isSandbox()`), never to the office, never a test/probe approval (they cannot
+    be withdrawn). `scripts/site-health.mjs --base <url> --from-export` runs the same check from
+    any machine without the key.
+
+Verification additions:
+- `node --test tests/*.test.mjs` (36 tests: 14 new in `tests/site-durability.test.mjs` — media
+  classification, copy-in + rewrite, dead/blob refusal before any write, happy publish with the
+  four checks, rollback for each failing check with the revision row removed, export bytes =
+  route bytes + `--check` drift, route fallback to the export, middleware order, health
+  broken/stale/dry-run + cron writes, the studio's durability data).
+- `node scripts/audit-office-requirements.mjs` = 139 checks (6 new: publish verification +
+  rollback, media copy-in, export files present for every published page at build, health cron
+  exists, middleware fallback order, studio panel + guide).
+- `node scripts/export-pages.mjs --check` after any publish on live (exit 0 = git matches).
+- On a deployment: `node scripts/site-health.mjs --base <url> --from-export` → `ok: true`;
+  `GET /site/pages/index.json` 200; `/p/<slug>` and `/<slug>` 200 with `x-ldtt-page-type`.

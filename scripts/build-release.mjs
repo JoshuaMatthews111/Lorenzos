@@ -26,6 +26,20 @@ const run = (command, args) => execFileSync(command, args, {
 
 run(process.execPath, ["scripts/generate-trainer-opportunity-pages.mjs"]);
 run(process.execPath, ["scripts/generate-market-pages.mjs"]);
+// durability: materialise every published Site Builder page into site/pages/
+// so the deploy carries a copy. Never fails the build: no key or no database
+// means "skipped", said out loud, and the files already in git ship as they are.
+let pagesExport = { ok: false, note: "" };
+try {
+  const out = run(process.execPath, ["scripts/export-pages.mjs", "--schema", "public", "--quiet"]);
+  pagesExport = { ok: true, note: out.trim() || "exported" };
+  const index = JSON.parse(readFileSync(resolve(root, "site/pages/index.json"), "utf8"));
+  pagesExport.pages = index.pages.length;
+  console.log(`export-pages: ${index.pages.length} published page(s) written to site/pages/`);
+} catch (error) {
+  pagesExport = { ok: false, note: `SKIPPED — ${String(error.stderr || error.message || error).trim().split("\n").pop()}` };
+  console.log(`export-pages: ${pagesExport.note} (the site/pages/ files already in git ship unchanged)`);
+}
 run("vercel", ["build", "--target", target, "--yes"]);
 
 const outputRoot = resolve(root, ".vercel/output");
@@ -103,6 +117,7 @@ const requiredOutput = [
   "static/assets/trainer-videos/karemela-sefferin.mp4",
   "static/assets/trainer-videos/karemela-sefferin.jpg",
   "static/sitemap.xml",
+  "static/site/pages/index.json",
   "config.json"
 ];
 const missing = requiredOutput.filter(path => !existsSync(resolve(outputRoot, path)));
@@ -135,6 +150,13 @@ if (!adFunnelJs.includes("pdf-optin")) contentFailures.push("static/ad-funnel.js
 if (/Investor network|Donor(?: or|\/) project support/i.test(`${marketLandingJs}\n${adFunnelJs}`)) {
   contentFailures.push("market guide scripts must not include investor or donor paid-page options");
 }
+// durability: every page the export index lists must ship as .html + .json, and
+// the health cron must be in the build.
+const exportIndex = JSON.parse(readOutputText("static/site/pages/index.json"));
+for (const page of exportIndex.pages || []) {
+  for (const ext of ["html", "json"]) if (!existsSync(resolve(outputRoot, `static/site/pages/${page.slug}.${ext}`))) contentFailures.push(`static/site/pages/${page.slug}.${ext}: export file missing for a published page`);
+}
+if (!existsSync(resolve(outputRoot, "functions/api/cron/site-health.func/.vc-config.json"))) contentFailures.push("functions/api/cron/site-health.func: the nightly site health check is missing");
 if (contentFailures.length) throw new Error(`Release content verification failed:\n${contentFailures.join("\n")}`);
 
 const files = [];
@@ -176,6 +198,7 @@ const report = {
     "/assets/trainer-videos/karemela-sefferin.jpg"
   ],
   migrationRequired: "supabase/migrations/20260806015000_unified_operational_recovery.sql",
+  pagesExport,
 	  checks: {
 	    generatedCityPages: true,
 	    generatedMarketPages: true,
@@ -187,7 +210,9 @@ const report = {
 	    googleAdsTagPresent: true,
 	    paidConversionsPresent: true,
 	    hiddenAdAttributionPresent: true,
-	    paidInvestorDonorOptionsRemoved: true
+	    paidInvestorDonorOptionsRemoved: true,
+	    exportedPagesPresent: true,
+	    siteHealthCronPresent: true
 	  }
 	};
 

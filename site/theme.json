@@ -1,0 +1,25 @@
+{
+  "exported_at": "2026-09-05T10:32:54.174Z",
+  "schema": "public",
+  "theme": {
+    "version": 1,
+    "fontHead": "",
+    "fontBody": "",
+    "baseSize": "16",
+    "colors": {
+      "primary": "#062650",
+      "secondary": "#f4f8fc",
+      "accent": "#ce1233",
+      "background": "#ffffff",
+      "text": "#0f2340"
+    },
+    "buttonShape": "rounded",
+    "buttonFill": "filled",
+    "spacing": "normal",
+    "logo": "",
+    "logoDark": "",
+    "favicon": "",
+    "tagline": "Serious Training. Serious Results.",
+    "phone": "(866) 436-4959"
+  }
+}

@@ -68,14 +68,24 @@
     {
       "path": "/api/cron/archive-leads",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/site-health",
+      "schedule": "30 8 * * *"
     }
   ],
   "functions": {
     "api/pages.js": {
-      "includeFiles": "*.html"
+      "includeFiles": "{*.html,site/pages/**}"
     },
     "api/sitemap.js": {
       "includeFiles": "sitemap.xml"
+    },
+    "api/ad-page.js": {
+      "includeFiles": "site/pages/**"
+    },
+    "api/cron/site-health.js": {
+      "includeFiles": "{sitemap.xml,site/pages/**}"
     }
   }
 }

@@ -44,3 +44,7 @@ module.exports = async function handler(req, res) {
 };
 module.exports.deps = deps;
 module.exports.merge = merge;
+// durability: api/pages.js verifies a publish against the same merge, and
+// scripts/export-pages.mjs writes the merged file.
+module.exports.staticSitemap = staticSitemap;
+module.exports.publishedRows = publishedRows;

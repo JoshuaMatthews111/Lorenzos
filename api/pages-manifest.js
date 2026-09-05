@@ -16,11 +16,13 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SU
 const deps = { fetch: (...args) => fetch(...args) };
 
 async function publishedPaths() {
-  const target = supabaseRequest("/rest/v1/ad_pages?select=slug,page_type,published_at&status=eq.published&page_type=in.(site,landing)&limit=500");
+  // durability: published_revision rides along so the health check and the
+  // export can tell a stale copy from a current one without the service key.
+  const target = supabaseRequest("/rest/v1/ad_pages?select=slug,page_type,published_at,published_revision&status=eq.published&page_type=in.(site,landing)&limit=500");
   const response = await deps.fetch(`${SUPABASE_URL}${target.path}`, { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, ...target.headers } });
-  if (!response.ok) return [];
+  if (!response.ok) throw new Error(`manifest read failed (${response.status})`);
   const rows = await response.json().catch(() => []);
-  return (Array.isArray(rows) ? rows : []).filter(r => /^[a-z0-9-]{2,80}$/.test(String(r.slug || ""))).map(r => ({ slug: r.slug, page_type: r.page_type, published_at: r.published_at }));
+  return (Array.isArray(rows) ? rows : []).filter(r => /^[a-z0-9-]{2,80}$/.test(String(r.slug || ""))).map(r => ({ slug: r.slug, page_type: r.page_type, published_at: r.published_at, published_revision: Number(r.published_revision || 0) }));
 }
 
 module.exports = async function handler(req, res) {
