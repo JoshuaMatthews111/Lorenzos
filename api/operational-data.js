@@ -7,7 +7,7 @@ const sandboxStore = require("../lib/sandbox-store");
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  response.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, If-None-Match");
   return response;
 }
 
@@ -54,16 +54,21 @@ const CLIENT_COLUMNS = [
 ].join(",");
 const CLIENT_PAGE_LIMIT = 500;
 
-// site_events and lifecycle_events are ~12,000 rows each and every row carries a
+// site_events and lifecycle_events are ~13,500 rows each and every row carries a
 // raw_payload with user agents, full URLs and form echoes the portal never shows.
 // The dashboard reads only these keys (see siteEventRows / reportLifecycleRows),
 // so everything else stays on the server. referrer and user_agent are never read.
-const SITE_EVENT_COLUMNS = [
+const SITE_EVENT_BASE_COLUMNS = [
   "id", "trainer_id", "event_type", "page_path", "created_at", "trainer_slug", "assigned_trainer_name",
   "visitor_id", "session_id", "utm_source", "utm_medium", "utm_campaign",
-  "trainer_market", "trainer_city", "trainer_state", "raw_payload"
-].join(",");
+  "trainer_market", "trainer_city", "trainer_state"
+];
+const SITE_EVENT_COLUMNS = [...SITE_EVENT_BASE_COLUMNS, "raw_payload"].join(",");
 const SITE_EVENT_PAYLOAD_KEYS = ["qa", "page_url", "time_on_page_seconds", "landing_page_type", "ad_market", "timestamp"];
+// perf/portal-speed: reportLifecycleRows / getMetrics read only these columns.
+// market, source_page, visitor_id, session_id, utm_* and actor_user_id were
+// shipped on every poll and never read.
+const LIFECYCLE_BASE_COLUMNS = ["id", "event_key", "entity_type", "entity_id", "event_type", "occurred_at", "created_at"];
 const LIFECYCLE_PAYLOAD_KEYS = ["qa", "page_url"];
 
 function slimPayload(row, keys) {
@@ -74,6 +79,43 @@ function slimPayload(row, keys) {
 }
 const slimSiteEvents = rows => (Array.isArray(rows) ? rows.map(row => slimPayload(row, SITE_EVENT_PAYLOAD_KEYS)) : rows);
 const slimLifecycleEvents = rows => (Array.isArray(rows) ? rows.map(row => slimPayload(row, LIFECYCLE_PAYLOAD_KEYS)) : rows);
+
+// perf/portal-speed: the six kept raw_payload keys used to arrive inside the full
+// raw_payload (user agent, referrer, echoed form...) and be trimmed here — about
+// 20 MB pulled from Supabase for site_events and 20 MB for lifecycle_events on
+// EVERY poll, to keep 4 MB of it. PostgREST can pull just those keys out of the
+// JSON column (`key:raw_payload->key`), so the trim now happens in the database
+// and the rows arrive already in the shape the portal reads. If PostgREST ever
+// refuses the JSON-path select, the caller falls back to the full column.
+const PAYLOAD_KEY_PREFIX = "rp_";
+function jsonPathSelect(baseColumns, payloadKeys) {
+  return [...baseColumns, ...payloadKeys.map(key => `${PAYLOAD_KEY_PREFIX}${key}:raw_payload->${key}`)].join(",");
+}
+function rebuildPayload(rows, payloadKeys) {
+  if (!Array.isArray(rows)) return rows;
+  return rows.map(row => {
+    const kept = {};
+    const out = {};
+    for (const [column, value] of Object.entries(row)) {
+      if (column.startsWith(PAYLOAD_KEY_PREFIX)) {
+        if (value !== null && value !== undefined) kept[column.slice(PAYLOAD_KEY_PREFIX.length)] = value;
+      } else {
+        out[column] = value;
+      }
+    }
+    out.raw_payload = kept;
+    return out;
+  });
+}
+const SITE_EVENT_SELECT = jsonPathSelect(SITE_EVENT_BASE_COLUMNS, SITE_EVENT_PAYLOAD_KEYS);
+const LIFECYCLE_SELECT = jsonPathSelect(LIFECYCLE_BASE_COLUMNS, LIFECYCLE_PAYLOAD_KEYS);
+
+// perf/portal-speed: the Recent Activity table reads actor, action, summary and
+// entity columns. before_data / after_data are full record snapshots (about 5 MB
+// of the 5.3 MB table) and no screen shows them.
+const AUDIT_COLUMNS = [
+  "id", "actor_user_id", "actor_email", "actor_name", "action", "entity_type", "entity_id", "summary", "created_at"
+].join(",");
 
 // Exact row count without transferring the rows themselves.
 async function countRows(table) {
@@ -239,6 +281,77 @@ async function fetchByIn(pathPrefix, column, values, capability, unavailable) {
   return optionalSupabaseFetchAll(`${pathPrefix}${pathPrefix.includes("?") ? "&" : "?"}${encodeURIComponent(column)}=${filter}`, capability, unavailable);
 }
 
+// perf/portal-speed: site_events and lifecycle_events are append-only (rows are
+// inserted, never edited or deleted; a correction is a new row). So a warm
+// function instance keeps the last copy it built and, on the next poll, asks
+// the database for one row — the newest id plus the exact count. If both match,
+// the copy is reused without moving 30 MB again. If only new rows were added,
+// just those rows are fetched and put in front. Anything else (a count that
+// does not add up, a deleted row, a fresh instance) falls back to the full
+// fetch, so the result is always what a full fetch would have returned.
+const appendOnlyCache = new Map();
+
+function sortRowsDesc(rows, column) {
+  return rows.sort((a, b) => String(b[column] || "").localeCompare(String(a[column] || "")));
+}
+
+async function fetchAppendOnlyTable({ key, path, fallbackPath, orderColumn, shape }) {
+  const separator = path.includes("?") ? "&" : "?";
+  const fetchFull = async () => {
+    let rows;
+    try {
+      rows = shape(await supabaseFetchAll(`${path}${separator}order=${orderColumn}.desc`));
+    } catch (error) {
+      if (!fallbackPath || isMissingColumnError(error) || /relation .* does not exist|could not find the table|42p01/i.test(String(error?.message || error || ""))) throw error;
+      console.warn(`perf/portal-speed: JSON-path select refused for ${key}, using the full column`, error?.message || error);
+      rows = fallbackPath.shape(await supabaseFetchAll(`${fallbackPath.path}${separator}order=${orderColumn}.desc`));
+    }
+    sortRowsDesc(rows, orderColumn);
+    return rows;
+  };
+  const remember = rows => {
+    appendOnlyCache.set(key, { rows, total: rows.length, newestId: rows[0] ? String(rows[0].id) : "", newestAt: rows[0] ? String(rows[0][orderColumn] || "") : "" });
+    return rows;
+  };
+  const cached = appendOnlyCache.get(key);
+  if (!cached) return remember(await fetchFull());
+  let probe;
+  try {
+    probe = await supabaseFetchPage(`${path}${separator}order=${orderColumn}.desc`, "&", 1, 0, true);
+  } catch {
+    return remember(await fetchFull());
+  }
+  const total = probe.total;
+  const newest = Array.isArray(probe.data) ? probe.data[0] : null;
+  if (!Number.isFinite(total) || (total > 0 && !newest)) return remember(await fetchFull());
+  if (total === cached.total && (total === 0 || String(newest.id) === cached.newestId)) return cached.rows;
+  if (total > cached.total && cached.newestAt) {
+    try {
+      const fresh = shape(await supabaseFetchAll(`${path}${separator}${orderColumn}=gte.${encodeURIComponent(cached.newestAt)}&order=${orderColumn}.desc`));
+      const known = new Set(cached.rows.map(row => String(row.id)));
+      const added = fresh.filter(row => !known.has(String(row.id)));
+      if (cached.total + added.length === total) {
+        return remember(sortRowsDesc([...added, ...cached.rows], orderColumn));
+      }
+    } catch (error) {
+      console.warn(`perf/portal-speed: incremental fetch for ${key} failed, refetching`, error?.message || error);
+    }
+  }
+  return remember(await fetchFull());
+}
+
+// perf/portal-speed: the clients sheet holds 7,285 rows (3.9 MB) but only the
+// 500 clients the portal shows are ever merged with it, so ask for just those.
+const IN_FILTER_BATCH = 100;
+async function fetchByInBatched(pathPrefix, column, values, capability, unavailable) {
+  const unique = [...new Set((values || []).filter(Boolean).map(value => String(value)))];
+  if (!unique.length) return [];
+  const batches = [];
+  for (let i = 0; i < unique.length; i += IN_FILTER_BATCH) batches.push(unique.slice(i, i + IN_FILTER_BATCH));
+  const pages = await Promise.all(batches.map(batch => fetchByIn(pathPrefix, column, batch, capability, unavailable)));
+  return pages.flat();
+}
+
 async function loadAdminOperationalData(unavailableCapabilities) {
   const [
     trainers,
@@ -266,7 +379,9 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     supabaseFetchAll("/rest/v1/trainers?select=*&order=full_name.asc"),
     supabaseFetchAll("/rest/v1/trainer_pages?select=*&order=updated_at.desc"),
     supabaseFetchAll("/rest/v1/leads?select=*&order=created_at.desc"),
-    supabaseFetchAll("/rest/v1/lead_events?select=*&order=created_at.desc"),
+    // perf/portal-speed: lead_events (0.5 MB) was shipped on every poll and the
+    // portal never reads `leadEvents`; the key stays in the response, empty.
+    Promise.resolve([]),
     // The client database is now many thousands of rows. Sending all of them to the
     // browser pushed this response past the platform's size limit, which made the
     // whole portal fall back to offline mode — notes stopped saving and dragged
@@ -276,21 +391,40 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     supabaseFetchAll("/rest/v1/dogs?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/trainer_applications?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/content_submissions?select=*&order=created_at.desc"),
-    supabaseFetchAll(`/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}&order=created_at.desc`).then(slimSiteEvents),
+    fetchAppendOnlyTable({
+      key: "site_events",
+      path: `/rest/v1/site_events?select=${SITE_EVENT_SELECT}`,
+      fallbackPath: { path: `/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}`, shape: slimSiteEvents },
+      orderColumn: "created_at",
+      shape: rows => rebuildPayload(rows, SITE_EVENT_PAYLOAD_KEYS)
+    }),
     supabaseFetchAll("/rest/v1/portal_users?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/office_notes?select=*&order=created_at.desc"),
-    optionalSupabaseFetchAll("/rest/v1/audit_events?select=*&order=created_at.desc", "audit_events", unavailableCapabilities),
+    optionalSupabaseFetchAll(`/rest/v1/audit_events?select=${AUDIT_COLUMNS}&order=created_at.desc`, "audit_events", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_note_revisions?select=*&order=created_at.desc", "office_note_revisions", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/form_delivery_attempts?select=*&order=created_at.desc", "form_delivery_attempts", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/review_publications?select=*&order=updated_at.desc", "review_publications", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/lifecycle_events?select=*&order=occurred_at.desc", "lifecycle_events", unavailableCapabilities).then(slimLifecycleEvents),
+    fetchAppendOnlyTable({
+      key: "lifecycle_events",
+      path: `/rest/v1/lifecycle_events?select=${LIFECYCLE_SELECT}`,
+      fallbackPath: { path: "/rest/v1/lifecycle_events?select=*", shape: slimLifecycleEvents },
+      orderColumn: "occurred_at",
+      shape: rows => rebuildPayload(rows, LIFECYCLE_PAYLOAD_KEYS)
+    }).catch(error => {
+      if (!/relation .* does not exist|could not find the table|schema cache|42p01/i.test(String(error?.message || error || ""))) throw error;
+      unavailableCapabilities.push("lifecycle_events");
+      return [];
+    }),
     optionalSupabaseFetchAll("/rest/v1/office_leads_sheet?select=*&order=received_at.desc", "office_leads_sheet", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/office_clients_sheet?select=*&order=created_at.desc", "office_clients_sheet", unavailableCapabilities),
+    Promise.resolve(null),
     optionalSupabaseFetchAll("/rest/v1/deals?select=*&order=sold_on.desc,created_at.desc", "deals", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/deal_payments?select=*&order=due_on.asc,sequence.asc", "deal_payments", unavailableCapabilities)
   ]);
-  const clientsTotal = await countRows("clients").catch(() => clients.length);
+  const [clientsTotal, clientsSheetRows] = await Promise.all([
+    countRows("clients").catch(() => clients.length),
+    fetchByInBatched("/rest/v1/office_clients_sheet?select=*", "id", clients.map(row => row.id), "office_clients_sheet", unavailableCapabilities)
+  ]);
   return {
     clientsTotal,
     clientsTruncated: clients.length >= CLIENT_PAGE_LIMIT,
@@ -312,7 +446,7 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     lifecycleEvents,
     leadsSheet,
     applicationsSheet,
-    clientsSheet,
+    clientsSheet: clientsSheet || clientsSheetRows,
     deals,
     dealPayments
   };
@@ -325,7 +459,9 @@ async function loadTrainerOperationalData(portalUser, unavailableCapabilities) {
     supabaseFetchAll(`/rest/v1/trainer_pages?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=updated_at.desc`),
     supabaseFetchAll(`/rest/v1/leads?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`),
     supabaseFetchAll(`/rest/v1/content_submissions?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`),
-    optionalSupabaseFetchAll(`/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`, "site_events", unavailableCapabilities).then(slimSiteEvents)
+    optionalSupabaseFetchAll(`/rest/v1/site_events?select=${SITE_EVENT_SELECT}&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`, "site_events", unavailableCapabilities)
+      .then(rows => rebuildPayload(rows, SITE_EVENT_PAYLOAD_KEYS))
+      .catch(() => optionalSupabaseFetchAll(`/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`, "site_events", unavailableCapabilities).then(slimSiteEvents))
   ]);
   if (!trainers[0]) throw new Error("Trainer profile was not found for this portal account.");
   const leadIds = leads.map(row => row.id);
@@ -393,9 +529,11 @@ module.exports = async function handler(req, res) {
       : await loadAdminOperationalData(unavailableCapabilities);
     // The sandbox lays every tester's practice edits over the live rows, so the
     // whole team sees the same picture without a single real record changing.
+    let sandboxOps = [];
     if (isSandbox()) {
       try {
-        sandboxStore.applyOps(data, await sandboxStore.readOps());
+        sandboxOps = await sandboxStore.readOps();
+        sandboxStore.applyOps(data, sandboxOps);
         // Practice deals belong to whoever submitted them. A trainer sees only
         // their own, exactly as on live.
         if (access.portalUser.role === "trainer" && Array.isArray(data.deals)) {
@@ -432,12 +570,26 @@ module.exports = async function handler(req, res) {
     portalUsers = await enrichPortalUsersWithAuth(portalUsers);
 
     const syncedAt = new Date().toISOString();
-    const revisionInput = [trainers, pages, leads, clients, applications, submissions, officeNotes, auditEvents]
-      .flat()
-      .map(row => `${row.id || row.user_id || ""}:${row.version || row.revision || row.updated_at || row.auth_last_sign_in_at || row.created_at || ""}`)
-      .sort()
-      .join("|");
+    // perf/portal-speed: the revision now covers every collection the portal
+    // draws (it used to skip events, delivery attempts, note revisions, deals
+    // and the sandbox practice layer). The portal sends it back as
+    // If-None-Match on each 30-second poll; when nothing changed the answer is
+    // an empty 304 instead of a ~20 MB body the browser would parse and throw away.
+    const rowStamp = row => `${row.id || row.user_id || ""}:${row.version || row.revision || row.updated_at || row.auth_last_sign_in_at || row.created_at || ""}`;
+    const revisionInput = [
+      [trainers, pages, leads, clients, applications, submissions, officeNotes, auditEvents, portalUsers, dogs, noteRevisions, deliveryAttempts, reviewPublications, data.deals || [], data.dealPayments || []]
+        .flat().map(rowStamp).sort().join("|"),
+      `events:${events.length}:${events[0]?.id || ""}`,
+      `lifecycle:${lifecycleEvents.length}:${lifecycleEvents[0]?.id || ""}`,
+      `sandbox:${sandboxOps.length}:${sandboxOps[sandboxOps.length - 1]?.at || ""}`,
+      `clientsTotal:${data.clientsTotal ?? ""}`
+    ].join("||");
     const serverRevision = crypto.createHash("sha256").update(revisionInput).digest("hex").slice(0, 20);
+    const etag = `"${serverRevision}"`;
+    res.setHeader("ETag", etag);
+    res.setHeader("Cache-Control", "private, no-store");
+    const ifNoneMatch = String(req.headers["if-none-match"] || "").split(",").map(value => value.trim().replace(/^W\//, ""));
+    if (ifNoneMatch.includes(etag)) return res.status(304).end();
     const completeSheetRows = (records, projection) => {
       const projectedById = new Map((projection || []).map(row => [String(row.id), row]));
       return (records || []).map(record => ({

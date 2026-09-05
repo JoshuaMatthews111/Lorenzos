@@ -454,13 +454,21 @@
     return `${baseUrl}/storage/v1/object/public/${encodeURIComponent(bucket)}/${encodedPath}`;
   }
 
-  async function loadOperationalData() {
+  // perf/portal-speed: `ifNoneMatch` is the serverRevision the portal already
+  // holds. The API answers an empty 304 when nothing changed, and this resolves
+  // to null so the caller keeps what it has instead of parsing ~20 MB again.
+  async function loadOperationalData(options = {}) {
     const session = readSession();
     if (!session?.access_token) throw new Error("Your staff session has expired. Sign in again to load live records.");
+    const revision = String(options.ifNoneMatch || "").trim();
     const response = await fetch("/api/operational-data", {
       cache: "no-store",
-      headers: { Authorization: `Bearer ${session.access_token}` }
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        ...(revision ? { "If-None-Match": `"${revision}"` } : {})
+      }
     });
+    if (response.status === 304 && revision) return null;
     const data = await response.json().catch(() => null);
     if (!response.ok || !data?.ok || !data?.canonical) {
       throw new Error(data?.message || "Live staff records are temporarily unavailable. No cached records were shown.");
