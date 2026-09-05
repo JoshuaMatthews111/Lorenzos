@@ -366,3 +366,36 @@ Verification additions:
 - On the practice copy: `+ Add New Trainer` twice without naming the first → both save; a second trainer
   with the same email → plain 409 and the wizard stays on step 1; publish with a staff email → refused,
   page stays draft; Find a Trainer lists the newly published trainer; Delete Draft removes it everywhere.
+
+## Publish guard (added 2026-09-05, Claude, branch fix/publish-guard; merged on release/2026-09-05)
+
+32. **A trainer page can only be marked `published` when a real public page exists.**
+    `api/operational-mutation.js` `publishGuardViolation()` refuses `page_status = published`
+    on create and update (400, `publishGuard: true`, message exactly "This trainer has no
+    published page yet. Publish the page from Trainer Network → Edit Page first.") unless the
+    `trainer_pages` row carries `published_content` and `published_revision >= 1` — the two
+    things only the `publish_trainer_page` RPC writes. The row is read through
+    `supabaseFetch()` → `supabaseRequest()`, so on the practice copy the same two call sites
+    read and write `practice.trainer_pages`. The portal mirrors the rule
+    (`trainerHasPublishedPage`, first publish goes draft → RPC → published) and public reads
+    plus Find a Trainer (`script.js`) only resolve rows with
+    `published_content=not.is.null&published_revision=gte.1`.
+
+## Release 2026-09-05 (branch release/2026-09-05 = feat/site-durability ← fix/trainer-onboarding ← fix/publish-guard)
+
+33. **Real staff logins work on the practice copy, same permissions.** `auth.users` is shared;
+    `practice.portal_users` is a row-for-row copy of `public.portal_users` after a reset. The only
+    logins refused anywhere are the three sandbox testing emails, and only on LIVE
+    (`lib/sandbox.js` `blockedOutsideSandbox`, `app.js` `isSandboxOnlyLogin` gated on
+    `!window.LDTT_IS_SANDBOX`). On the practice copy the ONLY gates skipped are
+    must-change-password and complete-your-profile (every forced jump to Settings — boot, view
+    click AND `renderView()` — is behind `!window.LDTT_IS_SANDBOX`; 24 active live accounts still
+    carry `must_change_password`, so an unconditional jump pins them to Settings with no way out).
+    `changePassword` throws on the practice copy; `reset-portal-password` / `portal-password-reset`
+    stay 423. Never add a login condition that reads the schema.
+
+Verification (release 2026-09-05):
+- `node --test tests/*.test.mjs` = 53 tests (36 durability/site/send-to-live + 6 onboarding + 6 publish guard + 5 login gate).
+- `node scripts/audit-office-requirements.mjs` = 152 checks.
+- Read-only SQL: `select * from public.portal_users except select * from practice.portal_users` (and the reverse) → 0 rows right after a reset; `auth.users` = 45 = both portal_users tables; every practice portal user maps to an auth user.
+- `trainer-backoffice/index.html` script tags all on `?v=20260905release`.

@@ -115,7 +115,7 @@ const publicTrainerProfilesPromise=(async()=>{
     const headers={apikey:config.publishableKey,...(env?.schema&&env.schema!=='public'?{'Accept-Profile':env.schema}:{})};
     const [trainerResponse,pageResponse]=await Promise.all([
       fetch(`${base}/rest/v1/trainers?select=id,slug,full_name,market,state,service_area,bio,headshot_url,status,access_status&status=eq.active`,{headers}),
-      fetch(`${base}/rest/v1/trainer_pages?select=trainer_id,slug,page_status,locked,published_content&page_status=eq.published&locked=eq.true`,{headers})
+      fetch(`${base}/rest/v1/trainer_pages?select=trainer_id,slug,page_status,locked,published_content,published_revision&page_status=eq.published&locked=eq.true&published_content=not.is.null&published_revision=gte.1`,{headers}) /* publish-guard: Find a Trainer only lists pages that resolve */
     ]);
     if(!trainerResponse.ok) throw new Error(`Trainer profile request failed (${trainerResponse.status})`);
     const rows=await trainerResponse.json();

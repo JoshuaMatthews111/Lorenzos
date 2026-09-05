@@ -169,6 +169,33 @@ function filterChanges(config, changes) {
   );
 }
 
+// publish-guard (2026-09-05, approval ef605d4f). A trainer page may only be
+// marked "published" when a public page actually exists to serve: the row
+// must already carry published_content and a published_revision of 1 or more.
+// Both are set by the publish_trainer_page RPC, which is the one legitimate
+// publisher. Without this, a plain create/update could flip page_status to
+// published on an empty row and the trainer's URL fell through to the generic
+// "Right Trainer, Right Results" page (Giovanni Gutierrez, Tabatha Shelley,
+// Aug 19). Applies to every writer here, service-role included.
+const PUBLISH_GUARD_MESSAGE = "This trainer has no published page yet. Publish the page from Trainer Network → Edit Page first.";
+
+function hasPublishedPage(row) {
+  if (!row) return false;
+  const content = row.published_content;
+  const hasContent = content !== null && content !== undefined && !(typeof content === "object" && !Object.keys(content).length);
+  return hasContent && Number(row.published_revision || 0) >= 1;
+}
+
+// Returns a 400 result when `changes` would mark a trainer page published
+// without a servable page, otherwise null. `before` is the current row (null on
+// create); the check runs against the row as it would look after the write.
+function publishGuardViolation(entityType, before, changes) {
+  if (entityType !== "trainer_page") return null;
+  if (String(changes?.page_status || "") !== "published") return null;
+  if (hasPublishedPage({ ...(before || {}), ...(changes || {}) })) return null;
+  return { status: 400, body: { ok: false, publishGuard: true, message: PUBLISH_GUARD_MESSAGE } };
+}
+
 async function getRecord(table, id, idColumn = "id") {
   const rows = await supabaseFetch(`/rest/v1/${table}?select=*&${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}&limit=1`);
   return rows?.[0] || null;
@@ -232,6 +259,8 @@ async function updateRecord(admin, body, requestId) {
   }
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No supported changes were supplied." } };
+  const guard = publishGuardViolation(entityType, before, changes); // publish-guard
+  if (guard) return guard;
   await assertTrainerEmailFree(entityType, changes, id); // onboarding
   const rows = await supabaseFetch(`/rest/v1/${config.table}?${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -267,6 +296,8 @@ async function createRecord(admin, body, requestId) {
   if (!config) return { status: 400, body: { ok: false, message: "Unsupported operational record." } };
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No valid fields were supplied." } };
+  const guard = publishGuardViolation(entityType, null, changes); // publish-guard
+  if (guard) return guard;
   await assertTrainerEmailFree(entityType, changes, ""); // onboarding
   const rows = await supabaseFetch(`/rest/v1/${config.table}`, {
     method: "POST",
@@ -505,3 +536,8 @@ module.exports = async function handler(req, res) {
     return res.status(error.status || 500).json({ ok: false, message: error.message || "The live record could not be saved." });
   }
 };
+
+// Exposed for scripts/test-publish-guard.mjs; the handler above is unchanged.
+module.exports.PUBLISH_GUARD_MESSAGE = PUBLISH_GUARD_MESSAGE;
+module.exports.publishGuardViolation = publishGuardViolation;
+module.exports.hasPublishedPage = hasPublishedPage;
