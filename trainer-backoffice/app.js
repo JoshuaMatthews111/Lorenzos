@@ -1372,6 +1372,8 @@ function workspaceHasTypedInput() {
     const inner = frame.contentDocument?.activeElement;
     if (inner && (inner.isContentEditable || isTypingField(inner))) return true;
   }
+  // onboarding: a chosen file is "typed input" too — it cannot be put back after a redraw.
+  if ([...workspace.querySelectorAll('input[type="file"]')].some(field => field.files && field.files.length)) return true;
   return [...workspace.querySelectorAll("input, textarea")].some(field =>
     isTypingField(field) && String(field.value || "").trim() && String(field.value) !== String(field.defaultValue || ""));
 }
@@ -10971,7 +10973,11 @@ document.addEventListener("click", async event => {
     if (remoteReady) {
       try {
         await reloadRemoteData();
-        render();
+        // onboarding: this second redraw landed 1-3 s after the screen opened — right
+        // when a trainer had already chosen a photo. A file picker cannot be restored
+        // by the typing safety net, so the choice vanished and Submit said "Choose a
+        // photo". Draw through the same guard the poll uses.
+        backgroundRender();
       } catch (error) {
         console.error("LDTT shared portal refresh failed", error);
         showToast("Showing the most recently loaded data. Refresh to try again.");
