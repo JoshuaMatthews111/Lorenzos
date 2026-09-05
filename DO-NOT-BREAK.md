@@ -222,3 +222,33 @@ Verification additions:
 - `node scripts/audit-office-requirements.mjs` = 122 checks (name gates server + UI, four places the name is kept, Edge flag, browser switch-off).
 - On the preview with the practice testing login: `scripts/practice-names-proof.mjs dialogs send livetag reset`.
 - Read-only SQL after a practice-site form submit: `select count(*) from public.leads` / `public.trainer_applications` unchanged and no row with the test email.
+
+## Trainer onboarding (added 2026-09-05, Claude, branch fix/trainer-onboarding)
+
+21. **The trainer wizard and the page editor only ever write to the trainer the office picked.**
+    `mergeRemoteOperationalData` keeps a draft that is still being created (and the trainer being
+    edited) in `state.trainers` when a poll answers without it, and never jumps
+    `state.selectedTrainerId` to another trainer while `state.activeView` is `trainers` or
+    `pageEditor`; `trainerById()` returns null there instead of falling back to `trainers[0]`.
+    On 2026-09-05 the fallback wrote a new draft's name and email into Aryson Whorley's record.
+    - Unnamed drafts keep their own `office-draft-<time>` slug (`trainers.slug` is unique).
+    - One trainer object per trainer across reloads (`remoteTrainerToUi` mutates `existing`), and
+      an edit stamped after the last save started (`_editedAt > _savedAt`) survives that save's reload.
+    - Trainer saves are chained per trainer (`trainerSaveChains`); every `runRemoteMutation` that
+      wraps `persistTrainerRecord` / `publishTrainerPageWorkflow` passes `reload: false`.
+    - `publishTrainerPageWorkflow` checks the login (`ensure-trainer-user`) BEFORE the publish RPC;
+      the API refuses a staff email (409 `staffLogin`) and hands back the trainers row version.
+    - `api/operational-mutation.js`: duplicate slug/email answer 409 in plain words; one email per
+      active trainer. Trainers save social links through `api/trainer-social-links.js` only.
+    - `typedFieldKey()` carries the trainer editor boxes (`data-editor-field`, `data-profile-field`,
+      `data-trainer-social-link`, …); a chosen file and a contenteditable inside `#pageEditorPreview`
+      hold background redraws; the view handler's post-reload redraw goes through `backgroundRender()`.
+    - `script.js`: `const publicEnvironment` is declared above the Find a Trainer roster code (TDZ).
+
+Verification additions:
+- `node --test tests/*.test.mjs` (18 tests: plain 409s, one email per trainer, staff-login guard, live
+  creates the login with the temp password, practice never touches auth, trainer social links own-row).
+- `node scripts/audit-office-requirements.mjs` = 132 checks.
+- On the practice copy: `+ Add New Trainer` twice without naming the first → both save; a second trainer
+  with the same email → plain 409 and the wizard stays on step 1; publish with a staff email → refused,
+  page stays draft; Find a Trainer lists the newly published trainer; Delete Draft removes it everywhere.
