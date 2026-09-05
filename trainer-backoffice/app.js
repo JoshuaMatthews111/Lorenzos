@@ -989,7 +989,17 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
   // was still awaiting an upload wrote the result into the old object (lost) and the
   // next auto-save carried a stale updated_at ("Live record refreshed…" instead of
   // "Saved live"). Same object, same references, no stale copies.
-  return existing && existing.remoteId ? Object.assign(existing, merged) : merged;
+  if (existing && existing.remoteId) {
+    // Edited since the last save started: keep every field the office is working on
+    // and take only the bookkeeping from the server. The queued save carries the edits.
+    if (Number(existing._editedAt || 0) > Number(existing._savedAt || 0)) {
+      const keep = ["remoteId", "id", "pageId", "version", "updatedAt", "pageVersion", "pageUpdatedAt", "revision", "publishedRevision", "sentToLiveAt", "sentToLiveByName", "fromPracticeCopy", "archived", "accessStatus"];
+      keep.forEach(key => { existing[key] = merged[key]; });
+      return existing;
+    }
+    return Object.assign(existing, merged);
+  }
+  return merged;
 }
 
 // Which form the person actually filled in. The badge says which network sent
@@ -1699,6 +1709,7 @@ async function persistTrainerRecord(trainer, options = {}) {
 }
 
 async function persistTrainerRecordNow(trainer, options = {}) {
+  trainer._savedAt = Date.now(); // onboarding: edits after this survive this save's reload
   trainer.title ||= "Team Trainer";
   const normalizedLocation = normalizeTrainerLocation(trainer.profileMarket || trainer.market, trainer.profileState || trainer.state);
   trainer.market = normalizedLocation.market;
@@ -12005,6 +12016,20 @@ document.addEventListener("click", async event => {
     render();
   }
 });
+
+// onboarding: any edit inside a trainer editor stamps the trainer as edited. A save
+// that was already in flight reloads the portal payload when it finishes, and that
+// reload must not overwrite what the office typed meanwhile (see remoteTrainerToUi).
+const TRAINER_EDITOR_SCOPE = ".trainer-onboarding, .profile-editor-panel, .page-editor-shell, .trainer-social-settings";
+function stampTrainerEdit(event) {
+  const target = event.target;
+  if (!target?.closest?.(TRAINER_EDITOR_SCOPE)) return;
+  const trainer = session.role === "admin" ? trainerById() : trainerById(currentTrainerId());
+  if (trainer) trainer._editedAt = Date.now();
+}
+document.addEventListener("input", stampTrainerEdit, true);
+document.addEventListener("change", stampTrainerEdit, true);
+document.addEventListener("click", event => { if (event.target?.closest?.("[data-hero-image],[data-assign-layout],[data-section-move],[data-use-media],[data-remove-live-edit],[data-reset-live-edits]")) stampTrainerEdit(event); }, true);
 
 document.addEventListener("input", event => {
   const field = event.target;
