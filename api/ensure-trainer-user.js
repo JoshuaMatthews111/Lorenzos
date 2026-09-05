@@ -148,9 +148,12 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(trainerId)}`, {
+    // onboarding: hand back the row's new version/updated_at so the portal's next
+    // save (the publish itself) does not trip its own "updated by another staff
+    // member" check.
+    const updatedTrainers = await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(trainerId)}`, {
       method: "PATCH",
-      headers: { Prefer: "return=minimal" },
+      headers: { Prefer: "return=representation" },
       body: JSON.stringify({
         ...(authResult.userId ? { auth_user_id: authResult.userId } : {}),
         email,
@@ -158,6 +161,7 @@ module.exports = async function handler(req, res) {
         status: "active"
       })
     });
+    const updatedTrainer = updatedTrainers?.[0] || null;
 
     if (authResult.userId) await supabaseFetch("/rest/v1/portal_users?on_conflict=user_id", {
       method: "POST",
@@ -179,6 +183,7 @@ module.exports = async function handler(req, res) {
       email,
       user_id: authResult.userId,
       created: authResult.created,
+      trainer: updatedTrainer ? { version: updatedTrainer.version || null, updated_at: updatedTrainer.updated_at || null } : null,
       temporary_password: authResult.created ? TRAINER_TEMP_PASSWORD : "",
       ...(isSandbox() ? { message: authResult.practiceNoLogin
         ? "Practice copy: the trainer is enabled and their page can be published here, but no login was created — logins are real and shared with live. Create the login on the live portal when the trainer is real."
