@@ -15,12 +15,14 @@ process.env.LDTT_TRAINER_TEMP_PASSWORD = "temp-pass-for-tests";
 const mutation = require("../api/operational-mutation.js");
 const ensureTrainerUser = require("../api/ensure-trainer-user.js");
 const sandbox = require("../lib/sandbox.js");
+const socialLinks = require("../api/trainer-social-links.js");
 
+const HARLEY = { user_id: "u-harley", role: "trainer", permission_level: "trainer", trainer_id: "t-harley", active: true, access_status: "active", email: "trainer@lorenzosdogtrainingteam.com" };
 const SUPER = { user_id: "u-super", role: "admin", permission_level: "super_admin", active: true, access_status: "active", email: "joshua@lorenzosdogtrainingteam.com", display_name: "Joshua" };
 const ANGELA = { user_id: "u-angela", role: "admin", permission_level: "office_admin", active: true, access_status: "active", email: "angela@lorenzosdogtrainingteam.com", display_name: "Angela Office" };
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-function makeWorld({ trainers = [], pages = [], portalUsers = [SUPER, ANGELA], authUsers = [] } = {}) {
+function makeWorld({ trainers = [], pages = [], portalUsers = [SUPER, ANGELA, HARLEY], authUsers = [] } = {}) {
   const store = { trainers, trainer_pages: pages, portal_users: portalUsers, audit_events: [], lifecycle_events: [], lead_events: [] };
   const writes = [];
   const authAdminCalls = [];
@@ -185,4 +187,23 @@ test("PRACTICE COPY: never creates or changes an auth user; with no login it ena
   } finally {
     process.env.LDTT_SANDBOX = "";
   }
+});
+
+test("a trainer saves their own social links (own trainer only, links cleaned, a bad link refused with a plain sentence)", async () => {
+  const world = makeWorld({
+    trainers: [{ id: "t-harley", slug: "harley-mcgrew", full_name: "Harley McGrew", status: "active", social_links: { facebook: "https://facebook.com/old" } }, { id: "t-other", slug: "other", full_name: "Other", status: "active" }],
+    pages: [{ id: "p-harley", trainer_id: "t-harley", slug: "harley-mcgrew", social_facebook: "https://facebook.com/old" }, { id: "p-other", trainer_id: "t-other", slug: "other" }]
+  });
+  // trainer_id in the body is ignored for a trainer: they can only write their own row
+  const res = await call(socialLinks, { trainer_id: "t-other", instagram: "instagram.com/harley", facebook: "", tiktok: "https://tiktok.com/@harley" }, "u-harley-token");
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.body.links, { facebook: null, instagram: "https://instagram.com/harley", tiktok: "https://tiktok.com/@harley" });
+  assert.equal(world.store.trainer_pages[0].social_instagram, "https://instagram.com/harley");
+  assert.equal(world.store.trainer_pages[0].social_facebook, null);
+  assert.equal(world.store.trainer_pages[1].social_instagram, undefined, "the other trainer's page is untouched");
+  assert.deepEqual(world.store.trainers[0].social_links, { facebook: null, instagram: "https://instagram.com/harley", tiktok: "https://tiktok.com/@harley" });
+  const bad = await call(socialLinks, { instagram: "not a link" }, "u-harley-token");
+  assert.equal(bad.statusCode, 400);
+  assert.match(bad.body.message, /instagram link is not a web address/);
+  assert.equal((await call(socialLinks, { instagram: "https://instagram.com/x" }, "no-such-token")).statusCode, 403);
 });

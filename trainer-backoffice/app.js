@@ -2842,6 +2842,22 @@ async function resetPortalUserPassword(user, password) {
 
 async function persistTrainerSocialRecord(trainer) {
   if (!remoteReady || !trainer?.pageId) return;
+  // onboarding: a trainer cannot use the admin-only mutation API (every save answered
+  // "Active Admin or Office Admin access required"). Their own endpoint writes the
+  // links to their own trainer; the office keeps the audited admin path.
+  if (session.role !== "admin") {
+    const token = window.LDTT_PORTAL?.accessToken?.() || "";
+    const response = await fetch("/api/trainer-social-links", {
+      method: "POST", cache: "no-store",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ facebook: trainer.socials?.facebook || "", instagram: trainer.socials?.instagram || "", tiktok: trainer.socials?.tiktok || "" })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.ok === false) throw new Error(result.message || `Your links could not be saved (${response.status}).`);
+    if (result.page_updated_at) trainer.pageUpdatedAt = result.page_updated_at;
+    showToast("Social links saved");
+    return;
+  }
   await window.LDTT_PORTAL.operationalMutation({
     operation: "update",
     entity_type: "trainer_page",
