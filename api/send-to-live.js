@@ -32,6 +32,7 @@
 // Publishing stays on live only.
 
 const { isSandbox } = require("../lib/sandbox");
+const portalAuth = require("../lib/portal-auth.js");
 const template = require("../lib/ad-page-template.js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -122,24 +123,18 @@ async function schemaFetch(schema, path, options = {}) {
 const practiceFetch = (path, options) => schemaFetch("practice", path, options);
 const liveFetch = (path, options) => schemaFetch("public", path, options);
 
-// Same rule as api/ad-pages.js and api/operational-mutation.js: an active admin
-// portal user whose permission is super_admin or office_admin. A trainer login
-// is refused. Checked against the practice copy of portal_users, which is what
-// the person is signed in to.
+// Same rule as api/pages.js and api/operational-mutation.js: an active admin
+// portal user whose permission is super_admin or office_admin (lib/portal-auth.js,
+// through deps.fetch). A trainer login is refused. The handler already answered
+// 404 unless LDTT_SANDBOX=1, so the lookup reads the practice copy of
+// portal_users, which is what the person is signed in to.
 async function verifyOfficeUser(token) {
-  if (!token) return null;
-  const r = await deps.fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` } });
-  if (!r.ok) return null;
-  const user = await r.json();
-  if (!user?.id) return null;
-  const rows = await practiceFetch(`/rest/v1/portal_users?select=user_id,role,permission_level,active,access_status,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(user.id)}&active=eq.true&limit=1`);
-  const pu = rows?.[0];
-  if (!pu || ["disabled", "revoked"].includes(String(pu.access_status || "active"))) return null;
-  const isAdmin = pu.role === "admin" && ["super_admin", "office_admin"].includes(String(pu.permission_level || "super_admin"));
-  if (!isAdmin) return null;
-  const email = clean(pu.email || user.email, 254).toLowerCase();
+  const result = await portalAuth.verifyPortalUser(token, { require: "admin", fetchImpl: (...args) => deps.fetch(...args) });
+  if (!result) return null;
+  const pu = result.portalUser;
+  const email = clean(pu.email || result.user.email, 254).toLowerCase();
   const name = [pu.first_name, pu.last_name].filter(Boolean).join(" ") || pu.display_name || email || "office";
-  return { user, portalUser: pu, email, name };
+  return { ...result, email, name };
 }
 
 const pick = (source, keys) => Object.fromEntries(keys.filter(key => source[key] !== undefined).map(key => [key, source[key]]));
@@ -320,6 +315,7 @@ module.exports = async function handler(req, res) {
     const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const auth = await verifyOfficeUser(token);
     if (!auth) return res.status(403).json({ ok: false, message: "Send to live is for office staff (Super Admin or Office Admin). Sign in with an office account." });
+    if (portalAuth.refusedSandboxOnlyLogin(res, auth)) return;
 
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const kind = clean(body.kind, 40);

@@ -1,4 +1,5 @@
 const { isSandbox, supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const TRAINER_TEMP_PASSWORD = process.env.LDTT_TRAINER_TEMP_PASSWORD || "doglovers26";
@@ -42,21 +43,6 @@ async function supabaseFetch(path, options = {}) {
     throw new Error(message);
   }
   return data;
-}
-
-async function verifyAdmin(accessToken) {
-  if (!accessToken) return null;
-  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
-  if (!userResponse.ok) return null;
-  const user = await userResponse.json();
-  if (!user?.id) return null;
-  const rows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,active&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&active=eq.true&limit=1`);
-  return rows?.[0] ? user : null;
 }
 
 async function findAuthUserByEmail(email) {
@@ -106,9 +92,11 @@ module.exports = async function handler(req, res) {
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured on Vercel." });
 
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const admin = await verifyAdmin(token);
-    if (!admin) return res.status(403).json({ ok: false, message: "Active admin access required." });
+    // Office staff only (lib/portal-auth.js): super_admin or office_admin,
+    // active, access_status not disabled/revoked. This endpoint used to accept
+    // any role=admin row, whatever its permission_level or access_status.
+    const admin = await authorizeRequest(req, res, { require: "admin", message: "Active admin access required." });
+    if (!admin) return;
 
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const trainerId = clean(payload.trainer_id, 80);

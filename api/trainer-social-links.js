@@ -6,6 +6,7 @@
 // trainer_id. Writes trainer_pages.social_* and trainers.social_links for that one
 // trainer, through the schema switch (practice copy → practice.*).
 const { supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -46,30 +47,18 @@ async function supabaseFetch(path, options = {}) {
   return data;
 }
 
-async function verifyPortalUser(token) {
-  if (!token) return null;
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` } });
-  if (!r.ok) return null;
-  const user = await r.json();
-  if (!user?.id) return null;
-  const rows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,permission_level,trainer_id,active,access_status&user_id=eq.${encodeURIComponent(user.id)}&active=eq.true&limit=1`);
-  const pu = rows?.[0];
-  if (!pu || ["disabled", "revoked"].includes(String(pu.access_status || "active"))) return null;
-  const isAdmin = pu.role === "admin" && ["super_admin", "office_admin"].includes(String(pu.permission_level || "super_admin"));
-  return { user, portalUser: pu, isAdmin };
-}
-
 module.exports = async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured." });
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const auth = await verifyPortalUser(token);
-    if (!auth) return res.status(403).json({ ok: false, message: "Sign in to the portal to save your links." });
+    // Any active portal user (lib/portal-auth.js): a trainer writes their own
+    // row only; office staff may name a trainer_id.
+    const auth = await authorizeRequest(req, res, { require: "any", message: "Sign in to the portal to save your links." });
+    if (!auth) return;
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-    const trainerId = auth.isAdmin ? (clean(body.trainer_id, 60) || auth.portalUser.trainer_id) : auth.portalUser.trainer_id;
+    const trainerId = auth.isAdmin ? (clean(body.trainer_id, 60) || auth.trainerId) : auth.trainerId;
     if (!trainerId) return res.status(400).json({ ok: false, message: "This portal account is not linked to a trainer." });
 
     const links = {};

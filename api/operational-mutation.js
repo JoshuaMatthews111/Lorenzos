@@ -1,4 +1,5 @@
-const { blockedOutsideSandbox, supabaseRequest } = require("../lib/sandbox");
+const { supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -101,36 +102,6 @@ async function supabaseFetch(path, options = {}) {
     throw error;
   }
   return data;
-}
-
-async function verifyAdmin(accessToken) {
-  if (!accessToken) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${accessToken}` }
-  });
-  if (!response.ok) return null;
-  const user = await response.json();
-  if (!user?.id) return null;
-  const rows = await supabaseFetch(
-    `/rest/v1/portal_users?select=user_id,role,permission_level,active,access_status,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&active=eq.true&limit=1`
-  );
-  const portalUser = rows?.[0];
-  if (!portalUser || ["disabled", "revoked"].includes(String(portalUser.access_status || "active"))) return null;
-  const permission = String(portalUser.permission_level || "super_admin");
-  if (!["super_admin", "office_admin"].includes(permission)) return null;
-  const actorName = clean(
-    portalUser.display_name || [portalUser.first_name, portalUser.last_name].filter(Boolean).join(" "),
-    180
-  );
-  return {
-    user,
-    portalUser,
-    actor: {
-      id: user.id,
-      email: clean(portalUser.email || user.email, 254),
-      name: actorName || clean(user.email, 180)
-    }
-  };
 }
 
 // onboarding: plain words for the two ways a trainer save collides with another
@@ -418,7 +389,7 @@ function mayPermanentlyDelete(record) {
 }
 
 async function permanentlyDelete(admin, body, requestId) {
-  if (String(admin.portalUser.permission_level || "super_admin") !== "super_admin") {
+  if (!admin.isSuperAdmin) {
     return { status: 403, body: { ok: false, message: "Only a Super Admin can permanently delete a record." } };
   }
   const entityType = clean(body.entity_type, 40);
@@ -510,12 +481,10 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured on Vercel." });
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const admin = await verifyAdmin(token);
-    if (!admin) return res.status(403).json({ ok: false, message: "Active Admin or Office Admin access required." });
-    // A sandbox testing login must not reach live records, even with a token it
-    // picked up legitimately in the sandbox.
-    if (blockedOutsideSandbox(res, admin.actor?.email)) return;
+    // Office staff only (lib/portal-auth.js): super_admin or office_admin. A
+    // sandbox testing login is turned away on live inside authorizeRequest.
+    const admin = await authorizeRequest(req, res, { require: "admin", message: "Active Admin or Office Admin access required." });
+    if (!admin) return;
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const requestId = clean(body.request_id, 120) || crypto.randomUUID();
     let result;

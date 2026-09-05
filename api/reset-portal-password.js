@@ -1,4 +1,5 @@
-const { blockedInSandbox, blockedOutsideSandbox, supabaseRequest } = require("../lib/sandbox");
+const { blockedInSandbox, supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 
@@ -39,32 +40,6 @@ async function supabaseFetch(path, options = {}) {
   return data;
 }
 
-async function verifySuperAdmin(accessToken) {
-  if (!accessToken) return null;
-  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
-  if (!userResponse.ok) return null;
-  const user = await userResponse.json();
-  if (!user?.id) return null;
-  const rows = await supabaseFetch(
-    `/rest/v1/portal_users?select=user_id,role,permission_level,active,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&permission_level=eq.super_admin&active=eq.true&limit=1`
-  );
-  const portalUser = rows?.[0];
-  if (!portalUser) return null;
-  return {
-    user,
-    actor: {
-      id: user.id,
-      email: clean(portalUser.email || user.email, 254),
-      name: clean([portalUser.first_name, portalUser.last_name].filter(Boolean).join(" ") || portalUser.display_name || user.email, 180)
-    }
-  };
-}
-
 module.exports = async function handler(req, res) {
   // The sandbox reads live records but is never allowed to change them.
   if (blockedInSandbox(res, "Resetting this password")) return;
@@ -74,10 +49,11 @@ module.exports = async function handler(req, res) {
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured on Vercel." });
 
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const admin = await verifySuperAdmin(token);
-    if (admin && blockedOutsideSandbox(res, admin.actor?.email)) return;
-    if (!admin) return res.status(403).json({ ok: false, message: "Super Admin access required." });
+    // Super Admin only (lib/portal-auth.js); a disabled/revoked super admin is
+    // refused too (this endpoint used to skip access_status). Null check first,
+    // then the sandbox-only-login refusal.
+    const admin = await authorizeRequest(req, res, { require: "super", message: "Super Admin access required." });
+    if (!admin) return;
 
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const userId = clean(payload.user_id, 120);

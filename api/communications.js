@@ -1,4 +1,5 @@
-const { blockedInSandbox, blockedOutsideSandbox, supabaseRequest } = require("../lib/sandbox");
+const { blockedInSandbox, supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -128,26 +129,14 @@ async function supabaseFetch(path, options = {}) {
   return data;
 }
 
-async function verifyPortalUser(accessToken) {
-  if (!accessToken) return null;
-  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${accessToken}` }
-  });
-  if (!response.ok) return null;
-  const user = await response.json();
-  const rows = await supabaseFetch(`/rest/v1/portal_users?select=*&user_id=eq.${encodeURIComponent(user.id)}&active=eq.true&limit=1`);
-  const portalUser = rows?.[0];
-  if (!portalUser || ["disabled", "revoked"].includes(String(portalUser.access_status || "active"))) return null;
-  if (!["admin", "trainer"].includes(portalUser.role)) return null;
-  return { user, portalUser };
-}
-
+// Role flags come from lib/portal-auth.js; an admin row without a recognised
+// permission_level was already refused there (fail closed).
 function isAdmin(access) {
-  return access?.portalUser?.role === "admin" && ["super_admin", "office_admin"].includes(String(access.portalUser.permission_level || "super_admin"));
+  return Boolean(access?.isAdmin);
 }
 
 function isSuperAdmin(access) {
-  return isAdmin(access) && String(access.portalUser.permission_level || "super_admin") === "super_admin";
+  return Boolean(access?.isSuperAdmin);
 }
 
 function actorName(access) {
@@ -524,9 +513,18 @@ async function leadAction(access, body) {
   if (!leadId) throw Object.assign(new Error("Lead is required."), { status: 400 });
   const operation = clean(body.operation, 40);
   const isManager = isAdmin(access);
-  const rows = await supabaseFetch(`/rest/v1/leads?select=id,status,claimed_by&id=eq.${encodeURIComponent(leadId)}&limit=1`);
+  const rows = await supabaseFetch(`/rest/v1/leads?select=id,status,claimed_by,trainer_id&id=eq.${encodeURIComponent(leadId)}&limit=1`);
   const lead = rows?.[0];
   if (!lead) throw Object.assign(new Error("This lead is no longer available."), { status: 404 });
+  // Who may act on this lead. Office staff (super_admin / office_admin) may
+  // claim, release or mark any lead. A trainer may only act on a lead that is
+  // assigned to THEM (leads.trainer_id = their trainer_id) — DO-NOT-BREAK 7:
+  // trainers see only their own leads, so an unassigned lead (trainer_id null)
+  // is not theirs to claim either; the office assigns it first. Before this
+  // gate a trainer token could claim, release or mark ANY lead id.
+  if (!isManager && String(lead.trainer_id || "") !== String(access.trainerId || "")) {
+    throw Object.assign(new Error("Only the office or the trainer this lead is assigned to can do that."), { status: 403 });
+  }
   const closedStatuses = new Set([
     "archived", "do_not_contact", "bad_lead", "became_client",
     "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
@@ -984,10 +982,11 @@ async function handler(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Secure portal server configuration is unavailable." });
   try {
-    const token = clean(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const access = await verifyPortalUser(token);
-    if (!access) return res.status(403).json({ ok: false, message: "Active portal access required." });
-    if (blockedOutsideSandbox(res, access.portalUser?.email || access.user?.email)) return;
+    // Any active portal user (lib/portal-auth.js); each operation below gates
+    // on access.isAdmin / access.isSuperAdmin. A sandbox testing login is
+    // turned away on live inside authorizeRequest.
+    const access = await authorizeRequest(req, res, { require: "any", message: "Active portal access required." });
+    if (!access) return;
     const operation = req.method === "GET" ? clean(req.query?.operation || "load", 50) : clean(req.body?.operation, 50);
     // Practice copy: lists, members, templates, settings, campaigns, claims and
     // consent all save to the practice schema and work. The two operations that

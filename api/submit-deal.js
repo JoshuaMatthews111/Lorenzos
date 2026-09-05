@@ -11,6 +11,7 @@
 
 const crypto = require("crypto");
 const { isSandbox, supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -61,21 +62,6 @@ async function supabaseFetch(path, options = {}) {
   return data;
 }
 
-// Any active portal user may submit. Trainers are pinned to their own trainer_id;
-// admins may submit on a trainer's behalf by passing trainer_id.
-async function verifyPortalUser(token) {
-  if (!token) return null;
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` } });
-  if (!r.ok) return null;
-  const user = await r.json();
-  if (!user?.id) return null;
-  const rows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,permission_level,trainer_id,active,access_status,email,display_name&user_id=eq.${encodeURIComponent(user.id)}&active=eq.true&limit=1`);
-  const pu = rows?.[0];
-  if (!pu || ["disabled", "revoked"].includes(String(pu.access_status || "active"))) return null;
-  const isAdmin = pu.role === "admin" && ["super_admin", "office_admin"].includes(String(pu.permission_level || "super_admin"));
-  return { user, portalUser: pu, isAdmin };
-}
-
 // Build the schedule. Balance is split evenly; the last installment absorbs
 // rounding so the total always equals the balance exactly.
 function buildSchedule({ balance, planType, installments, startDate, customDates }) {
@@ -104,12 +90,14 @@ module.exports = async function handler(req, res) {
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured." });
 
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const auth = await verifyPortalUser(token);
-    if (!auth) return res.status(403).json({ ok: false, message: "Sign in to the portal to submit a deal." });
+    // Any active portal user may submit (lib/portal-auth.js). Trainers are
+    // pinned to their own trainer_id; admins may submit on a trainer's behalf
+    // by passing trainer_id.
+    const auth = await authorizeRequest(req, res, { require: "any", message: "Sign in to the portal to submit a deal." });
+    if (!auth) return;
 
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-    const trainerId = auth.isAdmin ? (clean(body.trainer_id, 60) || auth.portalUser.trainer_id) : auth.portalUser.trainer_id;
+    const trainerId = auth.isAdmin ? (clean(body.trainer_id, 60) || auth.trainerId) : auth.trainerId;
     if (!trainerId) return res.status(400).json({ ok: false, message: "This portal account is not linked to a trainer." });
 
     const clientName = clean(body.client_name, 160);

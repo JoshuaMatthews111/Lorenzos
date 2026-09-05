@@ -47,6 +47,7 @@ async function supabaseFetch(path, options = {}) {
 
 function authorized(req) {
   // Vercel stamps its own scheduled calls; a shared secret covers manual runs.
+  // NOTE (auth review 2026-09-05): header PRESENCE is trusted, its value is not checked. Vercel strips a spoofed x-vercel-cron from outside requests, so this is left as is.
   if (req.headers["x-vercel-cron"]) return true;
   const bearer = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
   return Boolean(CRON_SECRET) && bearer === CRON_SECRET;

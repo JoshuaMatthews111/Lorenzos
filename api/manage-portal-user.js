@@ -1,4 +1,5 @@
-const { blockedInSandbox, blockedOutsideSandbox, supabaseRequest } = require("../lib/sandbox");
+const { blockedInSandbox, supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest, isMissingColumnError } = require("../lib/portal-auth");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 
@@ -11,10 +12,6 @@ function cors(response) {
 
 function clean(value, maxLength = 500) {
   return String(value || "").trim().slice(0, maxLength);
-}
-
-function isMissingColumnError(error) {
-  return /column .* does not exist|could not find the .* column|schema cache|42703/i.test(String(error?.message || error || ""));
 }
 
 async function supabaseFetch(path, options = {}) {
@@ -41,41 +38,6 @@ async function supabaseFetch(path, options = {}) {
     throw new Error(message);
   }
   return data;
-}
-
-async function verifySuperAdmin(accessToken) {
-  if (!accessToken) return null;
-  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
-  if (!userResponse.ok) return null;
-  const user = await userResponse.json();
-  if (!user?.id) return null;
-  let rows;
-  try {
-    rows = await supabaseFetch(
-      `/rest/v1/portal_users?select=user_id,role,permission_level,active,access_status,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&permission_level=eq.super_admin&active=eq.true&access_status=eq.active&limit=1`
-    );
-  } catch (error) {
-    if (!isMissingColumnError(error)) throw error;
-    rows = await supabaseFetch(
-      `/rest/v1/portal_users?select=user_id,role,active&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&active=eq.true&limit=1`
-    );
-  }
-  const portalUser = rows?.[0];
-  if (!portalUser) return null;
-  return {
-    user,
-    portalUser,
-    actor: {
-      id: user.id,
-      email: clean(portalUser.email || user.email, 254),
-      name: clean([portalUser.first_name, portalUser.last_name].filter(Boolean).join(" ") || portalUser.display_name || user.email, 180)
-    }
-  };
 }
 
 async function auditPortalChange(admin, action, target, updated, summary) {
@@ -116,10 +78,10 @@ module.exports = async function handler(req, res) {
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured on Vercel." });
 
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const admin = await verifySuperAdmin(token);
-    if (admin && blockedOutsideSandbox(res, admin.actor?.email)) return;
-    if (!admin) return res.status(403).json({ ok: false, message: "Active Super Admin access required." });
+    // Super Admin only (lib/portal-auth.js). The null check runs before the
+    // sandbox-only-login refusal, inside authorizeRequest.
+    const admin = await authorizeRequest(req, res, { require: "super", message: "Active Super Admin access required." });
+    if (!admin) return;
 
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
 

@@ -17,7 +17,7 @@ const ensureTrainerUser = require("../api/ensure-trainer-user.js");
 const sandbox = require("../lib/sandbox.js");
 const socialLinks = require("../api/trainer-social-links.js");
 
-const HARLEY = { user_id: "u-harley", role: "trainer", permission_level: "trainer", trainer_id: "t-harley", active: true, access_status: "active", email: "trainer@lorenzosdogtrainingteam.com" };
+const HARLEY = { user_id: "u-harley", role: "trainer", permission_level: "trainer", trainer_id: "t-harley", active: true, access_status: "active", email: "harley@lorenzosdogtrainingteam.com" }; // a real trainer login, not the sandbox-only testing one (that is refused on live by lib/portal-auth.js)
 const SUPER = { user_id: "u-super", role: "admin", permission_level: "super_admin", active: true, access_status: "active", email: "joshua@lorenzosdogtrainingteam.com", display_name: "Joshua" };
 const ANGELA = { user_id: "u-angela", role: "admin", permission_level: "office_admin", active: true, access_status: "active", email: "angela@lorenzosdogtrainingteam.com", display_name: "Angela Office" };
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

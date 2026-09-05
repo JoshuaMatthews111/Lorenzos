@@ -29,6 +29,7 @@ const importer = require("../lib/static-page-importer.js");
 const siteData = require("../lib/site-data.js");
 const imageAspects = require("../lib/ad-page-image-aspects.js");
 const durability = require("../lib/page-durability.js"); // durability: publish verification + "where this page lives"
+const portalAuth = require("../lib/portal-auth.js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -72,20 +73,15 @@ async function supabaseFetch(path, options = {}) {
   return data;
 }
 
-// Office staff only: admin role with super_admin or office_admin permission.
+// Office staff only: admin role with super_admin or office_admin permission
+// (lib/portal-auth.js, through deps.fetch so proofs and tests can swap Supabase).
+// Page Studio stamps rows with a display string, so auth.actor stays a string.
 async function verifyOfficeUser(token) {
-  if (!token) return null;
-  const r = await deps.fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${token}` } });
-  if (!r.ok) return null;
-  const user = await r.json();
-  if (!user?.id) return null;
-  const rows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,permission_level,active,access_status,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(user.id)}&active=eq.true&limit=1`);
-  const pu = rows?.[0];
-  if (!pu || ["disabled", "revoked"].includes(String(pu.access_status || "active"))) return null;
-  const isAdmin = pu.role === "admin" && ["super_admin", "office_admin"].includes(String(pu.permission_level || "super_admin"));
-  if (!isAdmin) return null;
-  const actor = [pu.first_name, pu.last_name].filter(Boolean).join(" ") || pu.display_name || pu.email || user.email || "office";
-  return { user, portalUser: pu, actor, isSuperAdmin: String(pu.permission_level || "super_admin") === "super_admin" };
+  const result = await portalAuth.verifyPortalUser(token, { require: "admin", fetchImpl: (...args) => deps.fetch(...args) });
+  if (!result) return null;
+  const pu = result.portalUser;
+  const actor = [pu.first_name, pu.last_name].filter(Boolean).join(" ") || pu.display_name || pu.email || result.user.email || "office";
+  return { ...result, actor };
 }
 
 const imageAspect = path => imageAspects[path] || null;
@@ -247,6 +243,7 @@ module.exports = async function handler(req, res) {
     const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
     const auth = await verifyOfficeUser(token);
     if (!auth) return res.status(403).json({ ok: false, message: "Page Studio is for office staff. Sign in with an office or admin account." });
+    if (portalAuth.refusedSandboxOnlyLogin(res, auth)) return;
 
     const body = req.method === "GET" ? { operation: clean(req.query?.operation || "list", 40) } : (typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {});
     const operation = clean(body.operation, 40) || "list";

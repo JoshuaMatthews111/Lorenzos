@@ -2,6 +2,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.s
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const crypto = require("node:crypto");
 const { isSandbox, supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -237,38 +238,6 @@ async function optionalSupabaseFetchAll(path, capability, unavailable) {
 
 function isMissingColumnError(error) {
   return /column .* does not exist|could not find the .* column|schema cache|42703/i.test(String(error?.message || error || ""));
-}
-
-async function verifyPortalAccess(accessToken) {
-  if (!accessToken) return null;
-  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
-  if (!userResponse.ok) return null;
-  const user = await userResponse.json();
-  if (!user?.id) return null;
-  let rows;
-  try {
-    rows = await supabaseFetch(
-      `/rest/v1/portal_users?select=*&user_id=eq.${encodeURIComponent(user.id)}&active=eq.true&limit=1`
-    );
-  } catch (error) {
-    if (!isMissingColumnError(error)) throw error;
-    rows = await supabaseFetch(
-      `/rest/v1/portal_users?select=user_id,role,trainer_id,active&user_id=eq.${encodeURIComponent(user.id)}&active=eq.true&limit=1`
-    );
-  }
-  const portalUser = rows?.[0];
-  if (!portalUser) return null;
-  const accessStatus = String(portalUser.access_status || "active").toLowerCase();
-  if (["disabled", "revoked"].includes(accessStatus)) return null;
-  if (portalUser.role === "admin" && !["super_admin", "office_admin"].includes(String(portalUser.permission_level || "super_admin"))) return null;
-  if (portalUser.role === "trainer" && !portalUser.trainer_id) return null;
-  if (!["admin", "trainer"].includes(portalUser.role)) return null;
-  return { user, portalUser };
 }
 
 function inFilter(values = []) {
@@ -521,12 +490,12 @@ module.exports = async function handler(req, res) {
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured on Vercel." });
 
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const access = await verifyPortalAccess(token);
-    if (!access) return res.status(403).json({ ok: false, message: "Active portal access required." });
+    // Any active portal user (lib/portal-auth.js). Trainers get only their own rows below.
+    const access = await authorizeRequest(req, res, { require: "any", message: "Active portal access required." });
+    if (!access) return;
 
     const unavailableCapabilities = [];
-    const data = access.portalUser.role === "trainer"
+    const data = access.role === "trainer"
       ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities)
       : await loadAdminOperationalData(unavailableCapabilities);
     // Practice copy: every row above already came from the practice schema.

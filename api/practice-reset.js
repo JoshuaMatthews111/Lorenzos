@@ -20,6 +20,7 @@
 // lives in practice_private because the reset truncates every practice.* table,
 // so a log inside practice would wipe its own history.
 const { isSandbox, supabaseRequest } = require("../lib/sandbox");
+const portalAuth = require("../lib/portal-auth");
 const { fullNameOrEmpty } = require("./send-to-live");
 const NAME_REQUIRED_MESSAGE = "Type your full name (first and last) to reset the practice copy. Nothing was wiped.";
 
@@ -42,16 +43,6 @@ async function supabaseFetch(path, options = {}) {
   try { data = text ? JSON.parse(text) : null; } catch { data = text; }
   if (!response.ok) throw Object.assign(new Error(data?.message || data?.error || text || `Supabase ${response.status}`), { status: response.status });
   return data;
-}
-
-async function verifySuperAdmin(accessToken) {
-  if (!accessToken) return null;
-  const userResponse = await deps.fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${accessToken}` } });
-  if (!userResponse.ok) return null;
-  const user = await userResponse.json();
-  if (!user?.id) return null;
-  const rows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,email&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&permission_level=eq.super_admin&active=eq.true&limit=1`).catch(() => []);
-  return rows?.[0] ? user : null;
 }
 
 // Storage's list call is one folder deep, so walk it.
@@ -93,9 +84,12 @@ module.exports = async function handler(req, res) {
   if (!isSandbox()) return res.status(404).json({ ok: false, message: "Not found." });
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured." });
-  const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-  const user = await verifySuperAdmin(token);
-  if (!user) return res.status(403).json({ ok: false, message: "Super Admin access required." });
+  // Super Admin only (lib/portal-auth.js, through deps.fetch), active and not
+  // disabled/revoked (this endpoint used to skip access_status). The 404 above
+  // already guarantees the practice schema, so this reads practice.portal_users.
+  const auth = await portalAuth.authorizeRequest(req, res, { require: "super", message: "Super Admin access required.", fetchImpl: (...args) => deps.fetch(...args) });
+  if (!auth) return;
+  const user = auth.user;
   let body = {};
   try { body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {}; } catch { body = {}; }
   // Who is wiping it. Checked before anything is touched.

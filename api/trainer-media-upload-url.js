@@ -1,4 +1,5 @@
 const { bucketName, supabaseRequest } = require("../lib/sandbox");
+const { authorizeRequest } = require("../lib/portal-auth");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 
@@ -52,40 +53,6 @@ async function supabaseFetch(path, options = {}) {
   return data;
 }
 
-function isMissingColumnError(error) {
-  return /column .* does not exist|could not find the .* column|schema cache|42703/i.test(String(error?.message || error || ""));
-}
-
-async function verifyAdmin(accessToken) {
-  if (!accessToken) return null;
-  const userResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-    headers: {
-      apikey: SERVICE_ROLE_KEY,
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
-  if (!userResponse.ok) return null;
-  const user = await userResponse.json();
-  if (!user?.id) return null;
-  let rows;
-  try {
-    rows = await supabaseFetch(
-      `/rest/v1/portal_users?select=user_id,role,permission_level,active,access_status&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&active=eq.true&limit=1`
-    );
-  } catch (error) {
-    if (!isMissingColumnError(error)) throw error;
-    rows = await supabaseFetch(
-      `/rest/v1/portal_users?select=user_id,role,active&user_id=eq.${encodeURIComponent(user.id)}&role=eq.admin&active=eq.true&limit=1`
-    );
-  }
-  const portalUser = rows?.[0];
-  if (!portalUser) return null;
-  const accessStatus = String(portalUser.access_status || "active").toLowerCase();
-  if (["disabled", "revoked"].includes(accessStatus)) return null;
-  if (!["super_admin", "office_admin"].includes(String(portalUser.permission_level || "super_admin"))) return null;
-  return { user, portalUser };
-}
-
 function publicStorageUrl(bucket, path) {
   // Practice copy: the file lives in practice-<bucket>, so the URL must say so.
   return `${SUPABASE_URL}/storage/v1/object/public/${encodeURIComponent(bucketName(bucket))}/${path.split("/").map(encodeURIComponent).join("/")}`;
@@ -99,9 +66,10 @@ module.exports = async function handler(req, res) {
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured on Vercel." });
 
   try {
-    const token = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
-    const admin = await verifyAdmin(token);
-    if (!admin) return res.status(403).json({ ok: false, message: "Active Admin or Office Admin access required." });
+    // Office staff only (lib/portal-auth.js): super_admin or office_admin,
+    // active, access_status not disabled/revoked (this endpoint used to skip that).
+    const admin = await authorizeRequest(req, res, { require: "admin", message: "Active Admin or Office Admin access required." });
+    if (!admin) return;
 
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const bucket = clean(body.bucket, 120);

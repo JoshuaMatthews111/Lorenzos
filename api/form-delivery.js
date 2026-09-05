@@ -1,4 +1,4 @@
-const { blockedInSandbox, supabaseRequest } = require("../lib/sandbox");
+const { blockedInSandbox, isSandbox, supabaseRequest } = require("../lib/sandbox");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -61,12 +61,46 @@ function clean(value, max = 10000) {
   return String(value ?? "").trim().slice(0, max);
 }
 
+// Which sites may post a form here. Before 2026-09-05 a request with NO Origin
+// header was let through and ANY *.vercel.app host was accepted; both are gone.
+//
+//   - lorenzosdogtrainingteam.com / www.lorenzosdogtrainingteam.com (https)
+//   - the practice site (LDTT_PRACTICE_HOST, default practice.lorenzosdogtrainingteam.com)
+//   - localhost / 127.0.0.1 on any port (http, local dev)
+//   - anything listed in LDTT_EXTRA_ORIGINS (comma-separated hosts or origins)
+//   - *.vercel.app previews ONLY when this deployment is the practice copy
+//     (LDTT_SANDBOX=1). The handler answers 423 on the practice copy before it
+//     gets here (blockedInSandbox), so previews never fan a form out anyway;
+//     the allowance just keeps the origin check from being the reason.
+//
+// A missing Origin header falls back to the Referer's host. Neither ⇒ refused:
+// the public forms are browser posts and browsers always send one of the two.
+function originHost(value) {
+  const text = clean(value, 500);
+  if (!text) return null;
+  try {
+    const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`);
+    if (!/^https?:$/.test(url.protocol)) return null;
+    return { protocol: url.protocol, host: url.hostname.toLowerCase(), port: url.port };
+  } catch {
+    return null;
+  }
+}
+
+function allowedHosts() {
+  const practiceHost = clean(process.env.LDTT_PRACTICE_HOST, 200).toLowerCase() || "practice.lorenzosdogtrainingteam.com";
+  const extra = clean(process.env.LDTT_EXTRA_ORIGINS, 2000).split(",").map(entry => originHost(entry)?.host).filter(Boolean);
+  return new Set(["lorenzosdogtrainingteam.com", "www.lorenzosdogtrainingteam.com", practiceHost, ...extra]);
+}
+
 function allowedOrigin(req) {
-  const origin = clean(req.headers.origin, 500);
-  if (!origin) return true;
-  return /^https:\/\/(?:www\.)?lorenzosdogtrainingteam\.com$/i.test(origin)
-    || /^https:\/\/[^/]+\.vercel\.app$/i.test(origin)
-    || /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(origin);
+  const headers = req.headers || {};
+  const source = originHost(headers.origin) || originHost(headers.referer || headers.referrer);
+  if (!source) return false;
+  if (["localhost", "127.0.0.1"].includes(source.host)) return true;
+  if (allowedHosts().has(source.host)) return source.protocol === "https:";
+  if (source.host.endsWith(".vercel.app") && source.protocol === "https:") return isSandbox();
+  return false;
 }
 
 async function supabaseFetch(path, options = {}) {
@@ -346,3 +380,4 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, message: error.message || "Form delivery could not be logged." });
   }
 };
+module.exports.allowedOrigin = allowedOrigin;
