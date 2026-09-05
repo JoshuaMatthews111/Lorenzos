@@ -58,6 +58,16 @@ async function auditPortalChange(admin, action, target, updated, summary) {
   });
 }
 
+async function authUserExists(userId) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(userId || ""))) return false;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+    headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}` }
+  });
+  if (!response.ok) return false;
+  const user = await response.json().catch(() => null);
+  return Boolean(user?.id);
+}
+
 async function findAuthUserByEmail(email) {
   const normalized = String(email || "").toLowerCase();
   if (!normalized) return null;
@@ -152,6 +162,11 @@ module.exports = async function handler(req, res) {
 
     let rows = await supabaseFetch(`/rest/v1/portal_users?select=*&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
     let target = rows?.[0];
+    if (!target && !(await authUserExists(userId))) {
+      // QA 2026-09-05: an unknown user_id used to fall into the insert below and
+      // come back as a 500 (portal_users_user_id_fkey). Say it plainly instead.
+      return res.status(404).json({ ok: false, message: "No live login account was found for this user." });
+    }
     if (!target) {
       const permission = clean(body.permission_level, 40) || "office_admin";
       const role = permission === "trainer" ? "trainer" : "admin";
