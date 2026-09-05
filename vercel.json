@@ -55,6 +55,15 @@
       ]
     },
     {
+      "source": "/trainer-backoffice/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/trainer-backoffice",
       "headers": [
         {
@@ -87,15 +96,6 @@
         {
           "key": "Cache-Control",
           "value": "no-store, max-age=0"
-        }
-      ]
-    },
-    {
-      "source": "/trainer-backoffice/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, max-age=0, must-revalidate"
         }
       ]
     }
