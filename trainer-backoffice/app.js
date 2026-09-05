@@ -657,22 +657,36 @@ function focusedPortalInputSnapshot() {
   if (!selector) return null;
   return {
     selector,
+    value: String(active.value || ""),
     start: active.selectionStart,
     end: active.selectionEnd
   };
 }
 
+// The filtered redraw rebuilds the search box, which throws focus onto the page
+// body. Focus used to come back only on the next animation frame, so any key
+// pressed while the (slow, whole-workspace) redraw was running was delivered to
+// the body and lost — the office saw the search "stop after one character".
+// Put focus back in the same task, then once more on the next frame in case
+// something else moved it.
 function restorePortalInputFocus(snapshot) {
   if (!snapshot?.selector) return;
-  requestAnimationFrame(() => {
+  const apply = () => {
     const field = document.querySelector(snapshot.selector);
-    if (!field) return;
+    if (!field || document.activeElement === field) return;
     field.focus({ preventScroll: true });
     if (typeof field.setSelectionRange === "function") {
-      const end = snapshot.end ?? field.value.length;
-      field.setSelectionRange(snapshot.start ?? end, end);
+      const length = field.value.length;
+      // More text may have arrived since the snapshot; never park the caret
+      // in the middle of the word.
+      const changed = String(field.value || "") !== snapshot.value;
+      const end = changed ? length : (snapshot.end ?? length);
+      const start = changed ? length : (snapshot.start ?? end);
+      try { field.setSelectionRange(start, end); } catch { /* not all inputs support selection */ }
     }
-  });
+  };
+  apply();
+  requestAnimationFrame(apply);
 }
 
 function scheduleFilteredWorkspaceRender(kind) {
@@ -4060,7 +4074,11 @@ function typedFieldKey(field) {
   const form = field.closest("form");
   const formKey = form ? [...form.attributes].map(attribute => attribute.name).filter(name => name.startsWith("data-")).join("|") || form.className : "";
   const own = [...field.attributes].map(attribute => `${attribute.name}=${attribute.value}`)
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search)/.test(pair)).join("|");
+    // Every attribute that names a box someone types into must be here. A field
+    // whose attribute is missing gets an empty key, is never captured, and so is
+    // wiped (text, focus and caret) by any redraw that lands mid-sentence. That
+    // is exactly what happened to the office-note boxes (Melissa, 2026-09-04).
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair)).join("|");
   return own ? `${formKey}::${own}` : "";
 }
 
@@ -4079,6 +4097,7 @@ function captureTypedInput(target) {
   return {
     values,
     focusKey,
+    focusValue: focusKey ? String(active.value || "") : "",
     start: focusKey ? active.selectionStart : null,
     end: focusKey ? active.selectionEnd : null
   };
@@ -4094,9 +4113,19 @@ function restoreTypedInput(target, snapshot) {
     // Only refill a field the redraw left empty, so a genuine reset still resets.
     if (saved !== undefined && !String(field.value || "").trim()) field.value = saved;
     if (key === snapshot.focusKey) {
+      // Focus goes back synchronously, inside the same task as the redraw, so a
+      // keystroke that was queued while the screen was being rebuilt lands in
+      // the new box instead of falling on the page body and vanishing.
       field.focus({ preventScroll: true });
       if (snapshot.start !== null) {
-        try { field.setSelectionRange(snapshot.start, snapshot.end); } catch { /* not all inputs support selection */ }
+        // If more text arrived after the snapshot, the old caret would sit in
+        // the middle of the word; put it at the end instead.
+        const changed = String(field.value || "") !== snapshot.focusValue;
+        const end = String(field.value || "").length;
+        try {
+          if (changed) field.setSelectionRange(end, end);
+          else field.setSelectionRange(snapshot.start, snapshot.end);
+        } catch { /* not all inputs support selection */ }
       }
     }
   }
@@ -5368,7 +5397,7 @@ const adminScreens = {
       ["lead", "Needs Action", needsAction, "No office action yet", needsAction ? "down" : "up"],
       ["calendar", "Discovery Call Inquiry", apps.filter(app => app.status === "Discovery Call Inquiry").length, "Recruiting action", "up"],
       ["trophy", "Moved Forward", apps.filter(app => app.status === "Moved Forward").length, "Qualified", "up"]
-    ])}${applicationStatusFilterBar()}${panel("Trainer Application Pipeline", `<button class="btn btn-outline" type="button" data-application-mode="sheet">View Sheet</button><button class="btn btn-outline" type="button" data-application-mode="summary">View Data In Charts</button><button class="btn btn-outline" type="button" data-export-applications>Download Sheet</button>`, applicationPipelineBoard(), "pad")}<br>${panel("Application Sheet, Charts & Export", "", trainerApplicationGoogleFormPanel(), "pad")}<br>${panel("Trainer Application Records", "", applicationTable(), "pad")}`;
+    ])}${applicationStatusFilterBar()}${panel("Trainer Application Pipeline", `<button class="btn btn-outline" type="button" data-application-mode="sheet">View Sheet</button><button class="btn btn-outline" type="button" data-application-mode="summary">View Data In Charts</button><button class="btn btn-outline" type="button" data-export-applications>Download Sheet</button>`, applicationPipelineBoard(), "pad")}<br>${panel("Application Sheet, Charts & Export", "", trainerApplicationGoogleFormPanel(), "pad")}<br>${panel("Trainer Application Records", "", applicationTable(), "pad")}${applicationDetailPanel()}`;
   },
   clients() {
     const importer = isOfficeAdmin() ? "" : `<details class="client-import-panel" id="clientImportPanel"><summary>Import Existing Clients</summary><div class="import-layout">${panel("1. Upload CSV, Excel, or PDF", `<button class="btn btn-outline" id="loadSampleCsv">Load Sample</button>`, importInput(), "pad")}${panel("2. Preview Before Import", `<button class="btn btn-red" id="previewImport">Preview Import</button>`, importPreview(), "pad")}</div></details>`;
@@ -8421,7 +8450,7 @@ function applicationSheetView(rows) {
 }
 
 function applicationIndividualView(rows) {
-  return `<div class="application-individual-list">${rows.map(row => `<article class="application-individual-card"><header><div><span class="portal-tag">Application</span><h3>${escapeHtml(`${row.first_name || ""} ${row.last_name || ""}`.trim() || "Applicant")}</h3><p>${escapeHtml([row.city, row.state, row.zip].filter(Boolean).join(", ") || "Location pending")}</p></div><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(row.id)}">Open Full Record</button></header>${applicationDetailGrid(row)}</article>`).join("") || `<p>No individual applications found.</p>`}</div>${applicationDetailPanel()}`;
+  return `<div class="application-individual-list">${rows.map(row => `<article class="application-individual-card"><header><div><span class="portal-tag">Application</span><h3>${escapeHtml(`${row.first_name || ""} ${row.last_name || ""}`.trim() || "Applicant")}</h3><p>${escapeHtml([row.city, row.state, row.zip].filter(Boolean).join(", ") || "Location pending")}</p></div><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(row.id)}">Open Full Record</button></header>${applicationDetailGrid(row)}</article>`).join("") || `<p>No individual applications found.</p>`}</div>`;
 }
 
 function contactSubmissionRows() {
@@ -8504,7 +8533,7 @@ function applicationTable() {
   <div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Received</th><th>Location</th><th>Contact</th><th>Source</th><th>Status</th><th>Latest Office Note</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => {
     const latest = latestOfficeNote("application", app.remoteId);
     return `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(applicationInquiryTypeLabel(app))}</small></td><td>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.market || app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td>${escapeHtml(app.source_form || app.referral_source || "Website")}<small>${escapeHtml(app.source_page || "")}</small></td><td>${applicationStatusSelect(app)}</td><td>${escapeHtml(latest?.note || app.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`;
-  }).join("") || `<tr><td colspan="8">No trainer applications found yet.</td></tr>`}</tbody></table></div>${applicationDetailPanel()}`;
+  }).join("") || `<tr><td colspan="8">No trainer applications found yet.</td></tr>`}</tbody></table></div>`;
 }
 
 function applicationStatusSelect(app) {
@@ -8533,7 +8562,7 @@ function applicationPipelineBoard() {
     <div class="lead-kanban application-kanban">${columns.map(column => {
       const columnRows = rows.filter(app => (app.status || "New Application") === column);
       return `<section class="kanban-column application-column" data-drop-application-status="${escapeHtml(column)}"><header><strong>${escapeHtml(column)}</strong><span>${columnRows.length}</span></header><div class="kanban-cards">${columnRows.map(app => applicationPipelineCard(app)).join("") || `<div class="empty-column">Drop applications here</div>`}</div></section>`;
-    }).join("")}</div>${applicationDetailPanel()}`;
+    }).join("")}</div>`;
 }
 
 function applicationPipelineCard(app) {
@@ -10582,6 +10611,10 @@ document.addEventListener("click", async event => {
       }
       recordActivity("Office note added", `${currentActorLabel()} added an office note to ${officeNoteEntityLabel(entityType, entityId)}.`, "Office Note");
       showToast("Office note saved with timestamp and user.");
+      // Empty the box before the repaint. The redraw safety net refills any
+      // typed box the redraw left empty, so a box still holding the saved
+      // wording would be put back and the note would look unsaved.
+      if (textarea) textarea.value = "";
       render();
       restoreViewportPosition(viewport);
     } catch (error) {
