@@ -1238,7 +1238,8 @@ function mergeRemoteOperationalData(data) {
   // first trainer alphabetically and the office types the new trainer's details
   // into a REAL trainer's record (Aryson Whorley, practice copy, 2026-09-05).
   const remoteIds = new Set((data.trainers || []).map(trainer => String(trainer.id)));
-  const pendingDrafts = state.trainers.filter(trainer => trainer.isOfficeDraft && !remoteIds.has(String(trainer.remoteId || "")));
+  const inWizard = session.role === "admin" && ["trainers", "pageEditor"].includes(state.activeView);
+  const pendingDrafts = state.trainers.filter(trainer => (trainer.isOfficeDraft || (inWizard && trainer.id === state.selectedTrainerId)) && !remoteIds.has(String(trainer.remoteId || trainer.id || "")));
   state.trainers = [...pendingDrafts, ...(data.trainers || []).map(trainer => remoteTrainerToUi(trainer, pagesByTrainer.get(trainer.id)))];
   if (!state.trainers.some(trainer => trainer.id === state.selectedTrainerId)) {
     // onboarding: never jump the selection to another trainer while the office is
@@ -11186,13 +11187,17 @@ document.addEventListener("click", async event => {
   }
   const onboardingStep = event.target.closest("[data-onboarding-step]");
   if (onboardingStep && !onboardingStep.disabled) {
+    const previousStep = state.onboardingStep;
     state.onboardingStep = Number(onboardingStep.dataset.onboardingStep);
     if (remoteReady && session.role === "admin") {
       const trainer = trainerById();
-      runRemoteMutation("Trainer setup progress and draft saved", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
+      // onboarding: a refused save (duplicate email, slug…) used to move the wizard
+      // on to the next step anyway, so the office thought the step had saved.
+      const ok = await runRemoteMutation("Trainer setup progress and draft saved", () => persistTrainerRecord(trainer), { reload: false, // onboarding: the save already reloaded
         type: "Trainer Page",
         detail: `${trainer.name} setup moved to step ${state.onboardingStep}.`
       });
+      if (!ok) { state.onboardingStep = previousStep; render(); }
     } else {
       saveState("Trainer setup progress saved");
     }
