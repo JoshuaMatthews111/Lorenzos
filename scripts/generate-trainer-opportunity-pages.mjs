@@ -226,7 +226,7 @@ const page = market => {
   <script type="application/ld+json">${JSON.stringify(faqData)}</script>
 <!-- Meta pixel -->
 ${metaPixelHead()}
-</head>
+<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script></head>
 <body class="ad-funnel-redesign trainer-recruiting-ad" data-market="${escapeHtml(market.market)}">
   <header class="ad-header ad-header-v2">
     <div class="container ad-nav ad-nav-v2">

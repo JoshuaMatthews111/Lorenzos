@@ -60,6 +60,7 @@ def footer(include_cta=True):
 def page(title,body,active,include_cta=True):
     preload='<link rel="preload" as="image" href="assets/ldtt-team-cover.webp" type="image/webp">' if active=="index.html" else ""
     tracking=GOOGLE_ADS_HEAD+CONTACT_CONVERSION_SCRIPT if active=="contact.html" else ""
+    tracking+='<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script>'
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} | Lorenzo's Dog Training Team</title><meta name="description" content="{SEO.get(active, SEO["index.html"])}"><link rel="icon" type="image/png" href="assets/ldtt-favicon.png"><link rel="apple-touch-icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="styles.css?v=20260807leadcounts">{preload}{tracking}</head><body>{header(active)}{body}{footer(include_cta)}</body></html>'''
 def hero(label,title,text,home=False,buttons=True):
     actions='<div class="hero-actions"><a class="btn btn-red" href="contact.html">Book Evaluation</a><a class="btn btn-outline home-review-hero-link" href="#home-review-form">Leave a Review</a><a class="btn btn-outline" href="find-a-trainer.html">Find a Trainer</a></div>' if buttons and home else ('<div class="hero-actions"><a class="btn btn-red" href="contact.html">Book Evaluation</a><a class="btn btn-outline" href="find-a-trainer.html">Find a Trainer</a></div>' if buttons else '')
