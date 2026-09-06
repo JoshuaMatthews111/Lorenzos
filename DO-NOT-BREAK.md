@@ -399,3 +399,57 @@ Verification (release 2026-09-05):
 - `node scripts/audit-office-requirements.mjs` = 152 checks.
 - Read-only SQL: `select * from public.portal_users except select * from practice.portal_users` (and the reverse) → 0 rows right after a reset; `auth.users` = 45 = both portal_users tables; every practice portal user maps to an auth user.
 - `trainer-backoffice/index.html` script tags all on `?v=20260905release`.
+
+## QA pass 2026-09-05 (branch qa/2026-09-05, merged into release/2026-09-05) — the three office fears
+
+34. **Every number comes from `trainer-backoffice/metrics.js`, and only from there.** Dashboard tiles,
+    Leads board columns, donut, funnel, Sales totals and columns, Applications tiles / board / CSV,
+    Clients counts, Reports tables and tfoot totals, trainer Dashboard / Performance, nav badges and
+    every CSV call the same named functions over the same rows (`window.LDTT_METRICS` in the browser,
+    `require("trainer-backoffice/metrics.js")` in Node — no DOM, no `state`). The QA hold-out
+    (`raw_payload.qa = true` or a `^qa[_-]` name) applies to applications as well as leads now.
+    Rules 1 and 2 (Leads-tab numbers unchanged; Sales = bot-handled leads + deals only) still hold.
+    `tests/metrics.test.mjs` asserts dashboard == board == report == CSV for every figure on a fixture;
+    the audit fails on any inline `.filter(...).length` for a listed figure in app.js.
+    `api/cron/site-health.js` recomputes the key figures nightly from `public.*` with the same module,
+    compares them with plain counts, and files ONE DSN approval `LDTT: numbers disagree: <figure>`
+    per mismatch (cap 5); dry-run posts nothing; never on the practice copy.
+35. **The top bar always says how fresh the screen is.** "Loading…" before the first payload,
+    green "Live · updated hh:mm:ss" (server time: the API's `syncedAt` on 200, the `Date` header on 304 —
+    never the client clock), red "Not updating since hh:mm — reload" the moment any poll fails
+    (click reloads). Every `panel()` header carries "as of hh:mm". A login whose first payload fails
+    is BLOCKED with "Live data did not load" + Retry / Sign out — there is no silent local-only mode
+    for a real login. Demo login `admin` / `doglovers26` keeps working offline (rule 8) behind an
+    explicit "Continue offline (demo data)" button.
+36. **One address per copy, and the shells never cache.** `/api/environment` answers `canonicalHosts`
+    (practice: `LDTT_PRACTICE_HOST`, default `practice.lorenzosdogtrainingteam.com`; live: the domain
+    + www). `trainer-backoffice/old-copy-bar.js` (loaded by `trainer-backoffice/index.html` AND
+    `staff.html`, before the portal boots, login page included) paints a red bar that cannot be
+    closed on any other address: "This is an old copy of the practice portal. Bookmark
+    practice.lorenzosdogtrainingteam.com instead." / "…of the staff portal. Bookmark
+    lorenzosdogtrainingteam.com instead.", linking to the same path on the right host. `vercel.json`
+    serves `/staff`, `/trainer-backoffice`, `/trainer-backoffice/` and every `/trainer-backoffice/*.html`
+    with `Cache-Control: no-store`; every portal script tag on both shells sits on ONE `?v=` tag
+    (the audit checks it). `staff.html` is the advertised office address and loads the full portal
+    (app + page-studio + site-builder) on the release tag. DNS/domain for the practice address is
+    DSN approval 865d99b4-7514-4c20-8ccb-a1c90709b7a6 (Bluehost `CNAME practice → cname.vercel-dns.com`).
+37. **One auth helper, fail closed.** Every API verifies the bearer through `lib/portal-auth.js`
+    `verifyPortalUser(token, { require: "any" | "admin" | "super" | "trainer" })`: `active`,
+    `access_status` not disabled/revoked, admin ⇒ `permission_level` exactly `super_admin` or
+    `office_admin` (NULL / unknown ⇒ refused and logged — never defaulted to super), trainer ⇒
+    `trainer_id`. Per-op gates: `permanent_delete`, Page Studio `archive`, `manage-portal-user`,
+    `reset-portal-password`, `practice-reset` are super only; communications claim / release /
+    mark-contacted are own-lead only for a trainer. The browser mirrors it: an unknown
+    `permission_level` is treated as office admin; `officeAdminViews` is the office menu.
+    `/Users/presdinetaloffice/Desktop/LDTT Release 2026-09-05/ROLES.md` is the matrix; the audit
+    requires no `/auth/v1/user` fetch outside the helper and one refusal test per role
+    (`tests/portal-auth.test.mjs`). `api/form-delivery.js` only accepts the known hosts as Origin.
+
+Verification (QA pass 2026-09-05):
+- `node --test tests/*.test.mjs` = 88 tests (53 + 21 portal-auth + 8 metrics + 6 old-copy bar).
+- `node scripts/audit-office-requirements.mjs` = 168 checks.
+- Preview: `/api/environment` carries `canonicalHosts`; the red old-copy bar shows on the `*.vercel.app` address
+  and the login page; each of the 3 sandbox logins lands on its own menu; office/trainer tokens get 403 from
+  `manage-portal-user`, `practice-reset`, `permanent_delete`, `pages archive`; trainer 403 on another trainer's
+  lead in communications; dashboard tiles = board columns = report = CSV (`window.LDTT_METRICS`).
+- Nightly: `curl "$BASE/api/cron/site-health?dry=1" -H "Authorization: Bearer $CRON_SECRET"` → `numbers.ok: true`.
