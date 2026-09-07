@@ -120,6 +120,9 @@
     return {
       submission_id: submissionId,
       qa: isReleaseQaHost,
+      meta_event_id: String(data.get("meta_event_id") || form.dataset.metaEventId || "").trim(),
+      fbp: String(data.get("fbp") || "").trim(),
+      fbc: String(data.get("fbc") || "").trim(),
 	      first_name: String(data.get("first_name") || "").trim(),
 	      last_name: String(data.get("last_name") || "").trim() || "Ebook Lead",
 	      email: String(data.get("email") || "").trim(),

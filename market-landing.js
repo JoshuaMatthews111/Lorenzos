@@ -281,6 +281,9 @@
     const additionalInterest = formData.getAll("additional_interest").map(value => String(value).trim()).filter(Boolean).join(", ");
 	    const payload = {
 	      submission_id: submissionId,
+	      meta_event_id: String(formData.get("meta_event_id") || guideForm.dataset.metaEventId || "").trim(),
+	      fbp: String(formData.get("fbp") || "").trim(),
+	      fbc: String(formData.get("fbc") || "").trim(),
 	      qa: isReleaseQaHost,
 	      first_name: firstName,
 	      last_name: lastName || "Ebook Lead",

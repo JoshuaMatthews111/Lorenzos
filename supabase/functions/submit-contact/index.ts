@@ -5,6 +5,95 @@ function clean(value: unknown) {
   return String(value ?? "").trim();
 }
 
+/* ---------- Meta Conversions API ----------
+   The browser pixel only reaches Meta when nothing blocks it (Safari, iOS, ad
+   blockers all do). This sends the same Lead from the server so Meta sees the
+   real count. The browser and server share one event_id, so Meta de-duplicates
+   and never counts a lead twice. Any failure here is logged and swallowed: the
+   lead is already saved and the form response must never depend on Meta. */
+const META_PIXEL_ID = Deno.env.get("META_PIXEL_ID") || "3790623554504010";
+const META_CAPI_ACCESS_TOKEN = Deno.env.get("META_CAPI_ACCESS_TOKEN") || "";
+const META_TEST_EVENT_CODE = Deno.env.get("META_TEST_EVENT_CODE") || "";
+
+async function sha256(value: string) {
+  const data = new TextEncoder().encode(value);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+async function hashed(value: unknown) {
+  const v = clean(value).toLowerCase();
+  return v ? [await sha256(v)] : undefined;
+}
+async function hashedPhone(value: unknown) {
+  let digits = clean(value).replace(/\D/g, "");
+  if (!digits || /not provided/i.test(clean(value))) return undefined;
+  if (digits.length === 10) digits = "1" + digits;
+  return [await sha256(digits)];
+}
+function isEbookLead(payload: Record<string, unknown>) {
+  return clean(payload.lead_type) === "pdf_download"
+    || /blueprint|ebook|e-book|5-step|five.step/i.test(clean(payload.i_want_to));
+}
+
+async function sendMetaConversion(req: Request, payload: Record<string, unknown>, leadId: string | number) {
+  if (!META_CAPI_ACCESS_TOKEN) return { skipped: "no_token" };
+  const ebook = isEbookLead(payload);
+  const eventId = clean(payload.meta_event_id) || `lead-${leadId}`;
+  const ip = clean(req.headers.get("x-forwarded-for")).split(",")[0].trim() || undefined;
+  const ua = clean(req.headers.get("user-agent")) || undefined;
+  const occurred = Date.parse(clean(payload.timestamp));
+  const eventTime = Math.floor((Number.isFinite(occurred) ? occurred : Date.now()) / 1000);
+  const userData: Record<string, unknown> = {
+    em: await hashed(payload.email),
+    ph: await hashedPhone(payload.phone),
+    fn: await hashed(payload.first_name),
+    ln: await hashed(payload.last_name),
+    zp: await hashed(clean(payload.zip).slice(0, 5)),
+    ct: await hashed(clean(payload.city).replace(/[^a-z]/gi, "")),
+    st: await hashed(clean(payload.state).slice(0, 2)),
+    country: await hashed("us"),
+    client_ip_address: ip,
+    client_user_agent: ua,
+    fbp: clean(payload.fbp) || undefined,
+    fbc: clean(payload.fbc) || undefined,
+    external_id: [await sha256(String(leadId))]
+  };
+  for (const k of Object.keys(userData)) if (userData[k] === undefined) delete userData[k];
+  const body: Record<string, unknown> = {
+    data: [{
+      event_name: ebook ? "CompleteRegistration" : "Lead",
+      event_time: eventTime,
+      event_id: eventId,
+      event_source_url: clean(payload.page_url || payload.landing_url) || undefined,
+      action_source: "website",
+      user_data: userData,
+      custom_data: {
+        value: ebook ? 25 : 250,
+        currency: "USD",
+        content_name: clean(payload.trainer_market || payload.ad_market) || undefined,
+        lead_source: clean(payload.utm_source) || undefined
+      }
+    }]
+  };
+  if (META_TEST_EVENT_CODE) body.test_event_code = META_TEST_EVENT_CODE;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const res = await fetch(`https://graph.facebook.com/v21.0/${META_PIXEL_ID}/events?access_token=${encodeURIComponent(META_CAPI_ACCESS_TOKEN)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: controller.signal
+    });
+    const text = await res.text();
+    if (!res.ok) console.error("meta_capi_error", res.status, text.slice(0, 400));
+    else console.log("meta_capi_ok", eventId, text.slice(0, 200));
+    return { ok: res.ok, status: res.status };
+  } catch (error) {
+    console.error("meta_capi_exception", String(error));
+    return { ok: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function tooManyRecent(table: "leads" | "trainer_applications", email: string) {
   const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const rows = await selectRows({ table, select: "id", filters: { email: `eq.${email}`, created_at: `gte.${since}` }, limit: 4 });
@@ -169,6 +258,10 @@ Deno.serve(async (req) => {
           occurred_at: clean(payload.timestamp) || new Date().toISOString()
         }
       });
+    }
+
+    if (lead?.id && !isQaSubmission) {
+      try { await sendMetaConversion(req, payload, lead.id); } catch (error) { console.error("meta_capi_unhandled", String(error)); }
     }
 
     return jsonResponse({ ok: true, lead_id: lead?.id ?? null });
