@@ -276,7 +276,13 @@ Deno.serve(async (req) => {
     // saved and every error inside is caught and logged.
     // The practice copy shares this function. A practice lead is a test lead and
     // must NEVER reach Meta, or it teaches the ad account to hunt for testers.
-    if (lead?.id && !isQaSubmission && schema !== "practice") {
+    // With META_TEST_EVENT_CODE set, everything lands in Events Manager > Test
+    // events and nothing reaches the real numbers, so a QA row is allowed
+    // through — that is the only way to PROVE the chain works end to end.
+    // Without the code, a QA row or a practice lead must never reach Meta.
+    const metaTestMode = Boolean(Deno.env.get("META_TEST_EVENT_CODE"));
+    const metaAllowed = metaTestMode || (!isQaSubmission && schema !== "practice");
+    if (lead?.id && metaAllowed) {
       try { await sendMetaConversion(req, payload, lead.id); }
       catch (error) { console.error("meta_capi_unhandled", String(error)); }
     } else if (lead?.id) {

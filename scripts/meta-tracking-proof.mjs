@@ -89,8 +89,10 @@ const pages = readdirSync(root).filter(f => f.endsWith(".html") && !f.startsWith
 // 8. It can never break the form, and never leaks test data to Meta.
 {
   const fn = read("supabase/functions/submit-contact/index.ts");
-  assert.ok(/if \(lead\?\.id && !isQaSubmission && schema !== "practice"\)/.test(fn),
+  assert.ok(fn.includes('const metaAllowed = metaTestMode || (!isQaSubmission && schema !== "practice")'),
     "QA rows and practice-copy leads must never reach Meta");
+  assert.ok(fn.includes('const metaTestMode = Boolean(Deno.env.get("META_TEST_EVENT_CODE"))'),
+    "a test event code must be the only way a QA row reaches Meta, and only into Test events");
   assert.ok(fn.includes('catch (error) { console.error("meta_capi_unhandled"'), "the send must be wrapped so it cannot fail the form");
   assert.ok(fn.includes('if (!META_CAPI_ACCESS_TOKEN) return { skipped: "no_token" }'), "must be a no-op with no token");
   assert.ok(fn.indexOf("await sendMetaConversion") > fn.indexOf("const lead = Array.isArray(inserted)"),
