@@ -481,3 +481,29 @@ Verification (QA pass 2026-09-05):
     figures and deferring them would show wrong numbers (DO-NOT-BREAK 1). The fix is to window
     or aggregate them server-side, and it needs its own proof against the nightly numbers
     cross-check before it goes anywhere near live.
+
+39. **Meta must be told about every lead twice: from the browser AND from the server.**
+    Measured 2026-09-08: Meta reported 37 leads while the portal held 83 from the same pages.
+    The browser pixel alone is blocked for roughly half of real visitors (Safari, iOS, ad
+    blockers), and there was no server-side event at all — `build.py` on the release line had
+    lost `META_PIXEL_HEAD` entirely, and the Conversions API code written on 4 September was
+    never merged out of the WIP snapshot `2820759`.
+    The chain, all of which must stay:
+    - Every generator (`build.py` META_PIXEL_HEAD, `lib/ad-page-template.js`,
+      `scripts/generate-trainer-opportunity-pages.mjs`) emits ONE snippet that makes a UUID per
+      submit, stamps `meta_event_id` + `fbp` + `fbc` into the form, and passes `{ eventID: id }`
+      to `fbq`. The trainer-page shell in `build.py` carries it too — it used to carry neither
+      the pixel nor the analytics scripts, which is how 26 pages had no tracking at all.
+    - `supabase/functions/submit-contact` sends the SAME `event_id` to
+      `graph.facebook.com/v21.0/<pixel>/events` after the lead row is saved. Meta de-duplicates
+      on `event_id`, so a lead is never counted twice.
+    - The send is a no-op without `META_CAPI_ACCESS_TOKEN`, is wrapped so a Meta outage can
+      never fail the form, and is skipped for QA rows (DO-NOT-BREAK 13) **and for the practice
+      copy** — a practice lead reaching Meta would teach the ad account to hunt for testers.
+    - Personal data is SHA-256 hashed before it leaves. The `"Not provided - PDF opt-in"`
+      placeholder is never sent as a phone number.
+    - An ebook opt-in is `CompleteRegistration` at $25, an enquiry is `Lead` at $250.
+    Check: `node scripts/meta-tracking-proof.mjs` — 10 checks across all 97 pages.
+    The pixel `3790623554504010` is confirmed attached to the LIVE ad account
+    `act_1727659198512358`. NOTE: the ad account id stored in TRAC500 `ad_credentials` is the
+    OLD closed account and still needs correcting.

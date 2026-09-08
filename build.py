@@ -41,6 +41,43 @@ PORTAL_ASSET_VERSION="20260819media"
 GOOGLE_ADS_ID="AW-11463464040"
 CONTACT_CONVERSION_ID="AW-11463464040/WIE3CMK0kr0aEOiomtoq"
 CONTACT_ATTRIBUTION_HIDDEN_FIELDS=''.join(f'<input type="hidden" name="{name}" value="">' for name in ["utm_source","utm_medium","utm_campaign","utm_content","utm_term","gclid","landing_url"])
+# Meta pixel. Emitted here so every generated page carries the SAME snippet
+# (DO-NOT-BREAK 11). It stamps one event ID per submit and passes it to fbq,
+# so the server can send the same event and Meta de-duplicates (DO-NOT-BREAK 12).
+META_PIXEL_ID='3790623554504010'
+META_PIXEL_HEAD=("""<script>
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', '__PIXEL__');
+    fbq('track', 'PageView');
+    /* Conversions API support: every Lead gets one event ID that is sent both
+       from this browser and from the server, so Meta counts it once, not twice.
+       fbp/fbc cookies ride along in hidden fields so the server event can be
+       matched back to the ad click even when the browser event is blocked. */
+    (function(){
+      function cookie(n){var m=document.cookie.match('(^|;)\\\\s*'+n+'\\\\s*=\\\\s*([^;]+)');return m?decodeURIComponent(m[2]):'';}
+      function fbc(){var c=cookie('_fbc');if(c)return c;var id=new URLSearchParams(location.search).get('fbclid');return id?'fb.1.'+Date.now()+'.'+id:'';}
+      function uuid(){return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'ldtt-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);}
+      function stamp(f,k,v){var i=f.querySelector('input[name="'+k+'"]');if(!i){i=document.createElement('input');i.type='hidden';i.name=k;f.appendChild(i);}i.value=v||'';}
+      document.addEventListener('submit', function(e){
+        var f = e.target;
+        if (!(f instanceof HTMLFormElement)) return;
+        var isLead = f.classList.contains('contact-intake'), isReg = f.classList.contains('pdf-optin');
+        if (!isLead && !isReg) return;
+        var id = uuid(); f.dataset.metaEventId = id;
+        stamp(f,'meta_event_id',id); stamp(f,'fbp',cookie('_fbp')); stamp(f,'fbc',fbc());
+        if (typeof fbq !== 'function') return;
+        if (isLead) fbq('track', 'Lead', { value: 250, currency: 'USD' }, { eventID: id });
+        if (isReg) fbq('track', 'CompleteRegistration', { value: 25, currency: 'USD' }, { eventID: id });
+      }, true);
+    })();
+  </script>
+  <noscript><img height="1" width="1" style="display:none"
+    src="https://www.facebook.com/tr?id=__PIXEL__&ev=PageView&noscript=1" alt=""></noscript>""").replace('__PIXEL__',META_PIXEL_ID)
+
 GOOGLE_ADS_HEAD=f'''<script async src="https://www.googletagmanager.com/gtag/js?id={GOOGLE_ADS_ID}"></script><script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}gtag('js',new Date());gtag('config','{GOOGLE_ADS_ID}');</script>'''
 CONTACT_CONVERSION_SCRIPT=f'''<script>(function(){{document.addEventListener('submit',function(event){{var form=event.target;if(!(form instanceof HTMLFormElement)||!form.classList.contains('contact-intake')||typeof window.gtag!=='function')return;window.gtag('event','conversion',{{send_to:'{CONTACT_CONVERSION_ID}',value:250,currency:'USD'}});}},true);document.addEventListener('DOMContentLoaded',function(){{var params=new URLSearchParams(window.location.search);var values={{utm_source:params.get('utm_source')||'',utm_medium:params.get('utm_medium')||'',utm_campaign:params.get('utm_campaign')||'',utm_content:params.get('utm_content')||'',utm_term:params.get('utm_term')||'',gclid:params.get('gclid')||'',landing_url:window.location.href}};Object.keys(values).forEach(function(key){{document.querySelectorAll('input[name="'+key+'"]').forEach(function(input){{input.value=values[key];}});}});}});}})();</script>'''
 
@@ -59,7 +96,7 @@ def footer(include_cta=True):
     return cta+'''<footer class="footer"><div class="container footer-grid"><div><img class="footer-logo" src="assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><p>Helping keep dogs out of shelters and in safe, happy homes through leadership, rules, and boundaries.</p><a href="tel:+18664364959">(866) 436-4959</a></div><div><h3>Dog Owners</h3><a href="dog-training.html">Dog Training</a><a href="behavior-help.html">Behavior Help</a></div><div><h3>Explore</h3><a href="specialty-advanced.html">Specialty Training</a><a href="find-a-trainer.html">Find a Trainer</a><a href="facility.html">Our Facility</a></div><div><h3>Team</h3><a href="become-a-trainer.html">Become a Professional Dog Trainer</a><a href="about.html">About</a><a href="contact.html">Contact</a></div></div><div class="container subfooter">&copy; Lorenzo's Dog Training Team. Serious Training. Serious Results.</div></footer>'''+floating+f'''<script src="supabase-config.js"></script><script src="script.js?v={SITE_ASSET_VERSION}"></script>'''
 def page(title,body,active,include_cta=True):
     preload='<link rel="preload" as="image" href="assets/ldtt-team-cover.webp" type="image/webp">' if active=="index.html" else ""
-    tracking=GOOGLE_ADS_HEAD+CONTACT_CONVERSION_SCRIPT if active=="contact.html" else ""
+    tracking=META_PIXEL_HEAD+(GOOGLE_ADS_HEAD+CONTACT_CONVERSION_SCRIPT if active=="contact.html" else "")
     tracking+='<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script>'
     return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} | Lorenzo's Dog Training Team</title><meta name="description" content="{SEO.get(active, SEO["index.html"])}"><link rel="icon" type="image/png" href="assets/ldtt-favicon.png"><link rel="apple-touch-icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="styles.css?v=20260807leadcounts">{preload}{tracking}</head><body>{header(active)}{body}{footer(include_cta)}</body></html>'''
 def hero(label,title,text,home=False,buttons=True):
@@ -179,7 +216,7 @@ def trainer_landing_shell(record):
     location=html.escape(record.get("location") or "")
     title=f"Dog Trainer in {location} | {name} | Lorenzo's Dog Training Team"
     description=f"Professional dog obedience training and behavior modification with {name} in {location}, backed by Lorenzo's Dog Training Team."
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title><meta name="description" content="{description}"><link rel="icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260807leadcounts"></head><body class="public-site" data-trainer="{trainer_id}"><main id="publicSite"></main><script src="supabase-config.js"></script><script src="trainer-roster.js"></script><script src="trainer-backoffice/supabase.js?v={PORTAL_ASSET_VERSION}"></script><script src="trainer-backoffice/app.js?v=20260807leadcounts"></script></body></html>'''
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title><meta name="description" content="{description}"><link rel="icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260807leadcounts">{META_PIXEL_HEAD}<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script></head><body class="public-site" data-trainer="{trainer_id}"><main id="publicSite"></main><script src="supabase-config.js"></script><script src="trainer-roster.js"></script><script src="trainer-backoffice/supabase.js?v={PORTAL_ASSET_VERSION}"></script><script src="trainer-backoffice/app.js?v=20260807leadcounts"></script></body></html>'''
 
 def trainer_bio_page(slug,record):
     name=html.escape(record["name"])

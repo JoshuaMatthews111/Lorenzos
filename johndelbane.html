@@ -1,5 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dog Trainer in Cleveland, OH | John (JD) DelBane | Lorenzo's Dog Training Team</title><meta name="description" content="Professional dog obedience training and behavior modification with John (JD) DelBane in Cleveland, OH, backed by Lorenzo's Dog Training Team."><link rel="icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260818reviewcta"><!-- Meta pixel -->
-  <script>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dog Trainer in Cleveland, OH | John (JD) DelBane | Lorenzo's Dog Training Team</title><meta name="description" content="Professional dog obedience training and behavior modification with John (JD) DelBane in Cleveland, OH, backed by Lorenzo's Dog Training Team."><link rel="icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260807leadcounts"><script>
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
     n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
     n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
@@ -7,13 +6,27 @@
     document,'script','https://connect.facebook.net/en_US/fbevents.js');
     fbq('init', '3790623554504010');
     fbq('track', 'PageView');
-    document.addEventListener('submit', function(e){
-      var f = e.target;
-      if (!(f instanceof HTMLFormElement) || typeof fbq !== 'function') return;
-      if (f.classList.contains('contact-intake')) fbq('track', 'Lead', { value: 250, currency: 'USD' });
-      if (f.classList.contains('pdf-optin')) fbq('track', 'CompleteRegistration', { value: 25, currency: 'USD' });
-    }, true);
+    /* Conversions API support: every Lead gets one event ID that is sent both
+       from this browser and from the server, so Meta counts it once, not twice.
+       fbp/fbc cookies ride along in hidden fields so the server event can be
+       matched back to the ad click even when the browser event is blocked. */
+    (function(){
+      function cookie(n){var m=document.cookie.match('(^|;)\\s*'+n+'\\s*=\\s*([^;]+)');return m?decodeURIComponent(m[2]):'';}
+      function fbc(){var c=cookie('_fbc');if(c)return c;var id=new URLSearchParams(location.search).get('fbclid');return id?'fb.1.'+Date.now()+'.'+id:'';}
+      function uuid(){return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'ldtt-'+Date.now()+'-'+Math.random().toString(36).slice(2,10);}
+      function stamp(f,k,v){var i=f.querySelector('input[name="'+k+'"]');if(!i){i=document.createElement('input');i.type='hidden';i.name=k;f.appendChild(i);}i.value=v||'';}
+      document.addEventListener('submit', function(e){
+        var f = e.target;
+        if (!(f instanceof HTMLFormElement)) return;
+        var isLead = f.classList.contains('contact-intake'), isReg = f.classList.contains('pdf-optin');
+        if (!isLead && !isReg) return;
+        var id = uuid(); f.dataset.metaEventId = id;
+        stamp(f,'meta_event_id',id); stamp(f,'fbp',cookie('_fbp')); stamp(f,'fbc',fbc());
+        if (typeof fbq !== 'function') return;
+        if (isLead) fbq('track', 'Lead', { value: 250, currency: 'USD' }, { eventID: id });
+        if (isReg) fbq('track', 'CompleteRegistration', { value: 25, currency: 'USD' }, { eventID: id });
+      }, true);
+    })();
   </script>
   <noscript><img height="1" width="1" style="display:none"
-    src="https://www.facebook.com/tr?id=3790623554504010&ev=PageView&noscript=1" alt=""></noscript>
-<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script></head><body class="public-site" data-trainer="john-delbane"><main id="publicSite"></main><script src="supabase-config.js"></script><script src="trainer-roster.js"></script><script src="trainer-backoffice/supabase.js?v=20260819media"></script><script src="trainer-backoffice/app.js?v=20260819media"></script></body></html>
+    src="https://www.facebook.com/tr?id=3790623554504010&ev=PageView&noscript=1" alt=""></noscript><script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script></head><body class="public-site" data-trainer="john-delbane"><main id="publicSite"></main><script src="supabase-config.js"></script><script src="trainer-roster.js"></script><script src="trainer-backoffice/supabase.js?v=20260819media"></script><script src="trainer-backoffice/app.js?v=20260807leadcounts"></script></body></html>
