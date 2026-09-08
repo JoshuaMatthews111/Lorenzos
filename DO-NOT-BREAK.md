@@ -465,3 +465,19 @@ Verification (QA pass 2026-09-05):
       Without that guard the next 30-second poll blanks an open record's note history and the activity log.
     - The ETag input includes the omit list, so a trimmed answer can never satisfy a full request with a 304.
     Check: `node scripts/login-first-paint-proof.mjs` (9 checks) and `node scripts/audit-office-requirements.mjs`.
+
+    MEASURED ON THE REAL PRACTICE COPY, 2026-09-08 (the commit message's "69% smaller" came from
+    stubbed rows and is WRONG for real data — this is the true picture):
+      sign-in -> dashboard   3853 ms -> 3353 ms  (median of 5 warm runs, no overlap in the spreads)
+      the blocking API call  2740 ms -> 1783 ms  (35% faster), 2870 KB -> 2656 KB over the wire
+
+    WHY THE PAYLOAD BARELY MOVED, AND WHAT IS ACTUALLY LEFT. The sign-in body is 17.6 MB of JSON
+    and two append-only event logs are 93% of it:
+      events (site_events)   9,621 KB / 13,563 rows   55%
+      lifecycleEvents        6,651 KB / 13,795 rows   38%
+      everything else (leads, clients, trainers, applications, notes) ~1.3 MB   7%
+    They CANNOT simply be added to the omit list: `reportLifecycleRows()` is called inside
+    `getMetrics()`, and `siteEventRows()` inside `remoteLeadToUi()`, so both feed dashboard
+    figures and deferring them would show wrong numbers (DO-NOT-BREAK 1). The fix is to window
+    or aggregate them server-side, and it needs its own proof against the nightly numbers
+    cross-check before it goes anywhere near live.
