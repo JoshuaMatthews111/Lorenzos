@@ -1,5 +1,18 @@
+const { publicObjectUrl } = require("../lib/review-public-photo");
+
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
+
+// `public_file_url` is added by supabase/migrations/20260908090000_review_public_photo_copy.sql.
+// Until that migration is applied the column does not exist and PostgREST rejects the
+// whole select, which would empty the homepage review rail. So ask for it, and if the
+// database says it is not there yet, ask again without it and carry on with signed URLs.
+const SUBMISSION_COLUMNS = "id,trainer_id,title,notes,office_notes,file_url,public_file_url,photo_position,created_at";
+const SUBMISSION_COLUMNS_WITHOUT_PUBLIC_COPY = "id,trainer_id,title,notes,office_notes,file_url,photo_position,created_at";
+
+function isMissingColumnError(error) {
+  return /column .* does not exist|42703|does not exist.*schema cache/i.test(String(error?.message || error || ""));
+}
 
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -75,6 +88,13 @@ function isMissingRelationError(error) {
   return /relation .* does not exist|could not find the table|schema cache|42p01/i.test(String(error?.message || error || ""));
 }
 
+// When the office approved this review, its photo was copied into the public
+// `trainer-page-assets` bucket (see lib/review-public-photo.js). That copy is a plain
+// public URL: no key, no expiry, cacheable. Prefer it whenever the row has one.
+function publicMediaUrl(row) {
+  return publicObjectUrl(clean(row?.public_file_url, 2000));
+}
+
 async function signedMediaUrl(pathOrUrl) {
   const value = clean(pathOrUrl, 2000);
   if (!value) return "";
@@ -113,9 +133,15 @@ module.exports = async function handler(req, res) {
       if (!isMissingRelationError(error)) throw error;
     }
     const filter = publicationIds.length ? `&id=in.(${publicationIds.map(encodeURIComponent).join(",")})` : "";
-    const rows = await supabaseFetch(
-      `/rest/v1/content_submissions?select=id,trainer_id,title,notes,office_notes,file_url,photo_position,created_at&submission_type=in.(review,testimonial)&status=eq.approved${filter}&order=created_at.desc&limit=50`
-    );
+    const submissionQuery = columns =>
+      `/rest/v1/content_submissions?select=${columns}&submission_type=in.(review,testimonial)&status=eq.approved${filter}&order=created_at.desc&limit=50`;
+    let rows;
+    try {
+      rows = await supabaseFetch(submissionQuery(SUBMISSION_COLUMNS));
+    } catch (error) {
+      if (!isMissingColumnError(error)) throw error;
+      rows = await supabaseFetch(submissionQuery(SUBMISSION_COLUMNS_WITHOUT_PUBLIC_COPY));
+    }
     const homepageRows = (Array.isArray(rows) ? rows : [])
       .filter(row => publicationIds.length
         ? publicationIds.includes(row.id)
@@ -133,7 +159,7 @@ module.exports = async function handler(req, res) {
         review_text: reviewTextFromNotes(notes),
         location,
         rating,
-        media_url: await signedMediaUrl(row.file_url),
+        media_url: publicMediaUrl(row) || await signedMediaUrl(row.file_url),
         photo_position: row.photo_position || null,
         media_type: mediaTypeFromRow(row),
         published_at: publicationPublishedAt.get(row.id) || row.created_at,

@@ -1,5 +1,6 @@
 const { isSandbox, blockedOutsideSandbox } = require("../lib/sandbox");
 const sandboxStore = require("../lib/sandbox-store");
+const { ensurePublicReviewPhoto, removePublicReviewPhoto } = require("../lib/review-public-photo");
 const crypto = require("node:crypto");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -188,6 +189,64 @@ async function writeLifecycle(admin, entityType, record, previousStatus, request
   });
 }
 
+// Approved review photos live in the PRIVATE `trainer-submissions` bucket, which the
+// public site cannot read. On approval we copy this one review's photo into the
+// public `trainer-page-assets` bucket and record the copy's path in
+// `public_file_url`; when the review stops being approved we take the copy back down.
+// See lib/review-public-photo.js for why the private bucket is not simply made public.
+//
+// This is deliberately best-effort. A missing file, a video, a storage outage or a
+// database that has not had the `public_file_url` migration applied yet must never
+// stop the office approving a review — the review just shows without a photo, and
+// api/approved-homepage-reviews.js falls back to the signed URL it used before.
+const PUBLIC_REVIEW_TYPES = new Set(["review", "testimonial"]);
+
+async function syncPublicReviewPhoto(record) {
+  if (!record?.id) return;
+  if (!PUBLIC_REVIEW_TYPES.has(String(record.submission_type || "").toLowerCase())) return;
+
+  const existing = String(record.public_file_url || "").trim();
+  const approved = String(record.status || "").toLowerCase() === "approved";
+
+  const savePath = async value => {
+    await supabaseFetch(`/rest/v1/content_submissions?id=eq.${encodeURIComponent(record.id)}`, {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ public_file_url: value })
+    });
+    record.public_file_url = value;
+  };
+
+  if (approved) {
+    const result = await ensurePublicReviewPhoto({
+      submissionId: record.id,
+      fileUrl: record.file_url,
+      existingPublicPath: existing
+    });
+    if (result.changed) {
+      // The office swapped the photo, or the old file is gone: take the copy this
+      // review used to have back down so only one public copy per review exists.
+      if (existing && existing !== result.path) await removePublicReviewPhoto(existing);
+      await savePath(result.path || null);
+    }
+    return;
+  }
+
+  // Unpublished, declined or archived: nothing archived stays readable in public.
+  if (existing) {
+    await removePublicReviewPhoto(existing);
+    await savePath(null);
+  }
+}
+
+async function syncPublicReviewPhotoQuietly(record, requestId) {
+  try {
+    await syncPublicReviewPhoto(record);
+  } catch (error) {
+    console.error("Public review photo copy skipped", { submission_id: record?.id, request_id: requestId, message: error?.message });
+  }
+}
+
 async function updateRecord(admin, body, requestId) {
   const entityType = clean(body.entity_type, 40);
   const config = ENTITY_CONFIG[entityType];
@@ -210,6 +269,10 @@ async function updateRecord(admin, body, requestId) {
   if (!record) return { status: 409, body: { ok: false, conflict: true, message: "The record changed before this save completed." } };
   await audit(admin, clean(body.action, 80) || "updated", entityType, id, before, record, body.summary, requestId);
   await writeLifecycle(admin, entityType, record, before.status, requestId);
+  // Both a status change and a swapped photo change what the public copy should be.
+  if (entityType === "submission" && (before.status !== record.status || before.file_url !== record.file_url)) {
+    await syncPublicReviewPhotoQuietly(record, requestId);
+  }
   if (entityType === "lead" && before.status !== record.status) {
     await supabaseFetch("/rest/v1/lead_events", {
       method: "POST",
@@ -344,6 +407,9 @@ async function archiveRecord(admin, body, requestId) {
     body: JSON.stringify(changes)
   });
   const record = rows?.[0];
+  if (entityType === "submission" && record) {
+    await syncPublicReviewPhotoQuietly(record, requestId);
+  }
   await audit(admin, "archived", entityType, id, before, record, body.summary || "Record archived", requestId);
   return { status: 200, body: { ok: true, record, actor: admin.actor, updated_at: record.updated_at, version: record.version || null } };
 }
@@ -427,6 +493,9 @@ async function setReviewPublications(admin, body, requestId) {
   const publications = await supabaseFetch(`/rest/v1/review_publications?select=*&submission_id=eq.${encodeURIComponent(submissionId)}&order=updated_at.desc`);
   await audit(admin, body.published === false ? "review_unpublished" : "review_published", "submission", submissionId, current, publications, body.summary || "Review destinations saved", requestId);
   const record = updated?.[0] || submission;
+  // Publishing a review is the moment its photo has to become publicly readable —
+  // and unpublishing is the moment the public copy has to go.
+  await syncPublicReviewPhotoQuietly(record, requestId);
   return {
     status: 200,
     body: {
