@@ -453,3 +453,15 @@ Verification (QA pass 2026-09-05):
   `manage-portal-user`, `practice-reset`, `permanent_delete`, `pages archive`; trainer 403 on another trainer's
   lead in communications; dashboard tiles = board columns = report = CSV (`window.LDTT_METRICS`).
 - Nightly: `curl "$BASE/api/cron/site-health?dry=1" -H "Authorization: Bearer $CRON_SECRET"` → `numbers.ok: true`.
+
+38. **Signing in must not wait for the office sheets or the history.** `/api/operational-data?omit=sheets,history`
+    is what the sign-in form and a restored session ask for; the server skips those queries entirely.
+    `sheets` is a full SECOND copy of every lead, application and client (only the Download button reads it);
+    `history` is `audit_events` + `office_note_revisions` + `form_delivery_attempts` (read only inside an open
+    record and on the Communications screen). History is fetched straight after the first paint by
+    `startBackgroundHistoryLoad()`; the sheets are fetched on the Download click by `ensureSheetsLoaded()`.
+    Two rules hold this together and must not be removed:
+    - The response carries `omitted: [...]`, and `mergeRemoteOperationalData()` skips any block named there.
+      Without that guard the next 30-second poll blanks an open record's note history and the activity log.
+    - The ETag input includes the omit list, so a trimmed answer can never satisfy a full request with a 304.
+    Check: `node scripts/login-first-paint-proof.mjs` (9 checks) and `node scripts/audit-office-requirements.mjs`.

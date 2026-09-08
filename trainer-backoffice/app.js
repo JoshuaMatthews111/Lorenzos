@@ -435,6 +435,10 @@ let remoteLifecycleEvents = [];
 let remoteReviewPublications = [];
 let remoteDeliveryAttempts = [];
 let remoteSheets = { leads: [], applications: [], clients: [] };
+// Sign-in asks for neither of these; they arrive after the dashboard is on screen
+// (history) or when someone presses Download (sheets).
+let remoteHistoryReady = false;
+let remoteSheetsReady = false;
 let remoteClientsTotal = 0;
 let communicationsData = {
   loaded: false,
@@ -1313,11 +1317,22 @@ function mergeRemoteOperationalData(data) {
   remoteEvents = data.events || [];
   remotePortalUsers = data.portalUsers || [];
   remoteOfficeNotes = data.officeNotes || [];
-  remoteNoteRevisions = data.noteRevisions || [];
-  remoteAuditEvents = data.auditEvents || [];
+  // perf/portal-login-first-paint: a block named in `omitted` was never asked for,
+  // so its empty array in this answer means "not fetched", NOT "now empty". Writing
+  // it over what we already hold would blank an open record's note history or the
+  // Communications activity log on the very next 30-second poll.
+  const omitted = new Set(data.omitted || []);
+  if (!omitted.has("history")) {
+    remoteNoteRevisions = data.noteRevisions || [];
+    remoteAuditEvents = data.auditEvents || [];
+    remoteDeliveryAttempts = data.deliveryAttempts || [];
+    remoteHistoryReady = true;
+  }
   remoteLifecycleEvents = data.lifecycleEvents || [];
-  remoteDeliveryAttempts = data.deliveryAttempts || [];
-  remoteSheets = data.sheets || { leads: [], applications: [], clients: [] };
+  if (!omitted.has("sheets")) {
+    remoteSheets = data.sheets || { leads: [], applications: [], clients: [] };
+    remoteSheetsReady = true;
+  }
   remoteClientsTotal = Number(data.clientsTotal || 0) || (data.clients || []).length;
   remoteServerRevision = data.serverRevision || "";
   remoteSyncedAt = data.syncedAt || "";
@@ -1343,11 +1358,75 @@ async function prepareRemoteData(data) {
   return { ...data, submissions };
 }
 
+// perf/portal-login-first-paint: signing in used to wait for every table in the
+// database, including a second full copy of every lead, application and client
+// that only the Download button reads. It now waits for what the dashboard draws
+// and nothing else. `history` follows a moment later on its own; `sheets` waits
+// until someone actually presses Download.
+function omitForRequest() {
+  const omit = [];
+  if (!remoteSheetsReady) omit.push("sheets");
+  if (!remoteHistoryReady) omit.push("history");
+  return omit.join(",");
+}
+
+let historyLoadPromise = null;
+// Note history, the activity log and delivery attempts. Nothing on the dashboard
+// reads them, so they are fetched after the screen is up rather than before it.
+function ensureHistoryLoaded() {
+  if (remoteHistoryReady) return Promise.resolve(true);
+  if (!window.LDTT_PORTAL?.enabled || !session.loggedIn) return Promise.resolve(false);
+  if (historyLoadPromise) return historyLoadPromise;
+  historyLoadPromise = (async () => {
+    try {
+      const loaded = await window.LDTT_PORTAL.loadOperationalData({ omit: remoteSheetsReady ? "" : "sheets" });
+      if (!loaded || loaded.notModified) return false;
+      mergeRemoteOperationalData(await prepareRemoteData(loaded));
+      return true;
+    } catch (error) {
+      // The dashboard is already on screen and correct. A failed history fetch
+      // must never take it down; the next poll tries again.
+      console.warn("LDTT portal history could not be loaded yet", error);
+      return false;
+    } finally {
+      historyLoadPromise = null;
+    }
+  })();
+  return historyLoadPromise;
+}
+
+let sheetsLoadPromise = null;
+// The three office sheets are a full second copy of every lead, application and
+// client. Only the Download button reads them, so they are fetched on the click.
+function ensureSheetsLoaded() {
+  if (remoteSheetsReady) return Promise.resolve(true);
+  if (!window.LDTT_PORTAL?.enabled || !session.loggedIn) return Promise.resolve(false);
+  if (sheetsLoadPromise) return sheetsLoadPromise;
+  sheetsLoadPromise = (async () => {
+    try {
+      const loaded = await window.LDTT_PORTAL.loadOperationalData({ omit: remoteHistoryReady ? "" : "history" });
+      if (!loaded || loaded.notModified) return false;
+      mergeRemoteOperationalData(await prepareRemoteData(loaded));
+      return remoteSheetsReady;
+    } finally {
+      sheetsLoadPromise = null;
+    }
+  })();
+  return sheetsLoadPromise;
+}
+
+// Called once, straight after the dashboard paints.
+function startBackgroundHistoryLoad() {
+  ensureHistoryLoaded().then(loaded => {
+    if (loaded) backgroundRender();
+  });
+}
+
 async function reloadRemoteData() {
   if (!window.LDTT_PORTAL?.enabled || !session.loggedIn) return;
   // perf/portal-speed: hand the API the revision we already hold; an empty 304
   // (nothing changed) comes back as null and the records in memory stand.
-  const loaded = await window.LDTT_PORTAL.loadOperationalData({ ifNoneMatch: remoteReady ? remoteServerRevision : "" });
+  const loaded = await window.LDTT_PORTAL.loadOperationalData({ ifNoneMatch: remoteReady ? remoteServerRevision : "", omit: omitForRequest() });
   if (loaded === null || loaded?.notModified) {
     // Server time from the 304's Date header; if the header is missing keep the
     // last server stamp rather than inventing one from the client clock.
@@ -4222,8 +4301,9 @@ async function bootstrapApplication() {
     }
     session = { loggedIn: true, role: portalUser.role };
     state.role = portalUser.role;
-    const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+    const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history" }));
     mergeRemoteOperationalData(data);
+    startBackgroundHistoryLoad();
     if (portalUser.trainer_id) {
       state.selectedTrainerId = state.trainers.find(trainer => trainer.remoteId === portalUser.trainer_id)?.id || state.selectedTrainerId;
     }
@@ -4551,7 +4631,8 @@ async function loadCommunicationsData(renderAfter = true) {
 
 async function refreshCommunicationsLeads() {
   if (!remoteReady || !window.LDTT_PORTAL?.loadOperationalData) return;
-  const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+  // The Communications screen draws the Recent Activity Log, which is history.
+  const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: remoteSheetsReady ? "" : "sheets" }));
   mergeRemoteOperationalData(data);
 }
 
@@ -8938,10 +9019,23 @@ function exportApplicationsCsv() {
   downloadCsv(`ldtt-trainer-applications-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
-function exportOperationalSheet(kind) {
+// perf/portal-login-first-paint: the office sheets are no longer shipped at
+// sign-in, so fetch them here, on the click, before building the file. The
+// download is identical; it just waits a moment the first time.
+async function exportOperationalSheet(kind) {
   if (kind === "leads") {
     exportLeadsCsv();
     return;
+  }
+  if (!remoteSheetsReady) {
+    showToast("Preparing the download...");
+    try {
+      await ensureSheetsLoaded();
+    } catch (error) {
+      console.warn("LDTT office sheet could not be loaded", error);
+      showToast("The download could not be prepared. Please try again.");
+      return;
+    }
   }
   const canonicalRows = Array.isArray(remoteSheets?.[kind]) ? remoteSheets[kind] : [];
   const rows = canonicalRows.length
@@ -11651,8 +11745,9 @@ document.addEventListener("click", async event => {
   }
   const operationalExport = event.target.closest("[data-export-operational]");
   if (operationalExport) {
-    exportOperationalSheet(operationalExport.dataset.exportOperational);
-    showToast(`${operationalExport.dataset.exportOperational} CSV downloaded`);
+    const kind = operationalExport.dataset.exportOperational;
+    // The sheet may still have to be fetched, so only say "downloaded" once it is.
+    exportOperationalSheet(kind).then(() => showToast(`${kind} CSV downloaded`));
     return;
   }
   const decline = event.target.closest("[data-decline-submission]");
@@ -13497,8 +13592,9 @@ document.addEventListener("submit", async event => {
       state.leadDateRange = "60";
       state.customLeadStart = toDateInputValue(defaultLeadStartDate);
       state.customLeadEnd = toDateInputValue(defaultLeadEndDate);
-      const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData());
+      const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history" }));
       mergeRemoteOperationalData(data);
+      startBackgroundHistoryLoad();
       if (portalUser.trainer_id) {
         state.selectedTrainerId = currentTrainerId();
       }

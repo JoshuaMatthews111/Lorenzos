@@ -498,7 +498,12 @@
     const session = readSession();
     if (!session?.access_token) throw new Error("Your staff session has expired. Sign in again to load live records.");
     const revision = String(options.ifNoneMatch || "").trim();
-    const response = await fetch("/api/operational-data", {
+    // perf/portal-login-first-paint: `omit` names blocks the caller does not need
+    // yet ("sheets", "history"). The server skips those queries entirely, which is
+    // what makes signing in fast. It echoes the list back as `omitted`.
+    const omit = String(options.omit || "").trim();
+    const url = omit ? `/api/operational-data?omit=${encodeURIComponent(omit)}` : "/api/operational-data";
+    const response = await fetch(url, {
       cache: "no-store",
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -537,6 +542,7 @@
       deliveryAttempts: data.deliveryAttempts || [],
       reviewPublications: data.reviewPublications || [],
       lifecycleEvents: data.lifecycleEvents || [],
+      omitted: Array.isArray(data.omitted) ? data.omitted : [],
       sheets: data.sheets || { leads: [], applications: [], clients: [] }
     };
   }

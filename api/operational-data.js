@@ -323,7 +323,21 @@ async function fetchByInBatched(pathPrefix, column, values, capability, unavaila
   return pages.flat();
 }
 
-async function loadAdminOperationalData(unavailableCapabilities) {
+// perf/portal-login-first-paint: `omit` names whole blocks of the response the
+// caller does not need yet. Nothing on the dashboard reads them, so skipping the
+// queries is what makes signing in fast.
+//   sheets  - office_leads_sheet / office_applications_sheet / office_clients_sheet
+//             AND the second copy of every lead, application and client that gets
+//             merged into them. Only the Download button ever reads it.
+//   history - audit_events, office_note_revisions, form_delivery_attempts. Read
+//             only inside an open record and on the Communications screen.
+const OMITTABLE = new Set(["sheets", "history"]);
+
+function parseOmit(value) {
+  return new Set(String(value || "").split(",").map(part => part.trim().toLowerCase()).filter(part => OMITTABLE.has(part)));
+}
+
+async function loadAdminOperationalData(unavailableCapabilities, omit = new Set()) {
   const [
     trainers,
     pages,
@@ -371,9 +385,9 @@ async function loadAdminOperationalData(unavailableCapabilities) {
     }),
     supabaseFetchAll("/rest/v1/portal_users?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/office_notes?select=*&order=created_at.desc"),
-    optionalSupabaseFetchAll(`/rest/v1/audit_events?select=${AUDIT_COLUMNS}&order=created_at.desc`, "audit_events", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/office_note_revisions?select=*&order=created_at.desc", "office_note_revisions", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/form_delivery_attempts?select=*&order=created_at.desc", "form_delivery_attempts", unavailableCapabilities),
+    omit.has("history") ? Promise.resolve([]) : optionalSupabaseFetchAll(`/rest/v1/audit_events?select=${AUDIT_COLUMNS}&order=created_at.desc`, "audit_events", unavailableCapabilities),
+    omit.has("history") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/office_note_revisions?select=*&order=created_at.desc", "office_note_revisions", unavailableCapabilities),
+    omit.has("history") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/form_delivery_attempts?select=*&order=created_at.desc", "form_delivery_attempts", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/review_publications?select=*&order=updated_at.desc", "review_publications", unavailableCapabilities),
     fetchAppendOnlyTable({
       key: "lifecycle_events",
@@ -386,15 +400,18 @@ async function loadAdminOperationalData(unavailableCapabilities) {
       unavailableCapabilities.push("lifecycle_events");
       return [];
     }),
-    optionalSupabaseFetchAll("/rest/v1/office_leads_sheet?select=*&order=received_at.desc", "office_leads_sheet", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
+    omit.has("sheets") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/office_leads_sheet?select=*&order=received_at.desc", "office_leads_sheet", unavailableCapabilities),
+    omit.has("sheets") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
     Promise.resolve(null),
     optionalSupabaseFetchAll("/rest/v1/deals?select=*&order=sold_on.desc,created_at.desc", "deals", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/deal_payments?select=*&order=due_on.asc,sequence.asc", "deal_payments", unavailableCapabilities)
   ]);
+  // clientsTotal still runs: the dashboard prints it. The clients sheet does not.
   const [clientsTotal, clientsSheetRows] = await Promise.all([
     countRows("clients").catch(() => clients.length),
-    fetchByInBatched("/rest/v1/office_clients_sheet?select=*", "id", clients.map(row => row.id), "office_clients_sheet", unavailableCapabilities)
+    omit.has("sheets")
+      ? Promise.resolve([])
+      : fetchByInBatched("/rest/v1/office_clients_sheet?select=*", "id", clients.map(row => row.id), "office_clients_sheet", unavailableCapabilities)
   ]);
   return {
     clientsTotal,
@@ -423,7 +440,7 @@ async function loadAdminOperationalData(unavailableCapabilities) {
   };
 }
 
-async function loadTrainerOperationalData(portalUser, unavailableCapabilities) {
+async function loadTrainerOperationalData(portalUser, unavailableCapabilities, omit = new Set()) {
   const trainerId = portalUser.trainer_id;
   const [trainers, pages, leads, submissions, events] = await Promise.all([
     supabaseFetchAll(`/rest/v1/trainers?select=*&id=eq.${encodeURIComponent(trainerId)}&limit=1`),
@@ -444,7 +461,9 @@ async function loadTrainerOperationalData(portalUser, unavailableCapabilities) {
   ]);
   const deals = await optionalSupabaseFetchAll(`/rest/v1/deals?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&order=sold_on.desc,created_at.desc`, "deals", unavailableCapabilities);
   const dealPayments = await fetchByIn("/rest/v1/deal_payments?select=*&order=due_on.asc,sequence.asc", "deal_id", deals.map(row => row.id), "deal_payments", unavailableCapabilities);
-  const noteRevisions = await fetchByIn(
+  // A trainer's note revisions are fetched one round trip after the notes, so
+  // skipping them on sign-in removes a whole serial hop from their login.
+  const noteRevisions = omit.has("history") ? [] : await fetchByIn(
     "/rest/v1/office_note_revisions?select=*&order=created_at.desc",
     "office_note_id",
     officeNotes.map(row => row.id),
@@ -495,9 +514,10 @@ module.exports = async function handler(req, res) {
     if (!access) return;
 
     const unavailableCapabilities = [];
+    const omit = parseOmit(req.query?.omit);
     const data = access.role === "trainer"
-      ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities)
-      : await loadAdminOperationalData(unavailableCapabilities);
+      ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities, omit)
+      : await loadAdminOperationalData(unavailableCapabilities, omit);
     // Practice copy: every row above already came from the practice schema.
     // The only extra is the "Sent to live ✓" stamp per trainer page, kept in
     // practice.send_to_live_log by api/send-to-live.js.
@@ -551,7 +571,10 @@ module.exports = async function handler(req, res) {
       `events:${events.length}:${events[0]?.id || ""}`,
       `lifecycle:${lifecycleEvents.length}:${lifecycleEvents[0]?.id || ""}`,
       `sent:${sendToLiveLog.length}:${sendToLiveLog[0]?.sent_at || ""}`,
-      `clientsTotal:${data.clientsTotal ?? ""}`
+      `clientsTotal:${data.clientsTotal ?? ""}`,
+      // A trimmed answer and a full one are different documents. Without this a
+      // browser holding the full set would be told 304 by a trimmed request.
+      `omit:${[...omit].sort().join(",")}`
     ].join("||");
     const serverRevision = crypto.createHash("sha256").update(revisionInput).digest("hex").slice(0, 20);
     const etag = `"${serverRevision}"`;
@@ -614,7 +637,10 @@ module.exports = async function handler(req, res) {
       deliveryAttempts,
       reviewPublications,
       lifecycleEvents,
-      sheets: {
+      // The caller merges only the blocks it actually received; `omitted` is how
+      // it tells "not asked for" apart from "now empty".
+      omitted: [...omit].sort(),
+      sheets: omit.has("sheets") ? { leads: [], applications: [], clients: [] } : {
         leads: completeSheetRows(leads, leadsSheet),
         applications: completeSheetRows(applications, applicationsSheet),
         clients: completeClientSheetRows(clients, clientsSheet)
