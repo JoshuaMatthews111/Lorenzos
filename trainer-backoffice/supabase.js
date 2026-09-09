@@ -37,9 +37,12 @@
   const schemaHeaders = path => (schema !== "public" && String(path).startsWith("/rest/v1/") ? { "Accept-Profile": schema, "Content-Profile": schema } : {});
   let refreshPromise = null;
   let persistSession = Boolean(readStoredSession(localStorage));
+  // Last-resort copy for when browser storage is full. Never written to disk,
+  // gone when the tab closes — exactly what an unticked "keep me signed in" means.
+  let memorySession = null;
 
   function readSession() {
-    return readStoredSession(localStorage) || readStoredSession(sessionStorage);
+    return readStoredSession(localStorage) || readStoredSession(sessionStorage) || memorySession;
   }
 
   function readStoredSession(storage) {
@@ -68,6 +71,7 @@
   }
 
   function writeSession(session, remember = persistSession) {
+    memorySession = null;
     if (!session) {
       try { localStorage.removeItem(STORAGE_KEY); } catch {}
       try { sessionStorage.removeItem(STORAGE_KEY); } catch {}
@@ -76,12 +80,24 @@
     const value = JSON.stringify(session);
     persistSession = Boolean(remember);
     if (!persistSession) {
+      // "Keep me signed in" was NOT ticked: this session may only live in this
+      // tab. It must never fall through to localStorage — that is what made the
+      // portal sign people in automatically the next day without asking.
+      try { localStorage.removeItem(STORAGE_KEY); } catch {}
       try {
         sessionStorage.setItem(STORAGE_KEY, value);
-        localStorage.removeItem(STORAGE_KEY);
         return;
       } catch (error) {
         if (!isQuotaError(error)) throw error;
+        clearRecoverableCache(STORAGE_KEY);
+        try {
+          sessionStorage.setItem(STORAGE_KEY, value);
+          return;
+        } catch {
+          memorySession = session;
+          console.warn("LDTT portal auth is held in memory for this page because browser storage is full.");
+          return;
+        }
       }
     }
     try {
@@ -105,7 +121,9 @@
         console.warn("LDTT portal auth is using tab storage because browser storage is full.", error);
         return;
       } catch {
-        throw error;
+        memorySession = session;
+        console.warn("LDTT portal auth is held in memory for this page because browser storage is full.");
+        return;
       }
     }
   }
@@ -495,21 +513,37 @@
   // holds. The API answers an empty 304 when nothing changed, and this resolves
   // to null so the caller keeps what it has instead of parsing ~20 MB again.
   async function loadOperationalData(options = {}) {
-    const session = readSession();
+    let session = readSession();
     if (!session?.access_token) throw new Error("Your staff session has expired. Sign in again to load live records.");
+    // A stale access token used to go to the API as-is; the API answered 401 and
+    // the portal read that as "signed out", so refreshing the page after an hour
+    // away landed the office on the login box. Renew a token that is about to
+    // expire BEFORE asking for data, and if the server still refuses, renew once
+    // and retry before giving up.
+    if (session.refresh_token && Number(session.expires_at || 0) <= Math.floor(Date.now() / 1000) + 30) {
+      try { await refreshSession(); } catch { /* try the request with the stored token */ }
+      session = readSession() || session;
+    }
     const revision = String(options.ifNoneMatch || "").trim();
     // perf/portal-login-first-paint: `omit` names blocks the caller does not need
     // yet ("sheets", "history"). The server skips those queries entirely, which is
     // what makes signing in fast. It echoes the list back as `omitted`.
     const omit = String(options.omit || "").trim();
     const url = omit ? `/api/operational-data?omit=${encodeURIComponent(omit)}` : "/api/operational-data";
-    const response = await fetch(url, {
+    const fetchOnce = token => fetch(url, {
       cache: "no-store",
       headers: {
-        Authorization: `Bearer ${session.access_token}`,
+        Authorization: `Bearer ${token}`,
         ...(revision ? { "If-None-Match": `"${revision}"` } : {})
       }
     });
+    let response = await fetchOnce(session.access_token);
+    if (response.status === 401 && readSession()?.refresh_token) {
+      try {
+        await refreshSession();
+        response = await fetchOnce(readSession()?.access_token || "");
+      } catch { /* keep the 401 answer; the caller decides what to show */ }
+    }
     if (response.status === 304 && revision) {
       // freshness (QA 2026-09-05): nothing changed, but the office still wants to
       // know WHEN the server last confirmed that. Use the server's Date header,

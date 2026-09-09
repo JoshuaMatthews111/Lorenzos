@@ -4322,7 +4322,12 @@ async function bootstrapApplication() {
     }
     // Same as the sign-in form: ask for the data while the "who am I" lookup runs.
     const dataInFlight = window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }).catch(error => ({ __error: error }));
-    portalUser = await window.LDTT_PORTAL.currentPortalUser();
+    portalUser = await window.LDTT_PORTAL.currentPortalUser().catch(async () => {
+      // A refresh the moment a laptop wakes often loses the first request.
+      // One failed lookup must not cost the office their sign-in.
+      await new Promise(resolve => window.setTimeout(resolve, 1500));
+      return window.LDTT_PORTAL.currentPortalUser();
+    });
     if (!portalUser) {
       session = { loggedIn: false, role: "" };
       render();
@@ -4348,11 +4353,21 @@ async function bootstrapApplication() {
     }
     session = { loggedIn: true, role: portalUser.role };
     state.role = portalUser.role;
-    const loaded = await dataInFlight;
-    if (loaded?.__error) throw loaded.__error;
-    const data = await prepareRemoteData(loaded);
-    mergeRemoteOperationalData(data);
-    startBackgroundHistoryLoad();
+    try {
+      const loaded = await dataInFlight;
+      if (loaded?.__error) throw loaded.__error;
+      const data = await prepareRemoteData(loaded);
+      mergeRemoteOperationalData(data);
+      startBackgroundHistoryLoad();
+    } catch (dataError) {
+      // The sign-in check above SUCCEEDED — only the data download failed (a
+      // network blip, a token renewed mid-flight). Falling to the login box here
+      // is what the office reported as "refreshing logs us out". Stay signed in,
+      // keep the page they were on, and fetch the records again in a moment.
+      console.warn("LDTT portal data load failed after a valid sign-in check", dataError);
+      showToast("You are signed in. Your records are still loading…");
+      window.setTimeout(() => refreshOperationalData("boot-retry"), 3000);
+    }
     if (portalUser.trainer_id) {
       state.selectedTrainerId = state.trainers.find(trainer => trainer.remoteId === portalUser.trainer_id)?.id || state.selectedTrainerId;
     }
@@ -13711,11 +13726,10 @@ async function applyEnvironmentBadge() {
     window.LDTT_IS_SANDBOX = true;
     window.LDTT_DB_SCHEMA = info.schema || "practice";
     document.body.classList.add("is-sandbox");
-    // Testers are going to reload this thing all day and redeploys land under
-    // them. Tick "keep me signed in" for them so a refresh, a new tab or a fresh
-    // build never drops them back at the login box mid-test.
-    const remember = document.querySelector('#loginForm input[name="remember"]');
-    if (remember) remember.checked = true;
+    // The box "keep me signed in" is the tester's choice, here exactly as on
+    // live. It used to be force-ticked for testers, and the office read the
+    // result as "the portal signs me in without asking". A plain refresh keeps
+    // the session either way; the box only decides new tabs and tomorrow.
     if (document.getElementById("sandboxBanner")) return;
     const banner = document.createElement("div");
     banner.id = "sandboxBanner";
