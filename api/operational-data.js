@@ -178,13 +178,14 @@ async function supabaseFetchAll(path, pageSize = 1000, maxRows = 100000) {
   return rows;
 }
 
-async function fetchAuthUsersById(userIds = []) {
+async function fetchAuthUsersById(userIds = [], firstPage = null) {
   const needed = new Set(userIds.map(value => String(value || "")).filter(Boolean));
   if (!needed.size) return new Map();
   const byId = new Map();
   try {
     for (let page = 1; page <= 20; page += 1) {
-      const result = await supabaseFetch(`/auth/v1/admin/users?page=${page}&per_page=100`);
+      // Page 1 is fetched inside the main batch so this no longer adds a serial hop.
+      const result = page === 1 && firstPage ? firstPage : await supabaseFetch(`/auth/v1/admin/users?page=${page}&per_page=100`);
       const users = Array.isArray(result?.users) ? result.users : [];
       users.forEach(user => {
         if (!needed.has(String(user.id || ""))) return;
@@ -207,8 +208,8 @@ async function fetchAuthUsersById(userIds = []) {
   return byId;
 }
 
-async function enrichPortalUsersWithAuth(portalUsers = []) {
-  const authById = await fetchAuthUsersById(portalUsers.map(user => user.user_id));
+async function enrichPortalUsersWithAuth(portalUsers = [], firstPage = null) {
+  const authById = await fetchAuthUsersById(portalUsers.map(user => user.user_id), firstPage);
   return portalUsers.map(user => {
     const authUser = authById.get(String(user.user_id || ""));
     if (!authUser) return user;
@@ -370,6 +371,116 @@ function parseOmit(value) {
   return new Set(String(value || "").split(",").map(part => part.trim().toLowerCase()).filter(part => OMITTABLE.has(part)));
 }
 
+// ---- lifecycle without the 16 pages -------------------------------------------
+// A fresh lambda used to pull all 15,470 lifecycle rows from Supabase (16 paged
+// calls, ~2.4 s measured) and discard 15,205 of them into visitStamps. The stamps
+// now live in site_settings under STAMPS_KEY (key -> jsonb, the same table the
+// nightly cron writes). A fresh lambda reads that one row plus only the page-view
+// rows newer than it, and the 265 lead/application rows. Same stamps, two calls.
+// The first cold start with no cached row still does the full fetch once, then
+// writes the row, so nothing depends on a migration or a cron having run.
+const STAMPS_KEY = "portal_visit_stamps";
+const STAMPS_TAIL_IDS = 400;   // ids around the newest stamp, so a gte re-read cannot double count
+
+async function readStampsCache() {
+  try {
+    const rows = await supabaseFetch(`/rest/v1/site_settings?select=value&key=eq.${STAMPS_KEY}&limit=1`);
+    const value = Array.isArray(rows) ? rows[0]?.value : null;
+    if (!value || typeof value !== "object" || !value.stamps || !value.newest_occurred_at) return null;
+    return {
+      stamps: { site_visit: value.stamps.site_visit || [], cta_click: value.stamps.cta_click || [] },
+      newestAt: String(value.newest_occurred_at),
+      tailIds: new Set((value.recent_ids || []).map(String))
+    };
+  } catch (error) {
+    console.warn("visit stamps cache unreadable, falling back to a full fetch", error?.message || error);
+    return null;
+  }
+}
+
+async function writeStampsCache(stamps, newestAt, tailIds) {
+  const value = {
+    stamps,
+    newest_occurred_at: newestAt,
+    recent_ids: [...tailIds].slice(-STAMPS_TAIL_IDS),
+    updated_at: new Date().toISOString(),
+    total: stamps.site_visit.length + stamps.cta_click.length
+  };
+  try {
+    await supabaseFetch("/rest/v1/site_settings?on_conflict=key", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ key: STAMPS_KEY, value })
+    });
+  } catch (error) {
+    // The answer is already correct; the next request just pays the full fetch again.
+    console.warn("visit stamps cache not written", error?.message || error);
+  }
+}
+
+// Turns page-view rows into stamps, newest-first input assumed. Returns the ids
+// it consumed so the tail set can be maintained.
+function stampsFromPageViews(rows, stamps, skipIds) {
+  const consumed = [];
+  for (const row of rows) {
+    const id = String(row.id || "");
+    if (skipIds && skipIds.has(id)) continue;
+    consumed.push(id);
+    if (isHeldOutLifecycleRow(row)) continue;
+    if (!VISIT_TYPES.includes(row.event_type)) continue;
+    const t = Date.parse(row.occurred_at || row.created_at || "");
+    if (Number.isFinite(t)) stamps[row.event_type].push(Math.floor(t / 1000));
+  }
+  return consumed;
+}
+
+async function loadLifecycleFast(unavailableCapabilities) {
+  const missing = error => /relation .* does not exist|could not find the table|schema cache|42p01/i.test(String(error?.message || error || ""));
+  const selectRows = async filter => {
+    try {
+      return rebuildPayload(await supabaseFetchAll(`/rest/v1/lifecycle_events?select=${LIFECYCLE_SELECT}&${filter}&order=occurred_at.desc`), LIFECYCLE_PAYLOAD_KEYS);
+    } catch (error) {
+      if (!isMissingColumnError(error)) throw error;
+      return slimLifecycleEvents(await supabaseFetchAll(`/rest/v1/lifecycle_events?select=*&${filter}&order=occurred_at.desc`));
+    }
+  };
+  try {
+    const [cache, leadRows] = await Promise.all([
+      readStampsCache(),
+      selectRows("entity_type=neq.site_event")
+    ]);
+    if (cache) {
+      const fresh = await selectRows(`entity_type=eq.site_event&occurred_at=gte.${encodeURIComponent(cache.newestAt)}`);
+      const stamps = { site_visit: [...cache.stamps.site_visit], cta_click: [...cache.stamps.cta_click] };
+      const consumed = stampsFromPageViews(fresh, stamps, cache.tailIds);
+      if (consumed.length) {
+        const newestAt = String(fresh[0]?.occurred_at || cache.newestAt);
+        const tail = new Set([...cache.tailIds, ...consumed]);
+        await writeStampsCache(stamps, newestAt, tail);
+      }
+      return { rows: leadRows, stamps, source: consumed.length ? "cache+delta" : "cache" };
+    }
+    // No cached row yet: the one-time full fetch, then remember it.
+    const all = await fetchAppendOnlyTable({
+      key: "lifecycle_events",
+      path: `/rest/v1/lifecycle_events?select=${LIFECYCLE_SELECT}`,
+      fallbackPath: { path: "/rest/v1/lifecycle_events?select=*", shape: slimLifecycleEvents },
+      orderColumn: "occurred_at",
+      shape: rows => rebuildPayload(rows, LIFECYCLE_PAYLOAD_KEYS)
+    });
+    const pageViews = all.filter(row => row.entity_type === "site_event");
+    const stamps = { site_visit: [], cta_click: [] };
+    const consumed = stampsFromPageViews(pageViews, stamps, null);
+    const newestAt = String(pageViews[0]?.occurred_at || "");
+    if (newestAt) await writeStampsCache(stamps, newestAt, new Set(consumed.slice(0, STAMPS_TAIL_IDS)));
+    return { rows: all.filter(row => row.entity_type !== "site_event"), stamps, source: "full" };
+  } catch (error) {
+    if (!missing(error)) throw error;
+    unavailableCapabilities.push("lifecycle_events");
+    return { rows: [], stamps: { site_visit: [], cta_click: [] }, source: "unavailable" };
+  }
+}
+
 async function loadAdminOperationalData(unavailableCapabilities, omit = new Set()) {
   const [
     trainers,
@@ -387,12 +498,14 @@ async function loadAdminOperationalData(unavailableCapabilities, omit = new Set(
     noteRevisions,
     deliveryAttempts,
     reviewPublications,
-    lifecycleEvents,
+    lifecycleLoaded,
     leadsSheet,
     applicationsSheet,
     clientsSheet,
     deals,
-    dealPayments
+    dealPayments,
+    clientsTotalEarly,
+    authPageOne
   ] = await Promise.all([
     supabaseFetchAll("/rest/v1/trainers?select=*&order=full_name.asc"),
     supabaseFetchAll("/rest/v1/trainer_pages?select=*&order=updated_at.desc"),
@@ -422,31 +535,26 @@ async function loadAdminOperationalData(unavailableCapabilities, omit = new Set(
     omit.has("history") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/office_note_revisions?select=*&order=created_at.desc", "office_note_revisions", unavailableCapabilities),
     omit.has("history") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/form_delivery_attempts?select=*&order=created_at.desc", "form_delivery_attempts", unavailableCapabilities),
     optionalSupabaseFetchAll("/rest/v1/review_publications?select=*&order=updated_at.desc", "review_publications", unavailableCapabilities),
-    fetchAppendOnlyTable({
-      key: "lifecycle_events",
-      path: `/rest/v1/lifecycle_events?select=${LIFECYCLE_SELECT}`,
-      fallbackPath: { path: "/rest/v1/lifecycle_events?select=*", shape: slimLifecycleEvents },
-      orderColumn: "occurred_at",
-      shape: rows => rebuildPayload(rows, LIFECYCLE_PAYLOAD_KEYS)
-    }).catch(error => {
-      if (!/relation .* does not exist|could not find the table|schema cache|42p01/i.test(String(error?.message || error || ""))) throw error;
-      unavailableCapabilities.push("lifecycle_events");
-      return [];
-    }),
+    loadLifecycleFast(unavailableCapabilities),
     omit.has("sheets") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/office_leads_sheet?select=*&order=received_at.desc", "office_leads_sheet", unavailableCapabilities),
     omit.has("sheets") ? Promise.resolve([]) : optionalSupabaseFetchAll("/rest/v1/office_applications_sheet?select=*&order=received_at.desc", "office_applications_sheet", unavailableCapabilities),
     Promise.resolve(null),
     optionalSupabaseFetchAll("/rest/v1/deals?select=*&order=sold_on.desc,created_at.desc", "deals", unavailableCapabilities),
-    optionalSupabaseFetchAll("/rest/v1/deal_payments?select=*&order=due_on.asc,sequence.asc", "deal_payments", unavailableCapabilities)
+    optionalSupabaseFetchAll("/rest/v1/deal_payments?select=*&order=due_on.asc,sequence.asc", "deal_payments", unavailableCapabilities),
+    // These two used to run AFTER the batch, one behind the other (measured
+    // ~500 ms cold). Neither depends on the batch, so they run inside it.
+    countRows("clients").catch(() => null),
+    supabaseFetch("/auth/v1/admin/users?page=1&per_page=100").catch(() => null)
   ]);
-  // clientsTotal still runs: the dashboard prints it. The clients sheet does not.
-  const [clientsTotal, clientsSheetRows] = await Promise.all([
-    countRows("clients").catch(() => clients.length),
-    omit.has("sheets")
-      ? Promise.resolve([])
-      : fetchByInBatched("/rest/v1/office_clients_sheet?select=*", "id", clients.map(row => row.id), "office_clients_sheet", unavailableCapabilities)
-  ]);
+  const lifecycleEvents = lifecycleLoaded.rows;
+  const clientsTotal = clientsTotalEarly ?? clients.length;
+  const clientsSheetRows = omit.has("sheets")
+    ? []
+    : await fetchByInBatched("/rest/v1/office_clients_sheet?select=*", "id", clients.map(row => row.id), "office_clients_sheet", unavailableCapabilities);
   return {
+    visitStamps: lifecycleLoaded.stamps,
+    visitStampsSource: lifecycleLoaded.source,
+    authPageOne,
     clientsTotal,
     clientsTruncated: clients.length >= CLIENT_PAGE_LIMIT,
     trainers,
@@ -571,7 +679,8 @@ module.exports = async function handler(req, res) {
     // Page-view lifecycle rows become timestamps; only lead/application rows travel.
     const lifecycleSplit = splitLifecycle(data.lifecycleEvents || []);
     data.lifecycleEvents = lifecycleSplit.rows;
-    const visitStamps = lifecycleSplit.stamps;
+    const visitStamps = data.visitStamps || lifecycleSplit.stamps;
+    if (data.visitStampsSource) res.setHeader("X-LDTT-Visit-Stamps", data.visitStampsSource);
     let {
       trainers,
       pages,
@@ -593,7 +702,7 @@ module.exports = async function handler(req, res) {
       applicationsSheet,
       clientsSheet
     } = data;
-    portalUsers = await enrichPortalUsersWithAuth(portalUsers);
+    portalUsers = await enrichPortalUsersWithAuth(portalUsers, data.authPageOne || null);
 
     const syncedAt = new Date().toISOString();
     // perf/portal-speed: the revision now covers every collection the portal

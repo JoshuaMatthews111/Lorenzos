@@ -527,3 +527,13 @@ Verification (QA pass 2026-09-05):
       that a 200 per new visitor is cheap.
     - A 401/403 on a save now says "Your sign-in has expired" and returns to sign-in instead of
       "Could not save" forever (the office clicked five times in a row on 2026-09-08 at 20:32 ET).
+    - **The stamps are cached in `site_settings` key `portal_visit_stamps`** (`loadLifecycleFast`).
+      A fresh lambda used to page all 15,470 lifecycle rows out of Supabase (17 calls, 3.2 s
+      measured from this Mac) to build them. Now it reads that one row + the page-view rows newer
+      than `newest_occurred_at` + the lead/application rows: 2 lifecycle calls, 0.76 s, identical
+      digest. `recent_ids` (last 400) stops a `gte` re-read double counting. No cached row yet =>
+      the one-time full fetch, then the row is written; nothing depends on a migration or a cron.
+      `X-LDTT-Visit-Stamps: full|cache|cache+delta` says which path answered.
+    - `countRows("clients")` and `/auth/v1/admin/users?page=1` now run INSIDE the main batch, not
+      one behind the other after it (they were ~500 ms of serial tail).
+    Check: `LDTT_CREDS=<creds json> node scripts/lifecycle-cache-proof.mjs` (3 processes, 4 checks).
