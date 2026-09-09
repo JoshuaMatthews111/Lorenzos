@@ -4151,6 +4151,9 @@ function render() {
   }
   document.body.classList.toggle("is-logged-in", session.loggedIn);
   document.body.classList.toggle("is-logged-out", !session.loggedIn);
+  // The first real render is the decision: portal, or a genuine login. Either
+  // way the "signing you back in" veil from the page head comes off now.
+  document.documentElement.classList.remove("resuming-session");
   // The login screen is static markup, so it also needs the show/hide control.
   enhancePasswordFields(document);
   if (!session.loggedIn) return;

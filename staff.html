@@ -6,7 +6,21 @@
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo's office-controlled trainer network portal for trainer pages, leads, clients, approvals, and reporting.">
   <link rel="icon" href="assets/ldtt-favicon.png">
-  <link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260909refresh">
+  <link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260909resume">
+  <script>
+    /* refresh 2026-09-09: a stored session means this page will sign back in by
+       itself. Painting the login card first read as "refreshing logs me out".
+       Hide the login page before first paint and show the portal loading instead;
+       app.js lifts the veil on the first real render, and a 10 s cap means a dead network can never
+       leave the office stuck behind the veil. */
+    try {
+      if (localStorage.getItem("ldttPortalAuth.v1") || sessionStorage.getItem("ldttPortalAuth.v1") || sessionStorage.getItem("lorenzoBackOfficeSession.v4")) {
+        document.documentElement.classList.add("resuming-session");
+        setTimeout(function () { document.documentElement.classList.remove("resuming-session"); }, 10000);
+      }
+    } catch (e) {}
+  </script>
+
 <!-- Meta pixel -->
   <script>
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -80,11 +94,11 @@
   <script src="supabase-config.js"></script>
   <script src="trainer-roster.js"></script>
   <script src="trainer-backoffice/application-data.js?v=20260730ads3"></script>
-  <script src="trainer-backoffice/old-copy-bar.js?v=20260909refresh"></script>
-  <script src="trainer-backoffice/supabase.js?v=20260909refresh"></script>
-  <script src="trainer-backoffice/metrics.js?v=20260909refresh"></script>
-  <script src="trainer-backoffice/app.js?v=20260909refresh"></script>
-  <script src="trainer-backoffice/page-studio.js?v=20260909refresh"></script>
-  <script src="trainer-backoffice/site-builder.js?v=20260909refresh"></script>
+  <script src="trainer-backoffice/old-copy-bar.js?v=20260909resume"></script>
+  <script src="trainer-backoffice/supabase.js?v=20260909resume"></script>
+  <script src="trainer-backoffice/metrics.js?v=20260909resume"></script>
+  <script src="trainer-backoffice/app.js?v=20260909resume"></script>
+  <script src="trainer-backoffice/page-studio.js?v=20260909resume"></script>
+  <script src="trainer-backoffice/site-builder.js?v=20260909resume"></script>
 </body>
 </html>
