@@ -4320,6 +4320,8 @@ async function bootstrapApplication() {
         return;
       }
     }
+    // Same as the sign-in form: ask for the data while the "who am I" lookup runs.
+    const dataInFlight = window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }).catch(error => ({ __error: error }));
     portalUser = await window.LDTT_PORTAL.currentPortalUser();
     if (!portalUser) {
       session = { loggedIn: false, role: "" };
@@ -4346,7 +4348,9 @@ async function bootstrapApplication() {
     }
     session = { loggedIn: true, role: portalUser.role };
     state.role = portalUser.role;
-    const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }));
+    const loaded = await dataInFlight;
+    if (loaded?.__error) throw loaded.__error;
+    const data = await prepareRemoteData(loaded);
     mergeRemoteOperationalData(data);
     startBackgroundHistoryLoad();
     if (portalUser.trainer_id) {
@@ -13626,6 +13630,11 @@ document.addEventListener("submit", async event => {
         return;
       }
       await window.LDTT_PORTAL.signIn(username, password, { remember: event.target.elements.remember?.checked === true });
+      // The data request goes out at the same time as the "who am I" lookup
+      // instead of after it: one round trip less before the dashboard. The API
+      // verifies the token on its own, and a sandbox-only login is refused there
+      // too, so nothing is shown that the access checks below would refuse.
+      const dataInFlight = window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }).catch(error => ({ __error: error }));
       portalUser = await window.LDTT_PORTAL.currentPortalUser();
       if (!window.LDTT_IS_SANDBOX && isSandboxOnlyLogin(portalUser)) {
         await window.LDTT_PORTAL.signOut();
@@ -13641,7 +13650,9 @@ document.addEventListener("submit", async event => {
       state.leadDateRange = "60";
       state.customLeadStart = toDateInputValue(defaultLeadStartDate);
       state.customLeadEnd = toDateInputValue(defaultLeadEndDate);
-      const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }));
+      const loaded = await dataInFlight;
+      if (loaded?.__error) throw loaded.__error;
+      const data = await prepareRemoteData(loaded);
       mergeRemoteOperationalData(data);
       startBackgroundHistoryLoad();
       if (portalUser.trainer_id) {
