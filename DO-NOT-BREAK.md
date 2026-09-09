@@ -454,86 +454,39 @@ Verification (QA pass 2026-09-05):
   lead in communications; dashboard tiles = board columns = report = CSV (`window.LDTT_METRICS`).
 - Nightly: `curl "$BASE/api/cron/site-health?dry=1" -H "Authorization: Bearer $CRON_SECRET"` → `numbers.ok: true`.
 
-38. **Signing in must not wait for the office sheets or the history.** `/api/operational-data?omit=sheets,history`
-    is what the sign-in form and a restored session ask for; the server skips those queries entirely.
-    `sheets` is a full SECOND copy of every lead, application and client (only the Download button reads it);
-    `history` is `audit_events` + `office_note_revisions` + `form_delivery_attempts` (read only inside an open
-    record and on the Communications screen). History is fetched straight after the first paint by
-    `startBackgroundHistoryLoad()`; the sheets are fetched on the Download click by `ensureSheetsLoaded()`.
-    Two rules hold this together and must not be removed:
-    - The response carries `omitted: [...]`, and `mergeRemoteOperationalData()` skips any block named there.
-      Without that guard the next 30-second poll blanks an open record's note history and the activity log.
-    - The ETag input includes the omit list, so a trimmed answer can never satisfy a full request with a 304.
-    Check: `node scripts/login-first-paint-proof.mjs` (9 checks) and `node scripts/audit-office-requirements.mjs`.
+## Vercel Web Analytics (added 2026-09-06, Claude)
 
-    MEASURED ON THE REAL PRACTICE COPY, 2026-09-08 (the commit message's "69% smaller" came from
-    stubbed rows and is WRONG for real data — this is the true picture):
-      sign-in -> dashboard   3853 ms -> 3353 ms  (median of 5 warm runs, no overlap in the spreads)
-      the blocking API call  2740 ms -> 1783 ms  (35% faster), 2870 KB -> 2656 KB over the wire
+36. **Every public page carries `<script defer src="/_vercel/insights/script.js"></script>` right before `</head>`.**
+    Web Analytics was enabled on the Vercel project `ldtt-site` on 2026-09-06 (plan-included tier, $0) and
+    production was redeployed from an exact copy of the live files plus this one line (98 pages; portal `app.js`
+    untouched, md5 `035eb600`). `build.py`, `scripts/generate-market-pages.mjs` and
+    `scripts/generate-trainer-opportunity-pages.mjs` emit the tag, so a rebuild keeps it. `generate-lp-test.mjs`
+    copies its `<head>` from a tagged page and needs nothing. **Any release branch (e.g. `release/2026-09-05`) must
+    carry the same line before it is deployed, or analytics goes dark again.**
+    Check: `curl -sI https://www.lorenzosdogtrainingteam.com/_vercel/insights/script.js` is 200 and
+    `grep -L _vercel/insights *.html` prints nothing. Rollback target if ever needed:
+    `ldtt-site-9sixfsmxa` (prod before this change).
 
-    WHY THE PAYLOAD BARELY MOVED, AND WHAT IS ACTUALLY LEFT. The sign-in body is 17.6 MB of JSON
-    and two append-only event logs are 93% of it:
-      events (site_events)   9,621 KB / 13,563 rows   55%
-      lifecycleEvents        6,651 KB / 13,795 rows   38%
-      everything else (leads, clients, trainers, applications, notes) ~1.3 MB   7%
-    They CANNOT simply be added to the omit list: `reportLifecycleRows()` is called inside
-    `getMetrics()`, and `siteEventRows()` inside `remoteLeadToUi()`, so both feed dashboard
-    figures and deferring them would show wrong numbers (DO-NOT-BREAK 1). The fix is to window
-    or aggregate them server-side, and it needs its own proof against the nightly numbers
-    cross-check before it goes anywhere near live.
+    **Speed Insights (same day):** every public page also carries
+    `<script defer src="/_vercel/speed-insights/script.js"></script>` directly after the insights tag. Speed Insights
+    was already enabled on the project (included tier; the "Plus" upgrade was NOT bought). Same generators emit it.
+    Check: `curl -sI https://www.lorenzosdogtrainingteam.com/_vercel/speed-insights/script.js` is 200.
+    Neither script touches the portal, the leads table, or the dashboard numbers (rule 1).
 
-39. **Meta must be told about every lead twice: from the browser AND from the server.**
-    Measured 2026-09-08: Meta reported 37 leads while the portal held 83 from the same pages.
-    The browser pixel alone is blocked for roughly half of real visitors (Safari, iOS, ad
-    blockers), and there was no server-side event at all — `build.py` on the release line had
-    lost `META_PIXEL_HEAD` entirely, and the Conversions API code written on 4 September was
-    never merged out of the WIP snapshot `2820759`.
-    The chain, all of which must stay:
-    - Every generator (`build.py` META_PIXEL_HEAD, `lib/ad-page-template.js`,
-      `scripts/generate-trainer-opportunity-pages.mjs`) emits ONE snippet that makes a UUID per
-      submit, stamps `meta_event_id` + `fbp` + `fbc` into the form, and passes `{ eventID: id }`
-      to `fbq`. The trainer-page shell in `build.py` carries it too — it used to carry neither
-      the pixel nor the analytics scripts, which is how 26 pages had no tracking at all.
-    - `supabase/functions/submit-contact` sends the SAME `event_id` to
-      `graph.facebook.com/v21.0/<pixel>/events` after the lead row is saved. Meta de-duplicates
-      on `event_id`, so a lead is never counted twice.
-    - The send is a no-op without `META_CAPI_ACCESS_TOKEN`, is wrapped so a Meta outage can
-      never fail the form, and is skipped for QA rows (DO-NOT-BREAK 13) **and for the practice
-      copy** — a practice lead reaching Meta would teach the ad account to hunt for testers.
-    - Personal data is SHA-256 hashed before it leaves. The `"Not provided - PDF opt-in"`
-      placeholder is never sent as a phone number.
-    - An ebook opt-in is `CompleteRegistration` at $25, an enquiry is `Lead` at $250.
-    Check: `node scripts/meta-tracking-proof.mjs` — 10 checks across all 97 pages.
-    The pixel `3790623554504010` is confirmed attached to the LIVE ad account
-    `act_1727659198512358`. NOTE: the ad account id stored in TRAC500 `ad_credentials` is the
-    OLD closed account and still needs correcting.
+36. **The practice copy is an ALIAS, not a project.** `ldtt-sandbox.vercel.app` is an alias on the `ldtt-site` Vercel project pointing at a PREVIEW deployment; `LDTT_SANDBOX=1` is set on the preview target only. To update the practice copy: deploy a preview from the branch, verify a write API returns 423, then `vercel alias set <preview-url> ldtt-sandbox.vercel.app`. Never use `--prod` for this. Production is a separate deployment and is not affected.
 
-40. **The dashboard never receives page-view rows.** `lifecycle_events` is 15,205 `site_event` rows
-    (one per page view) and 265 rows about actual leads/applications; `site_events` is another
-    15,206. Together they were 93% of a 17.6 MB sign-in body, and because ~48 arrive every hour from
-    public visitors they also changed the ETag every minute, so the 30-second poll almost never got
-    a 304 (6 in 12 hours, measured 2026-09-08) and every save's `reloadRemoteData()` pulled 17 MB.
-    - The server strips `site_event` lifecycle rows from EVERY answer and sends `visitStamps`
-      `{ site_visit: [epochSeconds], cta_click: [...] }` instead (`splitLifecycle`). The QA hold-out
-      it applies is `reportLifecycleRows()`'s rule character for character (boolean `qa === true`
-      only - 5 rows carry the STRING "true" and are counted today; keep counting them).
-    - `METRICS.dashboardMetrics` counts stamps inside `[windowStart, windowEnd]`
-      (`countStampsInWindow`) and adds `lifecycleCount` over the lead rows, so `visits` is identical.
-      `node scripts/visits-count-proof.mjs` proves it on the real table for 10 windows.
-    - `site_events` is a third omittable block, `events`. Sign-in asks
-      `?omit=sheets,history,events`. `siteEventRows()` calls `ensureEventsLoaded()` the first time
-      a Reports / Communications / Ad Landing Pages screen draws, and repaints when they land.
-    - `visits:<n>:<n>` is part of the ETag so the tile stays live; the trimmed body is small enough
-      that a 200 per new visitor is cheap.
-    - A 401/403 on a save now says "Your sign-in has expired" and returns to sign-in instead of
-      "Could not save" forever (the office clicked five times in a row on 2026-09-08 at 20:32 ET).
-    - **The stamps are cached in `site_settings` key `portal_visit_stamps`** (`loadLifecycleFast`).
-      A fresh lambda used to page all 15,470 lifecycle rows out of Supabase (17 calls, 3.2 s
-      measured from this Mac) to build them. Now it reads that one row + the page-view rows newer
-      than `newest_occurred_at` + the lead/application rows: 2 lifecycle calls, 0.76 s, identical
-      digest. `recent_ids` (last 400) stops a `gte` re-read double counting. No cached row yet =>
-      the one-time full fetch, then the row is written; nothing depends on a migration or a cron.
-      `X-LDTT-Visit-Stamps: full|cache|cache+delta` says which path answered.
-    - `countRows("clients")` and `/auth/v1/admin/users?page=1` now run INSIDE the main batch, not
-      one behind the other after it (they were ~500 ms of serial tail).
-    Check: `LDTT_CREDS=<creds json> node scripts/lifecycle-cache-proof.mjs` (3 processes, 4 checks).
+37. **`LDTT_PRACTICE_HOST` must match the address the office actually uses.** `old-copy-bar.js` shows a red, uncloseable "This is an old copy" bar whenever the browser host is not the `canonicalHost` from `/api/environment`. On the preview target that value comes from `LDTT_PRACTICE_HOST` (currently `ldtt-sandbox.vercel.app`); with it unset the code falls back to `practice.lorenzosdogtrainingteam.com`, which does not resolve, so every visitor to the practice copy sees a false warning pointing at a dead address. Change this env var at the same time as any change to the practice address.
+
+## Sign-in session rules (added 2026-09-09, Claude)
+
+41. **A page refresh never lands a signed-in user on the login box.** A stale
+    token is renewed before the data request (`loadOperationalData` in
+    `trainer-backoffice/supabase.js`), a 401 retries once after a renew, the
+    who-am-I lookup retries once, and a failed data download after a valid
+    sign-in check keeps the session and re-fetches (bootstrap in `app.js`)
+    instead of showing login. The saved screen (UI_STORE_KEY) comes back.
+42. **"Keep me signed in" is the user's choice, everywhere.** Unticked: the
+    session lives in sessionStorage (this tab only) and must NEVER be written
+    to localStorage — the old quota fallback did, and the office read it as
+    "signs me in without asking". Ticked: localStorage. The practice copy no
+    longer force-ticks the box.
