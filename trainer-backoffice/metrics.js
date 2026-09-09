@@ -258,11 +258,24 @@
   }
 
   // What the Dashboard and Reports tiles show (app.js getMetrics()).
-  function dashboardMetrics({ leadRows: leadRowsIn = [], appRows = [], lifecycle = [], officeNotes = [], isPaidAd, isEbook } = {}) {
+  // visitStamps: { site_visit: [epochSeconds...], cta_click: [...] } from the
+  // server - one integer per page view instead of one 450-byte row. Counted
+  // inside [windowStart, windowEnd] exactly as isWithinWindow counted the rows.
+  function countStampsInWindow(stamps, windowStart, windowEnd) {
+    const start = windowStart instanceof Date ? windowStart.getTime() / 1000 : -Infinity;
+    const end = windowEnd instanceof Date ? windowEnd.getTime() / 1000 : Infinity;
+    let n = 0;
+    for (const t of list(stamps)) if (t >= start && t <= end) n += 1;
+    return n;
+  }
+  function dashboardMetrics({ leadRows: leadRowsIn = [], appRows = [], lifecycle = [], officeNotes = [], isPaidAd, isEbook, visitStamps = null, windowStart = null, windowEnd = null } = {}) {
     const rows = list(leadRowsIn);
     const buckets = Object.fromEntries(dashboardBuckets(rows, appRows, { isPaidAd, isEbook }));
+    const stampVisits = visitStamps
+      ? countStampsInWindow(visitStamps.site_visit, windowStart, windowEnd) + countStampsInWindow(visitStamps.cta_click, windowStart, windowEnd)
+      : 0;
     return {
-      visits: lifecycleCount(lifecycle, "site_visit") + lifecycleCount(lifecycle, "cta_click"),
+      visits: lifecycleCount(lifecycle, "site_visit") + lifecycleCount(lifecycle, "cta_click") + stampVisits,
       forms: rows.length,
       contactForms: buckets["Contact Us forms"] || 0,
       paidAdSubmittedInquiries: buckets["Paid Ad Submitted Inquiries"] || 0,
@@ -452,7 +465,7 @@
     normalizeLeadRow, normalizeApplicationRow, normalizeDealRow,
     leadRows, submittedLeadRows, countByStatus, leadStatusCounts, boardStatus, lostLeadRows, newInquiryCount,
     leadBoardColumns, leadBoardColumnCounts, dashboardBuckets, leadSummary, lifecycleIndex, leadReachedStage,
-    companyConversionCounts, lifecycleCount, dashboardMetrics, marketConversionTable, rate, percent,
+    companyConversionCounts, lifecycleCount, countStampsInWindow, dashboardMetrics, marketConversionTable, rate, percent,
     salesPipelineRows, activeDeals, salesStageFor, salesBuckets, dealsWithoutLead, salesTotals, salesColumnCounts, salesSourceRows,
     trainerDeals, paymentsDueNow,
     applicationRows, applicationNeedsAction, applicationTiles, applicationColumns, applicationColumnCounts,

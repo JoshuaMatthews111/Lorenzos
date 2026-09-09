@@ -543,6 +543,7 @@
       reviewPublications: data.reviewPublications || [],
       lifecycleEvents: data.lifecycleEvents || [],
       omitted: Array.isArray(data.omitted) ? data.omitted : [],
+      visitStamps: data.visitStamps && typeof data.visitStamps === "object" ? data.visitStamps : null,
       sheets: data.sheets || { leads: [], applications: [], clients: [] }
     };
   }

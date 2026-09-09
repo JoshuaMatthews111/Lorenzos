@@ -439,6 +439,10 @@ let remoteSheets = { leads: [], applications: [], clients: [] };
 // (history) or when someone presses Download (sheets).
 let remoteHistoryReady = false;
 let remoteSheetsReady = false;
+// site_events (15,000 rows) arrive only when a screen that draws them opens.
+let remoteEventsReady = false;
+// One integer per page view, from the server; the dashboard counts these.
+let remoteVisitStamps = { site_visit: [], cta_click: [] };
 let remoteClientsTotal = 0;
 let communicationsData = {
   loaded: false,
@@ -1314,7 +1318,6 @@ function mergeRemoteOperationalData(data) {
   state.clients = (data.clients || []).map(client => remoteClientToUi(client, data.dogs || []));
   state.deals = data.deals || [];
   state.dealPayments = data.dealPayments || [];
-  remoteEvents = data.events || [];
   remotePortalUsers = data.portalUsers || [];
   remoteOfficeNotes = data.officeNotes || [];
   // perf/portal-login-first-paint: a block named in `omitted` was never asked for,
@@ -1329,6 +1332,11 @@ function mergeRemoteOperationalData(data) {
     remoteHistoryReady = true;
   }
   remoteLifecycleEvents = data.lifecycleEvents || [];
+  if (data.visitStamps) remoteVisitStamps = { site_visit: data.visitStamps.site_visit || [], cta_click: data.visitStamps.cta_click || [] };
+  if (!omitted.has("events")) {
+    remoteEvents = data.events || [];
+    remoteEventsReady = true;
+  }
   if (!omitted.has("sheets")) {
     remoteSheets = data.sheets || { leads: [], applications: [], clients: [] };
     remoteSheetsReady = true;
@@ -1367,6 +1375,7 @@ function omitForRequest() {
   const omit = [];
   if (!remoteSheetsReady) omit.push("sheets");
   if (!remoteHistoryReady) omit.push("history");
+  if (!remoteEventsReady) omit.push("events");
   return omit.join(",");
 }
 
@@ -1413,6 +1422,34 @@ function ensureSheetsLoaded() {
     }
   })();
   return sheetsLoadPromise;
+}
+
+let eventsLoadPromise = null;
+// The 15,000 site_events rows feed only the Reports, Communications and Ad
+// Landing Pages screens. siteEventRows() asks for them the first time one of
+// those screens draws; the screen repaints when they land.
+function ensureEventsLoaded() {
+  if (remoteEventsReady) return Promise.resolve(true);
+  if (!window.LDTT_PORTAL?.enabled || !session.loggedIn || !remoteReady) return Promise.resolve(false);
+  if (eventsLoadPromise) return eventsLoadPromise;
+  eventsLoadPromise = (async () => {
+    try {
+      const keep = [];
+      if (!remoteSheetsReady) keep.push("sheets");
+      if (!remoteHistoryReady) keep.push("history");
+      const loaded = await window.LDTT_PORTAL.loadOperationalData({ omit: keep.join(",") });
+      if (!loaded || loaded.notModified) return false;
+      mergeRemoteOperationalData(await prepareRemoteData(loaded));
+      if (remoteEventsReady) backgroundRender();
+      return remoteEventsReady;
+    } catch (error) {
+      console.warn("LDTT site events could not be loaded yet", error);
+      return false;
+    } finally {
+      eventsLoadPromise = null;
+    }
+  })();
+  return eventsLoadPromise;
 }
 
 // Called once, straight after the dashboard paints.
@@ -3190,6 +3227,14 @@ async function runRemoteMutation(message, action, options = {}) {
       showToast("Live record refreshed to the latest saved version.");
       return false;
     }
+    if (error.status === 401 || error.status === 403) {
+      // The server refused the token. Clicking again cannot help; only a fresh
+      // sign-in can. Say so plainly and take them there.
+      showToast("Your sign-in has expired. Please sign in again to save.");
+      try { await window.LDTT_PORTAL?.signOut?.(); } catch { /* the message is what matters */ }
+      window.setTimeout(() => window.location.reload(), 1600);
+      return false;
+    }
     showToast(`Could not save: ${error.message}`);
     return false;
   }
@@ -4301,7 +4346,7 @@ async function bootstrapApplication() {
     }
     session = { loggedIn: true, role: portalUser.role };
     state.role = portalUser.role;
-    const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history" }));
+    const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }));
     mergeRemoteOperationalData(data);
     startBackgroundHistoryLoad();
     if (portalUser.trainer_id) {
@@ -6410,6 +6455,9 @@ function getMetrics() {
     leadRows: dashboardSubmittedLeadRows(),
     appRows: filteredReportApplicationRows(),
     lifecycle: reportLifecycleRows().filter(event => isWithinWindow(event.occurred_at || event.created_at, "report")),
+    visitStamps: remoteReady ? remoteVisitStamps : null,
+    windowStart: dateRangeWindow("report").start,
+    windowEnd: dateRangeWindow("report").end,
     officeNotes: filteredReportOfficeNoteRows(),
     ...dashboardBucketOptions()
   });
@@ -6436,6 +6484,7 @@ function realLeadRows() {
 }
 
 function siteEventRows() {
+  if (remoteReady && !remoteEventsReady) ensureEventsLoaded();
   const rows = remoteReady ? remoteEvents : storedRows(SITE_EVENT_KEY);
   return rows.filter(event =>
     event.raw_payload?.qa !== true
@@ -13592,7 +13641,7 @@ document.addEventListener("submit", async event => {
       state.leadDateRange = "60";
       state.customLeadStart = toDateInputValue(defaultLeadStartDate);
       state.customLeadEnd = toDateInputValue(defaultLeadEndDate);
-      const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history" }));
+      const data = await prepareRemoteData(await window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }));
       mergeRemoteOperationalData(data);
       startBackgroundHistoryLoad();
       if (portalUser.trainer_id) {

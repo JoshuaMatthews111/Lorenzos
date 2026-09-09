@@ -331,7 +331,40 @@ async function fetchByInBatched(pathPrefix, column, values, capability, unavaila
 //             merged into them. Only the Download button ever reads it.
 //   history - audit_events, office_note_revisions, form_delivery_attempts. Read
 //             only inside an open record and on the Communications screen.
-const OMITTABLE = new Set(["sheets", "history"]);
+//   events  - the 15,000-row site_events table. Read only by the Reports,
+//             Communications and Ad Landing Pages screens, never the dashboard.
+//             The dashboard's "visits" figure comes from visitStamps below.
+const OMITTABLE = new Set(["sheets", "history", "events"]);
+
+// The dashboard's "Site Visits/Clicks" tile is a COUNT of site_visit and
+// cta_click lifecycle rows inside the report window. Those rows are one per page
+// view - 15,000 of them, 6.6 MB - for a single number. Send the timestamps as a
+// list of integers instead (~120 KB) and let the browser count inside its window
+// exactly as before. The QA hold-out below is the browser's rule, character for
+// character (reportLifecycleRows): boolean true only, so the count cannot shift.
+const VISIT_TYPES = ["site_visit", "cta_click"];
+function isHeldOutLifecycleRow(row) {
+  const raw = row?.raw_payload || {};
+  return row?.event_type === "qa_release_check"
+    || raw.qa === true
+    || /^qa[_-]/i.test(String(row?.event_key || ""))
+    || /(?:localhost|127\.0\.0\.1|\.vercel\.app)(?::\d+)?(?:\/|$)/i.test(String(raw.page_url || ""));
+}
+function splitLifecycle(rows) {
+  const stamps = { site_visit: [], cta_click: [] };
+  const kept = [];
+  for (const row of rows || []) {
+    if (row?.entity_type === "site_event" && VISIT_TYPES.includes(row.event_type)) {
+      if (isHeldOutLifecycleRow(row)) continue;
+      const t = Date.parse(row.occurred_at || row.created_at || "");
+      if (Number.isFinite(t)) stamps[row.event_type].push(Math.floor(t / 1000));
+    } else {
+      kept.push(row);
+    }
+  }
+  return { rows: kept, stamps };
+}
+
 
 function parseOmit(value) {
   return new Set(String(value || "").split(",").map(part => part.trim().toLowerCase()).filter(part => OMITTABLE.has(part)));
@@ -376,7 +409,7 @@ async function loadAdminOperationalData(unavailableCapabilities, omit = new Set(
     supabaseFetchAll("/rest/v1/dogs?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/trainer_applications?select=*&order=created_at.desc"),
     supabaseFetchAll("/rest/v1/content_submissions?select=*&order=created_at.desc"),
-    fetchAppendOnlyTable({
+    omit.has("events") ? Promise.resolve([]) : fetchAppendOnlyTable({
       key: "site_events",
       path: `/rest/v1/site_events?select=${SITE_EVENT_SELECT}`,
       fallbackPath: { path: `/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}`, shape: slimSiteEvents },
@@ -535,6 +568,10 @@ module.exports = async function handler(req, res) {
         console.error("Practice send-to-live stamps could not be read", error);
       }
     }
+    // Page-view lifecycle rows become timestamps; only lead/application rows travel.
+    const lifecycleSplit = splitLifecycle(data.lifecycleEvents || []);
+    data.lifecycleEvents = lifecycleSplit.rows;
+    const visitStamps = lifecycleSplit.stamps;
     let {
       trainers,
       pages,
@@ -570,6 +607,9 @@ module.exports = async function handler(req, res) {
         .flat().map(rowStamp).sort().join("|"),
       `events:${events.length}:${events[0]?.id || ""}`,
       `lifecycle:${lifecycleEvents.length}:${lifecycleEvents[0]?.id || ""}`,
+      // The visits tile must stay fresh, so its inputs are in the revision. The
+      // trimmed body is now small enough that a 200 per new visitor is cheap.
+      `visits:${visitStamps.site_visit.length}:${visitStamps.cta_click.length}`,
       `sent:${sendToLiveLog.length}:${sendToLiveLog[0]?.sent_at || ""}`,
       `clientsTotal:${data.clientsTotal ?? ""}`,
       // A trimmed answer and a full one are different documents. Without this a
@@ -637,6 +677,7 @@ module.exports = async function handler(req, res) {
       deliveryAttempts,
       reviewPublications,
       lifecycleEvents,
+      visitStamps,
       // The caller merges only the blocks it actually received; `omitted` is how
       // it tells "not asked for" apart from "now empty".
       omitted: [...omit].sort(),

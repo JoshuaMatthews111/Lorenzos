@@ -507,3 +507,23 @@ Verification (QA pass 2026-09-05):
     The pixel `3790623554504010` is confirmed attached to the LIVE ad account
     `act_1727659198512358`. NOTE: the ad account id stored in TRAC500 `ad_credentials` is the
     OLD closed account and still needs correcting.
+
+40. **The dashboard never receives page-view rows.** `lifecycle_events` is 15,205 `site_event` rows
+    (one per page view) and 265 rows about actual leads/applications; `site_events` is another
+    15,206. Together they were 93% of a 17.6 MB sign-in body, and because ~48 arrive every hour from
+    public visitors they also changed the ETag every minute, so the 30-second poll almost never got
+    a 304 (6 in 12 hours, measured 2026-09-08) and every save's `reloadRemoteData()` pulled 17 MB.
+    - The server strips `site_event` lifecycle rows from EVERY answer and sends `visitStamps`
+      `{ site_visit: [epochSeconds], cta_click: [...] }` instead (`splitLifecycle`). The QA hold-out
+      it applies is `reportLifecycleRows()`'s rule character for character (boolean `qa === true`
+      only - 5 rows carry the STRING "true" and are counted today; keep counting them).
+    - `METRICS.dashboardMetrics` counts stamps inside `[windowStart, windowEnd]`
+      (`countStampsInWindow`) and adds `lifecycleCount` over the lead rows, so `visits` is identical.
+      `node scripts/visits-count-proof.mjs` proves it on the real table for 10 windows.
+    - `site_events` is a third omittable block, `events`. Sign-in asks
+      `?omit=sheets,history,events`. `siteEventRows()` calls `ensureEventsLoaded()` the first time
+      a Reports / Communications / Ad Landing Pages screen draws, and repaints when they land.
+    - `visits:<n>:<n>` is part of the ETag so the tile stays live; the trimmed body is small enough
+      that a 200 per new visitor is cheap.
+    - A 401/403 on a save now says "Your sign-in has expired" and returns to sign-in instead of
+      "Could not save" forever (the office clicked five times in a row on 2026-09-08 at 20:32 ET).

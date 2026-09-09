@@ -192,8 +192,8 @@ let firstPaint;
 const fs = await import("node:fs");
 const appJs = fs.readFileSync(path.join(root, "trainer-backoffice/app.js"), "utf8");
 {
-  assert.ok(/loadOperationalData\(\{ omit: "sheets,history" \}\)/.test(appJs), "sign-in asks for the trimmed answer");
-  assert.equal((appJs.match(/loadOperationalData\(\{ omit: "sheets,history" \}\)/g) || []).length, 2,
+  assert.ok(/loadOperationalData\(\{ omit: "sheets,history,events" \}\)/.test(appJs), "sign-in asks for the trimmed answer");
+  assert.equal((appJs.match(/loadOperationalData\(\{ omit: "sheets,history,events" \}\)/g) || []).length, 2,
     "both ways in - the sign-in form and a restored session - ask for the trimmed answer");
   assert.ok(/startBackgroundHistoryLoad\(\);/.test(appJs), "history is loaded after the screen is up");
   assert.ok(/const omitted = new Set\(data\.omitted \|\| \[\]\);/.test(appJs), "the merge reads the omitted list");
