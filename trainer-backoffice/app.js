@@ -6141,6 +6141,12 @@ function liveDataReferenceLinks() {
 }
 
 // Draft feature + delete/restore of trainer pages (Joshua 2026-09-10, rules 56 and 59).
+// A live page with saved-but-unpublished draft changes (revision ahead of the
+// published revision). Buttons that publish on their own must not publish those.
+function trainerHasUnpublishedDraft(trainer) {
+  return Number(trainer?.revision || 0) > Number(trainer?.publishedRevision || 0);
+}
+
 function trainerPageIsDeleted(trainer) {
   return trainer?.pageStatus === "Archived";
 }
@@ -6151,12 +6157,12 @@ function trainerPageStateNotice(trainer) {
   if (trainerPageIsDeleted(trainer)) return `<p class="editor-live-warning editor-page-deleted" role="note"><strong>Deleted:</strong> ${name}'s page is off the website. Use <b>Restore this page</b> at the bottom to bring it back.</p>`;
   if (!trainerHasPublishedPage(trainer)) return "";
   const waiting = Number(trainer.revision || 0) > Number(trainer.publishedRevision || 0);
-  return `<p class="editor-live-warning editor-page-live" role="note"><strong>This page is live.</strong> Your changes save as a draft. The live page stays exactly as it is until you press <b>Publish &amp; Lock Trainer Page</b>.${waiting ? ` <span class="editor-draft-waiting">Draft changes are waiting to be published.</span>` : ""}</p>`;
+  return `<p class="editor-live-warning editor-page-live" role="note"><strong>This page is live.</strong> Page content and layout save as a draft, and the live page keeps its published version until you press <b>Publish &amp; Lock Trainer Page</b>. Profile details shared with Find a Trainer and the bio page (headshot, phone, email, credentials, specialties) update as soon as they save.${waiting ? ` <span class="editor-draft-waiting">Draft changes are waiting to be published.</span>` : ""}</p>`;
 }
 
 function trainerPageDangerZone(trainer) {
   if (!trainer?.pageId || session.role !== "admin") return "";
-  if (trainerPageIsDeleted(trainer)) return `<div class="editor-control-section trainer-page-danger"><h3>Deleted page</h3><p>Restoring puts back the last published version. Your name is saved in the log.</p><button type="button" class="btn btn-red" data-restore-trainer-page="${escapeHtml(trainer.id)}">Restore this page</button></div>`;
+  if (trainerPageIsDeleted(trainer)) return `<div class="editor-control-section trainer-page-danger"><h3>Deleted page</h3><p>If the page was live when it was deleted, restoring puts its last published version back on the website. Otherwise it comes back as a draft. Your name is saved in the log.</p><button type="button" class="btn btn-red" data-restore-trainer-page="${escapeHtml(trainer.id)}">Restore this page</button></div>`;
   return `<details class="editor-control-section trainer-page-danger"><summary>Delete this trainer page</summary><p>Deleting takes the page off the website right away. It is not erased: the page and its history are kept, and it can be restored here. Your name, your login and the time are saved in the log.</p><button type="button" class="btn btn-red" data-delete-trainer-page="${escapeHtml(trainer.id)}">Delete this trainer page…</button></details>`;
 }
 
@@ -6166,7 +6172,7 @@ function confirmTrainerPageDelete(trainer) {
     const dialog = document.createElement("dialog");
     const name = escapeHtml(trainer?.name || "this trainer");
     dialog.className = "action-confirmation-dialog practice-reset-dialog trainer-page-delete-dialog";
-    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">!</div><h2>Delete ${name}'s trainer page?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>The page comes off the website right away. It can be restored later from the Page Editor.</div><label class="send-live-name"><span>Your full name (who is deleting this)</span><input type="text" data-page-delete-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><label class="send-live-name"><span>Your password</span><input type="password" data-page-delete-password autocomplete="current-password" placeholder="The password you sign in with" maxlength="200" required></label><label class="trainer-page-delete-check"><input type="checkbox" data-page-delete-check> I understand this takes ${name}'s page off the website.</label><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-page-delete-cancel>Keep the page</button><button type="button" class="btn btn-red" data-page-delete-go disabled>Delete page</button></div>`;
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">!</div><h2>Delete ${name}'s trainer page?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>${trainerHasPublishedPage(trainer) ? "The page comes off the website right away. " : ""}It can be restored later from the Page Editor.</div><label class="send-live-name"><span>Your full name (who is deleting this)</span><input type="text" data-page-delete-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><label class="send-live-name"><span>Your password</span><input type="password" data-page-delete-password autocomplete="current-password" placeholder="The password you sign in with" maxlength="200" required></label><label class="trainer-page-delete-check"><input type="checkbox" data-page-delete-check> I understand this takes ${name}'s page off the website.</label><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-page-delete-cancel>Keep the page</button><button type="button" class="btn btn-red" data-page-delete-go disabled>Delete page</button></div>`;
     document.body.appendChild(dialog);
     const nameInput = dialog.querySelector("[data-page-delete-name]");
     const passwordInput = dialog.querySelector("[data-page-delete-password]");
@@ -6193,7 +6199,7 @@ function confirmTrainerPageRestore(trainer) {
     const dialog = document.createElement("dialog");
     const name = escapeHtml(trainer?.name || "this trainer");
     dialog.className = "action-confirmation-dialog practice-reset-dialog trainer-page-restore-dialog";
-    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><h2>Restore ${name}'s trainer page?</h2><p>The last published version goes back on the website.</p><label class="send-live-name"><span>Your full name (who is restoring this)</span><input type="text" data-page-restore-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-page-restore-cancel>Not yet</button><button type="button" class="btn btn-red" data-page-restore-go disabled>Restore page</button></div>`;
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><h2>Restore ${name}'s trainer page?</h2><p>If the page was live when it was deleted, its last published version goes back on the website. Otherwise it comes back as a draft.</p><label class="send-live-name"><span>Your full name (who is restoring this)</span><input type="text" data-page-restore-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-page-restore-cancel>Not yet</button><button type="button" class="btn btn-red" data-page-restore-go disabled>Restore page</button></div>`;
     document.body.appendChild(dialog);
     const nameInput = dialog.querySelector("[data-page-restore-name]");
     const go = dialog.querySelector("[data-page-restore-go]");
@@ -11496,6 +11502,7 @@ document.addEventListener("click", async event => {
     // off the website is "Delete this trainer page" in the Page Editor (rule 59).
     if (!publish && trainerHasPublishedPage(trainer)) {
       state.selectedTrainerId = trainer.id;
+      state.builderSurface = "trainer";
       state.activeView = "pageEditor";
       render();
       showToast("This page stays live while you edit it. Save Draft keeps the live page as it is, and Publish sends your changes live. To take the page off the website, use Delete this trainer page at the bottom of the Page Editor.", 10000);
@@ -11568,7 +11575,7 @@ document.addEventListener("click", async event => {
     if (!trainer?.pageId) return;
     const restoredBy = await confirmTrainerPageRestore(trainer);
     if (!restoredBy) return;
-    await runRemoteMutation("Trainer page restored.", () => window.LDTT_PORTAL.operationalMutation({
+    await runRemoteMutation("Trainer page restored (see the page status for whether it is live).", () => window.LDTT_PORTAL.operationalMutation({
       operation: "restore_trainer_page",
       entity_type: "trainer_page",
       id: trainer.pageId,
@@ -11622,7 +11629,7 @@ document.addEventListener("click", async event => {
   const syncProfileField = event.target.closest("[data-sync-profile-field]");
   if (syncProfileField) {
     const trainer = trainerById();
-    const keepPublished = trainer.pageStatus === "Published" || trainer.locked;
+    const keepPublished = (trainer.pageStatus === "Published" || trainer.locked) && !trainerHasUnpublishedDraft(trainer);
     const profileKey = syncProfileField.dataset.syncProfileField;
     const landingKey = syncProfileField.dataset.landingField;
     const value = fieldValue(trainer, profileKey);
@@ -11968,7 +11975,7 @@ document.addEventListener("click", async event => {
     if (remoteReady) {
       await runRemoteMutation("Trainer review order saved", () => persistTrainerRecord(trainer, {
         skipProfile: true,
-        publish: trainer.pageStatus === "Published" && trainer.locked
+        publish: trainer.pageStatus === "Published" && trainer.locked && !trainerHasUnpublishedDraft(trainer)
       }), { reload: false, // onboarding: the save already reloaded
         type: "Review",
         detail: `${trainer.name} review placement order was updated by ${currentActorLabel()}.`
@@ -12006,7 +12013,7 @@ document.addEventListener("click", async event => {
     if (remoteReady) {
       await runRemoteMutation("Trainer review placement removed", () => persistTrainerRecord(trainer, {
         skipProfile: true,
-        publish: trainer.pageStatus === "Published" && trainer.locked
+        publish: trainer.pageStatus === "Published" && trainer.locked && !trainerHasUnpublishedDraft(trainer)
       }), { reload: false, // onboarding: the save already reloaded
         type: "Review",
         detail: `Manual review placement removed from ${trainer.name}.`
@@ -12306,7 +12313,7 @@ document.addEventListener("click", async event => {
     const trainer = trainerById();
     trainer.pageStatus = publish ? "Published" : "Draft";
     trainer.locked = publish;
-    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : (trainerHasPublishedPage(trainer) ? "Draft saved. The live page did not change." : "Trainer page draft saved"), () => publishTrainerPageWorkflow(trainer, publish), { reload: false, // onboarding: the save already reloaded
+    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : (trainerHasPublishedPage(trainer) ? "Draft saved. Page content goes live only when you press Publish." : "Trainer page draft saved"), () => publishTrainerPageWorkflow(trainer, publish), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} landing page ${publish ? "published and locked" : "saved as draft"} from the page editor.`
     });

@@ -245,6 +245,19 @@ async function sendTrainerPage(auth, id, slugHint, copied) {
     revision: liveRevision + 2
   }, copied);
   if (!target) { body.page_status = "draft"; body.locked = false; }
+  // Rule 56 (2026-09-10): on a LIVE target the page's row settings wait in
+  // draft_content._row until someone presses Publish on live; the live page stays as it is.
+  const targetDraft = target && target.draft_content && typeof target.draft_content === "object" && !Array.isArray(target.draft_content) ? target.draft_content : {};
+  const targetLive = !!target && target.page_status === "published" && target.locked === true && !!target.published_content
+    && typeof target.published_content === "object" && Object.keys(target.published_content).length > 0 && Number(target.published_revision || 0) >= 1;
+  if (targetLive) {
+    const parked = {};
+    for (const key of TRAINER_PAGE_DRAFT_FIELDS) {
+      if (key !== "draft_content" && Object.prototype.hasOwnProperty.call(body, key)) { parked[key] = body[key]; delete body[key]; }
+    }
+    const priorRow = targetDraft._row && typeof targetDraft._row === "object" && !Array.isArray(targetDraft._row) ? targetDraft._row : {};
+    body.draft_content = { ...body.draft_content, _row: { ...priorRow, ...parked } };
+  }
 
   let row;
   if (target) {

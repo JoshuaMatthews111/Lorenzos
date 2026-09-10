@@ -17,7 +17,7 @@ const LIVE = { id: "page-1", trainer_id: "t-1", slug: "karemela-sefferin", page_
 const DRAFT_ONLY = { ...LIVE, page_status: "draft", locked: false, published_content: null, published_revision: 0 };
 const DELETED = { ...LIVE, page_status: "archived", locked: false, archived_at: "2026-09-10T01:00:00Z" };
 
-function fakeSupabase(row) {
+function fakeSupabase(row, deletedBefore = null) {
   const calls = [];
   global.fetch = async (url, options = {}) => {
     const method = options.method || "GET";
@@ -31,6 +31,7 @@ function fakeSupabase(row) {
     if (path.startsWith("/rest/v1/trainer_pages") && method === "GET") return json(200, row ? [row] : []);
     if (path.startsWith("/rest/v1/trainer_pages") && method === "PATCH") return json(200, [{ ...row, ...body, updated_at: "2026-09-10T02:00:00Z" }]);
     if (path.startsWith("/rest/v1/trainers")) return json(200, []);
+    if (path.startsWith("/rest/v1/audit_events") && method === "GET") return json(200, deletedBefore ? [{ before_data: deletedBefore }] : []);
     if (path.startsWith("/rest/v1/audit_events")) return json(201, null);
     if (path.startsWith("/rest/v1/lifecycle_events")) return json(201, null);
     throw new Error(`Unexpected fake Supabase call: ${method} ${path}`);
@@ -102,7 +103,7 @@ test("delete needs a full name and a password; a wrong password changes nothing"
   assert.equal(res.statusCode, 400);
   calls = fakeSupabase(LIVE);
   res = await call(load(false), { operation: "delete_trainer_page", id: "page-1", deleted_by_name: "Rachel Leggett", password: "wrong" });
-  assert.equal(res.statusCode, 403); assert.equal(res.payload.wrongPassword, true);
+  assert.equal(res.statusCode, 422); assert.equal(res.payload.wrongPassword, true);
   assert.equal(patchOf(calls).length, 0); assert.ok(!calls.some(c => c.path.startsWith("/rest/v1/audit_events")));
 });
 
@@ -113,7 +114,7 @@ test("delete with the right password takes the page off the website and logs who
   const [patch] = patchOf(calls);
   assert.equal(patch.body.page_status, "archived"); assert.equal(patch.body.locked, false); assert.ok(patch.body.archived_at);
   assert.ok(!("published_content" in patch.body) && !("draft_content" in patch.body), "content kept for restore");
-  const log = calls.find(c => c.path.startsWith("/rest/v1/audit_events"));
+  const log = calls.find(c => c.path.startsWith("/rest/v1/audit_events") && c.method === "POST");
   assert.equal(log.body.action, "trainer_page_deleted");
   assert.match(log.body.actor_name, /^Rachel Leggett \(login: Office Login\)$/);
   assert.match(log.body.summary, /Rachel Leggett deleted the Karemela Sefferin trainer page/);
@@ -122,15 +123,13 @@ test("delete with the right password takes the page off the website and logs who
 });
 
 test("restore brings the last published version back live and logs the name", async () => {
-  const calls = fakeSupabase(DELETED);
+  const calls = fakeSupabase(DELETED, LIVE);
   const res = await call(load(false), { operation: "restore_trainer_page", id: "page-1", restored_by_name: "Joshua Matthews" });
   assert.equal(res.statusCode, 200);
   const [patch] = patchOf(calls);
   assert.equal(patch.body.page_status, "published"); assert.equal(patch.body.locked, true); assert.equal(patch.body.archived_at, null);
-  const log = calls.find(c => c.path.startsWith("/rest/v1/audit_events"));
+  const log = calls.find(c => c.path.startsWith("/rest/v1/audit_events") && c.method === "POST");
   assert.equal(log.body.action, "trainer_page_restored"); assert.match(log.body.actor_name, /^Joshua Matthews/);
-  const again = await call(load(false), { operation: "restore_trainer_page", id: "page-1", restored_by_name: "Joshua Matthews" });
-  assert.equal(again.statusCode, 200);
   fakeSupabase(LIVE);
   const notDeleted = await call(load(false), { operation: "restore_trainer_page", id: "page-1", restored_by_name: "Joshua Matthews" });
   assert.equal(notDeleted.statusCode, 409);
@@ -145,9 +144,25 @@ test("practice copy: delete writes practice.trainer_pages, password still checke
   delete process.env.LDTT_SANDBOX;
 });
 
-test("a draft save on a DELETED page keeps it deleted (Restore stays the way back)", async () => {
+test("a draft save on a DELETED page keeps it deleted and parks row settings, so Restore cannot leak them", async () => {
   const calls = fakeSupabase(DELETED);
-  await call(load(false), { operation: "update", entity_type: "trainer_page", id: "page-1", changes: { page_status: "draft", locked: false, headline: "Edit" } });
+  await call(load(false), { operation: "update", entity_type: "trainer_page", id: "page-1", changes: { page_status: "draft", locked: false, headline: "Edit", hero_image_url: "/draft.jpg", published_content: { bio: "x" }, draft_content: { bio: "draft" } } });
   const [patch] = patchOf(calls);
   assert.equal(patch.body.page_status, "archived"); assert.equal(patch.body.locked, false);
+  assert.ok(!("headline" in patch.body) && !("hero_image_url" in patch.body) && !("published_content" in patch.body));
+  assert.equal(patch.body.draft_content._row.headline, "Edit");
+});
+
+test("restore of a page that was OFFLINE when deleted brings it back as a draft, not live", async () => {
+  const calls = fakeSupabase(DELETED, { ...LIVE, page_status: "draft", locked: false });
+  const res = await call(load(false), { operation: "restore_trainer_page", id: "page-1", restored_by_name: "Joshua Matthews" });
+  assert.equal(res.statusCode, 200); assert.equal(res.payload.live, false);
+  const [patch] = patchOf(calls);
+  assert.equal(patch.body.page_status, "draft"); assert.equal(patch.body.locked, false);
+});
+
+test("restore with no delete record stays on the safe side: draft", async () => {
+  const calls = fakeSupabase(DELETED, null);
+  await call(load(false), { operation: "restore_trainer_page", id: "page-1", restored_by_name: "Joshua Matthews" });
+  assert.equal(patchOf(calls)[0].body.page_status, "draft");
 });

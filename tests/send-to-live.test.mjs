@@ -147,7 +147,8 @@ test("trainer page edited on the practice copy: the LIVE draft changes, publishe
   const res = await call({ kind: "trainer_page", id: pageId });
   assert.equal(res.statusCode, 200, JSON.stringify(res.body));
   const row = live.trainer_pages[0];
-  assert.equal(row.headline, "New headline from practice");
+  assert.equal(row.headline, "Old headline", "rule 56: a live page keeps its published row settings");
+  assert.equal(row.draft_content._row.headline, "New headline from practice", "the practice headline waits in the live draft until Publish");
   assert.equal(row.draft_content.bio, "new bio from practice");
   assert.equal(row.draft_content._sent_from_practice.by, OFFICE.email);
   assert.deepEqual(row.published_content, { trainer_name: "Jane Doe", bio: "LIVE bio" });

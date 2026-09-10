@@ -75,9 +75,17 @@ module.exports = async function handler(req, res) {
       method: "PATCH", headers: { Prefer: "return=minimal" },
       body: JSON.stringify({ social_links: { ...(trainers[0].social_links || {}), ...links } })
     });
+    // Rule 56: a draft parked in draft_content._row must not hide these newer links.
+    const socials = { social_facebook: links.facebook, social_instagram: links.instagram, social_tiktok: links.tiktok };
+    const existing = await supabaseFetch(`/rest/v1/trainer_pages?select=id,draft_content&trainer_id=eq.${encodeURIComponent(trainerId)}&limit=1`);
+    const draft = existing?.[0]?.draft_content;
+    const pagePatch = { ...socials };
+    if (draft && typeof draft === "object" && !Array.isArray(draft) && draft._row && typeof draft._row === "object") {
+      pagePatch.draft_content = { ...draft, _row: { ...draft._row, ...socials } };
+    }
     const pages = await supabaseFetch(`/rest/v1/trainer_pages?trainer_id=eq.${encodeURIComponent(trainerId)}`, {
       method: "PATCH", headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ social_facebook: links.facebook, social_instagram: links.instagram, social_tiktok: links.tiktok })
+      body: JSON.stringify(pagePatch)
     });
     return res.status(200).json({ ok: true, trainer_id: trainerId, links, page_updated_at: pages?.[0]?.updated_at || null });
   } catch (error) {

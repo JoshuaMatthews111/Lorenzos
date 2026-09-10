@@ -189,23 +189,15 @@ function plainObject(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
 }
 
-// Returns the changes to write. Leaves anything but a non-publish save on a live page alone.
-function keepLivePageLive(entityType, before, changes, action) {
-  // A deleted page stays deleted on draft saves (only Restore or a real Publish bring it back).
-  if (entityType === "trainer_page" && before?.page_status === "archived" && action !== "trainer_page_published" && changes && ("page_status" in changes || "locked" in changes)) {
-    return { changes: { ...changes, page_status: "archived", locked: false }, draftOnly: true };
-  }
-  if (entityType !== "trainer_page" || !isLiveTrainerPage(before) || action === "trainer_page_published") {
-    return { changes, draftOnly: false };
-  }
+// Moves the row settings the public page reads into draft_content._row and drops
+// published_* (only the publish RPC writes those).
+function parkRowFields(before, changes) {
   const next = { ...changes };
   const parked = {};
   for (const key of TRAINER_PAGE_PUBLIC_ROW_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(next, key)) { parked[key] = next[key]; delete next[key]; }
   }
   delete next.published_content; delete next.published_revision; delete next.published_at;
-  next.page_status = "published";
-  next.locked = true;
   const priorRow = plainObject(plainObject(before.draft_content)?._row) || {};
   const baseDraft = plainObject(next.draft_content) || plainObject(before.draft_content) || {};
   if (Object.keys(parked).length || Object.keys(priorRow).length) {
@@ -213,7 +205,19 @@ function keepLivePageLive(entityType, before, changes, action) {
   } else if (next.draft_content !== undefined) {
     next.draft_content = baseDraft;
   }
-  return { changes: next, draftOnly: true };
+  return next;
+}
+
+// Returns the changes to write. A live page stays live, a deleted page stays
+// deleted, and on both the public row settings wait in draft_content._row;
+// only a real Publish (action trainer_page_published) writes them to the row.
+function keepLivePageLive(entityType, before, changes, action) {
+  if (entityType !== "trainer_page" || action === "trainer_page_published") return { changes, draftOnly: false };
+  if (before?.page_status === "archived") {
+    return { changes: { ...parkRowFields(before, changes), page_status: "archived", locked: false }, draftOnly: true };
+  }
+  if (!isLiveTrainerPage(before)) return { changes, draftOnly: false };
+  return { changes: { ...parkRowFields(before, changes), page_status: "published", locked: true }, draftOnly: true };
 }
 
 // Delete / restore a trainer page (Joshua 2026-09-10, rule 59). Delete needs the
@@ -256,7 +260,7 @@ async function deleteTrainerPage(admin, body, requestId) {
   if (before.page_status === "archived") return { status: 409, body: { ok: false, message: "This page is already deleted. Use Restore this page to bring it back." } };
   const login = clean(admin.user?.email || admin.actor.email, 254);
   if (!(await passwordMatches(login, password))) {
-    return { status: 403, body: { ok: false, wrongPassword: true, message: "That password is not right, so the page was not deleted." } };
+    return { status: 422, body: { ok: false, wrongPassword: true, message: "That password is not right, so the page was not deleted." } }; // not 403: the portal treats 401/403 as an expired sign-in
   }
   const rows = await supabaseFetch(`/rest/v1/trainer_pages?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -280,7 +284,11 @@ async function restoreTrainerPage(admin, body, requestId) {
   const before = await getRecord("trainer_pages", id);
   if (!before) return { status: 404, body: { ok: false, message: "Trainer page not found." } };
   if (before.page_status !== "archived") return { status: 409, body: { ok: false, message: "This page is not deleted." } };
-  const live = hasPublishedPage(before);
+  // Back to what it was before the delete (the delete's audit row keeps the old row).
+  // A page that was offline when it was deleted comes back offline. No record: draft.
+  const deletions = await supabaseFetch(`/rest/v1/audit_events?select=before_data&entity_type=eq.trainer_page&action=eq.trainer_page_deleted&entity_id=eq.${encodeURIComponent(id)}&order=created_at.desc&limit=1`);
+  const wasLive = isLiveTrainerPage(plainObject(deletions?.[0]?.before_data));
+  const live = wasLive && hasPublishedPage(before);
   const rows = await supabaseFetch(`/rest/v1/trainer_pages?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
@@ -291,8 +299,8 @@ async function restoreTrainerPage(admin, body, requestId) {
   const trainerName = trainerNameForPage(before);
   await audit(asTypedActor(admin, typedName), "trainer_page_restored", "trainer_page", id, before,
     { ...record, restored_by_name: typedName },
-    `${typedName} restored the ${trainerName} trainer page. ${live ? "It is back on the website with its last published version." : "It is back as a draft."}`, requestId);
-  return { status: 200, body: { ok: true, restored: true, record, actor: admin.actor, updated_at: record.updated_at } };
+    `${typedName} restored the ${trainerName} trainer page. ${live ? "It is back on the website with its last published version." : "It was not live when it was deleted, so it is back as a draft (not on the website)."}`, requestId);
+  return { status: 200, body: { ok: true, restored: true, live, record, actor: admin.actor, updated_at: record.updated_at, message: live ? "Trainer page restored. It is back on the website." : "Trainer page restored as a draft. It was not live when it was deleted." } };
 }
 
 async function getRecord(table, id, idColumn = "id") {
