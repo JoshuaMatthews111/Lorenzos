@@ -36,8 +36,8 @@ begin
   if bad > 0 then raise exception 'practice_puller has write rights on % live relations', bad; end if;
   select count(*) into wrong_owner
   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where (n.nspname = 'practice' and p.proname in ('pull_from_live', 'pull_status', 'pull_last_ok'))
-     or (n.nspname = 'practice_private' and p.proname in ('pull_upsert_table', 'pull_delete_table', 'pull_apply_row', 'seed_pull_ledger'))
+  where ((n.nspname = 'practice' and p.proname in ('pull_from_live', 'pull_status', 'pull_last_ok'))
+      or (n.nspname = 'practice_private' and p.proname in ('pull_upsert_table', 'pull_delete_table', 'pull_apply_row', 'seed_pull_ledger')))
     and pg_get_userbyid(p.proowner) <> 'practice_puller';
   if wrong_owner > 0 then raise exception '% pull functions are not owned by practice_puller', wrong_owner; end if;
 end $$;
