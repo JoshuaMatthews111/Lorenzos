@@ -388,14 +388,16 @@ begin
   execute format(
     'with src as (
        select l.* from public.%1$I l
-       where (%3$s or l.%2$I > %4$L::timestamptz - interval ''2 minutes'') and (%8$s)
+       where (%3$s) and (%8$s)
          and not exists (select 1 from practice_private.pull_ledger g where g.tbl = %5$L and g.pk = l.%6$I::text)
          and not exists (select 1 from practice.%1$I p where p.%6$I = l.%6$I)
      ), ins as (
        insert into practice.%1$I (%7$s) select %7$s from src returning %6$I
      )
      select coalesce(array_agg(%6$I::text), ''{}'') from ins',
-    tname, coalesce(stamp, pk), case when stamp is null or do_reconcile then 'true' else 'false' end, wm, tname, pk, cols, practice_private.pull_row_filter(tname, 'l'))
+    tname, coalesce(stamp, pk),
+    case when stamp is null or do_reconcile then 'true' else format('l.%I > %L::timestamptz - interval ''2 minutes''', stamp, wm) end,
+    wm, tname, pk, cols, practice_private.pull_row_filter(tname, 'l'))
     into ids;
   if cardinality(ids) > 0 then
     execute format(
@@ -602,7 +604,7 @@ begin
     if stamps_live is not null and md5(stamps_live::text) is distinct from md5(coalesce(stamps_practice, '{}'::jsonb)::text) then
       insert into practice.site_settings (key, value) values ('portal_visit_stamps', stamps_live)
         on conflict (key) do update set value = excluded.value;
-      changed_tables := changed_tables || 'site_settings';
+      changed_tables := changed_tables || array['site_settings'];
     end if;
   exception when others then
     errors := errors || jsonb_build_object('table', 'site_settings', 'error', sqlerrm);
