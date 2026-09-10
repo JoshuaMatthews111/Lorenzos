@@ -4,8 +4,9 @@ Written 2026-09-02 (Claude) from verified live state, before the trainer-deals b
 Copy also lives at the repo root. Update both.
 
 **Live:** lorenzosdogtrainingteam.com · Vercel `ldtt-site` · deployed by hand with
-`npx vercel deploy --prod` from `~/Desktop/codex-playground/lorenzo_concept1_site`,
-branch `sandbox` (production IS the sandbox branch as of 2026-09-02 12:50).
+`npx vercel deploy --prod` from `~/Desktop/codex-playground/lorenzo_concept1_site`.
+Production runs branch `fix/trainer-pages-metrics` as of 2026-09-10 (see rule 48); the
+practice copy is a preview alias (rule 50), never `--prod`.
 **Database:** Supabase **LDTT** `ptnzaeprvkgjgtupmcty` (its own org). Never confuse
 with `kudsexewnvprhsdcxzhy` (brighter day / DSN Command). Always pass the ref.
 
@@ -397,7 +398,7 @@ Verification additions:
 Verification (release 2026-09-05):
 - `node --test tests/*.test.mjs` = 53 tests (36 durability/site/send-to-live + 6 onboarding + 6 publish guard + 5 login gate).
 - `node scripts/audit-office-requirements.mjs` = 152 checks.
-- Read-only SQL: `select * from public.portal_users except select * from practice.portal_users` (and the reverse) → 0 rows right after a reset; `auth.users` = 45 = both portal_users tables; every practice portal user maps to an auth user.
+- Read-only SQL: `select * from public.portal_users except select * from practice.portal_users` (and the reverse) → 0 rows right after a reset, EXCEPT the three practice-only testing logins (superadmin@, officeadmin@, trainer@), which are inactive on live and active on practice by design (rule 46); `auth.users` = 45 = both portal_users tables; every practice portal user maps to an auth user.
 - `trainer-backoffice/index.html` script tags all on `?v=20260905release`.
 
 ## QA pass 2026-09-05 (branch qa/2026-09-05, merged into release/2026-09-05) — the three office fears
@@ -456,7 +457,7 @@ Verification (QA pass 2026-09-05):
 
 ## Vercel Web Analytics (added 2026-09-06, Claude)
 
-36. **Every public page carries `<script defer src="/_vercel/insights/script.js"></script>` right before `</head>`.**
+49. **Every public page carries `<script defer src="/_vercel/insights/script.js"></script>` right before `</head>`.** _(renumbered from 36 on 2026-09-10; the number was used twice)_
     Web Analytics was enabled on the Vercel project `ldtt-site` on 2026-09-06 (plan-included tier, $0) and
     production was redeployed from an exact copy of the live files plus this one line (98 pages; portal `app.js`
     untouched, md5 `035eb600`). `build.py`, `scripts/generate-market-pages.mjs` and
@@ -473,9 +474,9 @@ Verification (QA pass 2026-09-05):
     Check: `curl -sI https://www.lorenzosdogtrainingteam.com/_vercel/speed-insights/script.js` is 200.
     Neither script touches the portal, the leads table, or the dashboard numbers (rule 1).
 
-36. **The practice copy is an ALIAS, not a project.** `ldtt-sandbox.vercel.app` is an alias on the `ldtt-site` Vercel project pointing at a PREVIEW deployment; `LDTT_SANDBOX=1` is set on the preview target only. To update the practice copy: deploy a preview from the branch, verify a write API returns 423, then `vercel alias set <preview-url> ldtt-sandbox.vercel.app`. Never use `--prod` for this. Production is a separate deployment and is not affected.
+50. **The practice copy is an ALIAS, not a project.** `ldtt-sandbox.vercel.app` is an alias on the `ldtt-site` Vercel project pointing at a PREVIEW deployment; `LDTT_SANDBOX=1` is set on the preview target only. To update the practice copy: deploy a preview from the branch, verify `/api/environment` on the preview says `sandbox:true` and `schema:practice` (the old "write API returns 423" model is retired, rule 5), then `vercel alias set <preview-url> ldtt-sandbox.vercel.app`. Never use `--prod` for this. Production is a separate deployment and is not affected. _(renumbered from 36 on 2026-09-10; the number was used twice)_
 
-37. **`LDTT_PRACTICE_HOST` must match the address the office actually uses.** `old-copy-bar.js` shows a red, uncloseable "This is an old copy" bar whenever the browser host is not the `canonicalHost` from `/api/environment`. On the preview target that value comes from `LDTT_PRACTICE_HOST` (currently `ldtt-sandbox.vercel.app`); with it unset the code falls back to `practice.lorenzosdogtrainingteam.com`, which does not resolve, so every visitor to the practice copy sees a false warning pointing at a dead address. Change this env var at the same time as any change to the practice address.
+51. **`LDTT_PRACTICE_HOST` must match the address the office actually uses.** `old-copy-bar.js` shows a red, uncloseable "This is an old copy" bar whenever the browser host is not the `canonicalHost` from `/api/environment`. On the preview target that value comes from `LDTT_PRACTICE_HOST` (currently `ldtt-sandbox.vercel.app`); with it unset the code falls back to `practice.lorenzosdogtrainingteam.com`, which does not resolve, so every visitor to the practice copy sees a false warning pointing at a dead address. Change this env var at the same time as any change to the practice address. _(renumbered from 37 on 2026-09-10; the number was used twice)_
 
 ## Sign-in session rules (added 2026-09-09, Claude)
 
@@ -507,7 +508,7 @@ Verification (QA pass 2026-09-05):
     empty `<main>` is a broken page. Record of the incident:
     `~/Desktop/LDTT Trainer Pages Blank 2026-09-10/BEFORE.md`.
 
-14. **SMS consent wording is ONE use case only (2026-09-10).** Twilio rejected the toll-free
+47. **SMS consent wording is ONE use case only (2026-09-10).** Twilio rejected the toll-free _(renumbered from 14 on 2026-09-10; the number was used twice)_
     verification twice: 30496 (use case did not match the summary) and 30504 (one opt-in box
     cannot cover several message types). The fix removed "promotional" and "offers" from the
     consent text everywhere. The box now describes customer care only: follow-up on the
@@ -519,7 +520,7 @@ Verification (QA pass 2026-09-05):
     Twilio reviewers read /contact, /terms and /privacy-policy — if any one of them says
     "promotional" again the verification fails. Do not re-add marketing wording to this
     number. Promotional texts need a SECOND number with its own separate opt-in box.
-15. **The live branch is `fix/trainer-pages-metrics`, not `sandbox`.** Verified 2026-09-10 by
+48. **The live branch is `fix/trainer-pages-metrics`, not `sandbox`.** Verified 2026-09-10 by _(renumbered from 15 on 2026-09-10; the number was used twice)_
     byte-comparing live trainer-backoffice/app.js (822,687 bytes) against both branches.
     Rule 0 above (sandbox = production) is out of date. Always verify before deploying.
 
@@ -577,3 +578,61 @@ Verification (QA pass 2026-09-05):
     `pull:` piece). Proof: `/tmp/pull-tests.sql` on a throwaway Postgres (13
     checks incl. live checksums unchanged across every pull), the audit, and the
     parity SQL in `scripts/practice-pull-proof.sql`.
+
+
+## Full practice-copy test, second pass (added 2026-09-10, Claude)
+
+A five-tester run with skeptics (15 agents) found 16 confirmed problems. All are fixed on
+branch `fix/trainer-pages-metrics`, proven by `tests/practice-pull.sql` (25 checks, twice,
+live byte-identical after every pull), `node --test tests/*.test.mjs` and the office audit.
+
+52. **The practice pull never lets one row block a table** (hardening of rule 46,
+    `supabase/migrations/20260910130000_practice_pull_hardening.sql`). Every live row is
+    applied on its own. A clash on another unique key: a practice row's text key gets a
+    `-practice-xxxx` suffix (logged `renamed_practice_row_for_live`); on office tables a
+    non-text clash is live-wins with the practice row logged; otherwise the live row is
+    held back in `practice_private.pull_skips` and the chip says "Same as live except N
+    records". A child whose parent the team deleted is held back and retried on the next
+    reconcile. Each table copies at most `max_rows_per_table` (1000) per pull, so a catch-up
+    always commits progress. Row hashes use only the shared columns
+    (`pull_hash`, `pull_state.hash_cols`); a column change re-hashes untouched rows.
+    Tables without `updated_at` get live edits on reconcile through `live_hash`.
+    A live delete never takes team rows with it (parent kept, logged); every deleted
+    practice row is logged first. Page work the team deleted is not brought back.
+    Missing trigger guards or grants are re-applied by the pull itself (no Reset).
+    A Reset only flags `needs_seed`; the next pull seeds (the Reset stays under 8 s).
+    `fresh`/`busy` answers report the real state; `last_ok_at` on failure is when the
+    failing table last matched. The endpoint's timeout path reads `practice.pull_last_ok()`
+    (no row scans) with its own 300 ms deadline. The pull functions are owned by
+    `practice_puller` (`20260910131000_practice_pull_owner.sql`, fails loudly), which has
+    no write right on any live table. Caller checks use `session_user` / the JWT role.
+
+53. **The API sends what the screens count.** `api/operational-data.js` now includes
+    `deals`, `dealPayments`, `clientsTotal`, `clientsTruncated` and `trainer-backoffice/
+    supabase.js` keeps them. Before, the Clients total read 500 instead of the real count,
+    Sales never showed a trainer deal, and a trainer's My Deals was empty (live too).
+
+54. **The visits tile counts late visits.** The stamps-cache delta uses `created_at`
+    (insert time), stored as `newest_created_at`; an old-format cache is rebuilt once on
+    live (never on the practice copy, which pulls live's cache).
+
+55. **Application stage stamps are merged, never replaced.** The browser sends only
+    `raw_payload.ui_status`; `api/operational-mutation.js` merges it into the stored
+    `raw_payload`. A stamp is honoured only when it is one of `APPLICATION_COLUMNS`.
+    `ui_status` and the `delivery_*` bookkeeping never show as application fields.
+
+56. **KNOWN LIVE RISK, not fixed tonight: a draft save takes a published trainer page
+    offline.** Page Editor edits save with `page_status: draft, locked: false`, and the
+    public page loads only published+locked rows. Karemela Sefferin's live page has been
+    offline this way since 2026-08-05. Keeping the page published during a draft is NOT
+    safe as things stand: `publish_trainer_page` copies only `draft_content` into
+    `published_content`, while the public page reads `headline`, `subheadline`,
+    `template_key`, style and photos straight from the row, so drafts would go public.
+    The proper fix (owner decision pending): make Publish snapshot every public field and
+    make the public page read only the snapshot. Until then the Page Editor shows a clear
+    warning on every published page (`.editor-live-warning`).
+
+57. **No background redraw during a card drag** (`dragInProgress`); an audit drag of one
+    applicant saved another. Lost Reasons uses `METRICS.lostLeadRows` over the report date
+    range. Top-level `METRICS` reads in `app.js` use `?.` so a missing `metrics.js` can no
+    longer blank a public page (rule 43 now actually holds).

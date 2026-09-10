@@ -230,6 +230,12 @@ async function updateRecord(admin, body, requestId) {
   }
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No supported changes were supplied." } };
+  // rule 45: an application save sends only the keys it owns (the office stage
+  // stamp). Merge them into the stored raw_payload so a stale browser can never
+  // replace the applicant's answers or another staff member's stamp wholesale.
+  if (entityType === "application" && changes.raw_payload && typeof changes.raw_payload === "object" && !Array.isArray(changes.raw_payload)) {
+    changes.raw_payload = { ...(before.raw_payload || {}), ...changes.raw_payload };
+  }
   const guard = publishGuardViolation(entityType, before, changes); // publish-guard
   if (guard) return guard;
   await assertTrainerEmailFree(entityType, changes, id); // onboarding

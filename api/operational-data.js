@@ -137,15 +137,25 @@ async function pullPracticeFromLive() {
       reason: result?.reason || (ok ? "pulled" : "error"),
       lastMatchedAt: result?.last_ok_at || null,
       changed: Array.isArray(result?.changed) ? result.changed : [],
-      errors: Array.isArray(result?.errors) ? result.errors.length : 0
+      errors: Array.isArray(result?.errors) ? result.errors.length : 0,
+      skipped: Number(result?.skipped || 0)
     };
   } catch (error) {
+    // The pull keeps running and commits in the database; this screen only
+    // needs the last-matched time, from a tiny status read with its own short
+    // deadline (never the full diagnostic scan).
     let lastMatchedAt = null;
+    let skipped = 0;
+    const quick = new AbortController();
+    const quickTimer = setTimeout(() => quick.abort(), 300);
     try {
-      const status = await supabaseFetch("/rest/v1/rpc/pull_status", { method: "POST", body: "{}" });
+      const status = await supabaseFetch("/rest/v1/rpc/pull_last_ok", { method: "POST", body: "{}", signal: quick.signal });
       lastMatchedAt = status?.last_ok_at || null;
-    } catch {}
-    return { ok: false, reason: error?.name === "AbortError" ? "timeout" : "error", lastMatchedAt, message: String(error?.message || error).slice(0, 200) };
+      skipped = Number(status?.skipped || 0);
+    } catch {} finally {
+      clearTimeout(quickTimer);
+    }
+    return { ok: false, reason: error?.name === "AbortError" ? "timeout" : "error", lastMatchedAt, skipped, message: String(error?.message || error).slice(0, 200) };
   } finally {
     clearTimeout(timer);
   }
@@ -424,6 +434,10 @@ async function readStampsCache() {
     return {
       stamps: { site_visit: value.stamps.site_visit || [], cta_click: value.stamps.cta_click || [] },
       newestAt: String(value.newest_occurred_at),
+      // 2026-09-10: the delta used occurred_at, so a visit written late (1,283
+      // rows arrived >10 min after they happened) was never counted. The delta
+      // now uses insert time; caches written before this have no newest_created_at.
+      newestCreatedAt: value.newest_created_at ? String(value.newest_created_at) : "",
       tailIds: new Set((value.recent_ids || []).map(String))
     };
   } catch (error) {
@@ -432,13 +446,14 @@ async function readStampsCache() {
   }
 }
 
-async function writeStampsCache(stamps, newestAt, tailIds) {
+async function writeStampsCache(stamps, newestAt, tailIds, newestCreatedAt = "") {
   // pull-on-read: the practice copy reads live's portal_visit_stamps through
   // the pull, so it must not write its own over the top.
   if (isSandbox()) return;
   const value = {
     stamps,
     newest_occurred_at: newestAt,
+    newest_created_at: newestCreatedAt || null,
     recent_ids: [...tailIds].slice(-STAMPS_TAIL_IDS),
     updated_at: new Date().toISOString(),
     total: stamps.site_visit.length + stamps.cta_click.length
@@ -486,14 +501,21 @@ async function loadLifecycleFast(unavailableCapabilities) {
       readStampsCache(),
       selectRows("entity_type=neq.site_event")
     ]);
-    if (cache) {
-      const fresh = await selectRows(`entity_type=eq.site_event&occurred_at=gte.${encodeURIComponent(cache.newestAt)}`);
+    // An old-format cache (no insert-time marker) is rebuilt once on live, which
+    // also recovers the visits it missed. The practice copy never writes the
+    // cache (it pulls live's), so there it keeps the old delta until live has
+    // written the new format.
+    if (cache && (cache.newestCreatedAt || isSandbox())) {
+      const fresh = cache.newestCreatedAt
+        ? await selectRows(`entity_type=eq.site_event&created_at=gte.${encodeURIComponent(cache.newestCreatedAt)}`)
+        : await selectRows(`entity_type=eq.site_event&occurred_at=gte.${encodeURIComponent(cache.newestAt)}`);
       const stamps = { site_visit: [...cache.stamps.site_visit], cta_click: [...cache.stamps.cta_click] };
       const consumed = stampsFromPageViews(fresh, stamps, cache.tailIds);
       if (consumed.length) {
-        const newestAt = String(fresh[0]?.occurred_at || cache.newestAt);
+        const newestAt = [cache.newestAt, ...fresh.map(row => String(row.occurred_at || ""))].sort().pop();
+        const newestCreatedAt = [cache.newestCreatedAt, ...fresh.map(row => String(row.created_at || ""))].sort().pop();
         const tail = new Set([...cache.tailIds, ...consumed]);
-        await writeStampsCache(stamps, newestAt, tail);
+        await writeStampsCache(stamps, newestAt, tail, newestCreatedAt);
       }
       return { rows: leadRows, stamps, source: consumed.length ? "cache+delta" : "cache" };
     }
@@ -509,7 +531,10 @@ async function loadLifecycleFast(unavailableCapabilities) {
     const stamps = { site_visit: [], cta_click: [] };
     const consumed = stampsFromPageViews(pageViews, stamps, null);
     const newestAt = String(pageViews[0]?.occurred_at || "");
-    if (newestAt) await writeStampsCache(stamps, newestAt, new Set(consumed.slice(0, STAMPS_TAIL_IDS)));
+    const newestCreatedAt = pageViews.map(row => String(row.created_at || "")).sort().pop() || "";
+    // Remember the ids at the newest insert time so a created_at gte re-read cannot double count.
+    const tailIds = pageViews.filter(row => String(row.created_at || "") >= newestCreatedAt).map(row => String(row.id || ""));
+    if (newestAt) await writeStampsCache(stamps, newestAt, new Set([...consumed.slice(0, STAMPS_TAIL_IDS), ...tailIds]), newestCreatedAt);
     return { rows: all.filter(row => row.entity_type !== "site_event"), stamps, source: "full" };
   } catch (error) {
     if (!missing(error)) throw error;
@@ -767,7 +792,7 @@ module.exports = async function handler(req, res) {
       `clientsTotal:${data.clientsTotal ?? ""}`,
       // Practice copy only: a failed pull must produce a fresh 200 (so the top
       // bar can say so) and a recovered one another. Live's string is untouched.
-      ...(practiceSync ? [`pull:${practiceSync.ok ? "ok" : `stale:${practiceSync.lastMatchedAt || ""}`}`] : []),
+      ...(practiceSync ? [`pull:${practiceSync.ok ? "ok" : `stale:${practiceSync.lastMatchedAt || ""}`}:held:${practiceSync.skipped || 0}`] : []),
       // A trimmed answer and a full one are different documents. Without this a
       // browser holding the full set would be told 304 by a trimmed request.
       `omit:${[...omit].sort().join(",")}`
@@ -836,6 +861,13 @@ module.exports = async function handler(req, res) {
       reviewPublications,
       lifecycleEvents,
       visitStamps,
+      // Computed above but never sent before 2026-09-10: the Clients total read
+      // 500 instead of the real count, and trainer deals never reached Sales or
+      // a trainer's My Deals. The ETag already covered all four.
+      deals: data.deals || [],
+      dealPayments: data.dealPayments || [],
+      clientsTotal: data.clientsTotal ?? null,
+      clientsTruncated: !!data.clientsTruncated,
       // The caller merges only the blocks it actually received; `omitted` is how
       // it tells "not asked for" apart from "now empty".
       omitted: [...omit].sort(),

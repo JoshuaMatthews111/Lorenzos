@@ -338,8 +338,11 @@ test("health cron: agree ⇒ no numbers approval; disagree ⇒ 'LDTT: numbers di
 test("the exact office stage survives the round trip through raw_payload.ui_status", () => {
   const row = { id: "a1", status: "reviewing", raw_payload: { ui_status: "Interview Scheduled" } };
   assert.equal(metrics.normalizeApplicationRow(row).status, "Interview Scheduled");
+  // "Discovery Follow-up" is not a board column: honouring it hid the card and
+  // made the nightly cross-check disagree, so it is ignored.
   const followUp = { id: "a2", status: "discovery_follow_up", raw_payload: { ui_status: "Discovery Follow-up" } };
-  assert.equal(metrics.normalizeApplicationRow(followUp).status, "Discovery Follow-up");
+  assert.equal(metrics.normalizeApplicationRow(followUp).status, "Discovery Call Inquiry");
+  assert.ok(metrics.APPLICATION_COLUMNS.includes(metrics.normalizeApplicationRow(followUp).status), "a stamped application always lands in a board column");
   // A stale stamp never overrides a real status change made elsewhere.
   const stale = { id: "a3", status: "archived", raw_payload: { ui_status: "Interview Scheduled" } };
   assert.equal(metrics.normalizeApplicationRow(stale).status, "Archived");

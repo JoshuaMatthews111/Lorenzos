@@ -579,6 +579,10 @@
       lifecycleEvents: data.lifecycleEvents || [],
       omitted: Array.isArray(data.omitted) ? data.omitted : [],
       visitStamps: data.visitStamps && typeof data.visitStamps === "object" ? data.visitStamps : null,
+      deals: Array.isArray(data.deals) ? data.deals : [],
+      dealPayments: Array.isArray(data.dealPayments) ? data.dealPayments : [],
+      clientsTotal: data.clientsTotal ?? null,
+      clientsTruncated: !!data.clientsTruncated,
       sheets: data.sheets || { leads: [], applications: [], clients: [] }
     };
   }

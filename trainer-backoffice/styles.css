@@ -5577,3 +5577,6 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 /* rule 46: practice-copy sync chip next to "Live · updated" */
 .practice-sync-chip{margin-left:6px}
 .practice-sync-stale{background:#fff1cc;color:#5b4300}
+
+/* 2026-09-10: a draft save takes a published trainer page offline until Publish (known, see DO-NOT-BREAK rule 47) */
+.editor-live-warning{margin:0 0 12px;padding:10px 12px;border:1px solid #f0b429;border-left:4px solid #d80f35;border-radius:8px;background:#fff8e6;color:#5b4300;font-size:.84rem;line-height:1.4}

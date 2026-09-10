@@ -1275,7 +1275,7 @@ window.LDTT_TRAINER_ROSTER = [
     "conversions": 0,
     "image": "/assets/trainer-bio-photos/eric-hardaway.jpg",
     "photo": "/assets/trainer-bio-photos/eric-hardaway.jpg",
-    "cardPhoto": "/assets/trainer-headshots/Eric-Hardaway-360.jpg",
+    "cardPhoto": "/assets/trainer-headshots/eric-hardaway-360.jpg",
     "companyLogo": "",
     "specialties": [
       "Dog Obedience Training",

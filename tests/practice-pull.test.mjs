@@ -16,7 +16,7 @@ const operationalData = require("../api/operational-data.js");
 const SUPER = { user_id: "u-super", role: "admin", permission_level: "super_admin", active: true, access_status: "active", email: "joshua@lorenzosdogtrainingteam.com" };
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
-function makeWorld({ pull = () => json(200, { ok: true, last_ok_at: "2026-09-10T10:00:00.000Z", changed: ["leads"], errors: [] }) } = {}) {
+function makeWorld({ pull = () => json(200, { ok: true, last_ok_at: "2026-09-10T10:00:00.000Z", changed: ["leads"], errors: [] }), lastOk = () => json(200, { last_ok_at: "2026-09-10T09:30:00.000Z", skipped: 0 }) } = {}) {
   const calls = [];
   const store = {
     portal_users: [SUPER],
@@ -36,7 +36,8 @@ function makeWorld({ pull = () => json(200, { ok: true, last_ok_at: "2026-09-10T
     if (u.pathname.startsWith("/storage/v1/")) return json(200, []);
     const table = u.pathname.replace("/rest/v1/", "");
     if (table === "rpc/pull_from_live") return pull(options);
-    if (table === "rpc/pull_status") return json(200, { last_ok_at: "2026-09-10T09:30:00.000Z" });
+    if (table === "rpc/pull_last_ok") return lastOk(options);
+    if (table === "rpc/pull_status") throw new Error("the endpoint must never run the full diagnostic scan");
     if (table.startsWith("rpc/")) return json(200, { ok: true });
     if (!store[table]) return json(200, []);
     const rows = store[table];
@@ -60,6 +61,10 @@ test("live (LDTT_SANDBOX unset): the pull is never called, the JSON carries no p
   assert.equal(res.statusCode, 200);
   assert.equal(world.calls.some(c => c.path.includes("pull_from_live") || c.path.includes("pull_status")), false, "no pull RPC on live");
   assert.equal("practiceSync" in res.body, false, "no practiceSync key on live");
+  // 2026-09-10: these four were computed but never sent (Clients showed 500 of 500, Sales/My Deals empty).
+  assert.ok(Array.isArray(res.body.deals) && Array.isArray(res.body.dealPayments), "deals and dealPayments are sent");
+  assert.equal(typeof res.body.clientsTotal, "number", "clientsTotal is sent as a number");
+  assert.equal(typeof res.body.clientsTruncated, "boolean", "clientsTruncated is sent");
   const count = world.calls.find(c => /count=exact/.test(c.prefer));
   assert.ok(count, "countRows still asks for an exact count");
   assert.equal(count.profile, "", "live countRows carries no schema profile header");
@@ -80,7 +85,7 @@ test("practice (LDTT_SANDBOX=1): the pull runs exactly once, before any table re
   const pullIndex = world.calls.findIndex(c => c.path === "/rest/v1/rpc/pull_from_live");
   assert.ok(authRead < pullIndex, "the caller is checked before any pull");
   assert.ok(pullIndex < firstTableRead, "the pull happens before the first data read");
-  assert.deepEqual(res.body.practiceSync, { ok: true, reason: "pulled", lastMatchedAt: "2026-09-10T10:00:00.000Z", changed: ["leads"], errors: 0 });
+  assert.deepEqual(res.body.practiceSync, { ok: true, reason: "pulled", lastMatchedAt: "2026-09-10T10:00:00.000Z", changed: ["leads"], errors: 0, skipped: 0 });
   const count = world.calls.find(c => /count=exact/.test(c.prefer));
   assert.equal(count.profile, "practice", "practice countRows counts practice rows");
   process.env.LDTT_SANDBOX = "";
@@ -96,7 +101,7 @@ test("practice: a hanging pull still answers 200 within the budget, marked not o
   assert.ok(took < 2500, `answered in ${took} ms`);
   assert.equal(res.body.practiceSync.ok, false);
   assert.equal(res.body.practiceSync.reason, "timeout");
-  assert.equal(res.body.practiceSync.lastMatchedAt, "2026-09-10T09:30:00.000Z", "the last matched time comes from pull_status");
+  assert.equal(res.body.practiceSync.lastMatchedAt, "2026-09-10T09:30:00.000Z", "the last matched time comes from the cheap pull_last_ok read");
   assert.equal(res.body.leads.length, 1, "practice rows are still served");
   void hang;
   makeWorld({ pull: () => json(500, { message: "boom" }) });
@@ -120,5 +125,30 @@ test("practice: a failed pull and a good pull produce different revisions for th
   assert.equal(off.calls.some(c => c.path.includes("pull_from_live")), false, "env kill switch: no pull call");
   assert.equal(res.body.practiceSync.reason, "env_off");
   delete process.env.LDTT_PRACTICE_PULL;
+  process.env.LDTT_SANDBOX = "";
+});
+
+test("practice: when the pull AND the last-matched read both hang, the screen still answers within about 1.8 s", async () => {
+  process.env.LDTT_SANDBOX = "1";
+  const never = options => new Promise((resolve, reject) => { options.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" }))); });
+  makeWorld({ pull: never, lastOk: never });
+  const started = Date.now();
+  const res = await get();
+  const took = Date.now() - started;
+  assert.equal(res.statusCode, 200);
+  assert.ok(took < 2300, `answered in ${took} ms`);
+  assert.equal(res.body.practiceSync.reason, "timeout");
+  assert.equal(res.body.practiceSync.lastMatchedAt, null);
+  process.env.LDTT_SANDBOX = "";
+});
+
+test("practice: held-back rows reach the browser and change the revision", async () => {
+  process.env.LDTT_SANDBOX = "1";
+  makeWorld({ pull: () => json(200, { ok: true, last_ok_at: "2026-09-10T10:00:00.000Z", changed: [], errors: [], skipped: 0 }) });
+  const clean = await get();
+  makeWorld({ pull: () => json(200, { ok: true, last_ok_at: "2026-09-10T10:00:00.000Z", changed: [], errors: [], skipped: 2 }) });
+  const held = await get();
+  assert.equal(held.body.practiceSync.skipped, 2);
+  assert.notEqual(clean.body.serverRevision, held.body.serverRevision);
   process.env.LDTT_SANDBOX = "";
 });

@@ -183,7 +183,7 @@
       email: row.email,
       createdAt: row.created_at,
       receivedAt: row.received_at || row.created_at,
-      status: (raw.ui_status && APPLICATION_STATUS_TO_DB[raw.ui_status] === row.status) ? raw.ui_status : (APPLICATION_STATUS_FROM_DB[row.status] || "New Application"),
+      status: (raw.ui_status && APPLICATION_COLUMNS.includes(raw.ui_status) && APPLICATION_STATUS_TO_DB[raw.ui_status] === row.status) ? raw.ui_status : (APPLICATION_STATUS_FROM_DB[row.status] || "New Application"),
       rawPayload: raw
     };
   }

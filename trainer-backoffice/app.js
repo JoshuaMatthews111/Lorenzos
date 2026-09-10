@@ -1164,7 +1164,7 @@ function remoteApplicationToUi(row) {
     state: row.state,
     zip: row.zip,
     referral_source: row.referral_source,
-    status: (raw.ui_status && applicationStatusToDb[raw.ui_status] === row.status) ? raw.ui_status : (applicationStatusFromDb[row.status] || "New Application"),
+    status: (raw.ui_status && METRICS?.APPLICATION_COLUMNS?.includes(raw.ui_status) && applicationStatusToDb[raw.ui_status] === row.status) ? raw.ui_status : (applicationStatusFromDb[row.status] || "New Application"),
     note: row.office_notes || "",
     delivery_google: raw.delivery_google || "attempted",
     delivery_email: raw.delivery_email || "attempted",
@@ -1516,6 +1516,7 @@ document.addEventListener("scroll", () => {
 // Someone scrolling through a record, or with a record open, is mid-task. Redrawing
 // under them is what kept jumping people back to the top.
 function userIsReadingRecord() {
+  if (typeof dragInProgress !== "undefined" && dragInProgress) return true;
   if (Date.now() - lastScrollActivityAt < 6000) return true;
   // Was: any open .lead-detail-panel blocked every background render. That meant a
   // stale payload could revert the board and no later refresh was allowed to correct
@@ -1618,9 +1619,13 @@ function freshnessChip() {
 function practiceSyncChip() {
   if (!window.LDTT_IS_SANDBOX || !remotePracticeSync) return "";
   const sync = remotePracticeSync;
-  if (sync.ok) return `<span class="status live freshness practice-sync-chip" title="Live's leads, applications, clients and notes are copied into the practice copy every time this screen loads">Same as live</span>`;
+  const held = Number(sync.skipped || 0);
+  if (sync.ok && !held) return `<span class="status live freshness practice-sync-chip" title="Live's leads, applications, clients and notes are copied into the practice copy every time this screen loads">Same as live</span>`;
+  if (sync.ok && held) return `<span class="status pending freshness practice-sync-chip practice-sync-stale" title="${escapeHtml(`${held} live record${held === 1 ? "" : "s"} could not be copied because a practice record is in the way. Ask Joshua; nothing is lost.`)}">Same as live except ${held} record${held === 1 ? "" : "s"}</span>`;
+  const recent = sync.lastMatchedAt && (Date.now() - Date.parse(sync.lastMatchedAt)) < 120000;
+  if ((sync.reason === "timeout" || sync.reason === "busy") && recent && !held) return `<span class="status live freshness practice-sync-chip" title="The copy from live is finishing in the background; it matched live at ${escapeHtml(formatClock(sync.lastMatchedAt))}">Same as live</span>`;
   const when = sync.lastMatchedAt ? formatClock(sync.lastMatchedAt) : "";
-  const why = sync.reason === "timeout" ? "the copy from live took too long" : sync.reason === "guards_missing" ? "the practice copy needs its safety guards re-applied (press Reset)" : sync.reason === "disabled" || sync.reason === "env_off" ? "the copy from live is switched off" : "the copy from live failed";
+  const why = sync.reason === "timeout" ? "The copy from live is taking longer than usual; it keeps going in the background." : sync.reason === "disabled" || sync.reason === "env_off" ? "The copy from live is switched off." : "The copy from live hit a problem. Ask Joshua. Do not press Reset.";
   return `<span class="status pending freshness practice-sync-chip practice-sync-stale" title="${escapeHtml(why)}">${when ? `Last matched live at ${escapeHtml(when)}` : "Not matching live yet"} — new live changes are not showing</span>`;
 }
 
@@ -2123,6 +2128,10 @@ async function publishTrainerPageWorkflow(trainer, publish) {
       throw error;
     }
   }
+  // Missy 2026-09-09: one bio. The Story & Local SEO bio becomes the public
+  // profile bio only when the page is PUBLISHED (typing it used to autosave a
+  // draft straight onto the public bio page, skipping Publish).
+  if (publish && String(trainer.bio || "").trim()) trainer.profileBio = trainer.bio;
   const savedTrainer = await persistTrainerRecord(trainer, { publish });
   if (publish) {
     if (!trainer.remoteId) await ensureTrainerPortalAccount(savedTrainer || trainer);
@@ -2158,10 +2167,6 @@ async function persistPublicTrainerField(trainer, profileKey) {
   };
   const target = fieldMap[profileKey];
   if (!target) throw new Error("This profile field is not connected to the public trainer record");
-  // The reload after this save must take the server values, or the "Matches
-  // public profile" badge stays red forever: the merge keeps every local field
-  // while _editedAt > _savedAt, and only the full trainer save stamped _savedAt.
-  trainer._savedAt = Date.now();
   // Missy 2026-09-09: the direct table PATCH was silently refused by row security,
   // so "Update frontend" toasted "Saved" while saving nothing. Every write goes
   // through the server mutation like the rest of the portal.
@@ -2177,6 +2182,11 @@ async function persistPublicTrainerField(trainer, profileKey) {
   });
   trainer.version = Number(result.version || trainer.version || 1);
   trainer.updatedAt = result.updated_at || trainer.updatedAt;
+  // The public copy now holds exactly what was sent, so show it as matching
+  // without marking the whole trainer saved (that used to throw away every
+  // other unsaved profile field on the next reload).
+  const pair = profileFieldPairs().find(item => item.profile === profileKey);
+  if (pair?.public && profileKey !== "profilePhoto") trainer[pair.public] = fieldValue(trainer, profileKey);
 }
 
 async function persistLeadRecord(lead) {
@@ -2318,7 +2328,9 @@ async function persistApplicationRecord(application) {
       // Rachel 2026-09-09: "Interview Scheduled" bounced back to "Under Review"
       // because both save as the same database word. The exact office stage
       // rides along and wins on the way back when it still agrees with status.
-      raw_payload: { ...(application.rawPayload || {}), ui_status: application.status || "New Application" }
+      // Only the stamp is sent; api/operational-mutation.js merges it into the
+      // stored raw_payload (a stale tab can no longer replace the whole JSON).
+      raw_payload: { ui_status: application.status || "New Application" }
     }
   });
   application.version = Number(result.version || application.version || 1);
@@ -6902,7 +6914,7 @@ function adLandingPageSummary() {
   const avgTime = avgTimeRows.length ? Math.round(avgTimeRows.reduce((sum, row) => sum + row.avgTime, 0) / avgTimeRows.length) : 0;
   return `${metricGrid([
     ["monitor", "Tracked Ad Page Visits", visits, "Exact ad-page traffic", ""],
-    ["lead", "Ad Leads Submitted", forms, "Short forms", "up"],
+    ["lead", "Ad Leads Submitted", forms, "Short forms, incl. Get Started page", "up"],
     ["trophy", "Paid Clients", clients, "Became a Client", "up"],
     ["calendar", "Avg. Time On Page", formatDuration(avgTime), "Tracked on exit", ""]
   ])}<div class="source-record-note"><span class="status live">First-party tracking</span><p>Visits shown here are page loads recorded directly on Lorenzo's paid-ad landing pages. Google Ads click totals remain a separate advertising-platform metric until a Google Ads or GA4 reporting connection is added.</p></div>`;
@@ -7480,7 +7492,7 @@ function fmtMoney(n) {
 }
 
 // The stage list lives in metrics.js (the cron reads the same one).
-const SALES_STAGES = METRICS.SALES_STAGES;
+const SALES_STAGES = METRICS?.SALES_STAGES || [];
 
 // What the bot does, in order, and what it says at each step. `wording` holds
 // Angela and Tim's approved copy once they supply it; until then the step shows
@@ -7758,7 +7770,7 @@ function salesPipelineView() {
     const cards = dealCards + items.slice(0, 25).map(lead => `
       <article class="sales-card" data-open-lead="${escapeHtml(lead.id)}">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
-        <small>${escapeHtml(lead.dog || "Dog pending")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}</small>
+        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}</small>
         <small class="sales-card-trainer">${salesTrainerLine(lead)}</small>
         ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
       </article>`).join("");
@@ -7822,7 +7834,7 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
   return `<div class="lead-workspace-controls"><button class="btn ${myAssignedActive ? "btn-red" : "btn-outline"} lead-owner-toggle" type="button" data-lead-owner-quick="toggle">My Assigned Leads <span>${myAssignedCount}</span></button><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
-const boardColumns = METRICS.BOARD_COLUMNS;
+const boardColumns = METRICS?.BOARD_COLUMNS || [];
 function boardStatus(status) { return METRICS.boardStatus(status); }
 function leadKanban(rows) {
   return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who"><strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div>${leadCardDetailLines(lead)}${leadAssignmentLine(lead)}<div class="lead-card-sources">${leadSourceBadge(lead)}</div></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
@@ -7839,7 +7851,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Address pending")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -7880,8 +7892,8 @@ function leadSummary() {
 // (b) is the safety net for records that predate lifecycle logging.
 // ---------------------------------------------------------------------------
 
-const CONVERSION_STAGE_RANK = METRICS.CONVERSION_STAGE_RANK;
-const CONVERSION_STAGES = METRICS.CONVERSION_STAGES;
+const CONVERSION_STAGE_RANK = METRICS?.CONVERSION_STAGE_RANK || {};
+const CONVERSION_STAGES = METRICS?.CONVERSION_STAGES || [];
 
 // Lifecycle events keyed by "<entity_type>:<entity_id>" so a lead can be matched
 // to its own history without depending on the current status column.
@@ -8281,7 +8293,7 @@ function trainerPageEditor() {
   const sectionControls = state.builderSurface !== "trainer"
     ? `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Section reordering is protected for main website and portal screens. Use Edit Overlay to select text, images, buttons, and cards directly in the preview.</p></div>`
     : `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Reorder or hide approved sections. Header, form routing, and Lorenzo trust elements stay protected.</p><div class="builder-section-list">${sectionOrder.map((section, index) => `<article><strong>${escapeHtml(section)}</strong><label><input type="checkbox" data-section-visible="${escapeHtml(section)}" ${hiddenSections.includes(section) ? "" : "checked"}> Visible</label><div><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Up</button><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="1" ${index === sectionOrder.length - 1 ? "disabled" : ""}>Down</button></div></article>`).join("")}</div></div>`;
-  const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3><label><span>Trainer</span><select data-editor-trainer>${state.trainers.filter(item => !item.archived || item.id === trainer.id).map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio", "bio", trainer.bio, { area: true })}</div>`;
+  const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3>${trainerHasPublishedPage(trainer) ? `<p class="editor-live-warning" role="note"><strong>Heads up:</strong> changes here save as a draft, and a draft takes ${escapeHtml(trainer.name || "this trainer")}'s public page offline until you press <b>Publish &amp; Lock Trainer Page</b>. Finish your edits, then publish.</p>` : ""}<label><span>Trainer</span><select data-editor-trainer>${state.trainers.filter(item => !item.archived || item.id === trainer.id).map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio (becomes the public profile bio when you Publish)", "bio", trainer.bio, { area: true })}</div>`;
   const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
   const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
   const controls = {
@@ -8804,6 +8816,7 @@ const APPLICATION_FIELD_ALIASES = {
 
 const APPLICATION_INTERNAL_RAW_FIELD_KEYS = new Set([
   ...LEAD_INTERNAL_RAW_FIELD_KEYS,
+  "ui_status", // rule 45: the office stage stamp, not an applicant answer
   "delivery_complete",
   "deliveryComplete",
   "entry_id",
@@ -8983,7 +8996,7 @@ function applicationSheetView(rows) {
 }
 
 function applicationIndividualView(rows) {
-  return `<div class="application-individual-list">${rows.map(row => `<article class="application-individual-card"><header><div><span class="portal-tag">Application</span><h3>${escapeHtml(`${row.first_name || ""} ${row.last_name || ""}`.trim() || "Applicant")}</h3><p>${escapeHtml([row.city, row.state, row.zip].filter(Boolean).join(", ") || "Location pending")}</p></div><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(row.id)}">Open Full Record</button></header>${applicationDetailGrid(row)}</article>`).join("") || `<p>No individual applications found.</p>`}</div>`;
+  return `<div class="application-individual-list">${rows.map(row => `<article class="application-individual-card"><header><div><span class="portal-tag">Application</span><h3>${escapeHtml(`${row.first_name || ""} ${row.last_name || ""}`.trim() || "Applicant")}</h3><p>${escapeHtml([row.city, row.state, row.zip].filter(Boolean).join(", ") || "Location not given")}</p></div><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(row.id)}">Open Full Record</button></header>${applicationDetailGrid(row)}</article>`).join("") || `<p>No individual applications found.</p>`}</div>`;
 }
 
 function contactSubmissionRows() {
@@ -9219,6 +9232,7 @@ function applicationDetailGrid(app) {
   const fields = applicationExportFields([app]);
   const exactFields = fields.map(field => [field.label, applicationFieldValue(app, field.key, field.label)]);
   const extraFields = Object.entries(applicationRawPayload(app))
+    .filter(([label]) => !APPLICATION_INTERNAL_RAW_FIELD_KEYS.has(label)) // ui_status, delivery_* bookkeeping
     .filter(([label]) => !fields.some(field => field.label === label || field.key === label))
     .map(([label, value]) => [label, value]);
   const workflowFields = [
@@ -9853,8 +9867,10 @@ function maybeCreateClientFromLead(lead, changes = {}) {
 }
 
 function lostReasonsTable() {
-  const lost = realLeadRows().filter(l => l.status.startsWith("Lost") || l.status === "Bad Lead" || l.status === "Do Not Contact");
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Trainer</th><th>Office Note</th></tr></thead><tbody>${lost.map(lead => `<tr><td>${escapeHtml(lead.owner)}<small>${escapeHtml(lead.dog)}</small></td><td><span class="status lost">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="4">No lost leads match the current filters.</td></tr>`}</tbody></table></div>`;
+  // Same rows as the Lost tile (METRICS.lostLeadRows, rule 34) and the same
+  // report date range; it used to be all-time and computed inline.
+  const lost = METRICS?.lostLeadRows ? METRICS.lostLeadRows(filteredReportLeadRows()) : [];
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Trainer</th><th>Office Note</th></tr></thead><tbody>${lost.map(lead => `<tr><td>${escapeHtml(lead.owner)}${leadDogLabel(lead) ? `<small>${escapeHtml(leadDogLabel(lead))}</small>` : ""}</td><td><span class="status lost">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="4">No lost leads match the current filters.</td></tr>`}</tbody></table></div>`;
 }
 
 function socialIconSvg(label) {
@@ -12311,10 +12327,6 @@ document.addEventListener("input", event => {
   if (field.dataset.editorField) {
     const trainer = trainerById();
     trainer[field.dataset.editorField] = field.value;
-    // Missy 2026-09-09: the bio typed in Story & Local SEO never reached the
-    // Trainer Bio source box below. The office thinks of one bio, so keep the
-    // profile source in step while they type here.
-    if (field.dataset.editorField === "bio") trainer.profileBio = field.value;
     trainer.pageStatus = "Draft";
     trainer.locked = false;
     refreshPageEditorPreview();
@@ -13200,7 +13212,13 @@ document.addEventListener("pointercancel", () => {
 
 let draggedLeadId = "";
 let draggedApplicationId = "";
+// A background redraw between pick-up and drop can put a different card under
+// the pointer (an audit drag of Julia Scheck saved kevin wilson). Hold redraws
+// for the length of a drag.
+let dragInProgress = false;
+document.addEventListener("dragend", () => { dragInProgress = false; });
 document.addEventListener("dragstart", event => {
+  if (event.target.closest?.("[data-lead-card],[data-application-card]")) dragInProgress = true;
   const leadCard = event.target.closest("[data-lead-card]");
   if (leadCard) {
     draggedLeadId = leadCard.dataset.leadCard;
@@ -13215,6 +13233,7 @@ document.addEventListener("dragstart", event => {
 });
 document.addEventListener("dragover", event => { if (event.target.closest("[data-drop-status],[data-drop-application-status]")) event.preventDefault(); });
 document.addEventListener("drop", event => {
+  dragInProgress = false;
   const applicationColumn = event.target.closest("[data-drop-application-status]");
   if (applicationColumn && draggedApplicationId) {
     event.preventDefault();
