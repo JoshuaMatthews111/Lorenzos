@@ -1042,7 +1042,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     // Edited since the last save started: keep every field the office is working on
     // and take only the bookkeeping from the server. The queued save carries the edits.
     if (Number(existing._editedAt || 0) > Number(existing._savedAt || 0)) {
-      const keep = ["remoteId", "id", "pageId", "version", "updatedAt", "pageVersion", "pageUpdatedAt", "revision", "publishedRevision", "sentToLiveAt", "sentToLiveByName", "fromPracticeCopy", "archived", "accessStatus"];
+      const keep = ["remoteId", "id", "pageId", "version", "updatedAt", "pageVersion", "pageUpdatedAt", "revision", "publishedRevision", "sentToLiveAt", "sentToLiveByName", "fromPracticeCopy", "archived", "accessStatus", "pageDeleted"];
       keep.forEach(key => { existing[key] = merged[key]; });
       return existing;
     }
@@ -2074,6 +2074,16 @@ async function persistTrainerRecordNow(trainer, options = {}) {
         changes: pagePayload
       });
       trainer.pageUpdatedAt = result.updated_at || trainer.pageUpdatedAt;
+      // Rule 59: this tab may not know yet that someone deleted the page. The server
+      // kept it deleted; never follow with the publish RPC.
+      if (result.record?.page_status === "archived") {
+        trainer.pageDeleted = true;
+        if (options.publish) {
+          trainer.pageStatus = "Archived";
+          trainer.locked = false;
+          throw new Error(DELETED_PAGE_PUBLISH_MESSAGE);
+        }
+      }
     } else {
       const result = await window.LDTT_PORTAL.operationalMutation({
         operation: "create",
