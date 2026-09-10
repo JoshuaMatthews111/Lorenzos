@@ -234,11 +234,17 @@ async function sendTrainerPage(auth, id, slugHint, copied) {
     if (!target) target = await liveRow("trainer_pages", [["trainer_id", liveTrainerId]]);
   }
 
-  const draftContent = { ...(page.draft_content && typeof page.draft_content === "object" ? page.draft_content : {}), _sent_from_practice: { by: auth.email, name: auth.sentByName, login_name: auth.name, at } };
+  // Rule 56: a live practice page keeps its newest settings in draft_content._row;
+  // those, not the stale row columns, are what the office edited and sends.
+  const practiceDraft = page.draft_content && typeof page.draft_content === "object" && !Array.isArray(page.draft_content) ? page.draft_content : {};
+  const practiceParkedRow = practiceDraft._row && typeof practiceDraft._row === "object" && !Array.isArray(practiceDraft._row) ? practiceDraft._row : {};
+  const effectivePage = { ...page, ...practiceParkedRow };
+  const { _row: _practiceRow, ...practiceDraftRest } = practiceDraft;
+  const draftContent = { ...practiceDraftRest, _sent_from_practice: { by: auth.email, name: auth.sentByName, login_name: auth.name, at } };
   const liveRevision = Number(target?.revision || 0);
   const versionRevision = liveRevision + 1;
   const body = await repointPracticeUploads({
-    ...pick(page, TRAINER_PAGE_DRAFT_FIELDS),
+    ...pick(effectivePage, TRAINER_PAGE_DRAFT_FIELDS),
     slug,
     trainer_id: liveTrainerId,
     draft_content: draftContent,
@@ -250,7 +256,7 @@ async function sendTrainerPage(auth, id, slugHint, copied) {
   const targetDraft = target && target.draft_content && typeof target.draft_content === "object" && !Array.isArray(target.draft_content) ? target.draft_content : {};
   const targetLive = !!target && target.page_status === "published" && target.locked === true && !!target.published_content
     && typeof target.published_content === "object" && Object.keys(target.published_content).length > 0 && Number(target.published_revision || 0) >= 1;
-  if (targetLive) {
+  if (targetLive || target?.page_status === "archived") { // a deleted page stays as it was until Restore
     const parked = {};
     for (const key of TRAINER_PAGE_DRAFT_FIELDS) {
       if (key !== "draft_content" && Object.prototype.hasOwnProperty.call(body, key)) { parked[key] = body[key]; delete body[key]; }

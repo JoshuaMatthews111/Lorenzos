@@ -342,3 +342,37 @@ test("fullNameOrEmpty: two words minimum, whitespace tidied, 200 chars max", () 
   assert.equal(fullNameOrEmpty(null), "");
   assert.equal(fullNameOrEmpty("A".repeat(300) + " B"), "", "a 300-char first word is cut to 200 and is then one word");
 });
+
+test("rule 56: practice draft settings (parked in _row) reach the LIVE draft; the live row stays as published", async () => {
+  const trainerId = randomUUID(); const pageId = randomUUID();
+  const livePage = { id: pageId, trainer_id: trainerId, slug: "jane-doe", page_status: "published", locked: true, revision: 3, published_revision: 3, headline: "Old headline", draft_content: { trainer_name: "Jane Doe", bio: "old bio" }, published_content: { trainer_name: "Jane Doe", bio: "LIVE bio" }, style_settings: { font_family: "Inter" }, section_order: ["hero"] };
+  const practicePage = { ...livePage, draft_content: { trainer_name: "Jane Doe", bio: "practice bio", _row: { headline: "Practice draft headline", style_settings: { font_family: "Poppins" } } } };
+  const { live } = makeWorld({
+    live: { trainers: [{ id: trainerId, slug: "jane-doe", full_name: "Jane Doe", status: "active" }], trainer_pages: [livePage] },
+    practice: { trainers: [{ id: trainerId, slug: "jane-doe", full_name: "Jane Doe", status: "active" }], trainer_pages: [practicePage] }
+  });
+  const res = await call({ kind: "trainer_page", id: pageId });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  const row = live.trainer_pages[0];
+  assert.equal(row.headline, "Old headline");
+  assert.deepEqual(row.style_settings, { font_family: "Inter" });
+  assert.equal(row.draft_content._row.headline, "Practice draft headline");
+  assert.deepEqual(row.draft_content._row.style_settings, { font_family: "Poppins" });
+  assert.equal(row.draft_content.bio, "practice bio");
+  assert.equal(row.page_status, "published"); assert.equal(row.locked, true);
+});
+
+test("rule 59: sending to a DELETED live page keeps it deleted and its row untouched, so Restore cannot leak the settings", async () => {
+  const trainerId = randomUUID(); const pageId = randomUUID();
+  const livePage = { id: pageId, trainer_id: trainerId, slug: "jane-doe", page_status: "archived", locked: false, archived_at: "2026-09-10T00:00:00Z", revision: 3, published_revision: 3, headline: "Old headline", draft_content: { trainer_name: "Jane Doe", bio: "old bio" }, published_content: { trainer_name: "Jane Doe", bio: "LIVE bio" }, style_settings: { font_family: "Inter" }, section_order: ["hero"] };
+  const { live } = makeWorld({
+    live: { trainers: [{ id: trainerId, slug: "jane-doe", full_name: "Jane Doe", status: "active" }], trainer_pages: [livePage] },
+    practice: { trainers: [{ id: trainerId, slug: "jane-doe", full_name: "Jane Doe", status: "active" }], trainer_pages: [{ ...livePage, page_status: "published", locked: true, headline: "Sneaky headline" }] }
+  });
+  const res = await call({ kind: "trainer_page", id: pageId });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  const row = live.trainer_pages[0];
+  assert.equal(row.page_status, "archived"); assert.equal(row.locked, false);
+  assert.equal(row.headline, "Old headline");
+  assert.equal(row.draft_content._row.headline, "Sneaky headline");
+});

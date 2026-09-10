@@ -986,6 +986,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     layout: templateFromDb(remotePage?.template_key),
     // publish-guard: "published" without a servable page is shown as Draft, unlocked, so the office sees the truth and can publish it properly.
     pageStatus: remotePage?.page_status === "published" && !pageRowHasPublishedContent(remotePage) ? "Draft" : pageStatusFromDb(remotePage?.page_status),
+    pageDeleted: remotePage?.page_status === "archived", // rule 59: set only from the database, never by a button
     locked: Boolean(remotePage?.locked) && !(remotePage?.page_status === "published" && !pageRowHasPublishedContent(remotePage)),
     accessStatus: remoteTrainer.access_status === "disabled" ? "Disabled" : "Active",
     archived: remoteTrainer.status === "archived", // onboarding: Delete Draft archives; hidden from the office lists
@@ -1990,6 +1991,9 @@ async function persistTrainerRecord(trainer, options = {}) {
 }
 
 async function persistTrainerRecordNow(trainer, options = {}) {
+  // Rule 59: review and sync buttons publish on their own; on a deleted page they
+  // save without publishing (the server also keeps the page deleted).
+  if (options.publish && trainerPageIsDeleted(trainer)) options = { ...options, publish: false };
   trainer._savedAt = Date.now(); // onboarding: edits after this survive this save's reload
   trainer.title ||= "Team Trainer";
   const normalizedLocation = normalizeTrainerLocation(trainer.profileMarket || trainer.market, trainer.profileState || trainer.state);
@@ -2127,6 +2131,12 @@ async function ensureTrainerPortalAccount(trainer) {
 }
 
 async function publishTrainerPageWorkflow(trainer, publish) {
+  // Rule 59: a deleted page only comes back through Restore (typed name, logged).
+  if (publish && trainerPageIsDeleted(trainer)) {
+    trainer.pageStatus = "Archived";
+    trainer.locked = false;
+    throw new Error(DELETED_PAGE_PUBLISH_MESSAGE);
+  }
   // onboarding: the login check runs BEFORE the page goes public. It used to run
   // after the publish RPC, so a refused login (staff email, someone else's email)
   // left the page published while the office saw "Could not save".
@@ -6148,8 +6158,10 @@ function trainerHasUnpublishedDraft(trainer) {
 }
 
 function trainerPageIsDeleted(trainer) {
-  return trainer?.pageStatus === "Archived";
+  return Boolean(trainer?.pageDeleted) || trainer?.pageStatus === "Archived";
 }
+
+const DELETED_PAGE_PUBLISH_MESSAGE = "This trainer page is deleted. Use Restore this page at the bottom of the Page Editor first.";
 
 function trainerPageStateNotice(trainer) {
   if (!trainer) return "";

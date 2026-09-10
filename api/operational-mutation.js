@@ -212,11 +212,12 @@ function parkRowFields(before, changes) {
 // deleted, and on both the public row settings wait in draft_content._row;
 // only a real Publish (action trainer_page_published) writes them to the row.
 function keepLivePageLive(entityType, before, changes, action) {
-  if (entityType !== "trainer_page" || action === "trainer_page_published") return { changes, draftOnly: false };
+  if (entityType !== "trainer_page") return { changes, draftOnly: false };
+  // Deleted first, even for a "publish": only restore_trainer_page brings a deleted page back.
   if (before?.page_status === "archived") {
     return { changes: { ...parkRowFields(before, changes), page_status: "archived", locked: false }, draftOnly: true };
   }
-  if (!isLiveTrainerPage(before)) return { changes, draftOnly: false };
+  if (action === "trainer_page_published" || !isLiveTrainerPage(before)) return { changes, draftOnly: false };
   return { changes: { ...parkRowFields(before, changes), page_status: "published", locked: true }, draftOnly: true };
 }
 

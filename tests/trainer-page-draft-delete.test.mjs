@@ -166,3 +166,11 @@ test("restore with no delete record stays on the safe side: draft", async () => 
   await call(load(false), { operation: "restore_trainer_page", id: "page-1", restored_by_name: "Joshua Matthews" });
   assert.equal(patchOf(calls)[0].body.page_status, "draft");
 });
+
+test("a publish on a DELETED page keeps it deleted (only Restore brings it back)", async () => {
+  const calls = fakeSupabase(DELETED);
+  await call(load(false), { operation: "update", entity_type: "trainer_page", id: "page-1", action: "trainer_page_published", changes: { page_status: "draft", locked: false, headline: "Review sync" } });
+  const [patch] = patchOf(calls);
+  assert.equal(patch.body.page_status, "archived"); assert.equal(patch.body.locked, false);
+  assert.ok(!("headline" in patch.body));
+});
