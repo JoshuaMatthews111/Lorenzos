@@ -2142,6 +2142,10 @@ async function persistPublicTrainerField(trainer, profileKey) {
   };
   const target = fieldMap[profileKey];
   if (!target) throw new Error("This profile field is not connected to the public trainer record");
+  // The reload after this save must take the server values, or the "Matches
+  // public profile" badge stays red forever: the merge keeps every local field
+  // while _editedAt > _savedAt, and only the full trainer save stamped _savedAt.
+  trainer._savedAt = Date.now();
   // Missy 2026-09-09: the direct table PATCH was silently refused by row security,
   // so "Update frontend" toasted "Saved" while saving nothing. Every write goes
   // through the server mutation like the rest of the portal.
