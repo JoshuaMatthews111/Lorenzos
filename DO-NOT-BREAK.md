@@ -490,3 +490,19 @@ Verification (QA pass 2026-09-05):
     to localStorage — the old quota fallback did, and the office read it as
     "signs me in without asking". Ticked: localStorage. The practice copy no
     longer force-ticks the box.
+
+## Public trainer pages (added 2026-09-10, Claude)
+
+43. **A public page never depends on a portal-only script.** On 2026-09-09 the release
+    shipped an `app.js` that throws when `window.LDTT_METRICS` is missing (rule 34). The
+    28 static trainer pages (`/<slug>.html`, `body.public-site`) plus `trainer-profile.html`
+    loaded `supabase.js` + `app.js` and never `metrics.js`, so every "Schedule this trainer"
+    click on the website opened a blank page, and the nightly health check (HTTP 200 only)
+    never noticed. Now: every root `*.html` that loads `trainer-backoffice/app.js` loads
+    `trainer-backoffice/metrics.js` before it, on the same `?v=` stamp as the portal, and
+    `app.js` only refuses to start without metrics when the page is NOT `body.public-site`
+    (`IS_PUBLIC_PAGE`). `scripts/audit-office-requirements.mjs` enforces both.
+    Before any deploy that touches `app.js` or the shells: open `/fredharris` in a real
+    browser and confirm `#publicSite` has content and the console is clean. A 200 with an
+    empty `<main>` is a broken page. Record of the incident:
+    `~/Desktop/LDTT Trainer Pages Blank 2026-09-10/BEFORE.md`.

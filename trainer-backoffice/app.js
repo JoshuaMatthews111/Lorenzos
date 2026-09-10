@@ -777,7 +777,10 @@ leadStatusFromDb.follow_up_call_needed = "Office Contacted";
 // numbers (2026-09-05): every figure on every panel comes from metrics.js,
 // loaded before this file. The nightly cross-check runs the same file in Node.
 const METRICS = window.LDTT_METRICS;
-if (!METRICS) throw new Error("trainer-backoffice/metrics.js must load before app.js");
+// Public trainer pages (body.public-site) draw no office numbers. They must never die
+// because a portal-only module is absent: on 2026-09-09 all 29 went blank on live.
+const IS_PUBLIC_PAGE = !!(document.body && document.body.classList.contains("public-site"));
+if (!METRICS && !IS_PUBLIC_PAGE) throw new Error("trainer-backoffice/metrics.js must load before app.js");
 const applicationStatusToDb = {
   "New Application": "new_application",
   "Under Review": "reviewing",
