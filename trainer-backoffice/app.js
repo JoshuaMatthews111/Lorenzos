@@ -9105,9 +9105,12 @@ function applicationPipelineCard(app) {
   const name = applicationDisplayName(app);
   return `<article class="lead-card application-card" draggable="true" data-application-card="${escapeHtml(app.id)}" data-open-application="${escapeHtml(app.id)}">
     <div class="lead-card-top"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</span></div>
-    <p>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "Location pending")}</p>
-    <small>${escapeHtml(app.email || "No email")} · ${escapeHtml(app.phone || "No phone")}</small>
-    <div class="delivery-badges"><span>${escapeHtml(applicationInquiryTypeLabel(app))}</span><span>${escapeHtml(app.referral_source || "Referral pending")}</span></div>
+    ${(() => { /* Rachel 2026-09-10: no "pending" fillers on application cards either — show only what is known. */
+      const place = [app.city, app.state, app.zip].filter(Boolean).join(", ");
+      const contact = [app.email, app.phone].filter(Boolean).join(" · ");
+      return `${place ? `<p>${escapeHtml(place)}</p>` : ""}${contact ? `<small>${escapeHtml(contact)}</small>` : ""}`;
+    })()}
+    <div class="delivery-badges"><span>${escapeHtml(applicationInquiryTypeLabel(app))}</span>${app.referral_source ? `<span>${escapeHtml(app.referral_source)}</span>` : ""}</div>
   </article>`;
 }
 
