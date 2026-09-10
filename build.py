@@ -179,7 +179,7 @@ trainers=[
 ("Brady DeRemer","Streetsboro, OH","Ohio","https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/15580a72-b9dc-4220-8975-677bbabb3902/profilePhoto-1785347165713.jpg","brady-deremer","Brady is a Lorenzo's Certified Dog Trainer serving Streetsboro and surrounding Ohio communities with obedience training and behavior modification support."),
 ("Karemela Sefferin","San Diego, CA","California","assets/trainer-headshots/Karemela Sefferin 360_x_360.jpg","karemela-sefferin","Karemela helps families build trust, improve communication, and create lasting relationships between dogs and their owners."),
 ("Jacob Perez","San Antonio, TX","Texas","assets/trainer-headshots/Jacob Perez_TC 360_x_360.jpg","jacob-perez","Jacob brings Marine Corps discipline, sports medicine, personal training, and dog-industry experience into his LDTT work."),
-("Eric Hardaway","Fort Worth, TX","Texas","assets/trainer-headshots/Eric-Hardaway-360.jpg","eric-hardaway","Eric's psychology background, wildlife work, and experience training his own German Shepherd led him to serve the Dallas/Fort Worth area."),
+("Eric Hardaway","Fort Worth, TX","Texas","assets/trainer-headshots/eric-hardaway-360.jpg","eric-hardaway","Eric's psychology background, wildlife work, and experience training his own German Shepherd led him to serve the Dallas/Fort Worth area."),
 ("Carolina Perez","San Antonio, TX","Texas","assets/trainer-headshots/Carolina Perez tc 360_x_360.jpg","carolina-perez","Carolina combines sales, personal training, and a love for animals to help dogs and families live together more happily.")]
 trainer_bio_records={}
 for n,loc,state,im,slug,bio in trainers:

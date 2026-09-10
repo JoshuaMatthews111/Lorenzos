@@ -546,9 +546,11 @@ Verification (QA pass 2026-09-05):
     Related fixes verified the same night: the application board renders
     `filteredApplicationRows({ filter: "All" })` so the search box works on it; lead
     cards carry no "pending" fillers and the source logos sit at the card foot;
-    Page Editor and Page Studio carry two-door tabs (`pageWorkTabs`); the importable
-    website pages now include specialty-advanced and become-a-trainer (terms,
-    privacy-policy, onboarding do not slice into blocks and stay static-only).
+    Page Editor and Page Studio carry two-door tabs (`pageWorkTabs`); specialty-advanced
+    and become-a-trainer stay static-only for now: the importer drops their local
+    videos, second button and stats band (review 2026-09-10). Terms, privacy-policy
+    and onboarding do not slice into blocks and stay static-only too. The Trainer
+    Bio reaches the public bio only after Publish succeeds (never before the RPC).
 
 ## Practice copy pulls from live on read (added 2026-09-10, Claude)
 

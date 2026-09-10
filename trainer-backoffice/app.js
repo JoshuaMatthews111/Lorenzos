@@ -1516,7 +1516,12 @@ document.addEventListener("scroll", () => {
 // Someone scrolling through a record, or with a record open, is mid-task. Redrawing
 // under them is what kept jumping people back to the top.
 function userIsReadingRecord() {
-  if (typeof dragInProgress !== "undefined" && dragInProgress) return true;
+  // A drag counts for 20 s at most: a cancelled drag whose card was redrawn
+  // never delivers dragend, and must not freeze background redraws forever.
+  if (typeof dragInProgress !== "undefined" && dragInProgress) {
+    if (Date.now() - dragStartedAt < 20000) return true;
+    dragInProgress = false;
+  }
   if (Date.now() - lastScrollActivityAt < 6000) return true;
   // Was: any open .lead-detail-panel blocked every background render. That meant a
   // stale payload could revert the board and no later refresh was allowed to correct
@@ -2131,8 +2136,18 @@ async function publishTrainerPageWorkflow(trainer, publish) {
   // Missy 2026-09-09: one bio. The Story & Local SEO bio becomes the public
   // profile bio only when the page is PUBLISHED (typing it used to autosave a
   // draft straight onto the public bio page, skipping Publish).
-  if (publish && String(trainer.bio || "").trim()) trainer.profileBio = trainer.bio;
+  // The copy happens only AFTER the publish succeeded (persistTrainerRecord throws
+  // when the page save or the publish RPC fails), so a failed publish never leaves
+  // the draft bio on the public bio page. If this copy fails, the old public bio stays.
+  const publishBio = publish ? String(trainer.bio || "") : "";
   const savedTrainer = await persistTrainerRecord(trainer, { publish });
+  if (publish && publishBio.trim()) {
+    const bioTarget = savedTrainer || trainer;
+    if (String(bioTarget.profileBio || "") !== publishBio) {
+      bioTarget.profileBio = publishBio;
+      await persistPublicTrainerField(bioTarget, "profileBio");
+    }
+  }
   if (publish) {
     if (!trainer.remoteId) await ensureTrainerPortalAccount(savedTrainer || trainer);
     else if (savedTrainer && savedTrainer !== trainer) savedTrainer.portalInviteStatus = trainer.portalInviteStatus;
@@ -13216,9 +13231,10 @@ let draggedApplicationId = "";
 // the pointer (an audit drag of Julia Scheck saved kevin wilson). Hold redraws
 // for the length of a drag.
 let dragInProgress = false;
+let dragStartedAt = 0;
 document.addEventListener("dragend", () => { dragInProgress = false; });
 document.addEventListener("dragstart", event => {
-  if (event.target.closest?.("[data-lead-card],[data-application-card]")) dragInProgress = true;
+  if (event.target.closest?.("[data-lead-card],[data-application-card]")) { dragInProgress = true; dragStartedAt = Date.now(); }
   const leadCard = event.target.closest("[data-lead-card]");
   if (leadCard) {
     draggedLeadId = leadCard.dataset.leadCard;
