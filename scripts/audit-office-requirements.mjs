@@ -6,6 +6,9 @@ const root = resolve(import.meta.dirname, "..");
 const read = path => readFileSync(resolve(root, path), "utf8");
 const app = read("trainer-backoffice/app.js");
 // trainer pages (2026-09-10): every root shell that loads app.js — the 28 static trainer pages, trainer-profile.html and staff.html.
+const operationalData = read("api/operational-data.js");
+const pullMigration = read("supabase/migrations/20260910120000_practice_pull_from_live.sql");
+const vercelJsonText = read("vercel.json");
 const publicShellsWithApp = (await import("node:fs")).readdirSync(root).filter(name => name.endsWith(".html") && /trainer-backoffice\/app\.js/.test(read(name)));
 const portal = read("trainer-backoffice/supabase.js");
 const contact = read("contact.html");
@@ -295,6 +298,12 @@ const checks = [
   ["office 09-10: the Story & Local SEO bio mirrors into the Trainer Bio source while typing", /if \(field\.dataset\.editorField === "bio"\) trainer\.profileBio = field\.value;/.test(app)],
   ["office 09-10: the application board obeys the search box (same filtered rows as the sheet) and the exact office stage rides raw_payload.ui_status so Interview Scheduled cannot bounce to Under Review", /const rows = filteredApplicationRows\(\{ filter: "All" \}\);/.test(app) && /ui_status: application\.status \|\| "New Application"/.test(app) && /raw\.ui_status && APPLICATION_STATUS_TO_DB\[raw\.ui_status\] === row\.status/.test(metricsLib)],
   ["office 09-10: lead cards keep the name whole (source logos at the card foot, no \"pending\" fillers) and Page Editor/Page Studio carry the two-door tabs", /lead-card-sources/.test(app) && /function leadCardDetailLines\(lead\)/.test(app) && !/Dog pending\} · \$\{escapeHtml\(lead\.service/.test(app) && /pageWorkTabs\("pageEditor"\)/.test(app) && /pageWorkTabs\("pageStudio"\)/.test(app) && /lead-card-sources/.test(styles)],
+  // pull-on-read (rule 46, 2026-09-10): the practice copy copies live in before it reads; live is never written.
+  ["rule 46: the practice pull runs only inside isSandbox(), the RPC is called once through supabaseFetch, and it is bounded by a timeout that can never throw", /const practiceSync = isSandbox\(\) \? await pullPracticeFromLive\(\) : null;/.test(operationalData) && /if \(!isSandbox\(\)\) return null;/.test(operationalData) && /supabaseFetch\("\/rest\/v1\/rpc\/pull_from_live"/.test(operationalData) && /PRACTICE_PULL_BUDGET_MS = 1500/.test(operationalData) && /LDTT_PRACTICE_PULL/.test(operationalData)],
+  ["rule 46: the pull migration creates nothing in public and never writes it (no insert/update/delete/alter/trigger/grant aimed at public.*), and no cron points at the pull", !/(insert\s+into|update|delete\s+from|alter\s+table|create\s+(or\s+replace\s+)?(trigger|function|view|policy)|grant\s+[^;]*\s+on)\s+(table\s+)?public\./i.test(pullMigration.replace(/--[^\n]*/g, "")) && !/pull_from_live/.test(vercelJsonText)],
+  ["rule 46: live answers stay byte-identical - practiceSync and the pull revision piece exist only on the practice copy, countRows goes through supabaseRequest, and the practice copy never writes the visits cache", /\.\.\.\(practiceSync \? \{ practiceSync \} : \{\}\)/.test(operationalData) && /\.\.\.\(practiceSync \? \[`pull:/.test(operationalData) && /const target = supabaseRequest\(`\/rest\/v1\/\$\{table\}\?select=id&limit=1`/.test(operationalData) && /async function writeStampsCache[\s\S]{0,240}if \(isSandbox\(\)\) return;/.test(operationalData)],
+  ["rule 46: the node golden test and the database proof exist", /LDTT_SANDBOX unset\): the pull is never called/.test(read("tests/practice-pull.test.mjs")) && /ALL TESTS PASSED \(13\)/.test(read("tests/practice-pull.sql"))],
+  ["rule 46: the browser chip is gated on LDTT_IS_SANDBOX and the practice testing logins are never pulled from live", /if \(!window\.LDTT_IS_SANDBOX \|\| !remotePracticeSync\) return "";/.test(app) && /pull_row_filter/.test(pullMigration) && /superadmin@lorenzosdogtrainingteam\.com/.test(pullMigration)],
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

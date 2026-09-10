@@ -5573,3 +5573,7 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .password-field input::-webkit-credentials-auto-fill-button,
 .password-field input::-webkit-contacts-auto-fill-button,
 .password-field input::-webkit-strong-password-auto-fill-button{visibility:hidden;display:none !important;pointer-events:none;position:absolute;right:0}
+
+/* rule 46: practice-copy sync chip next to "Live · updated" */
+.practice-sync-chip{margin-left:6px}
+.practice-sync-stale{background:#fff1cc;color:#5b4300}

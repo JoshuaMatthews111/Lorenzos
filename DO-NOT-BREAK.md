@@ -545,3 +545,35 @@ Verification (QA pass 2026-09-05):
     Page Editor and Page Studio carry two-door tabs (`pageWorkTabs`); the importable
     website pages now include specialty-advanced and become-a-trainer (terms,
     privacy-policy, onboarding do not slice into blocks and stay static-only).
+
+## Practice copy pulls from live on read (added 2026-09-10, Claude)
+
+46. **The practice copy is live plus the team's practice work, never a stale photo.**
+    Before `api/operational-data.js` reads on the PRACTICE deployment (`isSandbox()`),
+    it calls `practice.pull_from_live()` once (bounded by 1.5 s, never throws). That
+    function exists only in schema `practice`, is owned by the read-only role
+    `practice_puller` where the platform allows it, and writes only `practice.*` and
+    `practice_private.*`. Every statement that names `public.*` is a SELECT; the
+    audit refuses the migration text otherwise, and refuses a cron for it. Rules:
+    office tables (leads, applications, clients, notes, ...) — a row live changed
+    since the last pull replaces the practice row, and the old practice row is kept
+    in `practice_private.pull_log`; a practice edit on a row live has not touched
+    stays. Page-work tables (trainers, trainer_pages, versions, submissions,
+    reviews) — new live rows come in, a team-edited practice row is never
+    overwritten. Team-created practice rows are never touched or deleted. Live
+    deletes are mirrored for rows that came from live. `ad_pages`,
+    `send_to_live_log`, `reset_log` and the buckets are never pulled;
+    `site_settings` only for `portal_visit_stamps`. Every practice user trigger
+    carries `WHEN (coalesce(current_setting('ldtt.practice_pull', true), '') <> 'on')`
+    so a copied row is byte-for-byte live's (same version, no extra revision,
+    client, code or audit row); `apply_pull_guards()` re-adds the guard after a
+    Reset, and the pull refuses to run while any guard is missing. Kill switches:
+    `practice_private.pull_settings.enabled` (no deploy) and `LDTT_PRACTICE_PULL=0`
+    on the preview target. The three practice-only logins (superadmin@,
+    officeadmin@, trainer@) are OFF on live and ON on the practice copy: the pull
+    never touches their `portal_users` rows and a Reset switches them back on.
+    The top bar says "Same as live" or "Last matched live at hh:mm". Live's
+    `/api/operational-data` JSON and ETag are unchanged (no `practiceSync`, no
+    `pull:` piece). Proof: `/tmp/pull-tests.sql` on a throwaway Postgres (13
+    checks incl. live checksums unchanged across every pull), the audit, and the
+    parity SQL in `scripts/practice-pull-proof.sql`.

@@ -119,14 +119,48 @@ const AUDIT_COLUMNS = [
   "id", "actor_user_id", "actor_email", "actor_name", "action", "entity_type", "entity_id", "summary", "created_at"
 ].join(",");
 
-// Exact row count without transferring the rows themselves.
+const PRACTICE_PULL_BUDGET_MS = 1500;
+
+// pull-on-read (rule 46). Returns {ok, lastMatchedAt, reason} and never throws.
+// LDTT_PRACTICE_PULL=0 on the preview target is the deploy-side kill switch;
+// practice_private.pull_settings.enabled is the no-deploy one.
+async function pullPracticeFromLive() {
+  if (!isSandbox()) return null;
+  if (String(process.env.LDTT_PRACTICE_PULL || "") === "0") return { ok: false, reason: "env_off", lastMatchedAt: null };
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PRACTICE_PULL_BUDGET_MS);
+  try {
+    const result = await supabaseFetch("/rest/v1/rpc/pull_from_live", { method: "POST", body: "{}", signal: controller.signal });
+    const ok = result?.ok === true;
+    return {
+      ok,
+      reason: result?.reason || (ok ? "pulled" : "error"),
+      lastMatchedAt: result?.last_ok_at || null,
+      changed: Array.isArray(result?.changed) ? result.changed : [],
+      errors: Array.isArray(result?.errors) ? result.errors.length : 0
+    };
+  } catch (error) {
+    let lastMatchedAt = null;
+    try {
+      const status = await supabaseFetch("/rest/v1/rpc/pull_status", { method: "POST", body: "{}" });
+      lastMatchedAt = status?.last_ok_at || null;
+    } catch {}
+    return { ok: false, reason: error?.name === "AbortError" ? "timeout" : "error", lastMatchedAt, message: String(error?.message || error).slice(0, 200) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Exact row count without transferring the rows themselves. Goes through
+// supabaseRequest so the practice copy counts practice rows (it used to count
+// live's); on production the request is byte-identical to before.
 async function countRows(table) {
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?select=id&limit=1`, {
+  const target = supabaseRequest(`/rest/v1/${table}?select=id&limit=1`, { Prefer: "count=exact", Range: "0-0" });
+  const response = await fetch(`${SUPABASE_URL}${target.path}`, {
     headers: {
       apikey: SERVICE_ROLE_KEY,
       Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      Prefer: "count=exact",
-      Range: "0-0"
+      ...target.headers
     }
   });
   const range = response.headers.get("content-range") || "";
@@ -399,6 +433,9 @@ async function readStampsCache() {
 }
 
 async function writeStampsCache(stamps, newestAt, tailIds) {
+  // pull-on-read: the practice copy reads live's portal_visit_stamps through
+  // the pull, so it must not write its own over the top.
+  if (isSandbox()) return;
   const value = {
     stamps,
     newest_occurred_at: newestAt,
@@ -656,6 +693,13 @@ module.exports = async function handler(req, res) {
 
     const unavailableCapabilities = [];
     const omit = parseOmit(req.query?.omit);
+    // pull-on-read (DO-NOT-BREAK rule 46): the practice copy asks the database
+    // to copy anything new from live BEFORE it reads, so the office sees live's
+    // real rows in this very response. Practice deployment only (isSandbox()),
+    // the RPC exists only in schema practice, and a slow or failed pull can
+    // never stop the screen: the practice rows are served either way and the
+    // top bar says when the copy last matched live.
+    const practiceSync = isSandbox() ? await pullPracticeFromLive() : null;
     const data = access.role === "trainer"
       ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities, omit)
       : await loadAdminOperationalData(unavailableCapabilities, omit);
@@ -721,6 +765,9 @@ module.exports = async function handler(req, res) {
       `visits:${visitStamps.site_visit.length}:${visitStamps.cta_click.length}`,
       `sent:${sendToLiveLog.length}:${sendToLiveLog[0]?.sent_at || ""}`,
       `clientsTotal:${data.clientsTotal ?? ""}`,
+      // Practice copy only: a failed pull must produce a fresh 200 (so the top
+      // bar can say so) and a recovered one another. Live's string is untouched.
+      ...(practiceSync ? [`pull:${practiceSync.ok ? "ok" : `stale:${practiceSync.lastMatchedAt || ""}`}`] : []),
       // A trimmed answer and a full one are different documents. Without this a
       // browser holding the full set would be told 304 by a trimmed request.
       `omit:${[...omit].sort().join(",")}`
@@ -769,6 +816,8 @@ module.exports = async function handler(req, res) {
       canonical: true,
       syncedAt,
       serverRevision,
+      // Practice copy only (rule 46); absent on live so the live JSON is unchanged.
+      ...(practiceSync ? { practiceSync } : {}),
       unavailableCapabilities,
       trainers,
       pages,

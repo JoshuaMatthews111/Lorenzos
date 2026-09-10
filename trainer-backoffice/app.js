@@ -461,6 +461,8 @@ let communicationsData = {
 };
 let remoteServerRevision = "";
 let remoteSyncedAt = "";
+// Practice copy only (rule 46): what the last data load said about the pull from live.
+let remotePracticeSync = null;
 let remoteSyncError = "";
 // freshness (QA 2026-09-05): when the last GOOD payload arrived (server time) and
 // when the first poll started failing, so the top bar can say "Not updating since".
@@ -1347,6 +1349,7 @@ function mergeRemoteOperationalData(data) {
   remoteClientsTotal = Number(data.clientsTotal || 0) || (data.clients || []).length;
   remoteServerRevision = data.serverRevision || "";
   remoteSyncedAt = data.syncedAt || "";
+  if (data.practiceSync !== undefined) remotePracticeSync = data.practiceSync;
   remoteReady = true;
   persistStateSnapshot();
 }
@@ -1605,7 +1608,20 @@ function freshnessChip() {
   if (f.kind === "demo") return `<span class="status pending freshness freshness-demo" title="Demo login: built-in sample rows, not live records">Demo data · not live</span>`;
   if (f.kind === "loading") return `<span class="status pending freshness freshness-loading" aria-live="polite">Loading…</span>`;
   if (f.kind === "stale") return `<button type="button" class="status lost freshness freshness-stale" data-freshness-reload title="${escapeHtml(f.error)}">Not updating since ${escapeHtml(formatClock(f.since))} — reload</button>`;
-  return `<span class="status live freshness freshness-live" title="Server time of the last confirmed payload · revision ${escapeHtml(remoteServerRevision)}">Live · updated ${escapeHtml(formatClock(f.at, { seconds: true }))}</span>`;
+  return `<span class="status live freshness freshness-live" title="Server time of the last confirmed payload · revision ${escapeHtml(remoteServerRevision)}">Live · updated ${escapeHtml(formatClock(f.at, { seconds: true }))}</span>${practiceSyncChip()}`;
+}
+
+// Practice copy only (rule 46): says plainly whether the numbers on screen are
+// live's. Green "Same as live" when the last pull worked; amber with the time
+// the copy last matched live when it did not, so nobody mistakes an old number
+// for a broken portal.
+function practiceSyncChip() {
+  if (!window.LDTT_IS_SANDBOX || !remotePracticeSync) return "";
+  const sync = remotePracticeSync;
+  if (sync.ok) return `<span class="status live freshness practice-sync-chip" title="Live's leads, applications, clients and notes are copied into the practice copy every time this screen loads">Same as live</span>`;
+  const when = sync.lastMatchedAt ? formatClock(sync.lastMatchedAt) : "";
+  const why = sync.reason === "timeout" ? "the copy from live took too long" : sync.reason === "guards_missing" ? "the practice copy needs its safety guards re-applied (press Reset)" : sync.reason === "disabled" || sync.reason === "env_off" ? "the copy from live is switched off" : "the copy from live failed";
+  return `<span class="status pending freshness practice-sync-chip practice-sync-stale" title="${escapeHtml(why)}">${when ? `Last matched live at ${escapeHtml(when)}` : "Not matching live yet"} — new live changes are not showing</span>`;
 }
 
 function freshnessStampText() {

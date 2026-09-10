@@ -559,6 +559,7 @@
       canonical: true,
       syncedAt: data.syncedAt,
       serverRevision: data.serverRevision,
+      practiceSync: data.practiceSync || null,
       unavailableCapabilities: data.unavailableCapabilities || [],
       trainers: data.trainers || [],
       pages: data.pages || [],
