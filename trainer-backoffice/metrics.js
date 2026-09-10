@@ -49,6 +49,20 @@
   const LEAD_STATUS_FROM_DB = Object.fromEntries(Object.entries(LEAD_STATUS_TO_DB).map(([label, value]) => [value, label]));
   LEAD_STATUS_FROM_DB.follow_up_call_needed = "Office Contacted";
 
+  // The database keeps fewer stage words than the office board ("Interview
+  // Scheduled" and "Under Review" both store as reviewing). The exact office
+  // stage is stamped into raw_payload.ui_status by the portal and wins on the
+  // way back only while it still agrees with the stored status.
+  const APPLICATION_STATUS_TO_DB = {
+    "New Application": "new_application",
+    "Under Review": "reviewing",
+    "Discovery Call Inquiry": "discovery_follow_up",
+    "Discovery Follow-up": "discovery_follow_up",
+    "Interview Scheduled": "reviewing",
+    "Moved Forward": "moved_forward",
+    "Declined": "not_a_fit",
+    "Archived": "archived"
+  };
   const APPLICATION_STATUS_FROM_DB = {
     new_application: "New Application",
     reviewing: "Under Review",
@@ -169,7 +183,7 @@
       email: row.email,
       createdAt: row.created_at,
       receivedAt: row.received_at || row.created_at,
-      status: APPLICATION_STATUS_FROM_DB[row.status] || "New Application",
+      status: (raw.ui_status && APPLICATION_STATUS_TO_DB[raw.ui_status] === row.status) ? raw.ui_status : (APPLICATION_STATUS_FROM_DB[row.status] || "New Application"),
       rawPayload: raw
     };
   }

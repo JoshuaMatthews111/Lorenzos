@@ -334,3 +334,15 @@ test("health cron: agree ⇒ no numbers approval; disagree ⇒ 'LDTT: numbers di
     process.env.LDTT_SANDBOX = ""; delete process.env.DSN_AGENT_TOKEN;
   }
 });
+
+test("the exact office stage survives the round trip through raw_payload.ui_status", () => {
+  const row = { id: "a1", status: "reviewing", raw_payload: { ui_status: "Interview Scheduled" } };
+  assert.equal(metrics.normalizeApplicationRow(row).status, "Interview Scheduled");
+  const followUp = { id: "a2", status: "discovery_follow_up", raw_payload: { ui_status: "Discovery Follow-up" } };
+  assert.equal(metrics.normalizeApplicationRow(followUp).status, "Discovery Follow-up");
+  // A stale stamp never overrides a real status change made elsewhere.
+  const stale = { id: "a3", status: "archived", raw_payload: { ui_status: "Interview Scheduled" } };
+  assert.equal(metrics.normalizeApplicationRow(stale).status, "Archived");
+  const plain = { id: "a4", status: "reviewing", raw_payload: {} };
+  assert.equal(metrics.normalizeApplicationRow(plain).status, "Under Review");
+});

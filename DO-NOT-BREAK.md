@@ -506,3 +506,42 @@ Verification (QA pass 2026-09-05):
     browser and confirm `#publicSite` has content and the console is clean. A 200 with an
     empty `<main>` is a broken page. Record of the incident:
     `~/Desktop/LDTT Trainer Pages Blank 2026-09-10/BEFORE.md`.
+
+14. **SMS consent wording is ONE use case only (2026-09-10).** Twilio rejected the toll-free
+    verification twice: 30496 (use case did not match the summary) and 30504 (one opt-in box
+    cannot cover several message types). The fix removed "promotional" and "offers" from the
+    consent text everywhere. The box now describes customer care only: follow-up on the
+    inquiry, scheduling/confirming the free evaluation, appointment reminders.
+    The same single-use-case wording must stay identical in ALL of:
+      build.py, ad-funnel.js, market-landing.js, scripts/generate-lp-test.mjs,
+      trainer-backoffice/app.js, lib/ad-page-template.js, lib/site-page-template.js,
+      every shipped *.html with sms_consent, plus terms.html and privacy-policy.html.
+    Twilio reviewers read /contact, /terms and /privacy-policy — if any one of them says
+    "promotional" again the verification fails. Do not re-add marketing wording to this
+    number. Promotional texts need a SECOND number with its own separate opt-in box.
+15. **The live branch is `fix/trainer-pages-metrics`, not `sandbox`.** Verified 2026-09-10 by
+    byte-comparing live trainer-backoffice/app.js (822,687 bytes) against both branches.
+    Rule 0 above (sandbox = production) is out of date. Always verify before deploying.
+
+## Office fixes from the sandbox notes (added 2026-09-10, Claude)
+
+44. **Every portal write goes through the server mutation, never a direct table PATCH.**
+    "Update frontend" used `LDTT_PORTAL.update("trainers", …)` — row security silently
+    refused it (PostgREST updates zero rows without an error), the toast said "Saved",
+    and the badge flipped back to "Needs public profile update" after reload. That is
+    the whole Missy bio mystery. `persistPublicTrainerField` now uses
+    `operationalMutation`; the audit refuses any `LDTT_PORTAL.update("trainers"` call.
+    A toast may only claim "Saved" for a write path that can actually fail loudly.
+
+45. **The office board stage survives the round trip.** The database keeps fewer
+    stage words than the board ("Interview Scheduled" and "Under Review" both store
+    as `reviewing`; both Discovery stages store as `discovery_follow_up`). The exact
+    stage rides `raw_payload.ui_status`, stamped by `persistApplicationRecord`, and
+    metrics.js honors it only while `APPLICATION_STATUS_TO_DB[ui_status]` still equals
+    the stored status — a stale stamp never overrides a real change. Tests cover both.
+    Related fixes verified the same night: the application board renders
+    `filteredApplicationRows({ filter: "All" })` so the search box works on it; lead
+    cards carry no "pending" fillers and the source logos sit at the card foot;
+    Page Editor and Page Studio carry two-door tabs (`pageWorkTabs`); the importable
+    website pages now include specialty-advanced and become-a-trainer (terms,
+    privacy-policy, onboarding do not slice into blocks and stay static-only).

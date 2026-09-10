@@ -266,10 +266,10 @@ const leadStatuses = [
   "Archived"
 ];
 
-const CONTACT_SMS_DISCLOSURE_TEXT = "By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the Terms of Service and Privacy Policy.";
+const CONTACT_SMS_DISCLOSURE_TEXT = "By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my inquiry, scheduling and confirming my free consultation or evaluation, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the Terms of Service and Privacy Policy.";
 const CONTACT_PHONE_REQUIRED_NOTICE_TEXT = "Phone is required so Lorenzo's office can call about your request. SMS consent is optional and separate from submitting this form.";
 const APPLICATION_CERTIFICATION_TEXT = "I certify that the information provided is true and complete to the best of my knowledge.";
-const APPLICATION_SMS_DISCLOSURE_TEXT = "By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about trainer recruiting, application follow-up, training opportunities, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the Terms of Service and Privacy Policy.";
+const APPLICATION_SMS_DISCLOSURE_TEXT = "By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my application, scheduling and confirming my interview, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the Terms of Service and Privacy Policy.";
 
 const clientStatuses = ["All", "Active", "Past", "Won", "Lost", "Bad Lead", "Do Not Contact", "Archived"];
 const defaultLeadEndDate = new Date();
@@ -1162,7 +1162,7 @@ function remoteApplicationToUi(row) {
     state: row.state,
     zip: row.zip,
     referral_source: row.referral_source,
-    status: applicationStatusFromDb[row.status] || "New Application",
+    status: (raw.ui_status && applicationStatusToDb[raw.ui_status] === row.status) ? raw.ui_status : (applicationStatusFromDb[row.status] || "New Application"),
     note: row.office_notes || "",
     delivery_google: raw.delivery_google || "attempted",
     delivery_email: raw.delivery_email || "attempted",
@@ -2142,7 +2142,21 @@ async function persistPublicTrainerField(trainer, profileKey) {
   };
   const target = fieldMap[profileKey];
   if (!target) throw new Error("This profile field is not connected to the public trainer record");
-  await window.LDTT_PORTAL.update("trainers", trainer.remoteId, { [target[0]]: target[1] });
+  // Missy 2026-09-09: the direct table PATCH was silently refused by row security,
+  // so "Update frontend" toasted "Saved" while saving nothing. Every write goes
+  // through the server mutation like the rest of the portal.
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "update",
+    entity_type: "trainer",
+    id: trainer.remoteId,
+    expected_version: trainer.version,
+    expected_updated_at: trainer.updatedAt,
+    action: "trainer_profile_updated",
+    summary: `${trainer.name} public ${String(profileKey).replace(/^profile/, "").toLowerCase() || "field"} updated`,
+    changes: { [target[0]]: target[1] }
+  });
+  trainer.version = Number(result.version || trainer.version || 1);
+  trainer.updatedAt = result.updated_at || trainer.updatedAt;
 }
 
 async function persistLeadRecord(lead) {
@@ -2280,7 +2294,11 @@ async function persistApplicationRecord(application) {
     changes: {
       status: applicationStatusToDb[application.status] || "new_application",
       assigned_user_id: application.assignedUserId || null,
-      office_notes: application.note || null
+      office_notes: application.note || null,
+      // Rachel 2026-09-09: "Interview Scheduled" bounced back to "Under Review"
+      // because both save as the same database word. The exact office stage
+      // rides along and wins on the way back when it still agrees with status.
+      raw_payload: { ...(application.rawPayload || {}), ui_status: application.status || "New Application" }
     }
   });
   application.version = Number(result.version || application.version || 1);
@@ -5918,10 +5936,10 @@ const adminScreens = {
     return `${panel("Three Approved Trainer Landing Page Designs", "", approvedLayoutCards(), "pad")}<br>${panel("Trainer Page Control & Performance", `<button class="btn btn-red" id="addTrainer">Onboard New Trainer</button>`, trainerPageCards())}<br>${panel("Recent Trainer Page Activity", "", trainerSiteActivityTable(), "pad")}`;
   },
   pageEditor() {
-    return trainerPageEditor();
+    return `${pageWorkTabs("pageEditor")}${trainerPageEditor()}`;
   },
   pageStudio() { // page-studio: the screen lives in page-studio.js
-    return window.LDTT_PAGE_STUDIO?.screen?.() || panel("Page Studio", "", "<p class=\"panel-copy\">Page Studio is still loading. Refresh the page if this stays.</p>", "pad");
+    return `${pageWorkTabs("pageStudio")}${window.LDTT_PAGE_STUDIO?.screen?.() || panel("Page Studio", "", "<p class=\"panel-copy\">Page Studio is still loading. Refresh the page if this stays.</p>", "pad")}`;
   },
   trainers() {
     return isOfficeAdmin()
@@ -7787,7 +7805,7 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
 const boardColumns = METRICS.BOARD_COLUMNS;
 function boardStatus(status) { return METRICS.boardStatus(status); }
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who">${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div><p>${escapeHtml(lead.dog || "Dog pending")} · ${escapeHtml(lead.service || "Service pending")}</p><small>${escapeHtml(leadMarketLabel(lead))} · ${escapeHtml(formatPhoneNumber(lead.phone) || lead.email || "Contact pending")} · SMS ${escapeHtml(lead.smsConsent)}</small>${leadAssignmentLine(lead)}</article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who"><strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div>${leadCardDetailLines(lead)}${leadAssignmentLine(lead)}<div class="lead-card-sources">${leadSourceBadge(lead)}</div></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -9049,9 +9067,30 @@ function applicationDisplayName(app) {
   return `${app?.first_name || ""} ${app?.last_name || ""}`.trim() || app?.email || "Applicant";
 }
 
+function pageWorkTabs(active) {
+  // Joshua 2026-09-10: Page Editor and Page Studio are one workspace with two
+  // doors. Either screen jumps to the other in one click, so nobody hunts the
+  // sidebar to find where new pages are built.
+  const tab = (view, label, help) => `<button type="button" class="page-work-tab ${active === view ? "active" : ""}" data-view="${view}"><strong>${label}</strong><small>${help}</small></button>`;
+  return `<div class="page-work-tabs">${tab("pageEditor", "Page Editor", "Edit what exists: trainer pages, website pages, portal screens")}${tab("pageStudio", "Page Studio", "Build new: website pages, landing pages, ad pages — even fully custom")}</div>`;
+}
+
+function leadCardDetailLines(lead) {
+  // Rachel 2026-09-09: the cards said "Pending" wherever a field was empty and
+  // the source logos squeezed the name. Cards now show only what is known; the
+  // full record still spells out what is missing.
+  const known = value => (value && value !== "Pending" ? value : "");
+  const line1 = [known(lead.dog), known(lead.service)].filter(Boolean).join(" · ");
+  const line2 = [leadMarketLabel(lead), formatPhoneNumber(lead.phone) || lead.email || "", `SMS ${lead.smsConsent}`].filter(Boolean).join(" · ");
+  return `${line1 ? `<p>${escapeHtml(line1)}</p>` : ""}<small>${escapeHtml(line2)}</small>`;
+}
+
 function applicationPipelineBoard() {
-  const rows = applicationRows();
-  const needsAction = METRICS.applicationTiles(rows).needsAction;
+  // Rachel 2026-09-09: the board ignored the search box while the sheet obeyed
+  // it. Same filtered rows as the sheet now; the needs-action count stays a
+  // whole-pipeline number on purpose.
+  const rows = filteredApplicationRows({ filter: "All" });
+  const needsAction = METRICS.applicationTiles(applicationRows()).needsAction;
   return `<div class="application-sheet-actions"><span class="status ${needsAction ? "pending" : "live"}">${needsAction} need action</span><p>Drag applications through the recruiting flow. Once a card is moved out of New Application, the notification count clears because the office has taken action.</p></div>
     <div class="lead-kanban application-kanban">${METRICS.applicationColumns(rows, METRICS.APPLICATION_COLUMNS).map(([column, columnRows]) => {
       return `<section class="kanban-column application-column" data-drop-application-status="${escapeHtml(column)}"><header><strong>${escapeHtml(column)}</strong><span>${columnRows.length}</span></header><div class="kanban-cards">${columnRows.map(app => applicationPipelineCard(app)).join("") || `<div class="empty-column">Drop applications here</div>`}</div></section>`;
@@ -9925,7 +9964,7 @@ function officeLeadFormMarkup(trainer, compact = false) {
       </label>
       <label class="wide">Your dog and goals *<textarea required name="comments" placeholder="Tell us about your dog, behavior concerns, and training goals."></textarea></label>
       <details class="landing-more-fields wide"><summary>Required address and referral details</summary><div class="landing-more-grid"><label>Address Line 1 *<input required name="address_line_1" autocomplete="address-line1" placeholder="Address Line 1"></label><label>Address Line 2 <small>(optional)</small><input name="address_line_2" autocomplete="address-line2" placeholder="Address Line 2"></label><label>City *<input required name="city" autocomplete="address-level2" placeholder="City"></label><label>State *<input required name="state" autocomplete="address-level1" placeholder="State"></label><label>ZIP Code *<input required name="zip" autocomplete="postal-code" placeholder="ZIP Code"></label><label class="wide">How did you hear about us? *${heardAboutUsSelect()}</label></div></details>
-      <label class="landing-consent wide"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive recurring promotional and informational text messages from Lorenzo's Dog Training Team about dog training, consultation scheduling, follow-up, and offers. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
+      <label class="landing-consent wide"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my inquiry, scheduling and confirming my free consultation or evaluation, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
       <div class="landing-form-status wide" role="status" aria-live="polite"></div>
       <button class="btn btn-red wide" type="submit">Book My Free Consultation</button>
     </div>
@@ -12240,6 +12279,10 @@ document.addEventListener("input", event => {
   if (field.dataset.editorField) {
     const trainer = trainerById();
     trainer[field.dataset.editorField] = field.value;
+    // Missy 2026-09-09: the bio typed in Story & Local SEO never reached the
+    // Trainer Bio source box below. The office thinks of one bio, so keep the
+    // profile source in step while they type here.
+    if (field.dataset.editorField === "bio") trainer.profileBio = field.value;
     trainer.pageStatus = "Draft";
     trainer.locked = false;
     refreshPageEditorPreview();
