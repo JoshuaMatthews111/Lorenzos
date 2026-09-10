@@ -76,7 +76,7 @@ test("1. update to published on an empty row: 400, plain message, no PATCH, no a
 
 test("2. update to published on a published row: 200, exactly one PATCH", async () => {
   const calls = fakeSupabase(PUBLISHED_ROW);
-  const res = await call(loadHandler(false), { operation: "update", entity_type: "trainer_page", id: "page-1", changes: { page_status: "published", locked: true, headline: "Updated" } });
+  const res = await call(loadHandler(false), { operation: "update", entity_type: "trainer_page", id: "page-1", action: "trainer_page_published", changes: { page_status: "published", locked: true, headline: "Updated" } });
   assert.equal(res.statusCode, 200); assert.equal(res.payload.ok, true);
   assert.equal(calls.filter(c => c.method === "PATCH").length, 1);
 });

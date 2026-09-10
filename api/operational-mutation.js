@@ -167,6 +167,134 @@ function publishGuardViolation(entityType, before, changes) {
   return { status: 400, body: { ok: false, publishGuard: true, message: PUBLISH_GUARD_MESSAGE } };
 }
 
+// Draft feature (Joshua 2026-09-10, rule 56). A trainer page that is LIVE stays
+// live on every save except a real Publish (action "trainer_page_published").
+// A draft save used to write page_status "draft" + locked false, which took the
+// public page offline (Karemela Sefferin, 2026-08-05 to 2026-09-10). Now the
+// row keeps page_status "published" + locked, the settings the public page reads
+// straight from the row are parked in draft_content._row until Publish, and the
+// published copy is never touched. Enforced here so even an old open tab cannot
+// take a page down. Taking a page down is delete_trainer_page (rule 59).
+const TRAINER_PAGE_PUBLIC_ROW_FIELDS = [
+  "slug", "template_key", "headline", "subheadline", "approved_bio", "approved_photo_urls",
+  "approved_review_ids", "social_facebook", "social_instagram", "social_tiktok", "logo_url",
+  "hero_image_url", "style_settings", "section_order", "public_url"
+];
+
+function isLiveTrainerPage(row) {
+  return !!row && row.page_status === "published" && row.locked === true && hasPublishedPage(row);
+}
+
+function plainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+// Returns the changes to write. Leaves anything but a non-publish save on a live page alone.
+function keepLivePageLive(entityType, before, changes, action) {
+  // A deleted page stays deleted on draft saves (only Restore or a real Publish bring it back).
+  if (entityType === "trainer_page" && before?.page_status === "archived" && action !== "trainer_page_published" && changes && ("page_status" in changes || "locked" in changes)) {
+    return { changes: { ...changes, page_status: "archived", locked: false }, draftOnly: true };
+  }
+  if (entityType !== "trainer_page" || !isLiveTrainerPage(before) || action === "trainer_page_published") {
+    return { changes, draftOnly: false };
+  }
+  const next = { ...changes };
+  const parked = {};
+  for (const key of TRAINER_PAGE_PUBLIC_ROW_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(next, key)) { parked[key] = next[key]; delete next[key]; }
+  }
+  delete next.published_content; delete next.published_revision; delete next.published_at;
+  next.page_status = "published";
+  next.locked = true;
+  const priorRow = plainObject(plainObject(before.draft_content)?._row) || {};
+  const baseDraft = plainObject(next.draft_content) || plainObject(before.draft_content) || {};
+  if (Object.keys(parked).length || Object.keys(priorRow).length) {
+    next.draft_content = { ...baseDraft, _row: { ...priorRow, ...parked } };
+  } else if (next.draft_content !== undefined) {
+    next.draft_content = baseDraft;
+  }
+  return { changes: next, draftOnly: true };
+}
+
+// Delete / restore a trainer page (Joshua 2026-09-10, rule 59). Delete needs the
+// deleter's full name AND the password they sign in with; nothing is erased, the
+// page goes to page_status "archived" and comes back with restore. The typed name,
+// the login and the time go to audit_events. The password is checked against
+// Supabase Auth and is never stored, logged or echoed.
+function typedFullName(value) {
+  const name = clean(value, 200).replace(/\s+/g, " ");
+  return /^\S+(\s+\S+)+$/.test(name) ? name : "";
+}
+
+async function passwordMatches(email, password) {
+  if (!email || !password) return false;
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: { apikey: SERVICE_ROLE_KEY, "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  return response.ok;
+}
+
+function trainerNameForPage(row) {
+  return clean(plainObject(row?.published_content)?.trainer_name || plainObject(row?.draft_content)?.trainer_name || row?.slug || "Trainer", 120);
+}
+
+function asTypedActor(admin, typedName) {
+  return { ...admin, actor: { ...admin.actor, name: clean(`${typedName} (login: ${admin.actor.name || admin.actor.email})`, 180) } };
+}
+
+async function deleteTrainerPage(admin, body, requestId) {
+  const id = clean(body.id, 120);
+  const typedName = typedFullName(body.deleted_by_name);
+  const password = typeof body.password === "string" ? body.password : "";
+  if (!id) return { status: 400, body: { ok: false, message: "Choose the trainer page to delete." } };
+  if (!typedName) return { status: 400, body: { ok: false, message: "Type your full name (first and last) to delete a trainer page." } };
+  if (!password) return { status: 400, body: { ok: false, message: "Type the password you sign in with to delete a trainer page." } };
+  const before = await getRecord("trainer_pages", id);
+  if (!before) return { status: 404, body: { ok: false, message: "Trainer page not found." } };
+  if (before.page_status === "archived") return { status: 409, body: { ok: false, message: "This page is already deleted. Use Restore this page to bring it back." } };
+  const login = clean(admin.user?.email || admin.actor.email, 254);
+  if (!(await passwordMatches(login, password))) {
+    return { status: 403, body: { ok: false, wrongPassword: true, message: "That password is not right, so the page was not deleted." } };
+  }
+  const rows = await supabaseFetch(`/rest/v1/trainer_pages?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ page_status: "archived", locked: false, archived_at: new Date().toISOString(), archived_by: admin.actor.id })
+  });
+  const record = rows?.[0];
+  if (!record) return { status: 409, body: { ok: false, conflict: true, message: "The page changed before it could be deleted. Try again." } };
+  const trainerName = trainerNameForPage(before);
+  await audit(asTypedActor(admin, typedName), "trainer_page_deleted", "trainer_page", id, before,
+    { ...record, deleted_by_name: typedName, deleted_by_login: login },
+    `${typedName} deleted the ${trainerName} trainer page (login ${login}). It is off the website. Restore it from the Page Editor.`, requestId);
+  return { status: 200, body: { ok: true, deleted: true, record, actor: admin.actor, updated_at: record.updated_at } };
+}
+
+async function restoreTrainerPage(admin, body, requestId) {
+  const id = clean(body.id, 120);
+  const typedName = typedFullName(body.restored_by_name);
+  if (!id) return { status: 400, body: { ok: false, message: "Choose the trainer page to restore." } };
+  if (!typedName) return { status: 400, body: { ok: false, message: "Type your full name (first and last) to restore a trainer page." } };
+  const before = await getRecord("trainer_pages", id);
+  if (!before) return { status: 404, body: { ok: false, message: "Trainer page not found." } };
+  if (before.page_status !== "archived") return { status: 409, body: { ok: false, message: "This page is not deleted." } };
+  const live = hasPublishedPage(before);
+  const rows = await supabaseFetch(`/rest/v1/trainer_pages?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ page_status: live ? "published" : "draft", locked: live, archived_at: null, archived_by: null })
+  });
+  const record = rows?.[0];
+  if (!record) return { status: 409, body: { ok: false, conflict: true, message: "The page changed before it could be restored. Try again." } };
+  const trainerName = trainerNameForPage(before);
+  await audit(asTypedActor(admin, typedName), "trainer_page_restored", "trainer_page", id, before,
+    { ...record, restored_by_name: typedName },
+    `${typedName} restored the ${trainerName} trainer page. ${live ? "It is back on the website with its last published version." : "It is back as a draft."}`, requestId);
+  return { status: 200, body: { ok: true, restored: true, record, actor: admin.actor, updated_at: record.updated_at } };
+}
+
 async function getRecord(table, id, idColumn = "id") {
   const rows = await supabaseFetch(`/rest/v1/${table}?select=*&${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}&limit=1`);
   return rows?.[0] || null;
@@ -236,6 +364,8 @@ async function updateRecord(admin, body, requestId) {
   if (entityType === "application" && changes.raw_payload && typeof changes.raw_payload === "object" && !Array.isArray(changes.raw_payload)) {
     changes.raw_payload = { ...(before.raw_payload || {}), ...changes.raw_payload };
   }
+  const kept = keepLivePageLive(entityType, before, changes, clean(body.action, 80)); // rule 56
+  if (kept.draftOnly) { for (const key of Object.keys(changes)) delete changes[key]; Object.assign(changes, kept.changes); }
   const guard = publishGuardViolation(entityType, before, changes); // publish-guard
   if (guard) return guard;
   await assertTrainerEmailFree(entityType, changes, id); // onboarding
@@ -264,7 +394,7 @@ async function updateRecord(admin, body, requestId) {
       })
     });
   }
-  return { status: 200, body: { ok: true, record, actor: admin.actor, updated_at: record.updated_at, version: record.version || null } };
+  return { status: 200, body: { ok: true, record, actor: admin.actor, updated_at: record.updated_at, version: record.version || null, draft_only: kept.draftOnly } };
 }
 
 async function createRecord(admin, body, requestId) {
@@ -502,6 +632,8 @@ module.exports = async function handler(req, res) {
       case "archive": result = await archiveRecord(admin, body, requestId); break;
       case "permanent_delete": result = await permanentlyDelete(admin, body, requestId); break;
       case "set_review_publications": result = await setReviewPublications(admin, body, requestId); break;
+      case "delete_trainer_page": result = await deleteTrainerPage(admin, body, requestId); break;
+      case "restore_trainer_page": result = await restoreTrainerPage(admin, body, requestId); break;
       default: result = { status: 400, body: { ok: false, message: "Unsupported operational mutation." } };
     }
     result.body.request_id = requestId;
@@ -516,3 +648,5 @@ module.exports = async function handler(req, res) {
 module.exports.PUBLISH_GUARD_MESSAGE = PUBLISH_GUARD_MESSAGE;
 module.exports.publishGuardViolation = publishGuardViolation;
 module.exports.hasPublishedPage = hasPublishedPage;
+module.exports.keepLivePageLive = keepLivePageLive;
+module.exports.TRAINER_PAGE_PUBLIC_ROW_FIELDS = TRAINER_PAGE_PUBLIC_ROW_FIELDS;

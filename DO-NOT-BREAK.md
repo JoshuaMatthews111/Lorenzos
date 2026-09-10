@@ -626,16 +626,18 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     `raw_payload`. A stamp is honoured only when it is one of `APPLICATION_COLUMNS`.
     `ui_status` and the `delivery_*` bookkeeping never show as application fields.
 
-56. **KNOWN LIVE RISK, not fixed tonight: a draft save takes a published trainer page
-    offline.** Page Editor edits save with `page_status: draft, locked: false`, and the
-    public page loads only published+locked rows. Karemela Sefferin's live page has been
-    offline this way since 2026-08-05. Keeping the page published during a draft is NOT
-    safe as things stand: `publish_trainer_page` copies only `draft_content` into
-    `published_content`, while the public page reads `headline`, `subheadline`,
-    `template_key`, style and photos straight from the row, so drafts would go public.
-    The proper fix (owner decision pending): make Publish snapshot every public field and
-    make the public page read only the snapshot. Until then the Page Editor shows a clear
-    warning on every published page (`.editor-live-warning`).
+56. **A draft save never takes a live trainer page offline (FIXED 2026-09-10, Joshua).**
+    `api/operational-mutation.js` `keepLivePageLive()`: on a page that is published +
+    locked + has a published copy, every update except action `trainer_page_published`
+    keeps `page_status: published` + `locked: true`, never writes `published_*`, and parks
+    the row settings the public page reads (`TRAINER_PAGE_PUBLIC_ROW_FIELDS`: slug,
+    template_key, headline, subheadline, approved_bio, photos, socials, logo, hero,
+    style_settings, section_order, public_url) in `draft_content._row` until Publish.
+    Server-side on purpose: an old open tab cannot take a page down either. The editor
+    overlays `_row` (`remoteTrainerToUi`); the public page passes `draft_content: {}`
+    (`mergePublishedTrainer`) so drafts never show. "Return To Draft" on a live page now
+    says "Edit Live Page" and opens the Page Editor. Karemela Sefferin's page (offline
+    2026-08-05) was restored to revision 61 on 2026-09-10 with an audit row.
 
 57. **No background redraw during a card drag** (`dragInProgress`); an audit drag of one
     applicant saved another. Lost Reasons uses `METRICS.lostLeadRows` over the report date
@@ -648,3 +650,14 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     RESET are typed. Never put it back at the top of Portal Access or any busy screen:
     the office will press it and blame someone else. Every reset is logged (name typed,
     login, time) in practice_private.reset_log.
+
+59. **Deleting a trainer page needs a full name + the deleter's password, and is undoable
+    (Joshua 2026-09-10).** Page Editor → bottom → "Delete this trainer page" (folded).
+    Dialog: full name, the password they sign in with, and a tick; the red button stays
+    disabled until all three. Server `delete_trainer_page` checks the password against
+    Supabase Auth (never stored, logged or echoed), sets `page_status: archived`,
+    `locked: false`, `archived_at/by`, keeps both content copies, and writes audit action
+    `trainer_page_deleted` whose actor_name is "<typed name> (login: <portal user>)".
+    `restore_trainer_page` (full name) puts the last published version back live and logs
+    `trainer_page_restored`. Both show in Recent Activity. Tests:
+    tests/trainer-page-draft-delete.test.mjs.

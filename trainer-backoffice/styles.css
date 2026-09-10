@@ -5580,3 +5580,6 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 
 /* 2026-09-10: a draft save takes a published trainer page offline until Publish (known, see DO-NOT-BREAK rule 47) */
 .editor-live-warning{margin:0 0 12px;padding:10px 12px;border:1px solid #f0b429;border-left:4px solid #d80f35;border-radius:8px;background:#fff8e6;color:#5b4300;font-size:.84rem;line-height:1.4}
+
+/* Draft feature + delete/restore (2026-09-10, rules 56 and 59) */
+.editor-page-live{background:#eef8f1;border-left:4px solid #1b7f3b}.editor-page-deleted{background:#fff4f4;border-left:4px solid #c8102e}.editor-draft-waiting{display:block;margin-top:4px;font-weight:700;color:#8a5a00}.trainer-page-danger{margin-top:18px;border:1px solid #e3e6ee;border-radius:10px;padding:8px 14px;font-size:13px}.trainer-page-danger summary{cursor:pointer;color:#6b7280}.trainer-page-danger[open]{border:2px solid #c8102e;background:#fff7f7;padding:14px 16px;font-size:inherit}.trainer-page-danger p{margin:8px 0 12px;line-height:1.5}.trainer-page-delete-check{display:flex;gap:8px;align-items:flex-start;margin:10px 0 14px;font-size:14px;text-align:left}

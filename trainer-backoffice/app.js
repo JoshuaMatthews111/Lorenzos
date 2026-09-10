@@ -873,6 +873,12 @@ function firstNonHeadshotPhoto(values, headshotCandidates) {
 }
 
 function remoteTrainerToUi(remoteTrainer, remotePage = null) {
+  // Draft feature (rule 56, 2026-09-10): while a page is live, a draft keeps its
+  // row settings (layout, headline, style, photos, socials) in draft_content._row
+  // until Publish. The editor shows the draft; the public page (mergePublishedTrainer)
+  // passes draft_content: {} and so never sees them.
+  const rowDraft = remotePage?.draft_content?._row;
+  if (rowDraft && typeof rowDraft === "object" && !Array.isArray(rowDraft)) remotePage = { ...remotePage, ...rowDraft };
   const existing = state.trainers.find(trainer =>
     trainer.remoteId === remoteTrainer.id ||
     trainer.slug === remoteTrainer.slug ||
@@ -6134,6 +6140,74 @@ function liveDataReferenceLinks() {
   </section>`;
 }
 
+// Draft feature + delete/restore of trainer pages (Joshua 2026-09-10, rules 56 and 59).
+function trainerPageIsDeleted(trainer) {
+  return trainer?.pageStatus === "Archived";
+}
+
+function trainerPageStateNotice(trainer) {
+  if (!trainer) return "";
+  const name = escapeHtml(trainer.name || "this trainer");
+  if (trainerPageIsDeleted(trainer)) return `<p class="editor-live-warning editor-page-deleted" role="note"><strong>Deleted:</strong> ${name}'s page is off the website. Use <b>Restore this page</b> at the bottom to bring it back.</p>`;
+  if (!trainerHasPublishedPage(trainer)) return "";
+  const waiting = Number(trainer.revision || 0) > Number(trainer.publishedRevision || 0);
+  return `<p class="editor-live-warning editor-page-live" role="note"><strong>This page is live.</strong> Your changes save as a draft. The live page stays exactly as it is until you press <b>Publish &amp; Lock Trainer Page</b>.${waiting ? ` <span class="editor-draft-waiting">Draft changes are waiting to be published.</span>` : ""}</p>`;
+}
+
+function trainerPageDangerZone(trainer) {
+  if (!trainer?.pageId || session.role !== "admin") return "";
+  if (trainerPageIsDeleted(trainer)) return `<div class="editor-control-section trainer-page-danger"><h3>Deleted page</h3><p>Restoring puts back the last published version. Your name is saved in the log.</p><button type="button" class="btn btn-red" data-restore-trainer-page="${escapeHtml(trainer.id)}">Restore this page</button></div>`;
+  return `<details class="editor-control-section trainer-page-danger"><summary>Delete this trainer page</summary><p>Deleting takes the page off the website right away. It is not erased: the page and its history are kept, and it can be restored here. Your name, your login and the time are saved in the log.</p><button type="button" class="btn btn-red" data-delete-trainer-page="${escapeHtml(trainer.id)}">Delete this trainer page…</button></details>`;
+}
+
+// Full name + the password you sign in with + a tick. Resolves { name, password } or false.
+function confirmTrainerPageDelete(trainer) {
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    const name = escapeHtml(trainer?.name || "this trainer");
+    dialog.className = "action-confirmation-dialog practice-reset-dialog trainer-page-delete-dialog";
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">!</div><h2>Delete ${name}'s trainer page?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>The page comes off the website right away. It can be restored later from the Page Editor.</div><label class="send-live-name"><span>Your full name (who is deleting this)</span><input type="text" data-page-delete-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><label class="send-live-name"><span>Your password</span><input type="password" data-page-delete-password autocomplete="current-password" placeholder="The password you sign in with" maxlength="200" required></label><label class="trainer-page-delete-check"><input type="checkbox" data-page-delete-check> I understand this takes ${name}'s page off the website.</label><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-page-delete-cancel>Keep the page</button><button type="button" class="btn btn-red" data-page-delete-go disabled>Delete page</button></div>`;
+    document.body.appendChild(dialog);
+    const nameInput = dialog.querySelector("[data-page-delete-name]");
+    const passwordInput = dialog.querySelector("[data-page-delete-password]");
+    const check = dialog.querySelector("[data-page-delete-check]");
+    const go = dialog.querySelector("[data-page-delete-go]");
+    const done = value => { passwordInput.value = ""; dialog.close(); dialog.remove(); resolve(value); };
+    const sync = () => { go.disabled = !fullNameOrEmpty(nameInput.value) || !passwordInput.value || !check.checked; };
+    [nameInput, passwordInput].forEach(input => input.addEventListener("input", sync));
+    check.addEventListener("change", sync);
+    go.addEventListener("click", () => {
+      const typed = fullNameOrEmpty(nameInput.value);
+      if (typed && passwordInput.value && check.checked) done({ name: typed, password: passwordInput.value });
+    });
+    dialog.querySelectorAll(".action-confirmation-close,[data-page-delete-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
+    dialog.addEventListener("click", event => { if (event.target === dialog) done(false); });
+    dialog.addEventListener("cancel", () => done(false));
+    dialog.showModal();
+    setTimeout(() => nameInput.focus(), 50);
+  });
+}
+
+function confirmTrainerPageRestore(trainer) {
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    const name = escapeHtml(trainer?.name || "this trainer");
+    dialog.className = "action-confirmation-dialog practice-reset-dialog trainer-page-restore-dialog";
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><h2>Restore ${name}'s trainer page?</h2><p>The last published version goes back on the website.</p><label class="send-live-name"><span>Your full name (who is restoring this)</span><input type="text" data-page-restore-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-page-restore-cancel>Not yet</button><button type="button" class="btn btn-red" data-page-restore-go disabled>Restore page</button></div>`;
+    document.body.appendChild(dialog);
+    const nameInput = dialog.querySelector("[data-page-restore-name]");
+    const go = dialog.querySelector("[data-page-restore-go]");
+    const done = value => { dialog.close(); dialog.remove(); resolve(value); };
+    nameInput.addEventListener("input", () => { go.disabled = !fullNameOrEmpty(nameInput.value); });
+    go.addEventListener("click", () => { const typed = fullNameOrEmpty(nameInput.value); if (typed) done(typed); });
+    dialog.querySelectorAll(".action-confirmation-close,[data-page-restore-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
+    dialog.addEventListener("click", event => { if (event.target === dialog) done(false); });
+    dialog.addEventListener("cancel", () => done(false));
+    dialog.showModal();
+    setTimeout(() => nameInput.focus(), 50);
+  });
+}
+
 // Practice copy only: "Reset practice copy to match live" (api/practice-reset.js).
 function practiceResetPanel() {
   if (!window.LDTT_IS_SANDBOX || !isSuperAdmin()) return "";
@@ -8067,7 +8141,7 @@ function trainerPageCards() {
   return `<div class="trainer-card-grid">${state.trainers.filter(trainer => !trainer.archived).map(trainer => {
     const stats = realTrainerStats(trainer);
     const canDelete = isDraftTrainer(trainer) && !trainer.locked;
-    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt="${escapeHtml(trainer.name || "Trainer Draft")} headshot"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Edit Trainer & Landing Page</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">${trainer.pageStatus === "Published" ? "View Published Page" : "Preview Draft"}</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? "Return To Draft" : "Publish Landing Page"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
+    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt="${escapeHtml(trainer.name || "Trainer Draft")} headshot"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Edit Trainer & Landing Page</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">${trainer.pageStatus === "Published" ? "View Published Page" : "Preview Draft"}</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? (trainerHasPublishedPage(trainer) ? "Edit Live Page" : "Return To Draft") : "Publish Landing Page"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
   }).join("")}</div>`;
 }
 
@@ -8235,7 +8309,7 @@ function trainerAdminForm() {
   if (step === 6) content = `${trainerApprovedReviewManagerMarkup(t)}<div class="brand-lock-note"><strong>Reviews are not published automatically.</strong> Use the Review Inbox above to publish approved client reviews to this trainer. Click X to remove a review placement. Leave the optional boxes below blank unless the office intentionally wants a manual testimonial on this trainer page.</div><div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Optional Manual Testimonial ${n}</h3>${textField(`review${n}Author`, "Client Name", { placeholder: "Leave blank unless approved" })}${textField(`review${n}Copy`, "Approved Review", { area: true, placeholder: "Leave blank unless approved", help: "Published client reviews should normally come from the Review Inbox." })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
   if (step === 7) {
     const publicUrl = trainerPublicUrl(t);
-    content = `<section class="publish-review publish-review-clear"><div><span>Landing-page status</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.pageStatus)} ${t.locked ? "· Office locked" : "· Editable draft"}</small></div><div>${pageStatusBadge(t)}</div></section>${trainerPublishChecklistMarkup(t)}<section class="publish-url-card"><span>Final public address</span><strong>${escapeHtml(publicUrl)}</strong><p>Publishing uses this trainer-specific URL. It will not inherit another trainer’s name, photo, city, state, or page record.</p></section><div class="publish-action-grid"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Draft Landing Page</a>${t.pageStatus === "Published" ? `<a class="btn btn-outline" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">View Published Landing Page</a>` : ""}<button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? "Return Page To Draft" : "Publish Landing Page"}</button></div>${t.pageStatus === "Published" ? trainerInviteCard(t) : ""}`;
+    content = `<section class="publish-review publish-review-clear"><div><span>Landing-page status</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.pageStatus)} ${t.locked ? "· Office locked" : "· Editable draft"}</small></div><div>${pageStatusBadge(t)}</div></section>${trainerPublishChecklistMarkup(t)}<section class="publish-url-card"><span>Final public address</span><strong>${escapeHtml(publicUrl)}</strong><p>Publishing uses this trainer-specific URL. It will not inherit another trainer’s name, photo, city, state, or page record.</p></section><div class="publish-action-grid"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Draft Landing Page</a>${t.pageStatus === "Published" ? `<a class="btn btn-outline" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">View Published Landing Page</a>` : ""}<button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? (trainerHasPublishedPage(t) ? "Edit Live Page" : "Return Page To Draft") : "Publish Landing Page"}</button></div>${t.pageStatus === "Published" ? trainerInviteCard(t) : ""}`;
   }
   const finalActions = t.locked
     ? `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft Copy</button><a class="btn btn-red" href="${escapeHtml(trainerPublicUrl(t))}" target="_blank" rel="noopener">Open Live Landing Page</a>`
@@ -8314,7 +8388,7 @@ function trainerPageEditor() {
   const sectionControls = state.builderSurface !== "trainer"
     ? `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Section reordering is protected for main website and portal screens. Use Edit Overlay to select text, images, buttons, and cards directly in the preview.</p></div>`
     : `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Reorder or hide approved sections. Header, form routing, and Lorenzo trust elements stay protected.</p><div class="builder-section-list">${sectionOrder.map((section, index) => `<article><strong>${escapeHtml(section)}</strong><label><input type="checkbox" data-section-visible="${escapeHtml(section)}" ${hiddenSections.includes(section) ? "" : "checked"}> Visible</label><div><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Up</button><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="1" ${index === sectionOrder.length - 1 ? "disabled" : ""}>Down</button></div></article>`).join("")}</div></div>`;
-  const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3>${trainerHasPublishedPage(trainer) ? `<p class="editor-live-warning" role="note"><strong>Heads up:</strong> changes here save as a draft, and a draft takes ${escapeHtml(trainer.name || "this trainer")}'s public page offline until you press <b>Publish &amp; Lock Trainer Page</b>. Finish your edits, then publish.</p>` : ""}<label><span>Trainer</span><select data-editor-trainer>${state.trainers.filter(item => !item.archived || item.id === trainer.id).map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio (becomes the public profile bio when you Publish)", "bio", trainer.bio, { area: true })}</div>`;
+  const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3>${trainerPageStateNotice(trainer)}<label><span>Trainer</span><select data-editor-trainer>${state.trainers.filter(item => !item.archived || item.id === trainer.id).map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio (becomes the public profile bio when you Publish)", "bio", trainer.bio, { area: true })}</div>${trainerPageDangerZone(trainer)}`;
   const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
   const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
   const controls = {
@@ -11418,6 +11492,15 @@ document.addEventListener("click", async event => {
   if (toggleLock) {
     const trainer = trainerById(toggleLock.dataset.toggleLock);
     const publish = !trainer.locked;
+    // Draft feature (rule 56): a live page stays live while it is edited. Taking it
+    // off the website is "Delete this trainer page" in the Page Editor (rule 59).
+    if (!publish && trainerHasPublishedPage(trainer)) {
+      state.selectedTrainerId = trainer.id;
+      state.activeView = "pageEditor";
+      render();
+      showToast("This page stays live while you edit it. Save Draft keeps the live page as it is, and Publish sends your changes live. To take the page off the website, use Delete this trainer page at the bottom of the Page Editor.", 10000);
+      return;
+    }
     const missingItems = publish ? trainerPublishMissingItems(trainer) : [];
     if (missingItems.length) {
       showActionConfirmation(
@@ -11462,6 +11545,35 @@ document.addEventListener("click", async event => {
     } else {
       saveState(trainer.accessStatus === "Disabled" ? "Trainer portal access disabled; records preserved" : "Trainer portal access restored");
     }
+    return;
+  }
+  const deleteTrainerPage = event.target.closest("[data-delete-trainer-page]");
+  if (deleteTrainerPage) {
+    const trainer = trainerById(deleteTrainerPage.dataset.deleteTrainerPage);
+    if (!trainer?.pageId) { showToast("This trainer has no saved page to delete."); return; }
+    const answer = await confirmTrainerPageDelete(trainer);
+    if (!answer) return;
+    await runRemoteMutation("Trainer page deleted. It is off the website and can be restored from the Page Editor.", () => window.LDTT_PORTAL.operationalMutation({
+      operation: "delete_trainer_page",
+      entity_type: "trainer_page",
+      id: trainer.pageId,
+      deleted_by_name: answer.name,
+      password: answer.password
+    }), { type: "Trainer Page", detail: `${trainer.name} trainer page deleted by ${answer.name}.` });
+    return;
+  }
+  const restoreTrainerPage = event.target.closest("[data-restore-trainer-page]");
+  if (restoreTrainerPage) {
+    const trainer = trainerById(restoreTrainerPage.dataset.restoreTrainerPage);
+    if (!trainer?.pageId) return;
+    const restoredBy = await confirmTrainerPageRestore(trainer);
+    if (!restoredBy) return;
+    await runRemoteMutation("Trainer page restored.", () => window.LDTT_PORTAL.operationalMutation({
+      operation: "restore_trainer_page",
+      entity_type: "trainer_page",
+      id: trainer.pageId,
+      restored_by_name: restoredBy
+    }), { type: "Trainer Page", detail: `${trainer.name} trainer page restored by ${restoredBy}.` });
     return;
   }
   const deleteTrainer = event.target.closest("[data-delete-trainer]");
@@ -12194,7 +12306,7 @@ document.addEventListener("click", async event => {
     const trainer = trainerById();
     trainer.pageStatus = publish ? "Published" : "Draft";
     trainer.locked = publish;
-    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : "Trainer page draft saved", () => publishTrainerPageWorkflow(trainer, publish), { reload: false, // onboarding: the save already reloaded
+    const ok = await runRemoteMutation(publish ? "Trainer page published and locked" : (trainerHasPublishedPage(trainer) ? "Draft saved. The live page did not change." : "Trainer page draft saved"), () => publishTrainerPageWorkflow(trainer, publish), { reload: false, // onboarding: the save already reloaded
       type: "Trainer Page",
       detail: `${trainer.name} landing page ${publish ? "published and locked" : "saved as draft"} from the page editor.`
     });
