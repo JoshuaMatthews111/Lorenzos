@@ -6055,7 +6055,7 @@ const adminScreens = {
     return portalAccessScreen();
   },
     settings() {
-    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad");
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + practiceResetPanel();
   }
 };
 
@@ -6137,7 +6137,9 @@ function liveDataReferenceLinks() {
 // Practice copy only: "Reset practice copy to match live" (api/practice-reset.js).
 function practiceResetPanel() {
   if (!window.LDTT_IS_SANDBOX || !isSuperAdmin()) return "";
-  return `<section class="practice-reset-panel"><h3>Reset practice copy to match live</h3><p>This is the practice copy. Everything anyone has done here — trainers, pages, uploads, leads moved, notes, deals, Page Studio pages — is wiped and replaced with an exact copy of the live portal as it is right now. The live portal is not touched. You will be asked to type your full name; it is kept with the reset record.</p><button class="btn btn-red" type="button" data-practice-reset>Reset practice copy to match live</button></section>`;
+  // Joshua 2026-09-10: folded shut at the very bottom of Settings, so nobody
+  // presses it by accident and then blames someone else. Every reset is logged.
+  return `<details class="practice-reset-panel"><summary>Advanced: practice copy tools</summary><h3>Reset practice copy to match live</h3><p>You almost never need this. The practice copy already copies live in by itself every time a screen opens.</p><p>Reset wipes everything anyone has done here (trainers, pages, uploads, leads moved, notes, deals, Page Studio pages) and replaces it with a copy of live. The live portal is not touched. Every reset is recorded with the name you type, your login and the time. Ask Joshua before you use it.</p><button class="btn btn-red" type="button" data-practice-reset>Reset practice copy to match live</button></details>`;
 }
 
 const PRACTICE_RESET_CONFIRM = "This wipes every practice change for everyone. Type your full name to continue.";
@@ -6150,14 +6152,18 @@ function confirmPracticeReset() {
   return new Promise(resolve => {
     const dialog = document.createElement("dialog");
     dialog.className = "action-confirmation-dialog practice-reset-dialog";
-    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">!</div><h2>Reset practice copy to match live?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>${escapeHtml(PRACTICE_RESET_CONFIRM)}</div><p>${escapeHtml(PRACTICE_RESET_DETAIL)}</p><label class="send-live-name"><span>Your full name (who is resetting this)</span><input type="text" name="reset_by_name" data-practice-reset-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><p class="send-live-name-help">Your login is shared, so type your own name — first and last. It is kept with the reset record.</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-practice-reset-cancel>Not yet</button><button type="button" class="btn btn-red" data-practice-reset-go disabled>Wipe and reset the practice copy</button></div>`;
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">!</div><h2>Reset practice copy to match live?</h2><div class="send-live-warning" role="alert"><strong>Warning</strong>${escapeHtml(PRACTICE_RESET_CONFIRM)}</div><p>${escapeHtml(PRACTICE_RESET_DETAIL)}</p><label class="send-live-name"><span>Your full name (who is resetting this)</span><input type="text" name="reset_by_name" data-practice-reset-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><label class="send-live-name"><span>Type RESET in capital letters</span><input type="text" data-practice-reset-word autocomplete="off" placeholder="RESET" maxlength="10" required></label><p class="send-live-name-help">Your login is shared, so type your own name — first and last. It is kept with the reset record.</p><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-practice-reset-cancel>Not yet</button><button type="button" class="btn btn-red" data-practice-reset-go disabled>Wipe and reset the practice copy</button></div>`;
     document.body.appendChild(dialog);
     const input = dialog.querySelector("[data-practice-reset-name]");
     const go = dialog.querySelector("[data-practice-reset-go]");
     const done = value => { dialog.close(); dialog.remove(); resolve(value); };
-    input.addEventListener("input", () => { go.disabled = !fullNameOrEmpty(input.value); });
+    const word = dialog.querySelector("[data-practice-reset-word]");
+    const sync = () => { go.disabled = !fullNameOrEmpty(input.value) || word.value.trim() !== "RESET"; };
+    input.addEventListener("input", sync);
+    word.addEventListener("input", sync);
+    word.addEventListener("keydown", event => { if (event.key === "Enter" && !go.disabled) go.click(); });
     input.addEventListener("keydown", event => { if (event.key === "Enter" && !go.disabled) go.click(); });
-    go.addEventListener("click", () => { const name = fullNameOrEmpty(input.value); if (name) done(name); });
+    go.addEventListener("click", () => { const name = fullNameOrEmpty(input.value); if (name && word.value.trim() === "RESET") done(name); });
     dialog.querySelectorAll(".action-confirmation-close,[data-practice-reset-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
     dialog.addEventListener("click", event => { if (event.target === dialog) done(false); });
     dialog.addEventListener("cancel", () => done(false));
@@ -6185,7 +6191,7 @@ function portalAccessScreen() {
   const activeRows = rows.filter(portalUserHasAccess);
   const disabledRows = rows.filter(user => !portalUserHasAccess(user));
   const superAdmins = rows.filter(user => portalPermissionValue(user) === "super_admin");
-  return `${practiceResetPanel()}${panel("Add a Staff Login", "", `
+  return `${panel("Add a Staff Login", "", `
     <p class="panel-copy">Create a login for someone in the office. They can sign in straight away with the email and password you set here.</p>
     <form class="communications-form" data-create-account-form>
       <label>First name<input name="first_name" placeholder="Jasmine"></label>

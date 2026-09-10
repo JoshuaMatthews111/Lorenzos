@@ -641,3 +641,10 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     applicant saved another. Lost Reasons uses `METRICS.lostLeadRows` over the report date
     range. Top-level `METRICS` reads in `app.js` use `?.` so a missing `metrics.js` can no
     longer blank a public page (rule 43 now actually holds).
+
+58. **Reset practice copy is hard to reach on purpose (Joshua 2026-09-10).** It sits ONLY at
+    the very bottom of Settings (practice copy, Super Admin), folded shut under "Advanced:
+    practice copy tools". Its red button stays disabled until the full name AND the word
+    RESET are typed. Never put it back at the top of Portal Access or any busy screen:
+    the office will press it and blame someone else. Every reset is logged (name typed,
+    login, time) in practice_private.reset_log.

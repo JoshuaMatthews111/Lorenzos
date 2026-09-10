@@ -121,6 +121,9 @@ if (want("reset")) {
   await page.goto(`${base}/trainer-backoffice/`, { waitUntil: "networkidle" });
   await page.waitForSelector("#sidebar .nav-btn", { timeout: 30000 });
   await page.click('.nav-btn[data-view="portalAccess"]');
+  await page.evaluate(() => document.querySelector('[data-view="settings"]')?.click());
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => document.querySelector("details.practice-reset-panel")?.setAttribute("open", ""));
   await page.waitForSelector("[data-practice-reset]", { timeout: 15000 });
   await page.click("[data-practice-reset]");
   await page.waitForSelector(".practice-reset-dialog[open] [data-practice-reset-name]", { timeout: 10000 });
@@ -129,6 +132,7 @@ if (want("reset")) {
   await shot("14-reset-practice-copy-name-box-button-disabled");
   if (process.env.DO_RESET === "1") {
     await page.fill(".practice-reset-dialog [data-practice-reset-name]", NAME);
+    await page.fill(".practice-reset-dialog [data-practice-reset-word]", "RESET");
     await page.click(".practice-reset-dialog [data-practice-reset-go]");
     await page.waitForFunction(() => /Practice copy reset by/.test(document.body.innerText), null, { timeout: 120000 });
     note("reset toast", (await page.evaluate(() => document.body.innerText.match(/Practice copy reset by[^\n]*/)?.[0] || "")));

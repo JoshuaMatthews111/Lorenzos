@@ -162,6 +162,9 @@ if (want("reset-panel")) {
   await page.goto(`${base}/trainer-backoffice/`, { waitUntil: "networkidle" });
   await page.waitForSelector("#sidebar .nav-btn", { timeout: 30000 });
   await page.click('.nav-btn[data-view="portalAccess"]');
+  await page.evaluate(() => document.querySelector('[data-view="settings"]')?.click());
+  await page.waitForTimeout(1500);
+  await page.evaluate(() => document.querySelector("details.practice-reset-panel")?.setAttribute("open", ""));
   await page.waitForSelector("[data-practice-reset]", { timeout: 15000 });
   await page.$eval("[data-practice-reset]", el => el.scrollIntoView({ block: "center" }));
   await shot("10-reset-practice-copy-button-portal-access");
