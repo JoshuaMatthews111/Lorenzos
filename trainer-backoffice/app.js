@@ -7136,7 +7136,7 @@ function leadOutcomeTable(sourceRows = realLeadRows()) {
     const latest = latestOfficeNote("lead", lead.remoteId);
     const noteText = latest?.note || lead.note || "";
     const noteMeta = latest ? `${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}` : lead.note ? "Saved on lead record" : "";
-    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} (${escapeHtml(lead.breed)})</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td>${escapeHtml(noteText || "No note yet")}<small>${escapeHtml(noteMeta)}</small></td><td><button class="btn btn-red" data-open-lead="${lead.id}">Open / Add Note</button></td></tr>`;
+    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong>${leadDogLabel(lead) ? `<small>${escapeHtml(leadDogLabel(lead))}</small>` : ""}</td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td>${escapeHtml(noteText || "No note yet")}<small>${escapeHtml(noteMeta)}</small></td><td><button class="btn btn-red" data-open-lead="${lead.id}">Open / Add Note</button></td></tr>`;
   }).join("") || `<tr><td colspan="6">No website lead submissions match the current filters.</td></tr>`}</tbody></table></div><p class="panel-copy">Website contact submissions are shared with authorized office users through Supabase.</p>`;
 }
 
@@ -7772,7 +7772,7 @@ function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const filterOptions = { useWorkspaceFilters: admin };
   const rows = filteredLeadRows(baseRows, filterOptions);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.breed)}</small></div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><div class="source-cell">${leadSourceBadge(lead)}<div><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></div></div></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong>${leadDogLabel(lead, "dot") ? `<small>${escapeHtml(leadDogLabel(lead, "dot"))}</small>` : ""}</div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><div class="source-cell">${leadSourceBadge(lead)}<div><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></div></div></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
   return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}${admin && (state.leadStageFilter || "All") !== "All" ? ` <button class="btn btn-outline btn-small" type="button" data-clear-lead-stage>Clear "${escapeHtml(conversionStageLabel(state.leadStageFilter))}" filter</button>` : ""}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${leadDetailPanel()}`;
 }
@@ -9077,6 +9077,15 @@ function pageWorkTabs(active) {
   // sidebar to find where new pages are built.
   const tab = (view, label, help) => `<button type="button" class="page-work-tab ${active === view ? "active" : ""}" data-view="${view}"><strong>${label}</strong><small>${help}</small></button>`;
   return `<div class="page-work-tabs">${tab("pageEditor", "Page Editor", "Edit what exists: trainer pages, website pages, portal screens")}${tab("pageStudio", "Page Studio", "Build new: website pages, landing pages, ad pages — even fully custom")}</div>`;
+}
+
+function leadDogLabel(lead, style = "paren") {
+  // Rachel 2026-09-10: "Pending (Pending)" everywhere a lead has no dog on file.
+  // Show only what is known; nothing at all when neither is known.
+  const known = value => (value && value !== "Pending" ? value : "");
+  const dog = known(lead.dog), breed = known(lead.breed);
+  if (style === "dot") return [dog, breed].filter(Boolean).join(" · ");
+  return dog && breed ? `${dog} (${breed})` : dog || breed;
 }
 
 function leadCardDetailLines(lead) {
