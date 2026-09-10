@@ -661,3 +661,8 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     `restore_trainer_page` (full name) puts the last published version back live and logs
     `trainer_page_restored`. Both show in Recent Activity. Tests:
     tests/trainer-page-draft-delete.test.mjs.
+    Database backstop (migration 20260910140000_publish_refuses_deleted_pages): all four
+    publish_trainer_page copies (public, private, practice, practice_private) raise "This
+    trainer page is deleted..." on a page_status 'archived' row, so no tab (old build, stale
+    state, direct RPC) can publish a deleted page back online. The portal also refreshes
+    pageDeleted mid-edit and never calls the publish RPC after a save that comes back deleted.
