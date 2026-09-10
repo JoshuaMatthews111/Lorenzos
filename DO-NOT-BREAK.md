@@ -520,6 +520,9 @@ Verification (QA pass 2026-09-05):
     Twilio reviewers read /contact, /terms and /privacy-policy — if any one of them says
     "promotional" again the verification fails. Do not re-add marketing wording to this
     number. Promotional texts need a SECOND number with its own separate opt-in box.
+    The 10 trainer-opportunity recruiting pages (and scripts/generate-trainer-opportunity-pages.mjs)
+    must not label their recruiting box "Promotional" either (fixed 2026-09-10), and the
+    terms.html sample message must not mention offers.
 48. **The live branch is `fix/trainer-pages-metrics`, not `sandbox`.** Verified 2026-09-10 by _(renumbered from 15 on 2026-09-10; the number was used twice)_
     byte-comparing live trainer-backoffice/app.js (822,687 bytes) against both branches.
     Rule 0 above (sandbox = production) is out of date. Always verify before deploying.
