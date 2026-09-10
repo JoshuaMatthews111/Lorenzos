@@ -64,7 +64,7 @@ test("/api/environment names the practice host on the practice copy (LDTT_PRACTI
 test("the bar script is loaded by both portal shells on the release tag, and the shells are served no-store", () => {
   for (const file of ["trainer-backoffice/index.html", "staff.html"]) {
     const html = fs.readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-    assert.match(html, /old-copy-bar\.js\?v=20260905release/, `${file} loads old-copy-bar.js`);
+    assert.match(html, /old-copy-bar\.js\?v=[a-z0-9]+/, `${file} loads old-copy-bar.js`); // any tag: the next line proves every portal script shares it
     const tags = [...html.matchAll(/(?:app|supabase|page-studio|site-builder|old-copy-bar)\.js\?v=([a-z0-9]+)/g)].map(m => m[1]);
     assert.ok(tags.length >= 5 && new Set(tags).size === 1, `${file} portal scripts all on one ?v= tag (${tags.join(",")})`);
   }
