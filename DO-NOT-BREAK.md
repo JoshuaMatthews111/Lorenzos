@@ -736,3 +736,25 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     from both forms on `get-started.html` (commit d42139c) and deployed to live and the practice
     copy. Do not re-add them. Its form must match the ad landing pages: same fields, same
     SMS consent wording. Check: `curl -sL https://lorenzosdogtrainingteam.com/get-started | grep -ci "investor network"` → 0.
+
+## Lead Journey roles + hover effects (added 2026-09-11, Claude, second pass)
+
+65. **The Style tab's "Button hover effect" is per page and survives the round trip.**
+    `content.hoverFx` (one of lift/grow/glow/pulse/none, or "" = design default) is
+    sanitized in `normalizeContent`, rendered only from `hoverFxCss()` in
+    `lib/ad-page-template.js` (hover:hover media guard + prefers-reduced-motion off
+    switch), and travels with the page through Send to live like any other content
+    field. "" must emit NO css so existing pages render byte-identical.
+
+66. **The sandbox clock rings only the tick.** `api/lead-journey.js` accepts
+    `operation:"tick"` without a login ONLY when the `x-journey-key` header equals
+    `LDTT_JOURNEY_TICK_KEY` (set on the Vercel PREVIEW target only; key also in
+    Env Vault/make/.env.local). Any other operation with that key answers 403; live
+    still answers 404 (rule 63). The outside clock is Make scenario 6239634
+    ("LDTT sandbox clock"), kept INACTIVE except while testing — at 5 minutes it
+    costs 288 Make operations a day of the plan's 10,000 a month.
+
+67. **Starting a test lead says who plays each part.** The start notice lists
+    Customer/Trainer/Leader/Operations by tester name and warns when one phone
+    plays several parts. Keep that warning: "every text came to me" must never be
+    a mystery again.
