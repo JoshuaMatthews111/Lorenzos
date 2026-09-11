@@ -1544,6 +1544,10 @@ function workspaceHasTypedInput() {
   const workspace = document.getElementById("workspaceView");
   if (!workspace) return false;
   if (isTypingField(document.activeElement) && workspace.contains(document.activeElement)) return true;
+  // Someone typing into an open dialog (delete page, reset, publish names, passwords)
+  // is mid-task too: a background redraw waits for them (Joshua 2026-09-11).
+  const dialog = document.querySelector("dialog[open]");
+  if (dialog && (dialog.contains(document.activeElement) || [...dialog.querySelectorAll("input, textarea")].some(field => isTypingField(field) && String(field.value || "").trim()))) return true;
   // onboarding: the page editor's preview is an iframe. Someone editing text
   // inside it (Edit Overlay) has focus on the IFRAME, not on a text box, so the
   // poll's redraw used to rebuild the preview under them and drop the sentence.
@@ -2574,6 +2578,7 @@ function approvedReviewFromSubmission(submission) {
     media_url: submission.storagePath || submission.contentUrl || "",
     media_type: submission.fileType || "",
     media_name: submission.fileName || "",
+    photo_position: submission.photoPosition || "",
     display: reviewDisplayOptionsFor(submission),
     published_at: new Date().toISOString()
   };
@@ -4713,21 +4718,43 @@ function typedFieldKey(field) {
     // (data-editor-field), the profile editor (data-profile-field), the trainer's
     // social links, video links and the Send-to-live name box.
     .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair)).join("|");
-  return own ? `${formKey}::${own}` : "";
+  if (own) return `${formKey}::${own}`;
+  // Safety net (Joshua 2026-09-11, the password box that emptied while typing): a box
+  // with none of the attributes above is no longer left with an empty key. Its key is
+  // built from its other stable attributes, so a redraw still puts its text back.
+  const auto = [...field.attributes].map(attribute => `${attribute.name}=${attribute.value}`)
+    .filter(pair => /^(id|type|placeholder|aria-label|autocomplete|data-(?!peek-ready|password-field)[\w-]+)=/.test(pair)).join("|");
+  return auto ? `${formKey}::auto:${auto}` : "";
+}
+
+// Keys for every typing box under target, in page order. Two boxes with the same key
+// (two identical search boxes, say) get "#1", "#2"…, so text goes back to the right one.
+function typedFieldKeys(target) {
+  const keys = new Map();
+  const seen = new Map();
+  for (const field of target.querySelectorAll("input, textarea")) {
+    if (!isTypingField(field)) continue;
+    let key = typedFieldKey(field);
+    if (!key) continue;
+    const n = seen.get(key) || 0;
+    seen.set(key, n + 1);
+    if (n) key = `${key}#${n}`;
+    keys.set(field, key);
+  }
+  return keys;
 }
 
 function captureTypedInput(target) {
   if (!target) return null;
   const values = new Map();
-  for (const field of target.querySelectorAll("input, textarea")) {
-    if (!isTypingField(field)) continue;
+  const keys = typedFieldKeys(target);
+  for (const [field, key] of keys) {
     const value = String(field.value || "");
     if (!value.trim() || value === String(field.defaultValue || "")) continue;
-    const key = typedFieldKey(field);
-    if (key) values.set(key, value);
+    values.set(key, value);
   }
   const active = document.activeElement;
-  const focusKey = isTypingField(active) && target.contains(active) ? typedFieldKey(active) : "";
+  const focusKey = isTypingField(active) && target.contains(active) ? (keys.get(active) || "") : "";
   return {
     values,
     focusKey,
@@ -4739,10 +4766,7 @@ function captureTypedInput(target) {
 
 function restoreTypedInput(target, snapshot) {
   if (!snapshot || (!snapshot.values.size && !snapshot.focusKey)) return;
-  for (const field of target.querySelectorAll("input, textarea")) {
-    if (!isTypingField(field)) continue;
-    const key = typedFieldKey(field);
-    if (!key) continue;
+  for (const [field, key] of typedFieldKeys(target)) {
     const saved = snapshot.values.get(key);
     // Only refill a field the redraw left empty, so a genuine reset still resets.
     if (saved !== undefined && !String(field.value || "").trim()) field.value = saved;
@@ -6558,10 +6582,20 @@ function passwordSetupForm() {
 // People were locking themselves out by mistyping a password they could not see.
 // One enhancer covers the login screen, the permanent-password form and any other
 // password box, so no individual field has to remember to add the control.
+// Password boxes someone pressed "Show" on, by typed-field key, so a redraw keeps them shown.
+const shownPasswordKeys = new Set();
+
 function enhancePasswordFields(root = document) {
-  root.querySelectorAll('input[type="password"]').forEach(input => {
+  root.querySelectorAll('input[type="password"], input[data-password-field]').forEach(input => {
     if (input.dataset.peekReady === "true") return;
     input.dataset.peekReady = "true";
+    input.dataset.passwordField = "true";
+    // Wrapping moves the box in the page, and a moved box loses focus and its caret.
+    // If someone is typing in it right now, put both back (rule 14: a redraw or a
+    // sign-in poll must never eat what the office is typing — Joshua 2026-09-11).
+    const hadFocus = document.activeElement === input;
+    const start = hadFocus ? input.selectionStart : null;
+    const end = hadFocus ? input.selectionEnd : null;
     const shell = document.createElement("span");
     shell.className = "password-field";
     input.parentNode.insertBefore(shell, input);
@@ -6569,16 +6603,26 @@ function enhancePasswordFields(root = document) {
     const toggle = document.createElement("button");
     toggle.type = "button";
     toggle.className = "password-peek";
-    toggle.textContent = "Show";
-    toggle.setAttribute("aria-label", "Show password");
+    const key = typedFieldKey(input);
+    const paint = () => {
+      const hidden = input.type === "password";
+      toggle.textContent = hidden ? "Show" : "Hide";
+      toggle.setAttribute("aria-label", hidden ? "Show password" : "Hide password");
+    };
+    if (key && shownPasswordKeys.has(key)) input.type = "text";
+    paint();
     toggle.addEventListener("click", () => {
       const hidden = input.type === "password";
       input.type = hidden ? "text" : "password";
-      toggle.textContent = hidden ? "Hide" : "Show";
-      toggle.setAttribute("aria-label", hidden ? "Hide password" : "Show password");
+      if (key) { if (hidden) shownPasswordKeys.add(key); else shownPasswordKeys.delete(key); }
+      paint();
       input.focus();
     });
     shell.appendChild(toggle);
+    if (hadFocus) {
+      input.focus({ preventScroll: true });
+      try { if (start !== null) input.setSelectionRange(start, end); } catch { /* not all inputs support selection */ }
+    }
   });
 }
 
@@ -9553,7 +9597,7 @@ function reviewFrameControl(sub) {
   return `<details class="review-frame" ${sub.photoPosition ? "open" : ""}>
     <summary>Fix how this photo sits in the frame</summary>
     <div class="review-frame-preview"><img src="${escapeHtml(sub.contentUrl)}" alt="" style="object-position:${escapeHtml(current)}"></div>
-    <p class="field-help">This is the exact shape the website uses. Pick the part of the picture that should stay visible so the dog is not cut off.</p>
+    <p class="field-help">This is the same frame the homepage and the trainer page use. The whole photo always shows; pick where it sits when there is space above or below.</p>
     <div class="review-frame-choices">${REVIEW_FRAME_CHOICES.map(([value, label]) =>
       `<button type="button" class="${current === value ? "active" : ""}" data-review-frame="${escapeHtml(sub.id)}" data-frame-value="${value}">${label}</button>`).join("")}</div>
   </details>`;
@@ -10181,6 +10225,9 @@ function trainerReviewsMarkup(trainer) {
     mediaUrl: review.media_url || "",
     mediaType: review.media_type || "",
     mediaName: review.media_name || "",
+    // The office's "how the photo sits" choice: saved with the page at publish time, else
+    // the live review row (so a choice made after publishing shows without a republish).
+    photoPosition: review.photo_position || (state.submissions || []).find(sub => sub.remoteId && sub.remoteId === review.submission_id)?.photoPosition || "",
     display: {
       showText: review.display?.showText !== false,
       showMedia: review.display?.showMedia !== false,
@@ -10219,7 +10266,7 @@ function trainerReviewCardMarkup(review) {
   const isVideo = reviewMediaIsVideo(review.mediaUrl, review.mediaType);
   const rating = Math.max(1, Math.min(5, Number(review.rating || 5)));
   const media = showMedia
-    ? `<div class="trainer-review-media">${isVideo ? videoPreviewMarkup(mediaUrl, `${review.author || "Client"} review video`) : `<button type="button" data-open-public-review-media="${escapeHtml(review.id)}" data-media-url="${escapeHtml(mediaUrl)}" data-media-title="${escapeHtml(review.author || "Approved review")}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(review.mediaName || `${review.author || "Client"} review photo`)}"></button>`}</div>`
+    ? `<div class="trainer-review-media">${isVideo ? videoPreviewMarkup(mediaUrl, `${review.author || "Client"} review video`) : `<button type="button" data-open-public-review-media="${escapeHtml(review.id)}" data-media-url="${escapeHtml(mediaUrl)}" data-media-title="${escapeHtml(review.author || "Approved review")}"><img src="${escapeHtml(mediaUrl)}" alt="${escapeHtml(review.mediaName || `${review.author || "Client"} review photo`)}"${review.photoPosition ? ` style="object-position:${escapeHtml(review.photoPosition)}"` : ""}></button>`}</div>`
     : "";
   return `<article class="trainer-review-card ${showMedia ? "has-media" : ""}">
     ${media}

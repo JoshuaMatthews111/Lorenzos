@@ -36,7 +36,7 @@ SEO={
 TRAINER_APPLICATION_FORM_EMBED="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform?embedded=true"
 TRAINER_APPLICATION_FORM_LINK="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform"
 TRAINER_APPLICATION_FORM_RESPONSE="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/formResponse"
-SITE_ASSET_VERSION="20260911sitetext3"
+SITE_ASSET_VERSION="20260911reviewframe4"
 PORTAL_ASSET_VERSION="20260819media"
 GOOGLE_ADS_ID="AW-11463464040"
 CONTACT_CONVERSION_ID="AW-11463464040/WIE3CMK0kr0aEOiomtoq"
@@ -98,7 +98,7 @@ def page(title,body,active,include_cta=True):
     preload='<link rel="preload" as="image" href="assets/ldtt-team-cover.webp" type="image/webp">' if active=="index.html" else ""
     tracking=META_PIXEL_HEAD+(GOOGLE_ADS_HEAD+CONTACT_CONVERSION_SCRIPT if active=="contact.html" else "")
     tracking+='<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script>'
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} | Lorenzo's Dog Training Team</title><meta name="description" content="{SEO.get(active, SEO["index.html"])}"><link rel="icon" type="image/png" href="assets/ldtt-favicon.png"><link rel="apple-touch-icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="styles.css?v=20260807leadcounts">{preload}{tracking}</head><body>{header(active)}{body}{footer(include_cta)}</body></html>'''
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title} | Lorenzo's Dog Training Team</title><meta name="description" content="{SEO.get(active, SEO["index.html"])}"><link rel="icon" type="image/png" href="assets/ldtt-favicon.png"><link rel="apple-touch-icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="styles.css?v={SITE_ASSET_VERSION}">{preload}{tracking}</head><body>{header(active)}{body}{footer(include_cta)}</body></html>'''
 def hero(label,title,text,home=False,buttons=True):
     actions='<div class="hero-actions"><a class="btn btn-red" href="contact.html">Book Evaluation</a><a class="btn btn-outline home-review-hero-link" href="#home-review-form">Leave a Review</a><a class="btn btn-outline" href="find-a-trainer.html">Find a Trainer</a></div>' if buttons and home else ('<div class="hero-actions"><a class="btn btn-red" href="contact.html">Book Evaluation</a><a class="btn btn-outline" href="find-a-trainer.html">Find a Trainer</a></div>' if buttons else '')
     hero_bg='<picture><source srcset="assets/ldtt-team-cover.webp" type="image/webp"><img class="hero-bg" src="assets/ldtt-team-cover.jpg" alt="Lorenzo\'s Dog Training Team group photo" width="2048" height="1365" fetchpriority="high" decoding="async"></picture>' if home else ''
@@ -216,7 +216,7 @@ def trainer_landing_shell(record):
     location=html.escape(record.get("location") or "")
     title=f"Dog Trainer in {location} | {name} | Lorenzo's Dog Training Team"
     description=f"Professional dog obedience training and behavior modification with {name} in {location}, backed by Lorenzo's Dog Training Team."
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title><meta name="description" content="{description}"><link rel="icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260807leadcounts">{META_PIXEL_HEAD}<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script></head><body class="public-site" data-trainer="{trainer_id}"><main id="publicSite"></main><script src="supabase-config.js"></script><script src="trainer-roster.js"></script><script src="trainer-backoffice/supabase.js?v={PORTAL_ASSET_VERSION}"></script><script src="trainer-backoffice/app.js?v=20260807leadcounts"></script></body></html>'''
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{title}</title><meta name="description" content="{description}"><link rel="icon" href="assets/ldtt-favicon.png"><link rel="stylesheet" href="trainer-backoffice/styles.css?v={SITE_ASSET_VERSION}">{META_PIXEL_HEAD}<script defer src="/_vercel/insights/script.js"></script><script defer src="/_vercel/speed-insights/script.js"></script></head><body class="public-site" data-trainer="{trainer_id}"><main id="publicSite"></main><script src="supabase-config.js"></script><script src="trainer-roster.js"></script><script src="trainer-backoffice/supabase.js?v={PORTAL_ASSET_VERSION}"></script><script src="trainer-backoffice/app.js?v={SITE_ASSET_VERSION}"></script></body></html>'''
 
 def trainer_bio_page(slug,record):
     name=html.escape(record["name"])
