@@ -666,3 +666,12 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     trainer page is deleted..." on a page_status 'archived' row, so no tab (old build, stale
     state, direct RPC) can publish a deleted page back online. The portal also refreshes
     pageDeleted mid-edit and never calls the publish RPC after a save that comes back deleted.
+
+60. **Public wording never says "office-approved" (Rachel + Missy, 2026-09-11).** To the
+    public it reads as sketchy. The review sections say "Client + Google Reviews" / "Client
+    feedback", recruiting pages say "Real stories", trainer loading screens say "the trainer
+    profile". The builders (build.py, scripts/generate-trainer-opportunity-pages.mjs) carry the
+    same wording so a rebuild cannot bring it back. Old setup forms saved "Office-approved
+    client testimonial." as placeholder reviews (Brady DeRemer, Tabatha Shelley, slug "s");
+    `placeholderReviewCopy()` treats that text as an empty slot, so it never renders.
+    Staff-only portal labels may still say it.

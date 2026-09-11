@@ -374,7 +374,7 @@ const defaultState = {
       image: "../assets/trainer-bio-photos/eric-beck.jpg",
       photo: "../assets/trainer-bio-photos/eric-beck.jpg",
       specialties: ["Behavior Modification", "Obedience Training", "Puppy Training", "Real-World Leadership"],
-      credentials: ["Lorenzo's Certified Dog Trainer", "Office-approved lead handling", "Nationwide Lorenzo system"],
+      credentials: ["Lorenzo's Certified Dog Trainer", "Lorenzo lead handling", "Nationwide Lorenzo system"],
       companyLogo: "",
       seoTitle: "Dog Trainer in Cleveland, OH | Eric Beck | Lorenzo's Dog Training Team",
       seoDescription: "Work with Eric Beck for dog obedience training and behavior modification in Cleveland, Ohio, backed by Lorenzo's Dog Training Team.",
@@ -386,8 +386,8 @@ const defaultState = {
       review3Copy: "Eric taught us how to lead consistently and helped our dog become easier to manage at home and in public.",
       socials: { facebook: "on-file", instagram: "on-file", tiktok: "" }
     },
-    { id: "stephanie-palmer", name: "Stephanie Palmer", market: "Akron, OH", serviceArea: "Akron, Canton, and surrounding communities", phone: "(866) 436-4959", email: "stephanie@lorenzosdogtrainingteam.com", bio: "Stephanie works with owners to create structure, consistency, and real-world obedience at home and in public.", layout: "mock-6", pageStatus: "Published", locked: true, clicks: 982, forms: 44, conversions: 6, image: "../assets/facility-exterior-main.jpg", photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80", specialties: ["Family Obedience", "Behavior Modification", "Leash Skills", "Follow-Through Coaching"], credentials: ["Office-approved page", "Google review collection", "Trainer funnel active"], socials: { facebook: "on-file", instagram: "", tiktok: "" } },
-    { id: "robert-stephan", name: "Robert Stephan", market: "Mentor, OH", serviceArea: "Mentor, Lake County, and Northeast Ohio", phone: "(866) 436-4959", email: "robert@lorenzosdogtrainingteam.com", bio: "Robert supports behavior modification and obedience plans built around timing, technique, and owner follow-through.", layout: "mock-3", pageStatus: "Published", locked: true, clicks: 736, forms: 31, conversions: 4, image: "../assets/facility-campus-clean-overview.png", photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80", specialties: ["Advanced Obedience", "Behavior Rehab", "Owner Structure", "Consultation Handoff"], credentials: ["Office-approved bio", "Lead form active", "Results reporting enabled"], socials: { facebook: "", instagram: "on-file", tiktok: "" } },
+    { id: "stephanie-palmer", name: "Stephanie Palmer", market: "Akron, OH", serviceArea: "Akron, Canton, and surrounding communities", phone: "(866) 436-4959", email: "stephanie@lorenzosdogtrainingteam.com", bio: "Stephanie works with owners to create structure, consistency, and real-world obedience at home and in public.", layout: "mock-6", pageStatus: "Published", locked: true, clicks: 982, forms: 44, conversions: 6, image: "../assets/facility-exterior-main.jpg", photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80", specialties: ["Family Obedience", "Behavior Modification", "Leash Skills", "Follow-Through Coaching"], credentials: ["Published trainer page", "Google review collection", "Trainer funnel active"], socials: { facebook: "on-file", instagram: "", tiktok: "" } },
+    { id: "robert-stephan", name: "Robert Stephan", market: "Mentor, OH", serviceArea: "Mentor, Lake County, and Northeast Ohio", phone: "(866) 436-4959", email: "robert@lorenzosdogtrainingteam.com", bio: "Robert supports behavior modification and obedience plans built around timing, technique, and owner follow-through.", layout: "mock-3", pageStatus: "Published", locked: true, clicks: 736, forms: 31, conversions: 4, image: "../assets/facility-campus-clean-overview.png", photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80", specialties: ["Advanced Obedience", "Behavior Rehab", "Owner Structure", "Consultation Handoff"], credentials: ["Published trainer bio", "Lead form active", "Results reporting enabled"], socials: { facebook: "", instagram: "on-file", tiktok: "" } },
     { id: "jenn-studer", name: "Jenn Studer", market: "Medina, OH", serviceArea: "Medina and surrounding communities", phone: "(866) 436-4959", email: "jenn@lorenzosdogtrainingteam.com", bio: "Jenn's trainer page is being prepared by the office team.", layout: "mock-6", pageStatus: "Draft", locked: false, clicks: 184, forms: 7, conversions: 1, image: "https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=1400&q=80", photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=900&q=80", specialties: ["Puppy Foundations", "Calmer Household Behavior", "Owner Coaching"], credentials: ["Draft page in review", "Awaiting final office content"], socials: { facebook: "", instagram: "", tiktok: "" } },
     { id: "ariel-kapela", name: "Ariel Kapela", market: "Parma, OH", serviceArea: "Parma, Cleveland west side, and nearby communities", phone: "(866) 436-4959", email: "ariel@lorenzosdogtrainingteam.com", bio: "Ariel focuses on clear owner communication and reliable behavior in daily life.", layout: "mock-5", pageStatus: "Published", locked: true, clicks: 523, forms: 22, conversions: 3, image: "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?auto=format&fit=crop&w=1400&q=80", photo: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80", specialties: ["Behavior Help", "Consultation Follow-Up", "Obedience Plans"], credentials: ["Published by office", "Reviews approved", "Mobile-ready"], socials: { facebook: "on-file", instagram: "on-file", tiktok: "on-file" } },
     { id: "mike-davis", name: "Mike Davis", market: "Youngstown, OH", serviceArea: "Youngstown and surrounding areas", phone: "(866) 436-4959", email: "mike@lorenzosdogtrainingteam.com", bio: "Mike is enrolled. The office has not started this trainer page yet.", layout: "mock-3", pageStatus: "No Site Started", locked: false, clicks: 0, forms: 0, conversions: 0, image: "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=1400&q=80", photo: "https://images.unsplash.com/photo-1504593811423-6dd665756598?auto=format&fit=crop&w=900&q=80", specialties: ["Pending office setup"], credentials: ["Trainer enrolled", "No public page yet"], socials: { facebook: "", instagram: "", tiktok: "" } }
@@ -4335,7 +4335,7 @@ function enhanceHorizontalScrollers() {
 async function bootstrapApplication() {
   const publicProfileTarget = document.getElementById("publicTrainerProfile");
   if (publicProfileTarget) {
-    publicProfileTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer bio...</h1><p>Retrieving the office-approved trainer profile.</p></main>`;
+    publicProfileTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer bio...</h1><p>Retrieving the trainer profile.</p></main>`;
     const requested = requestedPublicTrainerBioKey();
     const localTrainer = findTrainer(requested);
     const slug = localTrainer?.slug || requested;
@@ -4348,7 +4348,7 @@ async function bootstrapApplication() {
         renderPublicTrainerProfile();
       } catch (error) {
         console.warn("LDTT published trainer bio sync failed", error);
-        publicProfileTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Trainer bio temporarily unavailable</h1><p>The live office-approved profile could not be loaded. Please refresh shortly.</p></main>`;
+        publicProfileTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Trainer bio temporarily unavailable</h1><p>The trainer profile could not be loaded. Please refresh shortly.</p></main>`;
       }
     } else {
       renderPublicTrainerProfile();
@@ -4358,7 +4358,7 @@ async function bootstrapApplication() {
 
   const publicTarget = document.getElementById("publicSite");
   if (publicTarget) {
-    publicTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer page...</h1><p>Retrieving the current office-approved page.</p></main>`;
+    publicTarget.innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer page...</h1><p>Retrieving the trainer page.</p></main>`;
     const requested = requestedPublicTrainerKey();
     const localTrainer = findTrainer(requested);
     const slug = localTrainer?.slug || requested;
@@ -6165,6 +6165,12 @@ function liveDataReferenceLinks() {
 // published revision). Buttons that publish on their own must not publish those.
 function trainerHasUnpublishedDraft(trainer) {
   return Number(trainer?.revision || 0) > Number(trainer?.publishedRevision || 0);
+}
+
+// Rachel 2026-09-11: old setup forms saved a stock "office approved client testimonial"
+// line as a placeholder review. Never show it to the public; it counts as an empty slot.
+function placeholderReviewCopy(copy) {
+  return /^["\u201c]?\s*office[- ]approved client testimonial\.?\s*["\u201d]?$/i.test(String(copy || "").trim()) ? "" : copy;
 }
 
 function trainerPageIsDeleted(trainer) {
@@ -10037,7 +10043,7 @@ function trainerReviewsMarkup(trainer) {
   // the editor were saved but never drawn on the page. They follow the Review
   // Inbox reviews here.
   const manualReviews = [1, 2, 3]
-    .map(n => ({ id: `manual-${n}`, author: String(trainer[`review${n}Author`] || "").trim() || "Verified Client", rating: "5", copy: String(trainer[`review${n}Copy`] || "").trim(), location: "", mediaUrl: "", mediaType: "", mediaName: "", display: { showText: true, showMedia: false, showAuthor: true, showRating: true, showLocation: false } }))
+    .map(n => ({ id: `manual-${n}`, author: String(trainer[`review${n}Author`] || "").trim() || "Verified Client", rating: "5", copy: placeholderReviewCopy(String(trainer[`review${n}Copy`] || "").trim()), location: "", mediaUrl: "", mediaType: "", mediaName: "", display: { showText: true, showMedia: false, showAuthor: true, showRating: true, showLocation: false } }))
     .filter(review => review.copy);
   const reviews = [...approvedReviews, ...manualReviews];
   if (!reviews.length) return "";
@@ -10363,7 +10369,7 @@ function renderPublicSite() {
   const params = new URLSearchParams(window.location.search);
   const trainer = repairPublicPhotoRoles(trainerById(requestedPublicTrainerKey() || params.get("trainer") || state.selectedTrainerId));
   if (!trainer) {
-    document.getElementById("publicSite").innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer page…</h1><p>Retrieving the office-approved trainer profile.</p></main>`;
+    document.getElementById("publicSite").innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer page…</h1><p>Retrieving the trainer profile.</p></main>`;
     return;
   }
   document.title = trainer.seoTitle || `${trainer.name} Dog Training in ${trainer.market} | Lorenzo's Dog Training Team`;
@@ -10379,7 +10385,7 @@ function renderPublicTrainerProfile() {
   const params = new URLSearchParams(window.location.search);
   const trainer = repairPublicPhotoRoles(trainerById(requestedPublicTrainerBioKey() || params.get("trainer") || state.selectedTrainerId));
   if (!trainer) {
-    document.getElementById("publicTrainerProfile").innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer bio...</h1><p>Retrieving the office-approved trainer profile.</p></main>`;
+    document.getElementById("publicTrainerProfile").innerHTML = `<main class="trainer-page-loading"><img src="/assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><h1>Loading trainer bio...</h1><p>Retrieving the trainer profile.</p></main>`;
     return;
   }
   document.title = `${trainer.name} | Lorenzo's Dog Training Team`;

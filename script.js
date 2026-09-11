@@ -74,7 +74,7 @@ const publicTrainerHeadshot=(record,fallback='')=>{
   return safeTrainerHeadshotUrl(record?.headshot_url||publishedContent.headshot_url||fallback)||'assets/lorenzo-logo-transparent.png';
 };
 const publicTrainerName=record=>String(record?.publishedPage?.published_content?.trainer_name||record?.full_name||'Lorenzo Trainer').trim();
-const publicTrainerSummary=record=>String(record?.publishedPage?.published_content?.bio||record?.bio||'Office-approved trainer profile.').trim();
+const publicTrainerSummary=record=>String(record?.publishedPage?.published_content?.bio||record?.bio||'Certified trainer with the Lorenzo team.').trim();
 const publicSlugify=value=>String(value||'').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
 const safeTrainerHeadshotUrl=value=>{
   const url=String(value||'').trim();
