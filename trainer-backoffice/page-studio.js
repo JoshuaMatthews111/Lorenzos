@@ -477,7 +477,10 @@
         ${field("Main colour", "mk1", d.mk1, { type: "color" })}
         ${field("Second colour", "mk2", d.mk2, { type: "color" })}
         ${field("Button accent (blank = the design's own)", "accent", d.accent, { type: "color" })}
-        <button type="button" class="ps-btn" data-ps-act="clear-accent">Use the design's own button colour</button>`;
+        <button type="button" class="ps-btn" data-ps-act="clear-accent">Use the design's own button colour</button>
+        <h3>Button hover effect</h3>
+        ${field("When the mouse rests on a button", "hoverFx", d.hoverFx, { type: "select", options: template.HOVER_FX.map(fx => [fx.id, fx.label]) })}
+        <p class="ps-help">Applies to every button and icon chip on this page. Pick one, then rest your mouse on any button in the preview to feel it. Swap it any time; it travels with the page through Send to live.</p>`;
     } else if (editor.tab === "history") {
       const revs = editor.revisions || [];
       rail.innerHTML = `

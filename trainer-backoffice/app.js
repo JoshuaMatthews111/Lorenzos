@@ -6282,6 +6282,7 @@ function pathwayTestScreen() {
         <label>Market leader<select name="leader_tester">${testerOptions(pick("tim"))}</select></label>
         <label>Operations (Tim)<select name="operations_tester">${testerOptions(pick("tim"))}</select></label>
       </div>
+      <p class="field-help">Give each part a different person to feel the real hand-offs: the customer texts go to the Customer phone, the NEW EVALUATION alert to the Trainer phone, and the escalations to the Leader and Operations phones. If one person plays several parts, that one phone receives all of those texts. Add office members under Communications → Testers (name + mobile) and they appear here.</p>
       <h3>3. Speed</h3>
       <label>Clock<select name="speed"><option value="fast">Fast demo: 1 hour of the plan = 1 minute (24 h follow-up arrives in 24 min)</option><option value="real">Real timing (24 h means 24 hours; customer texts wait 9 PM–8 AM)</option></select></label>
       <p class="field-help">Cleveland ZIPs (440xx, 441xx) route to Eric Beck, backup John DelBane. Cleveland Heights (44106, 44112, 44118, 44121) route to Harley McGrew, backup Eric Beck. Any other ZIP goes to a person (Operations).</p>
@@ -13840,7 +13841,19 @@ document.addEventListener("submit", async event => {
     const payload = { operation: "start" };
     for (const [key, value] of form.entries()) payload[key] = value;
     payload.bite = form.get("bite") === "on";
-    await runPathwayAction(payload, `Lead started for ${payload.first_name}.`);
+    // Say out loud who plays each part, and warn when several parts share one phone,
+    // so "every text came to me" is never a mystery again (Joshua 2026-09-11).
+    const roleCast = [["customer_tester", "Customer"], ["trainer_tester", "Trainer"], ["leader_tester", "Market leader"], ["operations_tester", "Operations"]].map(([name, label]) => {
+      const select = event.target.querySelector(`select[name="${name}"]`);
+      const text = select?.selectedOptions?.[0]?.textContent?.trim() || "";
+      return { label, id: select?.value || "", who: select?.value ? text : "nobody (skipped)" };
+    });
+    const byId = {};
+    roleCast.forEach(role => { if (role.id) (byId[role.id] = byId[role.id] || []).push(role.label); });
+    const shared = Object.values(byId).filter(labels => labels.length > 1).map(labels => labels.join(" + "));
+    const cast = roleCast.map(role => `${role.label}: ${role.who}`).join(" · ");
+    const warning = shared.length ? ` ⚠️ One phone plays several parts (${shared.join("; ")}) — it receives all of those texts.` : "";
+    await runPathwayAction(payload, `Lead started for ${payload.first_name}. ${cast}.${warning}`);
     return;
   }
   event.preventDefault();
