@@ -105,7 +105,7 @@ async function handleGet(req, res, query) {
     res.setHeader("Cache-Control", "public, max-age=0, s-maxage=300");
     return res.status(200).json({ ok: true, page: null, texts: {} });
   }
-  const rows = await supabaseFetch(`/rest/v1/site_text?select=key,live_value${draft ? ",draft_value" : ""}&page=eq.${encodeURIComponent(page)}`);
+  const rows = await supabaseFetch(`/rest/v1/site_text?select=key,live_value,base_default${draft ? ",draft_value" : ""}&page=eq.${encodeURIComponent(page)}`);
   res.setHeader("Cache-Control", draft ? "no-store" : "public, max-age=0, s-maxage=30, stale-while-revalidate=300");
   return res.status(200).json({ ok: true, page, texts: liveTexts(rows, page, draft) });
 }

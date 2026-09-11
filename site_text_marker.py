@@ -56,6 +56,7 @@ class Finder(HTMLParser):
         self.stack = []
         self.spots = []
 
+
     def abs_offset(self):
         line, col = self.getpos()
         return self.line_starts[line - 1] + col
@@ -92,6 +93,7 @@ class Finder(HTMLParser):
 
     def consider(self, el):
         tag = el["tag"]
+
         if tag not in TARGET or el["child"]:
             return
         text = re.sub(r"\s+", " ", "".join(el["text"])).strip()
@@ -118,11 +120,33 @@ class Finder(HTMLParser):
             self.stack[-1]["text"].append(data)
 
 
+
 def find_spots(source):
     f = Finder(source)
     f.feed(source)
     f.close()
-    return sorted(f.spots, key=lambda s: s["start"])
+    spots = sorted(f.spots, key=lambda s: s["start"])
+    # Headings in page order (tagged or not), to anchor look-alike spots to their section.
+    heads = sorted((m.start(), re.sub(r"<[^>]+>|\s+", " ", m.group(2)).strip()) for m in re.finditer(r"<(h[1-4])\b[^>]*>(.*?)</\1>", source, re.S | re.I))
+    for sp in spots:
+        prior = [t for pos, t in heads if pos < sp["start"] and t]
+        sp["anchor"] = prior[-1] if prior else ""
+    # Look-alike spots (same tag, place and words) are told apart by their nearest heading;
+    # spots that still cannot be told apart are not editable at all (code-owned).
+    base = {}
+    for sp in spots:
+        base.setdefault((sp["tag"], sp["ctx"], sp["text"]), []).append(sp)
+    keep = []
+    for sp in spots:
+        group = base[(sp["tag"], sp["ctx"], sp["text"])]
+        if len(group) == 1:
+            sp["anchor"] = ""
+            keep.append(sp)
+            continue
+        twins = [g for g in group if g["anchor"] == sp["anchor"]]
+        if len(twins) == 1:
+            keep.append(sp)
+    return keep
 
 
 def assign_keys(spots, previous, report=None, retired=None):
@@ -139,7 +163,7 @@ def assign_keys(spots, previous, report=None, retired=None):
     prev = list(previous or [])
     legacy = any("ctx" not in p for p in prev)  # manifest from before ctx existed: match on tag+words
     def sig(x):
-        return f'{x["tag"]}|{x["text"]}' if legacy else f'{x["tag"]}|{x.get("ctx", "")}|{x["text"]}'
+        return f'{x["tag"]}|{x["text"]}' if legacy else f'{x["tag"]}|{x.get("ctx", "")}|{x.get("anchor", "")}|{x["text"]}'
     a = [sig(p) for p in prev]
     b = [sig(s_) for s_ in spots]
     count_a, count_b = {}, {}
@@ -202,7 +226,7 @@ def mark_source(source, previous=None, report=None, retired=None):
     out.append(source[last:])
     if retired is not None:
         retired.extend(k for k in gone if k not in retired)
-    return "".join(out), [{"key": s["key"], "tag": s["tag"], "ctx": s["ctx"], "text": s["text"]} for s in spots]
+    return "".join(out), [{"key": s["key"], "tag": s["tag"], "ctx": s["ctx"], "anchor": s.get("anchor", ""), "text": s["text"]} for s in spots]
 
 
 def mark_files(root="."):
@@ -213,6 +237,8 @@ def mark_files(root="."):
     for page, file, path, label in PAGES:
         fp = root / file
         if not fp.exists():
+            if page in old.get("pages", {}):
+                manifest["pages"][page] = old["pages"][page]  # keep its spots and retired keys
             continue
         source = fp.read_text()
         report = []

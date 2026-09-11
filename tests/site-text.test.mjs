@@ -27,7 +27,10 @@ function fakeSupabase(rows) {
     if (path.startsWith("/rest/v1/site_text") && method === "GET") {
       const id = decodeURIComponent((path.match(/id=eq\.([^&]+)/) || [])[1] || "");
       const onlyDrafts = path.includes("draft_value=not.is.null");
-      return json(200, rows.filter(r => (!id || r.id === id) && (!onlyDrafts || r.draft_value != null)));
+      const picked = rows.filter(r => (!id || r.id === id) && (!onlyDrafts || r.draft_value != null));
+      const sel = decodeURIComponent((path.match(/select=([^&]+)/) || [])[1] || "*");
+      // like PostgREST: only the selected columns come back
+      return json(200, sel === "*" ? picked : picked.map(r => Object.fromEntries(sel.split(",").filter(c => c in r).map(c => [c, r[c]]))));
     }
     if (path.startsWith("/rest/v1/site_text")) return json(200, [{ ...(body || {}) }]);
     if (path.startsWith("/rest/v1/audit_events")) return json(201, null);
@@ -240,4 +243,26 @@ print(json.dumps({"s1": {s["text"]: s["key"] for s in s1}, "s2": {s["text"]: s["
   assert.equal(out.s2["Our Process"], out.s1["Our Process"]);
   assert.ok(out.retired.includes(out.s1["Old promise text"]));
   assert.notEqual(out.s3["Old promise text"], out.s1["Old promise text"], "a retired key is never reused");
+});
+
+test("marker: identical links in look-alike cards stay with their own card; true twins are not editable", () => {
+  const out = pyMark(`
+import json, site_text_marker as m
+card = lambda h: f'<article class="path-card"><h3>{h}</h3><a class="link">Explore this path</a></article>'
+v1 = '<main><div class="paths">' + card("Obedience") + card("Behavior") + card("Academy") + '</div></main>'
+_, s1 = m.mark_source(v1)
+swap = '<main><div class="paths">' + card("Academy") + card("Behavior") + card("Obedience") + '</div></main>'
+_, s2 = m.mark_source(swap, s1)
+repl = '<main><div class="paths">' + card("Puppy Head Start") + card("Behavior") + card("Academy") + '</div></main>'
+_, s3 = m.mark_source(repl, s1)
+twins = '<main><div class="paths">' + card("Same") + card("Same") + '</div></main>'
+_, s4 = m.mark_source(twins)
+key = lambda spots, anchor: [s["key"] for s in spots if s["tag"] == "a" and s["anchor"] == anchor]
+print(json.dumps({"ob1": key(s1, "Obedience"), "ob2": key(s2, "Obedience"), "ac1": key(s1, "Academy"), "ac2": key(s2, "Academy"), "puppy": key(s3, "Puppy Head Start"), "twins": [s["tag"] for s in s4]}))
+`);
+  assert.deepEqual(out.ob2, out.ob1, "the Obedience link keeps its key after the swap");
+  assert.deepEqual(out.ac2, out.ac1);
+  assert.notDeepEqual(out.puppy, out.ob1, "a replaced card's link gets a new key");
+  assert.deepEqual(out.twins, ["h3", "h3"].filter(() => false).concat(out.twins.filter(t => t === "h3")), "twin links that cannot be told apart are not tagged");
+  assert.ok(!out.twins.includes("a"));
 });
