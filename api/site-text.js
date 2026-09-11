@@ -6,7 +6,7 @@
 //   GET  ?path=/dog-training            live text for that page (public, edge-cached 30 s)
 //   GET  ?path=...&draft=1  (admin)     drafts over live, for the Page Editor preview
 //   GET  ?all=1             (admin)     every row, for the Page Editor list
-//   POST (admin) { operation: save_draft | discard_draft | publish | reset, page, key, value, name }
+//   POST (admin) { operation: save_draft | discard_draft | publish | reset | confirm, page, key, value, name }
 // Publish and reset need the full name (two words) and write audit_events.
 // base_default = the code text the live office text was published against; a draft keeps it
 // (so Undo never hides the "code changed" flag), only a publish moves it to the current code text.
@@ -76,6 +76,11 @@ const liveTexts = (rows, page, draft) => {
   const texts = {};
   for (const row of rows || []) {
     if (!spotFor(page, row.key)) continue; // a spot the code removed is ignored publicly
+    // Safety net (rule 61): live office text shows only while the spot's code words are the
+    // ones it was published against. If the code changed the spot, the code words show until
+    // the office presses "Keep my text" (operation confirm). So office text can never appear
+    // on a spot it was not written for.
+    if (!draft && row.base_default && row.base_default !== spotFor(page, row.key).text) continue;
     const value = draft ? (row.draft_value ?? row.live_value) : row.live_value;
     if (typeof value === "string" && value.trim()) texts[row.key] = value;
   }
@@ -138,6 +143,19 @@ async function handlePost(req, res) {
     const key = clean(body.key, 120);
     const filter = key ? `id=eq.${encodeURIComponent(rowId(page, key))}` : `page=eq.${encodeURIComponent(page)}`;
     await supabaseFetch(`/rest/v1/site_text?${filter}&draft_value=not.is.null`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ draft_value: null, updated_at: now }) });
+    return res.status(200).json({ ok: true });
+  }
+
+  if (operation === "confirm") {
+    const typed = fullName(body.name);
+    if (!typed) return res.status(400).json({ ok: false, message: "Type your full name (first and last)." });
+    const key = clean(body.key, 120);
+    const spot = spotFor(page, key);
+    if (!spot) return res.status(400).json({ ok: false, message: "That spot is no longer on the page." });
+    const [row] = await supabaseFetch(`/rest/v1/site_text?select=*&id=eq.${encodeURIComponent(rowId(page, key))}`) || [];
+    if (!row?.live_value) return res.status(400).json({ ok: false, message: "There is no office text on this spot to keep." });
+    await supabaseFetch(`/rest/v1/site_text?id=eq.${encodeURIComponent(row.id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ base_default: spot.text, published_by_name: typed, published_by_login: auth.actor.email, published_at: now, updated_at: now }) });
+    await audit(auth, typed, "site_text_confirmed", page, `${typed} kept the office text on the ${label} page after the code changed that spot (code now says "${spot.text.slice(0, 60)}").`, { key, live_value: row.live_value, code_text: spot.text });
     return res.status(200).json({ ok: true });
   }
 

@@ -49,7 +49,7 @@ async function call(handler, { method = "GET", query = {}, body = null, auth = t
 
 test("the public sees only LIVE text for a page, never drafts, and nothing for spots the code removed", async () => {
   fakeSupabase([
-    { id: `home:${SPOT.key}`, page: "home", key: SPOT.key, live_value: "Office words", draft_value: "Unfinished draft" },
+    { id: `home:${SPOT.key}`, page: "home", key: SPOT.key, live_value: "Office words", draft_value: "Unfinished draft", base_default: SPOT.text },
     { id: "home:gone-spot", page: "home", key: "gone-spot", live_value: "Old spot" }
   ]);
   const res = await call(load(false), { query: { path: "/" }, auth: false });
@@ -125,7 +125,7 @@ test("practice copy: reads and writes practice.site_text", async () => {
 
 const py = code => execFileSync("python3", ["-c", code], { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" });
 
-test("marker: tags only plain text outside forms/footers/consent, is idempotent, and keeps a spot's key when the code slightly rewords it", () => {
+test("marker: tags only plain text outside forms/footers/consent, is idempotent, and gives a reworded spot a new key and keeps the rest", () => {
   const out = JSON.parse(py(`
 import json, site_text_marker as m
 src = '<main><h2>Hello there</h2><p>Plain words here</p><p>Mixed <b>bold</b></p><form><p>Form words</p></form><div class="consent-row"><span>Text me please</span></div></main><footer><p>Footer words</p></footer>'
@@ -138,7 +138,8 @@ print(json.dumps({"a": a, "same": a == b, "keys": [s["key"] for s in spots], "ke
   assert.equal(out.keys.length, 2, "only the two plain-text spots");
   assert.ok(!/<form>[^]*data-edit[^]*<\/form>/.test(out.a) && !/<footer>[^]*data-edit/.test(out.a) && !/consent-row[^<]*<span data-edit/.test(out.a));
   assert.equal(out.same, true, "a second run changes nothing");
-  assert.deepEqual(out.keys3, out.keys, "the changed spot keeps its key");
+  assert.equal(out.keys3[0], out.keys[0], "the untouched spot keeps its key");
+  assert.notEqual(out.keys3[1], out.keys[1], "a reworded spot gets a NEW key (its old office text is kept and flagged, never moved)");
   assert.equal(out.texts3[1], "Plain words right here");
 });
 
@@ -156,7 +157,8 @@ print(json.dumps({"old": {s["text"]: s["key"] for s in spots}, "new": {s["text"]
   assert.notEqual(out.new["Barking and whining"], out.old["Destructive chewing"], "the rewritten card never inherits the deleted card's key");
   assert.notEqual(out.new["We find the trigger first."], out.old["Replace destructive patterns with structure."]);
   assert.equal(out.new["Jumping"], out.old["Jumping"], "untouched spots keep their key");
-  assert.equal(out.reword["Destructive chewing habits"], out.old["Destructive chewing"], "a small rewording keeps the key");
+  assert.notEqual(out.reword["Destructive chewing habits"], out.old["Destructive chewing"], "a reworded spot gets a new key; nothing is ever moved");
+  assert.equal(out.reword["Excessive barking"], out.old["Excessive barking"], "neighbours keep their keys");
 });
 
 test("marker: phone numbers, emails and call links are never spots", () => {
@@ -176,4 +178,66 @@ test("a draft keeps the code text the office first edited against; only publish 
   calls = fakeSupabase([{ id: `home:${SPOT.key}`, page: "home", key: SPOT.key, live_value: "Office words", draft_value: "Newer office words", base_default: "Older code words" }]);
   await call(load(false), { method: "POST", body: { operation: "publish", page: "home", name: "Rachel Leggett" } });
   assert.equal(calls.find(c => c.method === "PATCH").body.base_default, SPOT.text);
+});
+
+test("safety net: office text whose code words changed is hidden until the office keeps it (logged)", async () => {
+  fakeSupabase([{ id: `home:${SPOT.key}`, page: "home", key: SPOT.key, live_value: "Office words", base_default: "Some older code words" }]);
+  const res = await call(load(false), { query: { path: "/" }, auth: false });
+  assert.deepEqual(res.payload.texts, {}, "the code words show instead");
+  let calls = fakeSupabase([{ id: `home:${SPOT.key}`, page: "home", key: SPOT.key, live_value: "Office words", base_default: "Some older code words" }]);
+  const noName = await call(load(false), { method: "POST", body: { operation: "confirm", page: "home", key: SPOT.key, name: "Rachel" } });
+  assert.equal(noName.statusCode, 400);
+  const ok = await call(load(false), { method: "POST", body: { operation: "confirm", page: "home", key: SPOT.key, name: "Rachel Leggett" } });
+  assert.equal(ok.statusCode, 200);
+  assert.equal(calls.find(c => c.method === "PATCH").body.base_default, SPOT.text);
+  assert.equal(calls.find(c => c.path.startsWith("/rest/v1/audit_events")).body.action, "site_text_confirmed");
+});
+
+const pyMark = code => JSON.parse(py(code));
+test("marker: a card inserted before a reworded neighbour never takes the neighbour's key", () => {
+  const out = pyMark(`
+import json, site_text_marker as m
+before = '<main><div class="card"><h3>In Home Training</h3></div><div class="card"><h3>Obedience Training</h3></div></main>'
+_, s1 = m.mark_source(before)
+after = '<main><div class="card"><h3>Home Training Camp</h3></div><div class="card"><h3>In-Home Training</h3></div><div class="card"><h3>Obedience Training</h3></div></main>'
+_, s2 = m.mark_source(after, s1)
+print(json.dumps({"old": {s["text"]: s["key"] for s in s1}, "new": {s["text"]: s["key"] for s in s2}}))
+`);
+  assert.notEqual(out.new["Home Training Camp"], out.old["In Home Training"]);
+  assert.notEqual(out.new["In-Home Training"], out.old["In Home Training"], "a reworded spot gets a new key; the old office text is kept and flagged");
+  assert.equal(out.new["Obedience Training"], out.old["Obedience Training"]);
+});
+
+test("marker: removing one of two identical buttons never gives its office text to the other", () => {
+  const out = pyMark(`
+import json, site_text_marker as m
+before = '<main><section class="cta-band"><a class="btn">Book Evaluation</a></section></main><div class="floating-cta"><a class="btn">Book Evaluation</a></div>'
+_, s1 = m.mark_source(before)
+after = '<main></main><div class="floating-cta"><a class="btn">Book Evaluation</a></div>'
+_, s2 = m.mark_source(after, s1)
+print(json.dumps({"old": [[s["ctx"], s["key"]] for s in s1], "new": [[s["ctx"], s["key"]] for s in s2]}))
+`);
+  const floatingOld = out.old.find(([ctx]) => ctx.includes("floating-cta"))[1];
+  const sectionOld = out.old.find(([ctx]) => ctx.includes("cta-band"))[1];
+  assert.equal(out.new.length, 1);
+  assert.notEqual(out.new[0][1], sectionOld, "the floating button never takes the section button's key");
+  assert.equal(out.new[0][1], floatingOld, "it keeps its own key (same place, unique)");
+});
+
+test("marker: a retired key is never handed to a new spot later, and a spot that only moved keeps its key", () => {
+  const out = pyMark(`
+import json, site_text_marker as m
+v1 = '<main><h2>Why Choose Us</h2><h2>Our Process</h2><p>Old promise text</p></main>'
+_, s1 = m.mark_source(v1)
+retired = []
+v2 = '<main><h2>Our Process</h2><h2>Why Choose Us</h2></main>'
+_, s2 = m.mark_source(v2, s1, None, retired)
+v3 = '<main><h2>Our Process</h2><h2>Why Choose Us</h2><p>Old promise text</p></main>'
+_, s3 = m.mark_source(v3, s2, None, retired)
+print(json.dumps({"s1": {s["text"]: s["key"] for s in s1}, "s2": {s["text"]: s["key"] for s in s2}, "s3": {s["text"]: s["key"] for s in s3}, "retired": retired}))
+`);
+  assert.equal(out.s2["Why Choose Us"], out.s1["Why Choose Us"], "swapped spots keep their keys");
+  assert.equal(out.s2["Our Process"], out.s1["Our Process"]);
+  assert.ok(out.retired.includes(out.s1["Old promise text"]));
+  assert.notEqual(out.s3["Old promise text"], out.s1["Old promise text"], "a retired key is never reused");
 });

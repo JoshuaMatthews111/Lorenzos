@@ -1,0 +1,697 @@
+The architecture is fundamentally strong, but it is not yet “perfect.” The coder has solved the biggest operational problem—moving paid leads directly from interest → booking → trainer → evaluation → revenue—but there are several leakage, safety, attribution, and customer-experience gaps that need to be closed before launch.
+The most important principle for the build should be:
+The bot handles speed, consistency, reminders, qualification, routing, recovery, and documentation. The trainer handles trust, diagnosis, recommendation, and the close. No qualified lead disappears because one person forgot to call, text, update a status, or check a dashboard.
+Below is the version I would give the coder.
+
+
+
+LDTT PAID-LEAD REVENUE PATHWAY — MASTER SPEC
+1. The revenue pathway
+The final system should operate as:
+Ad → Landing Page → Lead Captured → Market/ZIP Verified → Trainer Assigned → Calendar Shown → Evaluation Booked → Pre-Eval Qualification → Trainer Introduction → Reminders → Evaluation → Outcome → Payment → Follow-Up → Review/Referral → Win-Back if Needed
+Every lead must always have:
+Lead source
+Campaign/ad
+ZIP code
+Market
+Assigned trainer
+Dog/problem category
+Current pipeline stage
+Next required action
+Next action due date/time
+Last contact
+Number of contact attempts
+Evaluation date
+Evaluation status
+Sale status
+Revenue
+Lost/no-sale reason
+Win-back eligibility
+If any one of those is missing, the system should flag it.
+
+2. CRITICAL CHANGE: DO NOT MAKE THE CALENDAR THE FIRST SCREEN
+The current concept is close, but I would change one thing.
+Do not immediately dump a stranger into a calendar.
+First give them a very small confirmation screen:
+Good news — we have trainers available in your area.
+Tell us what you need help with so we can match your evaluation correctly.
+What is the biggest issue right now?
+○ Aggression / Reactivity ○ Pulling on the leash ○ Not listening / obedience ○ Puppy behavior ○ Barking / jumping ○ Fear / anxiety ○ Other
+Then:
+Great. Let’s get your free in-home evaluation scheduled.
+Then show the trainer calendar.
+Why?
+Because this produces a micro-commitment before asking for a date and gives LDTT behavioral intent data even if the person abandons later.
+
+3. CALENDAR RULES
+The coder should not merely “show two or three slots.”
+Build these rules:
+Preferred booking window
+Show the earliest 3–5 valid appointments within 48 hours.
+If none exist:
+Show the next three available.
+Do not tell the customer:
+“No appointments available.”
+Say:
+Our next available appointments are below. If none of these work, choose “Find another time” and we’ll help you.
+Trainer calendar protections
+Require:
+4-hour minimum notice
+30–60 minute travel buffer
+Maximum evaluations per day
+Working hours
+Personal calendars as blocking calendars
+Vacation/busy events respected
+Two-week booking horizon
+Correct market timezone
+No overlapping evaluation bookings
+No booking outside service area
+Critical gap
+The system also needs travel geography logic.
+A trainer can technically be available at 2:00 PM but already have a 1:00 PM evaluation 45 miles away.
+Calendar availability alone does not solve routing.
+Eventually add:
+appointment location + drive-time buffer
+At minimum for Phase 1, use generous travel buffers.
+
+4. ROUTING LOGIC
+Routing should not be:
+ZIP → trainer
+It should be:
+ZIP → market → primary trainer → coverage → availability → capacity → fallback trainer
+Coder logic:
+Match ZIP to market.
+Confirm that ZIP belongs to trainer service area.
+Check primary trainer.
+If no valid availability within desired window, check backup trainer.
+If neither has availability, route to human dispatch.
+Never silently fail.
+Never leave lead unassigned.
+Every market needs:
+Primary Sales Trainer Backup Trainer Escalation Owner
+If the entire system depends on one trainer per market, one vacation or illness breaks the funnel.
+That is currently a major gap.
+
+5. DUPLICATE LEAD PROTECTION
+People submit forms more than once.
+Before creating a new lead, search:
+phone + email
+If found:
+Update the existing record.
+Do not create another opportunity.
+Keep original attribution and append later sources.
+Example:
+Original lead: Facebook Second submission: Google
+CRM should show both, but preserve the originating source.
+Otherwise LDTT will inflate lead counts and corrupt conversion reporting.
+
+6. PARTIAL FORM RECOVERY
+This is good in the current plan, but define the trigger precisely.
+Trigger only when LDTT has:
+phone number with valid consent, or
+email address.
+Wait approximately 15 minutes.
+SMS
+Hi {{first_name}}, this is Lorenzo’s Dog Training Team. I saw you started requesting an evaluation for {{dog_name_or_your_dog}} but didn’t get all the way through. If you’d still like help, you can pick up where you left off here: {{resume_link}}.
+Questions? Just reply to this message.
+That is better than:
+“Want me to finish it for you?”
+because the latter sounds like surveillance.
+Keep it helpful, not creepy.
+
+7. POST-SUBMISSION / PRE-CALENDAR MESSAGE
+Screen copy
+You’re almost there.
+Based on your location, we can help.
+Choose a time below for your complimentary in-home evaluation.
+During the evaluation, your trainer will:
+Meet you and your dog
+Observe the behavior you’re concerned about
+Learn what you want your dog to be able to do
+Explain the training approach we recommend
+Answer your questions
+There is no charge for the evaluation.
+Choose the time that works best for you.
+This explains the value before the calendar.
+
+8. BOOKING CONFIRMATION
+Immediately after scheduling:
+SMS
+Hi {{first_name}} — you’re confirmed with {{trainer_first_name}} from Lorenzo’s Dog Training Team.
+📅 {{appointment_day}}, {{appointment_date}} at {{appointment_time}} 📍 {{service_address}}
+Before your trainer arrives, please complete these quick questions about {{dog_name_or_your_dog}} so we can make the most of your evaluation:
+{{pre_eval_link}}
+We look forward to meeting you.
+Email subject
+Your Lorenzo’s Dog Training Evaluation Is Confirmed
+Email can carry fuller details.
+
+9. PRE-EVALUATION QUESTIONS
+Do not ask everything on the ad form.
+Now that they are booked, ask:
+Dog name
+Age
+Breed
+Sex
+Spayed/neutered
+Vaccination status
+Primary behavior concern
+When behavior began
+Has dog bitten a person?
+Has dog bitten another animal?
+If yes: when / severity / medical attention?
+Previous training
+Current equipment used
+What would success look like?
+Who lives in the home?
+Children in home?
+Other animals?
+Who participates in training?
+Any physical/medical limitations affecting training?
+Veterinarian concerns if relevant
+Do not overload the first page.
+Use conditional logic.
+Aggression selected?
+Then display bite/safety questions.
+Puppy selected?
+Different questions.
+This creates personalization without unnecessary friction.
+
+10. HIGH-RISK SAFETY BRANCH
+This is missing and needs to be added.
+If the prospect reports:
+Serious bite history
+Recent hospitalization
+Uncontrolled aggression
+Human-directed aggression
+Dangerous containment concerns
+Flag:
+SAFETY REVIEW
+Trainer receives this prominently.
+Customer message:
+Thanks for sharing that information. It helps us prepare appropriately. Your trainer will review what you provided before the evaluation and may contact you with a few additional questions so the visit can be handled safely.
+Do not have the bot provide behavioral advice for dangerous situations.
+
+11. HOUSE RULES
+Do not sound authoritarian.
+Use:
+Before your trainer arrives
+To help us begin safely and without unnecessary distractions:
+• Please have your dog on a secure leash or safely crated when the trainer arrives. • Please place other dogs or pets in a separate area unless your trainer asks otherwise. • Please have any training equipment you currently use available. • If possible, have everyone involved in making decisions about your dog’s training present for the evaluation.
+If anything changes before your appointment, simply reply to this message.
+That last bullet quietly handles decision-makers without sounding like sales qualification.
+
+12. TRAINER ALERT — IMMEDIATE
+Trainer SMS
+🔔 NEW LDTT EVALUATION
+{{first_name}} {{last_name}} {{appointment_day}} at {{appointment_time}} {{service_address}}
+Dog: {{dog_name}}, {{age}}, {{breed}} Primary concern: {{problem}}
+Goal: {{owner_goal}}
+{{safety_flag_if_any}}
+Please call the client today to introduce yourself, then mark CONTACTED: {{trainer_portal_link}}
+The trainer should receive enough information to sound informed during the introduction call.
+
+13. TRAINER CONTACT SLA
+“Same day” is too loose.
+Define it.
+If booking occurs before 5 PM:
+Trainer contacts within 2 hours when practical, maximum same business day.
+After 5 PM:
+By 10 AM next day.
+Then:
+Trainer reminder #1
+Reminder: {{client_name}} is scheduled for {{appointment_date}} and has not yet been marked Contacted. Please call the client and update the lead here: {{link}}
+Escalation
+If still not contacted after SLA:
+Notify trainer again + market leader.
+Only alert Tim after a defined failure threshold.
+Do not make Tim the first escalation for every missed click. That will become noise.
+Hierarchy:
+Trainer → Market leader → Tim / Operations
+
+14. CUSTOMER INTRODUCTION CALL
+The bot should tell the trainer exactly what the purpose is.
+Not to sell.
+Not to requalify.
+Purpose:
+Introduce yourself.
+Confirm appointment.
+Build trust.
+Confirm main concern.
+Confirm address.
+Confirm house setup.
+Answer simple logistical questions.
+Trainer opener:
+Hi {{name}}, this is {{trainer}} with Lorenzo’s Dog Training Team. I wanted to introduce myself before I come out for your evaluation on {{day}}. I saw that your biggest concern is {{problem}} and that you’d really like {{goal}}. I wanted you to know I have that information already, so you won’t have to start from scratch when I arrive.
+That sentence alone improves trust.
+
+15. REMOVE THE REFERRAL ASK FROM THE 24-HOUR REMINDER
+This is one of the current design mistakes.
+Do not ask someone to refer another customer before LDTT has provided any value.
+They have not met the trainer.
+They have no reason to recommend you.
+It can make the automation feel transactional.
+Referral requests belong:
+after a strong evaluation experience,
+after a sale,
+after a milestone,
+after visible results.
+Not 24 hours before the evaluation.
+
+16. 24-HOUR REMINDER
+SMS
+Hi {{first_name}}, just a reminder that {{trainer_first_name}} from Lorenzo’s Dog Training Team will see you tomorrow at {{appointment_time}} for {{dog_name_or_your_dog}}’s evaluation.
+Please have your dog securely leashed or crated when the trainer arrives and keep other pets in a separate area until your trainer is ready for them.
+📍 {{service_address}}
+Need to change the appointment? {{reschedule_link}}
+We’ll see you tomorrow.
+
+17. 5-HOUR REMINDER
+SMS
+We’re looking forward to seeing you today at {{appointment_time}}.
+Quick reminder: please have {{dog_name_or_your_dog}} securely leashed or crated and other pets put away when your trainer arrives.
+{{trainer_first_name}} will see you soon.
+— Lorenzo’s Dog Training Team
+Short. Functional. No sales content.
+
+18. RESCHEDULE / CANCEL PATHWAY
+This is currently missing.
+Every reminder needs:
+Reschedule
+Prefer rescheduling over cancellation.
+If clicked:
+No problem. Let’s find a better time.
+Calendar opens.
+If cancellation selected:
+Ask reason:
+Schedule conflict
+Need to speak with family
+Cost concern
+No longer need help
+Working with another trainer
+Dog/owner health issue
+Other
+Then route based on reason.
+Do not automatically mark Lost.
+
+19. NO-SHOW: CUSTOMER NOT HOME
+Trainer marks:
+Customer No-Show
+Immediately:
+SMS
+Hi {{first_name}}, it looks like we missed you for today’s evaluation. We understand that things come up.
+If you’d still like help with {{dog_name_or_your_dog}}, you can choose another time here:
+{{rebook_link}}
+24 hours later:
+Just checking in, {{first_name}}. If you still want help with {{problem}}, we’d be glad to get your evaluation rescheduled.
+{{rebook_link}}
+After defined attempts → Win-Back.
+
+20. TRAINER NO-SHOW / LDTT FAILURE
+This needs its own branch.
+Never send the same message.
+If trainer fails:
+{{first_name}}, we owe you an apology. We were unable to complete your scheduled evaluation today, and that is not the experience we want you to have.
+We would like to make this right and get you rescheduled as quickly as possible.
+{{priority_rebook_link}}
+You can also reply here and we will handle it personally.
+Flag management immediately.
+Company-caused no-shows require service recovery.
+
+21. EVALUATION OUTCOME STATES
+Do not allow only:
+Won / Lost.
+Trainer must choose:
+Evaluation Completed — Won Evaluation Completed — Follow-Up Needed Evaluation Completed — Financing/Payment Decision Evaluation Completed — Decision-Maker Needed Evaluation Completed — Not Ready Evaluation Completed — Not a Fit Evaluation Completed — Referred Elsewhere Customer No-Show Trainer No-Show Rescheduled
+Then require reason.
+This is where management intelligence comes from.
+
+22. SALES PROCESS GUARDRAIL
+I would change this language:
+“He opens at the full offer and works down if he needs to.”
+That creates inconsistent pricing and margin leakage.
+The trainer should present the recommended program based on the evaluation, not “work the price down.”
+If there are legitimate tiers:
+Present:
+Recommended solution → alternative solution → approved financing/payment option
+Any discount should require:
+defined reason
+approved range
+tracking
+manager authorization beyond threshold
+Otherwise the organization will never know its actual pricing power.
+
+23. PAYMENT AUTOMATION
+On successful payment:
+Automatically:
+Opportunity = Won
+Amount = actual collected/contracted amount
+Product/program
+Trainer
+Market
+Campaign
+Lead source
+Payment method
+Financing status
+Timestamp
+First payment
+Total contract value
+Track both:
+Booked Revenue
+and
+Cash Collected
+Do not treat them as the same number.
+
+24. “CLOSED WON WITHOUT PAYMENT” RULE
+Excellent concept.
+But make it impossible to leave unresolved.
+If trainer selects Won and payment = $0:
+Immediately display:
+Payment required before this sale can be completed.
+Options:
+Payment link sent
+Financing pending
+Deposit pending
+Manager approved exception
+If nothing happens in 30 minutes:
+Trainer reminder.
+If still unresolved:
+Market lead.
+
+25. POST-EVALUATION EXPERIENCE CHECK
+Do not automatically send a Google review request to everyone.
+First measure satisfaction.
++2 hours
+Hi {{first_name}}, thank you for meeting with {{trainer_first_name}} today. We want to make sure your evaluation was helpful.
+How would you rate your experience?
+1 ⭐ 2 ⭐ 3 ⭐ 4 ⭐ 5 ⭐
+Routing:
+4–5 → review request
+1–3 → service recovery
+This prevents unhappy customers from being pushed directly to public reviews and gives LDTT the chance to fix legitimate problems.
+
+26. REVIEW REQUEST
+For positive responses:
+Thank you — we’re glad your evaluation was helpful.
+Would you mind sharing a few words about your experience? Reviews help other dog owners know where to turn when they need help.
+{{google_review_link}}
+We appreciate you trusting Lorenzo’s Dog Training Team.
+Keep it human.
+
+27. REFERRAL ASK
+Do this after positive sentiment.
+Referral message
+One more thing, {{first_name}} — if you know someone who is struggling with their dog and could use professional help, feel free to send them our way.
+They can request a complimentary evaluation here:
+{{referral_link}}
+Sometimes the best introduction comes from someone who has already experienced us.
+If a formal referral reward exists, build it separately and disclose terms.
+
+28. NO-SALE FOLLOW-UP
+The existing phrase “keeps the door open without sounding desperate” is exactly right.
+Same evening / next morning
+Hi {{first_name}}, thank you again for allowing {{trainer_first_name}} to meet you and {{dog_name}}.
+We know choosing training is a decision you want to feel comfortable with. If questions come up about the recommendation, the process, or what would be best for {{dog_name}}, just reply here.
+We’re happy to help when you’re ready.
+Then no hard pressure.
+
+29. NO-SALE FOLLOW-UP SEQUENCE
+Different reasons need different messages.
+Do not send the same nurture to everyone.
+Price / financing
+We wanted to check back because we know investing in training can require some planning. If the recommendation made sense but the timing or payment was the concern, reply OPTIONS and we can review what may be available.
+Only say this if payment options genuinely exist.
+Decision-maker
+Hi {{first_name}}, were you able to discuss the training recommendation with {{decision_maker}}? If it would help, {{trainer_name}} would be happy to answer questions from both of you.
+Not ready
+No pressure, {{first_name}}. We wanted you to know that your evaluation remains on file. If {{problem}} continues or you decide you’re ready to move forward, you won’t have to start over.
+
+30. “NEVER LOST” NEEDS ONE CORRECTION
+The concept is good:
+Nobody falls through.
+But not every lead should remain active forever.
+You need four terminal categories:
+Won Not Qualified / Cannot Service Do Not Contact Long-Term Archive
+And one recovery category:
+Win-Back
+Do not put clear opt-outs, fraudulent leads, or impossible service locations into Win-Back.
+That damages deliverability and reporting.
+
+31. NEVER ANSWERED SEQUENCE
+Current:
+1 hr → 24 hr → 72 hr
+Good.
+Make each message different.
+1 hour
+Hi {{first_name}}, this is Lorenzo’s Dog Training Team. We received your request for help with {{problem}}.
+You can schedule your complimentary evaluation here:
+{{booking_link}}
+If you have a question first, just reply to this message.
+24 hours
+Hi {{first_name}}, just following up about {{dog_name_or_your_dog}}. If {{problem}} is still something you’d like help with, we have evaluation times available.
+{{booking_link}}
+72 hours
+Hi {{first_name}}, I don’t want to keep filling your phone with messages, so this will be our last automatic follow-up for now.
+If you still want help with {{problem}}, your evaluation request is still here:
+{{booking_link}}
+You can also reply whenever you’re ready.
+Then Win-Back.
+That third message is important. It demonstrates restraint.
+
+32. WIN-BACK ENGINE
+Do not simply create a bucket called “Win-back.”
+Create reasons and timing.
+7 days
+Soft check-in.
+30 days
+Problem-centered follow-up.
+60 days
+Educational/case-study touch.
+90 days
+Final reactivation.
+Example:
+Hi {{first_name}}, checking back on {{dog_name}}. When we last spoke, you were dealing with {{problem}}.
+Has that improved, stayed about the same, or gotten worse?
+If you’d like us to take another look, we can reopen your evaluation request.
+This invites a response instead of shouting “BUY.”
+
+33. UNSERVED ZIP
+The current thinking is correct.
+Message
+Thanks for reaching out to Lorenzo’s Dog Training Team. We don’t currently have a trainer available in {{city/zip}}, but we are expanding.
+If you’d like, we can keep your information and contact you when service becomes available in your area.
+Reply YES if you’d like us to let you know.
+Do not automatically market to them indefinitely without appropriate consent.
+Create:
+WAITLIST — UNSERVED MARKET
+This data becomes expansion intelligence.
+If 140 leads accumulate in the same ZIP cluster, that is not just a dead lead list.
+That is a recruiting signal.
+
+34. BOT HUMAN-TAKEOVER TRIGGERS
+A bot should immediately route to a person when customer types things like:
+bite
+attacked
+hospital
+emergency
+refund
+complaint
+lawsuit
+lawyer
+hurt
+trainer didn't show
+payment problem
+cancel
+stop
+angry language
+“call me”
+complex question bot cannot classify
+Do not let an AI bot improvise on high-risk behavioral, legal, financial, or safety situations.
+
+35. CONTACT PREFERENCE
+Add:
+How would you prefer we communicate?
+○ Text ○ Phone ○ Email
+People convert differently.
+Respecting preference improves response rate.
+
+36. SMS COMPLIANCE
+The coder should build:
+Consent timestamp
+Source of consent
+Exact consent language shown
+IP/source metadata where appropriate
+STOP handling
+HELP handling
+Quiet-hour logic
+Suppression list
+Transactional vs marketing message classification
+If someone replies STOP:
+Messaging stops immediately.
+No Win-Back.
+No “just checking in.”
+No referral.
+Nothing except legally permitted confirmations.
+Have counsel/provider review final automated marketing consent language before production.
+
+37. LEAD SCORING
+I would add internal—not customer-facing—lead scoring.
+Possible signals:
++
+Evaluation scheduled
+Within service radius
+Aggression/reactivity/urgent problem
+All decision-makers attending
+Detailed goal entered
+Answers trainer call
+Appointment within 48 hours
+–
+Fake/invalid phone
+Outside service territory
+Repeated no-shows
+Cannot contact
+No consent
+Do not use it to deny service.
+Use it to prioritize human effort.
+
+38. DASHBOARD — THE NUMBERS TIM SHOULD SEE
+Not “how many leads?”
+Daily/weekly:
+Ads
+Spend
+CPC
+Landing page visits
+Lead
+Forms started
+Forms completed
+Cost per lead
+Booking
+Lead → booked %
+Median time to booking
+Booking within 48 hours %
+Trainer
+Trainer contact SLA %
+Evaluation show %
+No-show %
+Trainer no-show %
+Sales
+Evaluation → close %
+Average sale
+Revenue per evaluation
+Revenue per lead
+Revenue per trainer
+Revenue per market
+Marketing economics
+CAC
+ROAS
+Collected revenue / ad spend
+Close rate by source
+Close rate by campaign
+Close rate by problem type
+Recovery
+Abandoned forms recovered
+No-shows recovered
+No-sales recovered
+Win-back revenue
+That last category will expose how much money automation recovers.
+
+39. CODER STATE MACHINE
+Give him these exact statuses:
+NEW PAID LEAD ↓ ROUTING ↓ BOOKING OFFERED ↓ BOOKED ↓ PRE-EVAL COMPLETE ↓ TRAINER CONTACT REQUIRED ↓ TRAINER CONTACTED ↓ EVALUATION CONFIRMED ↓ EVALUATION COMPLETED
+Then branch:
+WON — PAYMENT COMPLETE
+or
+FOLLOW-UP REQUIRED
+or
+NO SALE — WIN-BACK
+or
+NO-SHOW — REBOOK
+or
+NOT SERVICEABLE
+or
+DO NOT CONTACT
+or
+ARCHIVED
+No vague “Open” stage.
+Every stage must answer:
+What has happened? Who owns the lead? What must happen next? By when?
+
+40. AUTOMATION FAILURE MONITOR
+This is another missing piece.
+The system itself can fail.
+Create alerts for:
+lead captured with no trainer
+lead booked but trainer not notified
+no calendar availability in active market
+SMS failed
+email bounced
+payment recorded but opportunity not Won
+Won with $0
+evaluation elapsed without disposition
+lead with no next action
+duplicate opportunity
+lead sitting >24 hours in Routing
+booked appointment without address
+trainer calendar disconnected
+This becomes the operational watchdog.
+
+41. THE CUSTOMER EXPERIENCE SHOULD FEEL LIKE THIS
+A prospect should never feel:
+“I entered my information and now a marketing machine has me.”
+They should feel:
+“I asked for help. They immediately understood the issue, let me choose a convenient time, told me exactly what would happen, introduced me to the person coming to my home, remembered what I told them, and followed through.”
+That distinction matters enormously.
+
+THE ENTIRE MESSAGE LIBRARY — SHORT VERSION FOR THE CODER
+Use these message names as automation assets:
+LDTT_Lead_Booking_Link
+LDTT_Abandoned_Form_15Min
+LDTT_Booking_Confirmation
+LDTT_PreEval_Questions
+LDTT_Trainer_New_Eval
+LDTT_Trainer_Contact_Reminder
+LDTT_Customer_24Hr_Reminder
+LDTT_Customer_5Hr_Reminder
+LDTT_Reschedule
+LDTT_Customer_NoShow
+LDTT_Trainer_NoShow_ServiceRecovery
+LDTT_PostEval_Experience
+LDTT_Positive_Review_Request
+LDTT_Referral_Request
+LDTT_NoSale_OpenDoor
+LDTT_NoSale_Price
+LDTT_NoSale_DecisionMaker
+LDTT_Unanswered_1Hr
+LDTT_Unanswered_24Hr
+LDTT_Unanswered_72Hr
+LDTT_WinBack_7Day
+LDTT_WinBack_30Day
+LDTT_WinBack_60Day
+LDTT_WinBack_90Day
+LDTT_Unserved_Zip_Waitlist
+LDTT_Safety_Review
+LDTT_Payment_Incomplete
+LDTT_System_Failure_Alert
+That gives engineering named templates instead of loose copy scattered through workflows.
+
+My 360 score of the current plan
+Current architecture: 8/10.
+The major strengths are excellent:
+immediate self-scheduling
+trainer-calendar integration
+trainer alerts
+automated reminders
+no manual revenue posting
+lead recovery
+no premature archive
+ZIP-based routing
+clear trainer accountability
+The missing 2 points are not cosmetic. They are operational:
+backup routing, rescheduling logic, customer-vs-trainer no-show separation, safety screening, duplicate protection, consent suppression, reason-based no-sale follow-up, calendar/travel logic, system failure monitoring, and closed-loop attribution.
+Add those and this becomes something materially larger than a “bot.”
+It becomes the LDTT Revenue Operating System.
+And one final change I would insist on:
+Do not measure whether this implementation works by whether the automations fire correctly.
+Measure it by:
+Lead → Evaluation → Show → Close → Collected Revenue
+The bot is successful only when it reduces elapsed time, prevents leakage, increases show rate, increases close rate, protects customer experience, and creates more collected revenue per advertising dollar.

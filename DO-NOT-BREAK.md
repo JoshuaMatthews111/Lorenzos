@@ -679,17 +679,18 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
 61. **Website text spots: the office edits words, the code owns everything else (Joshua
     2026-09-11).** `site_text_marker.py` tags the plain-text headlines, paragraphs, labels and
     button words of the 8 main pages with `data-edit="<key>"` (never inside header, footer,
-    nav, forms or the texting consent wording) and writes `site-text-manifest.json`.
-    `build.py` runs it after every build, so a rebuild keeps the tags. Keys are matched in
-    page order; a spot whose words the code changed keeps its key only when the new words are
-    at least 60% similar (same tag), otherwise it gets a new key, so office text is never moved
-    onto a different spot. Phone numbers, emails and tel:/mailto: links are never spots. Each
-    build prints the reworded / new / removed spots. On the practice copy live wins per spot. Office text lives
-    in `site_text` (draft_value, live_value, base_default = the code text they saw). The
-    public page (`script.js`) swaps in live_value with textContent only; any failure keeps
-    the coded words. Page Editor → Main Website: click a spot to edit (draft), "Publish this
-    page's text" and "Reset to code text" need a full name and are logged
-    (`site_text_published` / `site_text_reset`). A spot whose code text changed after an
-    office edit keeps the office text live and is flagged "The code changed this spot since
-    your edit"; a spot the code removed is kept and flagged, never silently dropped.
-    Anything not tagged stays code-owned: changes there go through Joshua.
+    nav, forms, the texting consent wording, phone numbers, emails or tel:/mailto: links)
+    and writes `site-text-manifest.json`. `build.py` runs it after every build.
+    Keys are reused ONLY on an exact match (same tag, same place on the page = classes of the
+    element and its 3 nearest ancestors, same words); a spot that only moved keeps its key
+    when unique; identical spots pair only if their count is unchanged; a reworded or unsure
+    spot gets a NEW key; retired keys are never reused. Each build prints moved / new /
+    removed spots. Office text lives in `site_text` (draft_value, live_value, base_default =
+    the code words it was published against). SAFETY NET: `api/site-text.js` serves live
+    office text only while base_default equals the spot's current code words, so office text
+    can never show on a spot it was not written for; after a code change the editor shows
+    "Your text is saved but hidden… Keep my text" (operation confirm, full name, logged
+    `site_text_confirmed`). Page Editor > Main Website: click a spot to edit (draft), "Publish
+    this page's text" and "Reset to code text" need a full name and are logged. The public
+    swap (`script.js`) is textContent only and fails open. On the practice copy live wins
+    per spot (pull mode office). Anything not tagged stays code-owned: changes go through Joshua.

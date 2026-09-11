@@ -1,0 +1,282 @@
+LDTT REVENUE FUNNEL — BOT Messaging 
+1. Paid Ad
+Executive goal: attract the right problem.
+Coder action: capture source, campaign, ad, UTM, GCLID/FBCLID.
+Ad should match the issue:
+Aggression/reactivity
+Leash pulling
+Obedience
+Puppy Training
+Excessive barking /jumping
+Fear/anxiety
+Off leash training
+House Soiling/Potty training 
+Destructive chewing
+
+
+2. Problem Selection
+Customer sees:
+What would you most like help with?
+Save:
+problem_type
+Do not start with a long form.
+
+3. ZIP / Market Match
+Customer sees:
+Let’s see which trainer serves your area.
+Routing:
+ZIP → Market → Primary Trainer → Backup Trainer → Human Escalation
+Never leave a qualified lead unassigned.
+
+4. Contact Capture
+Collect:
+First name
+Mobile
+Email
+Consent
+Now the lead is recoverable even if they stop.
+
+5. Immediate Booking
+Customer sees:
+Good news — we serve your area. Let’s get your complimentary evaluation scheduled.
+Show:
+3–5 earliest valid appointments, preferably within 48 hours.
+Calendar must respect:
+trainer hours
+minimum notice
+daily maximum
+travel buffer
+blocked calendars
+vacations
+service territory
+timezone
+No availability = human escalation.
+Never dead-end the customer.
+
+6. Booking Confirmation
+Customer:
+You’re confirmed. ✅
+Trainer: {{trainer}} Date: {{date}} Time: {{time}} Address: {{address}}
+Then:
+Tell us a little more about your dog so your trainer can prepare.
+
+7. PRE-EVALUATION INFORMATION
+Collect after booking:
+Dog name
+Age
+Breed
+Primary problem
+Duration of problem
+Previous training
+Vaccinations
+Other pets
+Children
+Bite history if applicable
+Owner’s desired outcome
+The most important question:
+If training works the way you hope, what would everyday life with {{dog_name}} look like six months from now?
+Store separately:
+problem
+desired_outcome
+That gives the trainer both the behavior issue and the emotional reason the customer wants change.
+
+8. SAFETY BRANCH
+If bite, attack, injury, or serious aggression appears:
+Set:
+SAFETY_REVIEW = TRUE
+Ask appropriate severity questions.
+Alert trainer/management when needed.
+Bot does not diagnose.
+Bot does not promise results.
+High-risk situations move to human review.
+
+9. TRAINER ALERT
+Immediately after booking:
+🔔 NEW LDTT EVALUATION
+{{customer}} {{date}} at {{time}} {{address}}
+Dog: {{dog_name}} / {{breed}} / {{age}}
+Problem: {{problem}}
+Goal: {{goal}}
+Safety: {{status}}
+Call the customer and mark CONTACTED.
+
+10. TRAINER CONTACT SLA
+Target:
+Within 2 hours when practical.
+Maximum:
+Same business day.
+After-hours booking:
+By 10 AM next business day.
+Escalation:
+Trainer → Market Leader → Operations/Tim
+
+11. CUSTOMER REMINDERS
+24 Hours
+Hi {{first_name}}, just a reminder that {{trainer}} will see you tomorrow at {{time}} for {{dog_name}}’s evaluation.
+Please have {{dog_name}} securely leashed or crated and other pets separated when the trainer arrives.
+Need another time? {{reschedule_link}}
+5 Hours
+We’re looking forward to seeing you today at {{time}}.
+Please have {{dog_name}} securely leashed or safely crated and other pets put away when {{trainer}} arrives.
+See you soon.
+No referral request before service.
+
+12. RESCHEDULE BEFORE CANCEL
+If customer wants to cancel:
+Ask:
+What changed?
+Choices:
+Schedule
+Family decision
+Cost concern
+Health issue
+Found another trainer
+No longer need training
+Other
+Then branch.
+Schedule conflict → immediately offer new calendar.
+Cost concern:
+The evaluation itself is complimentary. You can hear the recommendation before deciding anything. Would you like to keep the appointment?
+
+13. EVALUATION
+Trainer already knows:
+Who the customer is
+Dog
+Problem
+History
+Goal
+Safety concerns
+Trainer should diagnose the need and recommend the correct program.
+Sales structure:
+Recommended Program → Approved Alternative → Payment Option
+Not uncontrolled discounting.
+
+14. REQUIRED OUTCOME
+Trainer cannot leave the opportunity unresolved.
+Select:
+WON_PAID
+WON_PAYMENT_PENDING
+FOLLOWUP_PRICE
+FOLLOWUP_DECISION_MAKER
+FOLLOWUP_THINKING
+FOLLOWUP_TIMING
+NOT_FIT
+REFERRED_ELSEWHERE
+CUSTOMER_NO_SHOW
+TRAINER_NO_SHOW
+RESCHEDULED
+This tells automation exactly what happens next.
+
+15. PAYMENT
+Payment is the source of truth.
+Successful payment automatically:
+Marks Won
+Records trainer
+Market
+Program
+Contract value
+Cash collected
+Campaign/source
+Timestamp
+Then immediately:
+Remove from lead workflows.
+Move to:
+CLIENT ONBOARDING
+
+16. NO-SALE AUTOMATION
+Different objection = different message.
+Price
+If the recommendation made sense but the investment or timing is the concern, reply OPTIONS and we can review what may be available.
+Decision-maker
+If it would help, {{trainer}} can answer questions from everyone involved in the decision.
+Thinking
+Take the time you need. If a question comes up, reply here.
+Not ready
+Your evaluation remains on file, so you will not have to start over later.
+
+17. NO-SHOW RECOVERY
+Customer no-show:
+Looks like we missed you today. Things happen. If you still want help with {{problem}}, choose another time here:
+{{rebook_link}}
+Trainer no-show:
+We owe you an apology. That is not the experience we want you to have.
+{{priority_rebook_link}}
+Reply CALL ME if you would like someone to contact you personally.
+Trainer failure = immediate management alert.
+
+18. WIN-BACK
+7 Days
+When you contacted us, you were dealing with {{problem}}.
+Has it:
+Improved Stayed the Same Gotten Worse
+Then react accordingly.
+30 days → reopen opportunity.
+60 days → problem-specific educational content.
+90 days → final automatic follow-up.
+Then archive.
+
+19. HUMAN TAKEOVER
+Bot stops immediately for:
+serious injury
+dangerous bite
+emergency
+refund
+payment dispute
+legal threat
+trainer complaint
+angry escalation
+trainer no-show
+direct request for a person
+bot fails twice to understand
+Standard response:
+I want to make sure this is handled correctly rather than give you an automated answer. I’m sending this to a member of our team for personal follow-up.
+
+20. AUTOMATION WATCHDOG
+The system must also monitor itself.
+Alert leadership when:
+lead has no trainer
+lead has no market
+calendar disconnects
+no valid appointments exist
+trainer contact deadline passes
+appointment passes with no outcome
+payment exists but CRM is not Won
+Won exists with $0 payment
+paid lead has no attribution
+duplicate opportunity appears
+SMS fails
+email bounces
+lead has no next action
+Silent failure is the biggest automation risk.
+
+21. EXECUTIVE DASHBOARD
+Leadership should see only what matters:
+Marketing
+Spend Leads Cost per lead
+Booking
+Lead → booking % Time to booking Bookings inside 48 hours
+Operations
+Trainer contact % Show rate No-show rate
+Sales
+Evaluation → sale % Average sale Revenue per evaluation Revenue per lead
+Economics
+CAC ROAS Contract value Cash collected
+Recovery
+Abandoned leads recovered No-shows recovered No-sales recovered Win-back revenue
+Break all of it down by:
+Trainer | Market | Campaign | Problem | Source
+
+FINAL BUILD RULE
+The coder should build every automation using:
+Trigger → Condition → Message → Status → Owner → Deadline → Escalation → Exit
+Example:
+Trigger: Customer books evaluation Condition: Valid trainer assigned Message: Confirmation SMS Status: BOOKED Owner: Assigned trainer Deadline: Contact customer same day Escalation: Market leader if missed Exit: Trainer marks CONTACTED
+That framework should be used for every pathway.
+
+The one sentence both sides need to agree on
+Executive version:
+No qualified paid lead should be lost because LDTT was too slow, forgot to follow up, failed to route them correctly, or failed to recover them.
+Coder version:
+Every lead must always have a valid state, owner, next action, deadline, recovery path, and terminal condition.
+Same mission. Different language.
+That is the version I would put at the top of the coder’s build document and the executive operating plan.

@@ -6221,9 +6221,9 @@ function siteTextControlsInner() {
       row.draft_value != null ? `<span class="status draft">Draft waiting</span>` : "",
       row.live_value != null ? `<span class="status live">On the website</span>` : "",
       !spot ? `<span class="status lost">No longer on the page</span>` : "",
-      codeChanged ? `<span class="status lost">The code changed this spot since your edit</span>` : ""
+      codeChanged ? `<span class="status lost">The code changed this spot. Your text is saved but hidden on the website until you press Keep my text.</span>` : ""
     ].join(" ");
-    return `<li class="site-text-row"><div class="site-text-flags">${flags}</div><p><strong>${escapeHtml(row.draft_value ?? row.live_value ?? "")}</strong></p><small>Code text: ${escapeHtml(spot?.text || row.base_default || "")}</small><div class="row-actions">${row.draft_value != null ? `<button class="btn btn-outline btn-small" type="button" data-site-text-undo="${escapeHtml(row.key)}">Undo draft</button>` : ""}<button class="btn btn-outline btn-small" type="button" data-site-text-reset="${escapeHtml(row.key)}">Reset to code text</button></div></li>`;
+    return `<li class="site-text-row"><div class="site-text-flags">${flags}</div><p><strong>${escapeHtml(row.draft_value ?? row.live_value ?? "")}</strong></p><small>Code text: ${escapeHtml(spot?.text || row.base_default || "")}</small><div class="row-actions">${row.draft_value != null ? `<button class="btn btn-outline btn-small" type="button" data-site-text-undo="${escapeHtml(row.key)}">Undo draft</button>` : ""}${codeChanged && row.live_value != null ? `<button class="btn btn-red btn-small" type="button" data-site-text-confirm="${escapeHtml(row.key)}">Keep my text</button>` : ""}<button class="btn btn-outline btn-small" type="button" data-site-text-reset="${escapeHtml(row.key)}">Reset to code text</button></div></li>`;
   }).join("");
   return `<h3>Website text</h3>
     <p class="builder-help">Turn on Edit Overlay, then click a headline, paragraph or button in the preview to change its words. Enter saves, Escape cancels. Each change saves as a draft; nothing reaches the website until you press Publish. Parts that will not open are set in the code: ask Joshua to change those.</p>
@@ -11737,7 +11737,8 @@ document.addEventListener("click", async event => {
   const siteTextReset = event.target.closest("[data-site-text-reset]");
   const siteTextPublish = event.target.closest("[data-site-text-publish]");
   const siteTextDiscard = event.target.closest("[data-site-text-discard]");
-  if (siteTextUndo || siteTextReset || siteTextPublish || siteTextDiscard) {
+  const siteTextConfirm = event.target.closest("[data-site-text-confirm]");
+  if (siteTextUndo || siteTextReset || siteTextPublish || siteTextDiscard || siteTextConfirm) {
     const page = siteTextPageFor();
     if (!page) return;
     try {
@@ -11748,6 +11749,11 @@ document.addEventListener("click", async event => {
         if (!window.confirm(`Discard every text draft on the ${page.label} page? The website does not change.`)) return;
         await siteTextFetch("/api/site-text", { method: "POST", body: JSON.stringify({ operation: "discard_draft", page: page.id }) });
         showToast("Drafts discarded.");
+      } else if (siteTextConfirm) {
+        const name = await confirmSiteTextName("Keep your text on this spot?", "The code changed this spot. Your text goes back on the website in place of the new code words. Your name is saved in the log.", "Keep my text");
+        if (!name) return;
+        await siteTextFetch("/api/site-text", { method: "POST", body: JSON.stringify({ operation: "confirm", page: page.id, key: siteTextConfirm.dataset.siteTextConfirm, name }) });
+        showToast("Your text is back on the website within a minute.", 5000);
       } else if (siteTextReset) {
         const name = await confirmSiteTextName("Put this spot back to the code text?", "The website shows the original words again. Your name is saved in the log.", "Reset to code text");
         if (!name) return;
