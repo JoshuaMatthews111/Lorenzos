@@ -125,13 +125,13 @@ test("practice copy: reads and writes practice.site_text", async () => {
 
 const py = code => execFileSync("python3", ["-c", code], { cwd: new URL("..", import.meta.url).pathname, encoding: "utf8" });
 
-test("marker: tags only plain text outside forms/footers/consent, is idempotent, and keeps a spot's key when the code changes its words", () => {
+test("marker: tags only plain text outside forms/footers/consent, is idempotent, and keeps a spot's key when the code slightly rewords it", () => {
   const out = JSON.parse(py(`
 import json, site_text_marker as m
 src = '<main><h2>Hello there</h2><p>Plain words here</p><p>Mixed <b>bold</b></p><form><p>Form words</p></form><div class="consent-row"><span>Text me please</span></div></main><footer><p>Footer words</p></footer>'
 a, spots = m.mark_source(src)
 b, spots2 = m.mark_source(a, spots)
-changed = src.replace('Plain words here', 'New code words')
+changed = src.replace('Plain words here', 'Plain words right here')
 c, spots3 = m.mark_source(changed, spots)
 print(json.dumps({"a": a, "same": a == b, "keys": [s["key"] for s in spots], "keys3": [s["key"] for s in spots3], "texts3": [s["text"] for s in spots3]}))
 `));
@@ -139,5 +139,41 @@ print(json.dumps({"a": a, "same": a == b, "keys": [s["key"] for s in spots], "ke
   assert.ok(!/<form>[^]*data-edit[^]*<\/form>/.test(out.a) && !/<footer>[^]*data-edit/.test(out.a) && !/consent-row[^<]*<span data-edit/.test(out.a));
   assert.equal(out.same, true, "a second run changes nothing");
   assert.deepEqual(out.keys3, out.keys, "the changed spot keeps its key");
-  assert.equal(out.texts3[1], "New code words");
+  assert.equal(out.texts3[1], "Plain words right here");
+});
+
+test("marker: deleting a card and rewriting the next one never moves office text onto a different card", () => {
+  const out = JSON.parse(py(`
+import json, site_text_marker as m
+before = '<main><h3>Destructive chewing</h3><p>Replace destructive patterns with structure.</p><h3>Excessive barking</h3><p>We calm the triggers.</p><h3>Jumping</h3></main>'
+_, spots = m.mark_source(before)
+after = '<main><h3>Barking and whining</h3><p>We find the trigger first.</p><h3>Jumping</h3></main>'
+_, spots2 = m.mark_source(after, spots)
+reword = '<main><h3>Destructive chewing habits</h3><p>Replace destructive patterns with structure.</p><h3>Excessive barking</h3><p>We calm the triggers.</p><h3>Jumping</h3></main>'
+_, spots3 = m.mark_source(reword, spots)
+print(json.dumps({"old": {s["text"]: s["key"] for s in spots}, "new": {s["text"]: s["key"] for s in spots2}, "reword": {s["text"]: s["key"] for s in spots3}}))
+`));
+  assert.notEqual(out.new["Barking and whining"], out.old["Destructive chewing"], "the rewritten card never inherits the deleted card's key");
+  assert.notEqual(out.new["We find the trigger first."], out.old["Replace destructive patterns with structure."]);
+  assert.equal(out.new["Jumping"], out.old["Jumping"], "untouched spots keep their key");
+  assert.equal(out.reword["Destructive chewing habits"], out.old["Destructive chewing"], "a small rewording keeps the key");
+});
+
+test("marker: phone numbers, emails and call links are never spots", () => {
+  const out = JSON.parse(py(`
+import json, site_text_marker as m
+src = '<main><a href="tel:+18664364959">Call now</a><p>(866) 436-4959</p><p>office@example.com</p><h2>Real heading</h2></main>'
+_, spots = m.mark_source(src)
+print(json.dumps([s["text"] for s in spots]))
+`));
+  assert.deepEqual(out, ["Real heading"]);
+});
+
+test("a draft keeps the code text the office first edited against; only publish moves it", async () => {
+  let calls = fakeSupabase([{ id: `home:${SPOT.key}`, page: "home", key: SPOT.key, live_value: "Office words", draft_value: null, base_default: "Older code words" }]);
+  await call(load(false), { method: "POST", body: { operation: "save_draft", page: "home", key: SPOT.key, value: "Newer office words" } });
+  assert.equal(calls.find(c => c.method === "POST" && c.path.startsWith("/rest/v1/site_text")).body.base_default, "Older code words");
+  calls = fakeSupabase([{ id: `home:${SPOT.key}`, page: "home", key: SPOT.key, live_value: "Office words", draft_value: "Newer office words", base_default: "Older code words" }]);
+  await call(load(false), { method: "POST", body: { operation: "publish", page: "home", name: "Rachel Leggett" } });
+  assert.equal(calls.find(c => c.method === "PATCH").body.base_default, SPOT.text);
 });

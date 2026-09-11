@@ -680,8 +680,11 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     2026-09-11).** `site_text_marker.py` tags the plain-text headlines, paragraphs, labels and
     button words of the 8 main pages with `data-edit="<key>"` (never inside header, footer,
     nav, forms or the texting consent wording) and writes `site-text-manifest.json`.
-    `build.py` runs it after every build, so a rebuild keeps the tags; keys are matched in
-    page order, so a spot keeps its key when the code changes its words. Office text lives
+    `build.py` runs it after every build, so a rebuild keeps the tags. Keys are matched in
+    page order; a spot whose words the code changed keeps its key only when the new words are
+    at least 60% similar (same tag), otherwise it gets a new key, so office text is never moved
+    onto a different spot. Phone numbers, emails and tel:/mailto: links are never spots. Each
+    build prints the reworded / new / removed spots. On the practice copy live wins per spot. Office text lives
     in `site_text` (draft_value, live_value, base_default = the code text they saw). The
     public page (`script.js`) swaps in live_value with textContent only; any failure keeps
     the coded words. Page Editor → Main Website: click a spot to edit (draft), "Publish this

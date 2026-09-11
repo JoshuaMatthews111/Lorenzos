@@ -8,6 +8,8 @@
 //   GET  ?all=1             (admin)     every row, for the Page Editor list
 //   POST (admin) { operation: save_draft | discard_draft | publish | reset, page, key, value, name }
 // Publish and reset need the full name (two words) and write audit_events.
+// base_default = the code text the live office text was published against; a draft keeps it
+// (so Undo never hides the "code changed" flag), only a publish moves it to the current code text.
 // The public page only ever sets textContent, so no markup can be injected.
 const { supabaseRequest } = require("../lib/sandbox");
 const { authorizeRequest } = require("../lib/portal-auth");
@@ -127,7 +129,7 @@ async function handlePost(req, res) {
     const [row] = await supabaseFetch("/rest/v1/site_text?on_conflict=id", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-      body: JSON.stringify({ id: rowId(page, key), page, key, draft_value: draftValue, base_default: spot.text, draft_by_name: auth.actor.name, draft_by_login: auth.actor.email, draft_at: now, updated_at: now })
+      body: JSON.stringify({ id: rowId(page, key), page, key, draft_value: draftValue, base_default: existing?.base_default ?? spot.text, draft_by_name: auth.actor.name, draft_by_login: auth.actor.email, draft_at: now, updated_at: now })
     }) || [];
     return res.status(200).json({ ok: true, row });
   }
@@ -157,7 +159,7 @@ async function handlePost(req, res) {
       const spot = spotFor(page, row.key);
       if (!spot) continue; // a spot the code removed: keep the row, publish nothing to it
       const newLive = row.draft_value === spot.text ? null : row.draft_value;
-      await supabaseFetch(`/rest/v1/site_text?id=eq.${encodeURIComponent(row.id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ live_value: newLive, draft_value: null, published_by_name: typed, published_by_login: auth.actor.email, published_at: now, updated_at: now }) });
+      await supabaseFetch(`/rest/v1/site_text?id=eq.${encodeURIComponent(row.id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ live_value: newLive, draft_value: null, base_default: spot.text, published_by_name: typed, published_by_login: auth.actor.email, published_at: now, updated_at: now }) });
       changes.push({ key: row.key, before: row.live_value ?? spot.text, after: newLive ?? spot.text });
     }
     if (!changes.length) return res.status(400).json({ ok: false, message: "There are no drafts on this page to publish." });

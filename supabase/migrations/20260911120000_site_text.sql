@@ -1,8 +1,8 @@
 -- Website text the office edits in the Page Editor (rule 61, Joshua 2026-09-11).
 -- One row per edited spot. The code keeps every other word; the public page swaps in
 -- live_value for its spot (script.js, textContent only). Server-only table: RLS on, no
--- policies, no anon/authenticated grants. The practice copy gets the same table; there it
--- counts as the team's page work (pull mode 'pagework').
+-- policies, no anon/authenticated grants. The practice copy gets the same table; there live
+-- wins for a spot live has edited (pull mode 'office', the default).
 
 create table if not exists public.site_text (
   id text primary key,
@@ -41,7 +41,7 @@ create or replace function practice_private.pull_table_mode(tname text)
 as $function$
   select case
     when tname in ('ad_pages', 'ad_page_revisions', 'send_to_live_log', 'reset_log', 'site_settings') then 'never'
-    when tname in ('trainers', 'trainer_pages', 'trainer_page_versions', 'content_submissions', 'review_publications', 'site_text') then 'pagework'
+    when tname in ('trainers', 'trainer_pages', 'trainer_page_versions', 'content_submissions', 'review_publications') then 'pagework'
     else 'office'
   end
 $function$;

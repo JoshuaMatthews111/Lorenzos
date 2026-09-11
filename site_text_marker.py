@@ -37,6 +37,8 @@ TARGET = {"h1", "h2", "h3", "h4", "p", "span", "a", "button", "li", "strong"}
 SHORT_OK = {"h1", "h2", "h3", "h4", "p", "button"}
 SKIP_TAGS = {"header", "footer", "nav", "form", "script", "style", "noscript", "label", "select", "small", "dialog", "svg", "template", "textarea"}
 SKIP_CLASS = re.compile(r"(^|\s)(consent[\w-]*|topbar|nav-links|site-header|site-footer|sms[\w-]*|legal[\w-]*)(\s|$)")
+PHONE = re.compile(r"\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}")
+SIMILAR = 0.6  # a changed spot keeps its key only when its new words are clearly the same spot
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"}
 
 
@@ -103,6 +105,9 @@ class Finder(HTMLParser):
             return
         if "{" in text or "}" in text:
             return
+        href = (el["attrs"].get("href") or "").lower()
+        if href.startswith(("tel:", "mailto:")) or PHONE.search(text) or "@" in text:
+            return  # phone numbers, emails and call/mail links stay code-owned
         self.spots.append({"tag": tag, "text": text, "start": el["start"], "raw": el["raw"], "key": el["attrs"].get("data-edit")})
 
     def handle_data(self, data):
@@ -117,40 +122,65 @@ def find_spots(source):
     return sorted(f.spots, key=lambda s: s["start"])
 
 
-def assign_keys(spots, previous):
-    """Keys for spots without one: reuse the manifest's keys by page-order matching."""
-    used = {s["key"] for s in spots if s["key"]}
-    fresh = [s for s in spots if not s["key"]]
-    prev = [p for p in (previous or []) if p["key"] not in used]
+def assign_keys(spots, previous, report=None):
+    """Give every spot a key, reusing the manifest's keys.
+
+    Identical spots (same tag and words, in page order) keep their key. A spot whose words
+    the code changed keeps its key only when the new words are clearly the same spot
+    (similarity >= SIMILAR, same tag). Anything else gets a new key, so office text is never
+    moved onto a different spot; the old key's office text is kept and shows as
+    "No longer on the page" in the editor.
+    """
+    prev = list(previous or [])
     a = [f'{p["tag"]}|{p["text"]}' for p in prev]
-    b = [f'{s["tag"]}|{s["text"]}' for s in fresh]
+    b = [f'{s["tag"]}|{s["text"]}' for s in spots]
+    used = set()
     sm = difflib.SequenceMatcher(a=a, b=b, autojunk=False)
     for op, i1, i2, j1, j2 in sm.get_opcodes():
-        if op == "equal" or op == "replace":
-            for k in range(min(i2 - i1, j2 - j1)):
-                p, s = prev[i1 + k], fresh[j1 + k]
-                if op == "equal" or p["tag"] == s["tag"]:
-                    s["key"] = p["key"]
-                    used.add(p["key"])
-    for s in fresh:
-        if s["key"]:
+        if op == "equal":
+            for k in range(i2 - i1):
+                spots[j1 + k]["key"] = prev[i1 + k]["key"]
+                used.add(prev[i1 + k]["key"])
+        elif op == "replace":
+            for s_ in spots[j1:j2]:
+                best, score = None, 0.0
+                for p in prev[i1:i2]:
+                    if p["key"] in used or p["tag"] != s_["tag"]:
+                        continue
+                    r = difflib.SequenceMatcher(a=p["text"].lower(), b=s_["text"].lower()).ratio()
+                    if r > score:
+                        best, score = p, r
+                if best is not None and score >= SIMILAR:
+                    s_["key"] = best["key"]
+                    used.add(best["key"])
+                    if report is not None:
+                        report.append(f'reworded  {best["key"]}: "{best["text"][:40]}" -> "{s_["text"][:40]}"')
+    for s_ in spots:
+        if s_.get("key"):
             continue
-        base = f'{s["tag"]}-{slug(s["text"])}'
+        base = f'{s_["tag"]}-{slug(s_["text"])}'
         key, n = base, 2
-        while key in used:
+        while key in used or any(p["key"] == key for p in prev):
             key, n = f"{base}-{n}", n + 1
-        s["key"] = key
+        s_["key"] = key
         used.add(key)
+        if report is not None and prev:
+            report.append(f'new spot  {key}: "{s_["text"][:40]}"')
+    if report is not None:
+        for p in prev:
+            if p["key"] not in used:
+                report.append(f'removed   {p["key"]}: "{p["text"][:40]}" (any office text for it is kept and flagged)')
     return spots
 
 
-def mark_source(source, previous=None):
-    spots = assign_keys(find_spots(source), previous)
+def mark_source(source, previous=None, report=None):
+    # Start from the page without tags, so a spot that stopped qualifying loses its tag.
+    source = re.sub(r' data-edit="[^"]*"', "", source)
+    spots = [dict(s, key=None) for s in find_spots(source)]
+    spots = assign_keys(spots, previous, report)
     out, last = [], 0
     for s in sorted(spots, key=lambda s: s["start"]):
         raw = s["raw"]
-        if 'data-edit="' in raw:
-            continue
         end = s["start"] + len(raw)
         cut = end - 2 if raw.endswith("/>") else end - 1
         out.append(source[last:cut])
@@ -170,7 +200,10 @@ def mark_files(root="."):
         if not fp.exists():
             continue
         source = fp.read_text()
-        marked, spots = mark_source(source, old.get("pages", {}).get(page, {}).get("spots"))
+        report = []
+        marked, spots = mark_source(source, old.get("pages", {}).get(page, {}).get("spots"), report)
+        for line in report:
+            print(f"site text [{page}] {line}")
         if marked != source:
             fp.write_text(marked)
         keys = [s["key"] for s in spots]
