@@ -266,3 +266,20 @@ print(json.dumps({"ob1": key(s1, "Obedience"), "ob2": key(s2, "Obedience"), "ac1
   assert.deepEqual(out.twins, ["h3", "h3"].filter(() => false).concat(out.twins.filter(t => t === "h3")), "twin links that cannot be told apart are not tagged");
   assert.ok(!out.twins.includes("a"));
 });
+
+test("marker: moving a 'featured' class to another card never carries the office text of the old featured card's link", () => {
+  const out = pyMark(`
+import json, site_text_marker as m
+card = lambda h, f="": f'<article class="path-card {f}"><h3>{h}</h3><a class="link">Explore this path</a></article>'
+v1 = '<main><div class="paths">' + card("Obedience") + card("Specialty", "featured") + card("Academy") + '</div></main>'
+_, s1 = m.mark_source(v1)
+v2 = '<main><div class="paths">' + card("Obedience", "featured") + card("Specialty") + card("Academy") + '</div></main>'
+_, s2 = m.mark_source(v2, s1)
+key = lambda spots, anchor: [s["key"] for s in spots if s["tag"] == "a" and s["anchor"] == anchor]
+print(json.dumps({"spec1": key(s1, "Specialty"), "ob2": key(s2, "Obedience"), "keys1": [s["key"] for s in s1]}))
+`);
+  assert.equal(out.spec1.length, 1);
+  assert.equal(out.ob2.length, 1);
+  assert.notEqual(out.ob2[0], out.spec1[0], "the Obedience link never takes the Specialty link's key");
+  assert.ok(!out.keys1.includes(out.ob2[0]), "it gets a brand-new key");
+});

@@ -127,9 +127,12 @@ def find_spots(source):
     f.close()
     spots = sorted(f.spots, key=lambda s: s["start"])
     # Headings in page order (tagged or not), to anchor look-alike spots to their section.
-    heads = sorted((m.start(), re.sub(r"<[^>]+>|\s+", " ", m.group(2)).strip()) for m in re.finditer(r"<(h[1-4])\b[^>]*>(.*?)</\1>", source, re.S | re.I))
+    # A heading's own anchor is its parent heading (a higher level), so deleting or rewording a
+    # sibling card never changes the anchor of the next card's heading.
+    heads = sorted((m.start(), int(m.group(1)[1]), re.sub(r"<[^>]+>|\s+", " ", m.group(2)).strip()) for m in re.finditer(r"<(h[1-4])\b[^>]*>(.*?)</\1>", source, re.S | re.I))
     for sp in spots:
-        prior = [t for pos, t in heads if pos < sp["start"] and t]
+        level = int(sp["tag"][1]) if re.fullmatch(r"h[1-4]", sp["tag"]) else 9
+        prior = [t for pos, lv, t in heads if pos < sp["start"] and t and lv < level]
         sp["anchor"] = prior[-1] if prior else ""
     # Look-alike spots (same tag, place and words) are told apart by their nearest heading;
     # spots that still cannot be told apart are not editable at all (code-owned).
@@ -140,8 +143,7 @@ def find_spots(source):
     for sp in spots:
         group = base[(sp["tag"], sp["ctx"], sp["text"])]
         if len(group) == 1:
-            sp["anchor"] = ""
-            keep.append(sp)
+            keep.append(sp)  # keeps its heading too: a class moving between cards cannot carry a key along
             continue
         twins = [g for g in group if g["anchor"] == sp["anchor"]]
         if len(twins) == 1:

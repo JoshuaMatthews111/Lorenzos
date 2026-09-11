@@ -685,8 +685,10 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     element and its 3 nearest ancestors, same words); a spot that only moved keeps its key
     when unique; identical spots pair only if their count is unchanged; a reworded or unsure
     spot gets a NEW key; retired keys are never reused. Each build prints moved / new /
-    removed spots. Look-alike spots (same tag, place and words) are told apart by their nearest
-    heading; spots that still cannot be told apart are not tagged. A missing page keeps its
+    removed spots. Every spot's match also includes its section heading (the nearest heading
+    before it; for a heading, its parent heading), so a class such as "featured" moving to
+    another card can never carry office text to that card. Look-alike spots that still cannot
+    be told apart are not tagged. A missing page keeps its
     manifest entry. Nothing is cached in the browser. Office text lives in `site_text` (draft_value, live_value, base_default =
     the code words it was published against). SAFETY NET: `api/site-text.js` serves live
     office text only while base_default equals the spot's current code words, so office text

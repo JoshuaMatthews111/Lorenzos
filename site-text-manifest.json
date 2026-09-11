@@ -18,112 +18,112 @@
      "key": "p-dog-obedience-training-and-dog-behavior-modi",
      "tag": "p",
      "ctx": "section.hero>div.container>div.hero-copy>p.lead",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Dog obedience training and dog behavior modification for dogs of any age, size, breed, and temperament, built to keep dogs in safe, happy homes."
     },
     {
      "key": "a-book-evaluation",
      "tag": "a",
      "ctx": "div.container>div.hero-copy>div.hero-actions>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Book Evaluation"
     },
     {
      "key": "a-leave-a-review",
      "tag": "a",
      "ctx": "div.container>div.hero-copy>div.hero-actions>a.btn.btn-outline.home-review-hero-link",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Leave a Review"
     },
     {
      "key": "a-find-a-trainer",
      "tag": "a",
      "ctx": "div.container>div.hero-copy>div.hero-actions>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Find a Trainer"
     },
     {
      "key": "strong-40",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "40+"
     },
     {
      "key": "span-years-experience",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Years Experience"
     },
     {
      "key": "strong-nationwide",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Nationwide"
     },
     {
      "key": "span-trainer-network",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Trainer Network"
     },
     {
      "key": "strong-thousands-of",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Thousands of"
     },
     {
      "key": "span-dogs-trained-annually",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Dogs Trained Annually"
     },
     {
      "key": "strong-17-000",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "17,000"
     },
     {
      "key": "span-sq-ft-headquarters",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Sq. Ft. Headquarters"
     },
     {
      "key": "h2-three-paths-one-mission-better-dogs-better-l",
      "tag": "h2",
      "ctx": "section.section>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Three paths. One mission. Better dogs. Better lives."
     },
     {
      "key": "p-start-with-the-training-need-that-best-match",
      "tag": "p",
      "ctx": "section.section>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Three paths. One mission. Better dogs. Better lives.",
      "text": "Start with the training need that best matches your family."
     },
     {
      "key": "h3-obedience-behavior-modification",
      "tag": "h3",
      "ctx": "div.container>div.paths>article.path-card>h3",
-     "anchor": "",
+     "anchor": "Three paths. One mission. Better dogs. Better lives.",
      "text": "Obedience & Behavior Modification"
     },
     {
      "key": "p-for-dog-owners-who-need-manners-housebreakin",
      "tag": "p",
      "ctx": "div.container>div.paths>article.path-card>p",
-     "anchor": "",
+     "anchor": "Obedience & Behavior Modification",
      "text": "For dog owners who need manners, housebreaking, reliable obedience, or help with difficult behavior."
     },
     {
@@ -137,35 +137,35 @@
      "key": "h3-specialty-service-advanced-training",
      "tag": "h3",
      "ctx": "div.container>div.paths>article.featured.path-card>h3",
-     "anchor": "",
+     "anchor": "Three paths. One mission. Better dogs. Better lives.",
      "text": "Specialty, Service & Advanced Training"
     },
     {
      "key": "p-for-advanced-clients-seeking-alert-training",
      "tag": "p",
      "ctx": "div.container>div.paths>article.featured.path-card>p",
-     "anchor": "",
+     "anchor": "Specialty, Service & Advanced Training",
      "text": "For advanced clients seeking alert training, service tasks, assistance work, scent work, utility, retrieval, or higher-level control."
     },
     {
      "key": "a-explore-this-path-2",
      "tag": "a",
      "ctx": "div.container>div.paths>article.featured.path-card>a.link",
-     "anchor": "",
+     "anchor": "Specialty, Service & Advanced Training",
      "text": "Explore this path →"
     },
     {
      "key": "h3-academy-ldtt-certification-career-path",
      "tag": "h3",
      "ctx": "div.container>div.paths>article.path-card>h3",
-     "anchor": "",
+     "anchor": "Three paths. One mission. Better dogs. Better lives.",
      "text": "Academy / LDTT Certification Career Path"
     },
     {
      "key": "p-for-future-trainers-ready-to-become-a-profes",
      "tag": "p",
      "ctx": "div.container>div.paths>article.path-card>p",
-     "anchor": "",
+     "anchor": "Academy / LDTT Certification Career Path",
      "text": "For future trainers ready to become a professional trainer inside a proven system."
     },
     {
@@ -179,434 +179,434 @@
      "key": "span-real-client-results",
      "tag": "span",
      "ctx": "section.home-review-video-section.section>div.container.home-video-layout.split>div>span.eyebrow",
-     "anchor": "",
+     "anchor": "Academy / LDTT Certification Career Path",
      "text": "Real client results"
     },
     {
      "key": "h2-hear-from-families-who-trained-with-lorenzo",
      "tag": "h2",
      "ctx": "section.home-review-video-section.section>div.container.home-video-layout.split>div>h2",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Hear from families who trained with Lorenzo's."
     },
     {
      "key": "p-oliver-s-family-shares-what-changed-after-wo",
      "tag": "p",
      "ctx": "section.home-review-video-section.section>div.container.home-video-layout.split>div>p",
-     "anchor": "",
+     "anchor": "Hear from families who trained with Lorenzo's.",
      "text": "Oliver's family shares what changed after working through the Lorenzo's Dog Training Team process. After watching, visitors can leave their own review for office approval."
     },
     {
      "key": "button-leave-a-review",
      "tag": "button",
      "ctx": "div.container.home-video-layout.split>div>div.cta-row>button.btn.btn-red",
-     "anchor": "",
+     "anchor": "Hear from families who trained with Lorenzo's.",
      "text": "Leave a Review"
     },
     {
      "key": "a-see-google-reviews",
      "tag": "a",
      "ctx": "div.container.home-video-layout.split>div>div.cta-row>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Hear from families who trained with Lorenzo's.",
      "text": "See Google Reviews"
     },
     {
      "key": "h2-training-built-for-real-life",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Training built for real life."
     },
     {
      "key": "p-from-housebreaking-through-advanced-off-leas",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "From housebreaking through advanced off-leash obedience, every program gives owners a clear next step."
     },
     {
      "key": "h3-obedience-training",
      "tag": "h3",
      "ctx": "div.service-grid>a.service-card>div.service-body>h3",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "Obedience Training"
     },
     {
      "key": "p-build-focus-manners-respect-and-reliable-com",
      "tag": "p",
      "ctx": "div.service-grid>a.service-card>div.service-body>p",
-     "anchor": "",
+     "anchor": "Obedience Training",
      "text": "Build focus, manners, respect, and reliable commands."
     },
     {
      "key": "h3-behavior-modification",
      "tag": "h3",
      "ctx": "div.service-grid>a.service-card>div.service-body>h3",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "Behavior Modification"
     },
     {
      "key": "p-address-jumping-chewing-barking-soiling-pull",
      "tag": "p",
      "ctx": "div.service-grid>a.service-card>div.service-body>p",
-     "anchor": "",
+     "anchor": "Behavior Modification",
      "text": "Address jumping, chewing, barking, soiling, pulling, and aggression."
     },
     {
      "key": "h3-specialty-training",
      "tag": "h3",
      "ctx": "div.service-grid>a.service-card>div.service-body>h3",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "Specialty Training"
     },
     {
      "key": "p-alert-retrieval-utility-service-assistance-a",
      "tag": "p",
      "ctx": "div.service-grid>a.service-card>div.service-body>p",
-     "anchor": "",
+     "anchor": "Specialty Training",
      "text": "Alert, retrieval, utility, service, assistance, and scent work."
     },
     {
      "key": "span-professional-evaluation-first",
      "tag": "span",
      "ctx": "section.section>div.container.split>div>span.eyebrow",
-     "anchor": "",
+     "anchor": "Specialty Training",
      "text": "Professional evaluation first"
     },
     {
      "key": "h2-the-technique-behind-our-training",
      "tag": "h2",
      "ctx": "section.section>div.container.split>div>h2",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "The Technique Behind Our Training."
     },
     {
      "key": "p-lorenzo-s-system-is-built-on-technique-timin",
      "tag": "p",
      "ctx": "section.section>div.container.split>div>p",
-     "anchor": "",
+     "anchor": "The Technique Behind Our Training.",
      "text": "Lorenzo's system is built on technique, timing, communication, leadership, rules, and boundaries. The goal is not a quick trick. The goal is a dog that understands what is expected and an owner who knows how to lead with consistency."
     },
     {
      "key": "h3-1-schedule-an-evaluation",
      "tag": "h3",
      "ctx": "div>div.method-steps>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The Technique Behind Our Training.",
      "text": "1. Schedule an Evaluation"
     },
     {
      "key": "p-start-with-a-professional-evaluation-in-pers",
      "tag": "p",
      "ctx": "div>div.method-steps>article.detail-card>p",
-     "anchor": "",
+     "anchor": "1. Schedule an Evaluation",
      "text": "Start with a professional evaluation in person or by Zoom so the trainer can understand your dog, your household, and your goals."
     },
     {
      "key": "h3-2-read-the-dog-and-the-owner",
      "tag": "h3",
      "ctx": "div>div.method-steps>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The Technique Behind Our Training.",
      "text": "2. Read the Dog and the Owner"
     },
     {
      "key": "p-we-look-at-temperament-obedience-level-behav",
      "tag": "p",
      "ctx": "div>div.method-steps>article.detail-card>p",
-     "anchor": "",
+     "anchor": "2. Read the Dog and the Owner",
      "text": "We look at temperament, obedience level, behavior patterns, timing, handling, and the structure already in the home."
     },
     {
      "key": "h3-3-build-the-tailored-path",
      "tag": "h3",
      "ctx": "div>div.method-steps>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The Technique Behind Our Training.",
      "text": "3. Build the Tailored Path"
     },
     {
      "key": "p-your-trainer-recommends-the-right-path-for-y",
      "tag": "p",
      "ctx": "div>div.method-steps>article.detail-card>p",
-     "anchor": "",
+     "anchor": "3. Build the Tailored Path",
      "text": "Your trainer recommends the right path for your pet: obedience, behavior modification, specialty training, or advanced work."
     },
     {
      "key": "h3-4-train-for-real-life",
      "tag": "h3",
      "ctx": "div>div.method-steps>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The Technique Behind Our Training.",
      "text": "4. Train for Real Life"
     },
     {
      "key": "p-the-program-teaches-the-dog-and-the-owner-to",
      "tag": "p",
      "ctx": "div>div.method-steps>article.detail-card>p",
-     "anchor": "",
+     "anchor": "4. Train for Real Life",
      "text": "The program teaches the dog and the owner together so the results hold up at home, around distractions, and in daily life."
     },
     {
      "key": "a-about-us",
      "tag": "a",
      "ctx": "section.section>div.container.split>div>a.btn.btn-navy",
-     "anchor": "",
+     "anchor": "4. Train for Real Life",
      "text": "About Us"
     },
     {
      "key": "span-what-happens-next",
      "tag": "span",
      "ctx": "section.section>div.container.split>div.method-visual>span.eyebrow",
-     "anchor": "",
+     "anchor": "4. Train for Real Life",
      "text": "What happens next"
     },
     {
      "key": "h3-evaluation-technique-tailored-path-real-life",
      "tag": "h3",
      "ctx": "section.section>div.container.split>div.method-visual>h3",
-     "anchor": "",
+     "anchor": "The Technique Behind Our Training.",
      "text": "Evaluation → Technique → Tailored Path → Real-Life Follow Through"
     },
     {
      "key": "p-the-process-starts-with-a-professional-evalu",
      "tag": "p",
      "ctx": "section.section>div.container.split>div.method-visual>p",
-     "anchor": "",
+     "anchor": "Evaluation → Technique → Tailored Path → Real-Life Follow Through",
      "text": "The process starts with a professional evaluation, then turns the trainer's read on the dog, owner, timing, and home structure into a practical training path."
     },
     {
      "key": "span-evaluate",
      "tag": "span",
      "ctx": "div.container.split>div.method-visual>div.method-flow>span",
-     "anchor": "",
+     "anchor": "Evaluation → Technique → Tailored Path → Real-Life Follow Through",
      "text": "Evaluate"
     },
     {
      "key": "span-read",
      "tag": "span",
      "ctx": "div.container.split>div.method-visual>div.method-flow>span",
-     "anchor": "",
+     "anchor": "Evaluation → Technique → Tailored Path → Real-Life Follow Through",
      "text": "Read"
     },
     {
      "key": "span-plan",
      "tag": "span",
      "ctx": "div.container.split>div.method-visual>div.method-flow>span",
-     "anchor": "",
+     "anchor": "Evaluation → Technique → Tailored Path → Real-Life Follow Through",
      "text": "Plan"
     },
     {
      "key": "span-train",
      "tag": "span",
      "ctx": "div.container.split>div.method-visual>div.method-flow>span",
-     "anchor": "",
+     "anchor": "Evaluation → Technique → Tailored Path → Real-Life Follow Through",
      "text": "Train"
     },
     {
      "key": "h2-client-feedback-from-real-training-results",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Client feedback from real training results."
     },
     {
      "key": "p-client-stories-belong-close-to-the-training",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client stories belong close to the training promise: families want results they can see at home, on walks, and around real distractions."
     },
     {
      "key": "span-client-google-reviews",
      "tag": "span",
      "ctx": "div.container>div.review-summary>div>span.stars",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client + Google Reviews"
     },
     {
      "key": "h3-client-feedback-about-real-life-training-res",
      "tag": "h3",
      "ctx": "div.container>div.review-summary>div>h3",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client feedback about real-life training results"
     },
     {
      "key": "p-client-feedback-appears-first-in-this-carous",
      "tag": "p",
      "ctx": "div.container>div.review-summary>div>p",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Client feedback appears first in this carousel, followed by verified Google review screenshots."
     },
     {
      "key": "a-view-more-google-reviews",
      "tag": "a",
      "ctx": "section.section.soft>div.container>div.review-summary>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "View More Google Reviews"
     },
     {
      "key": "p-use-the-arrows-to-browse-client-feedback-fir",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.review-carousel-controls>p.review-help",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Use the arrows to browse client feedback first, then Google screenshot reviews."
     },
     {
      "key": "h2-searching-for-dog-training-near-you",
      "tag": "h2",
      "ctx": "body>section.section.seo-strip>div.container>h2",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Searching for dog training near you?"
     },
     {
      "key": "span-dog-training-near-me",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.seo-check-grid>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Dog training near me"
     },
     {
      "key": "span-dog-trainer-near-me",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.seo-check-grid>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Dog trainer near me"
     },
     {
      "key": "span-dog-obedience-training",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.seo-check-grid>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Dog obedience training"
     },
     {
      "key": "span-dog-behavior-modification",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.seo-check-grid>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Dog behavior modification"
     },
     {
      "key": "span-alert-dog-training",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.seo-check-grid>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Alert dog training"
     },
     {
      "key": "span-service-dog-training",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.seo-check-grid>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Service dog training"
     },
     {
      "key": "p-lorenzo-s-dog-training-team-provides-serious",
      "tag": "p",
      "ctx": "body>section.section.seo-strip>div.container>p",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Lorenzo's Dog Training Team provides serious training paths through a nationwide trainer network and a Cleveland, Ohio headquarters."
     },
     {
      "key": "span-california",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "California"
     },
     {
      "key": "span-florida",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Florida"
     },
     {
      "key": "span-georgia",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Georgia"
     },
     {
      "key": "span-indiana",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Indiana"
     },
     {
      "key": "span-kentucky",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Kentucky"
     },
     {
      "key": "span-massachusetts",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Massachusetts"
     },
     {
      "key": "span-michigan",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Michigan"
     },
     {
      "key": "span-new-hampshire",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "New Hampshire"
     },
     {
      "key": "span-ohio",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Ohio"
     },
     {
      "key": "span-texas",
      "tag": "span",
      "ctx": "section.section.seo-strip>div.container>div.location-list>span",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Texas"
     },
     {
      "key": "a-find-a-trainer-2",
      "tag": "a",
      "ctx": "body>section.section.seo-strip>div.container>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Searching for dog training near you?",
      "text": "Find a Trainer"
     },
     {
      "key": "h2-ready-for-serious-results",
      "tag": "h2",
      "ctx": "div.container>div.cta-band>div>h2",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Ready for serious results?"
     },
     {
      "key": "p-start-with-an-evaluation-so-we-can-match-the",
      "tag": "p",
      "ctx": "div.container>div.cta-band>div>p",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Start with an evaluation so we can match the right trainer and program to your goals."
     },
     {
      "key": "a-book-evaluation-2",
      "tag": "a",
      "ctx": "section.section.tight>div.container>div.cta-band>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Book Evaluation"
     },
     {
      "key": "a-book-evaluation-3",
      "tag": "a",
      "ctx": "html>body>a.floating-cta",
-     "anchor": "",
+     "anchor": "Team",
      "text": "Book Evaluation"
     }
    ],
@@ -638,280 +638,280 @@
      "key": "p-dog-obedience-training-starts-with-communica",
      "tag": "p",
      "ctx": "section.page-hero.page-hero-solid>div.container>div.page-hero-copy>p.lead",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Dog obedience training starts with communication and respect between dog and owner, from first manners to reliable off-leash control."
     },
     {
      "key": "a-book-evaluation",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Book Evaluation"
     },
     {
      "key": "a-find-a-trainer",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Find a Trainer"
     },
     {
      "key": "strong-40",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "40+"
     },
     {
      "key": "span-years-experience",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Years Experience"
     },
     {
      "key": "strong-nationwide",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Nationwide"
     },
     {
      "key": "span-trainer-network",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Trainer Network"
     },
     {
      "key": "strong-thousands-of",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Thousands of"
     },
     {
      "key": "span-dogs-trained-annually",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Dogs Trained Annually"
     },
     {
      "key": "strong-17-000",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "17,000"
     },
     {
      "key": "span-sq-ft-headquarters",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Sq. Ft. Headquarters"
     },
     {
      "key": "h2-dog-training-paths-for-real-homes",
      "tag": "h2",
      "ctx": "section.section>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Dog training paths for real homes."
     },
     {
      "key": "p-choose-the-level-that-meets-your-dog-where-t",
      "tag": "p",
      "ctx": "section.section>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Dog training paths for real homes.",
      "text": "Choose the level that meets your dog where they are today."
     },
     {
      "key": "h3-basic-obedience",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Dog training paths for real homes.",
      "text": "Basic Obedience"
     },
     {
      "key": "p-heel-sit-come-down-and-stay-build-owner-lead",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Basic Obedience",
      "text": "Heel, Sit, Come, Down, and Stay. Build owner leadership before adding distance."
     },
     {
      "key": "h3-off-leash-reliability",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Dog training paths for real homes.",
      "text": "Off-Leash Reliability"
     },
     {
      "key": "p-a-dog-is-not-completely-trained-until-reliab",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Off-Leash Reliability",
      "text": "A dog is not completely trained until reliable off leash around distractions and other dogs."
     },
     {
      "key": "h3-in-home-training",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Dog training paths for real homes.",
      "text": "In Home Training"
     },
     {
      "key": "p-personalized-in-home-training-provides-one-o",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "In Home Training",
      "text": "Personalized In-Home Training provides one-on-one coaching in the comfort of your own home. Your trainer works directly with you and your dog to address specific behavior challenges, teach reliable obedience, and build a stronger relationship. Because training takes place in your dog's familiar environment, lessons are immediately applicable to everyday life, making it easier to achieve consistent, long-lasting success."
     },
     {
      "key": "h3-board-train",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Dog training paths for real homes.",
      "text": "Board & Train"
     },
     {
      "key": "p-immersive-in-home-board-train-program-where",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Board & Train",
      "text": "Immersive, in-home board & train program where your dog lives with one of our professional trainers, receiving personalized, hands-on training in a real home environment. This unique approach provides consistent guidance, daily structure, and real-world experiences that help create lasting results."
     },
     {
      "key": "h2-training-built-for-real-life",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Training built for real life."
     },
     {
      "key": "p-from-housebreaking-through-advanced-off-leas",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "From housebreaking through advanced off-leash obedience, every program gives owners a clear next step."
     },
     {
      "key": "h3-obedience-training",
      "tag": "h3",
      "ctx": "div.service-grid>a.service-card>div.service-body>h3",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "Obedience Training"
     },
     {
      "key": "p-build-focus-manners-respect-and-reliable-com",
      "tag": "p",
      "ctx": "div.service-grid>a.service-card>div.service-body>p",
-     "anchor": "",
+     "anchor": "Obedience Training",
      "text": "Build focus, manners, respect, and reliable commands."
     },
     {
      "key": "h3-behavior-modification",
      "tag": "h3",
      "ctx": "div.service-grid>a.service-card>div.service-body>h3",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "Behavior Modification"
     },
     {
      "key": "p-address-jumping-chewing-barking-soiling-pull",
      "tag": "p",
      "ctx": "div.service-grid>a.service-card>div.service-body>p",
-     "anchor": "",
+     "anchor": "Behavior Modification",
      "text": "Address jumping, chewing, barking, soiling, pulling, and aggression."
     },
     {
      "key": "h3-specialty-training",
      "tag": "h3",
      "ctx": "div.service-grid>a.service-card>div.service-body>h3",
-     "anchor": "",
+     "anchor": "Training built for real life.",
      "text": "Specialty Training"
     },
     {
      "key": "p-alert-retrieval-utility-service-assistance-a",
      "tag": "p",
      "ctx": "div.service-grid>a.service-card>div.service-body>p",
-     "anchor": "",
+     "anchor": "Specialty Training",
      "text": "Alert, retrieval, utility, service, assistance, and scent work."
     },
     {
      "key": "h2-client-feedback-from-real-training-results",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Client feedback from real training results."
     },
     {
      "key": "p-client-stories-belong-close-to-the-training",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client stories belong close to the training promise: families want results they can see at home, on walks, and around real distractions."
     },
     {
      "key": "span-client-google-reviews",
      "tag": "span",
      "ctx": "div.container>div.review-summary>div>span.stars",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client + Google Reviews"
     },
     {
      "key": "h3-client-feedback-about-real-life-training-res",
      "tag": "h3",
      "ctx": "div.container>div.review-summary>div>h3",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client feedback about real-life training results"
     },
     {
      "key": "p-client-feedback-appears-first-in-this-carous",
      "tag": "p",
      "ctx": "div.container>div.review-summary>div>p",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Client feedback appears first in this carousel, followed by verified Google review screenshots."
     },
     {
      "key": "a-view-more-google-reviews",
      "tag": "a",
      "ctx": "section.section.soft>div.container>div.review-summary>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "View More Google Reviews"
     },
     {
      "key": "p-use-the-arrows-to-browse-client-feedback-fir",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.review-carousel-controls>p.review-help",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Use the arrows to browse client feedback first, then Google screenshot reviews."
     },
     {
      "key": "h2-ready-for-serious-results",
      "tag": "h2",
      "ctx": "div.container>div.cta-band>div>h2",
-     "anchor": "",
+     "anchor": "Dog Training That Builds Reliable Obedience",
      "text": "Ready for serious results?"
     },
     {
      "key": "p-start-with-an-evaluation-so-we-can-match-the",
      "tag": "p",
      "ctx": "div.container>div.cta-band>div>p",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Start with an evaluation so we can match the right trainer and program to your goals."
     },
     {
      "key": "a-book-evaluation-2",
      "tag": "a",
      "ctx": "section.section.tight>div.container>div.cta-band>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Book Evaluation"
     },
     {
      "key": "a-book-evaluation-3",
      "tag": "a",
      "ctx": "html>body>a.floating-cta",
-     "anchor": "",
+     "anchor": "Team",
      "text": "Book Evaluation"
     }
    ],
@@ -940,224 +940,224 @@
      "key": "p-teach-the-commands-leadership-and-household",
      "tag": "p",
      "ctx": "section.page-hero.page-hero-solid>div.container>div.page-hero-copy>p.lead",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Teach the commands, leadership, and household structure your dog needs before moving into higher levels of obedience or behavior modification."
     },
     {
      "key": "a-book-evaluation",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Book Evaluation"
     },
     {
      "key": "a-find-a-trainer",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Find a Trainer"
     },
     {
      "key": "strong-40",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "40+"
     },
     {
      "key": "span-years-experience",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Years Experience"
     },
     {
      "key": "strong-nationwide",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Nationwide"
     },
     {
      "key": "span-trainer-network",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Trainer Network"
     },
     {
      "key": "strong-thousands-of",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Thousands of"
     },
     {
      "key": "span-dogs-trained-annually",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Dogs Trained Annually"
     },
     {
      "key": "strong-17-000",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "17,000"
     },
     {
      "key": "span-sq-ft-headquarters",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Sq. Ft. Headquarters"
     },
     {
      "key": "h2-the-obedience-foundation",
      "tag": "h2",
      "ctx": "section.section>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "The obedience foundation."
     },
     {
      "key": "p-basic-obedience-gives-dog-owners-clear-comma",
      "tag": "p",
      "ctx": "section.section>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "The obedience foundation.",
      "text": "Basic obedience gives dog owners clear commands, reliable handling, and the leadership structure needed for everyday life."
     },
     {
      "key": "h3-on-leash-foundation",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The obedience foundation.",
      "text": "On-Leash Foundation"
     },
     {
      "key": "p-heel-sit-come-down-and-stay-build-owner-lead",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "On-Leash Foundation",
      "text": "Heel, Sit, Come, Down, and Stay. Build owner leadership before adding distance."
     },
     {
      "key": "h3-sit-stay-down-stay",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The obedience foundation.",
      "text": "Sit-Stay & Down-Stay"
     },
     {
      "key": "p-develop-patience-control-and-calm-behavior-a",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Sit-Stay & Down-Stay",
      "text": "Develop patience, control, and calm behavior around normal household and public distractions."
     },
     {
      "key": "h3-off-leash-progression",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The obedience foundation.",
      "text": "Off-Leash Progression"
     },
     {
      "key": "p-move-toward-distance-control-and-reliable-re",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Off-Leash Progression",
      "text": "Move toward distance control and reliable response after the dog understands the foundation."
     },
     {
      "key": "h3-owner-leadership",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "The obedience foundation.",
      "text": "Owner Leadership"
     },
     {
      "key": "p-training-is-not-only-for-the-dog-owners-lear",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Owner Leadership",
      "text": "Training is not only for the dog. Owners learn rules, boundaries, timing, and follow-through so the results last."
     },
     {
      "key": "h2-client-feedback-from-real-training-results",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Client feedback from real training results."
     },
     {
      "key": "p-client-stories-belong-close-to-the-training",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client stories belong close to the training promise: families want results they can see at home, on walks, and around real distractions."
     },
     {
      "key": "span-client-google-reviews",
      "tag": "span",
      "ctx": "div.container>div.review-summary>div>span.stars",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client + Google Reviews"
     },
     {
      "key": "h3-client-feedback-about-real-life-training-res",
      "tag": "h3",
      "ctx": "div.container>div.review-summary>div>h3",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client feedback about real-life training results"
     },
     {
      "key": "p-client-feedback-appears-first-in-this-carous",
      "tag": "p",
      "ctx": "div.container>div.review-summary>div>p",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Client feedback appears first in this carousel, followed by verified Google review screenshots."
     },
     {
      "key": "a-view-more-google-reviews",
      "tag": "a",
      "ctx": "section.section.soft>div.container>div.review-summary>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "View More Google Reviews"
     },
     {
      "key": "p-use-the-arrows-to-browse-client-feedback-fir",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.review-carousel-controls>p.review-help",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Use the arrows to browse client feedback first, then Google screenshot reviews."
     },
     {
      "key": "h2-ready-for-serious-results",
      "tag": "h2",
      "ctx": "div.container>div.cta-band>div>h2",
-     "anchor": "",
+     "anchor": "Basic Obedience Training That Builds the Foundation",
      "text": "Ready for serious results?"
     },
     {
      "key": "p-start-with-an-evaluation-so-we-can-match-the",
      "tag": "p",
      "ctx": "div.container>div.cta-band>div>p",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Start with an evaluation so we can match the right trainer and program to your goals."
     },
     {
      "key": "a-book-evaluation-2",
      "tag": "a",
      "ctx": "section.section.tight>div.container>div.cta-band>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Book Evaluation"
     },
     {
      "key": "a-book-evaluation-3",
      "tag": "a",
      "ctx": "html>body>a.floating-cta",
-     "anchor": "",
+     "anchor": "Team",
      "text": "Book Evaluation"
     }
    ],
@@ -1186,196 +1186,196 @@
      "key": "p-for-owners-facing-frustrating-or-unsafe-beha",
      "tag": "p",
      "ctx": "section.page-hero.page-hero-solid>div.container>div.page-hero-copy>p.lead",
-     "anchor": "",
+     "anchor": "Dog Behavior Modification That Changes the Pattern",
      "text": "For owners facing frustrating or unsafe behavior, the first step is a professional evaluation and an achievable plan."
     },
     {
      "key": "a-book-evaluation",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Dog Behavior Modification That Changes the Pattern",
      "text": "Book Evaluation"
     },
     {
      "key": "a-find-a-trainer",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Dog Behavior Modification That Changes the Pattern",
      "text": "Find a Trainer"
     },
     {
      "key": "h2-common-problems-we-help-solve",
      "tag": "h2",
      "ctx": "section.section>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Dog Behavior Modification That Changes the Pattern",
      "text": "Common problems we help solve."
     },
     {
      "key": "p-behavior-modification-is-for-dogs-that-under",
      "tag": "p",
      "ctx": "section.section>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Common problems we help solve.",
      "text": "Behavior modification is for dogs that understand basic obedience but still struggle with difficult habits, unsafe reactions, or unclear household rules."
     },
     {
      "key": "h3-jumping-on-people",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Common problems we help solve.",
      "text": "Jumping on people"
     },
     {
      "key": "p-build-calm-greetings-and-clear-boundaries",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Jumping on people",
      "text": "Build calm greetings and clear boundaries."
     },
     {
      "key": "h3-destructive-chewing",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Common problems we help solve.",
      "text": "Destructive chewing"
     },
     {
      "key": "p-replace-destructive-patterns-with-structure",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Destructive chewing",
      "text": "Replace destructive patterns with structure."
     },
     {
      "key": "h3-excessive-barking",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Common problems we help solve.",
      "text": "Excessive barking"
     },
     {
      "key": "p-address-the-cause-and-build-reliable-control",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Excessive barking",
      "text": "Address the cause and build reliable control."
     },
     {
      "key": "h3-soiling-in-the-house",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Common problems we help solve.",
      "text": "Soiling in the house"
     },
     {
      "key": "p-rebuild-household-routines-and-expectations",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Soiling in the house",
      "text": "Rebuild household routines and expectations."
     },
     {
      "key": "h3-pulling-on-leash",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Common problems we help solve.",
      "text": "Pulling on leash"
     },
     {
      "key": "p-restore-leadership-and-calm-walking",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Pulling on leash",
      "text": "Restore leadership and calm walking."
     },
     {
      "key": "h3-aggression-toward-people-or-dogs",
      "tag": "h3",
      "ctx": "div.container>div.program-detail>article.detail-card>h3",
-     "anchor": "",
+     "anchor": "Common problems we help solve.",
      "text": "Aggression toward people or dogs"
     },
     {
      "key": "p-start-with-an-evaluation-to-determine-the-ap",
      "tag": "p",
      "ctx": "div.container>div.program-detail>article.detail-card>p",
-     "anchor": "",
+     "anchor": "Aggression toward people or dogs",
      "text": "Start with an evaluation to determine the appropriate path and safety plan."
     },
     {
      "key": "h2-client-feedback-from-real-training-results",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Dog Behavior Modification That Changes the Pattern",
      "text": "Client feedback from real training results."
     },
     {
      "key": "p-client-stories-belong-close-to-the-training",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client stories belong close to the training promise: families want results they can see at home, on walks, and around real distractions."
     },
     {
      "key": "span-client-google-reviews",
      "tag": "span",
      "ctx": "div.container>div.review-summary>div>span.stars",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client + Google Reviews"
     },
     {
      "key": "h3-client-feedback-about-real-life-training-res",
      "tag": "h3",
      "ctx": "div.container>div.review-summary>div>h3",
-     "anchor": "",
+     "anchor": "Client feedback from real training results.",
      "text": "Client feedback about real-life training results"
     },
     {
      "key": "p-client-feedback-appears-first-in-this-carous",
      "tag": "p",
      "ctx": "div.container>div.review-summary>div>p",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Client feedback appears first in this carousel, followed by verified Google review screenshots."
     },
     {
      "key": "a-view-more-google-reviews",
      "tag": "a",
      "ctx": "section.section.soft>div.container>div.review-summary>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "View More Google Reviews"
     },
     {
      "key": "p-use-the-arrows-to-browse-client-feedback-fir",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.review-carousel-controls>p.review-help",
-     "anchor": "",
+     "anchor": "Client feedback about real-life training results",
      "text": "Use the arrows to browse client feedback first, then Google screenshot reviews."
     },
     {
      "key": "h2-ready-for-serious-results",
      "tag": "h2",
      "ctx": "div.container>div.cta-band>div>h2",
-     "anchor": "",
+     "anchor": "Dog Behavior Modification That Changes the Pattern",
      "text": "Ready for serious results?"
     },
     {
      "key": "p-start-with-an-evaluation-so-we-can-match-the",
      "tag": "p",
      "ctx": "div.container>div.cta-band>div>p",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Start with an evaluation so we can match the right trainer and program to your goals."
     },
     {
      "key": "a-book-evaluation-2",
      "tag": "a",
      "ctx": "section.section.tight>div.container>div.cta-band>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Book Evaluation"
     },
     {
      "key": "a-book-evaluation-3",
      "tag": "a",
      "ctx": "html>body>a.floating-cta",
-     "anchor": "",
+     "anchor": "Team",
      "text": "Book Evaluation"
     }
    ],
@@ -1404,189 +1404,189 @@
      "key": "p-a-mission-driven-dog-training-company-built",
      "tag": "p",
      "ctx": "section.page-hero.page-hero-solid>div.container>div.page-hero-copy>p.lead",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "A mission-driven dog training company built on childhood passion, professional study, serious technique, and serious results."
     },
     {
      "key": "a-book-evaluation",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "Book Evaluation"
     },
     {
      "key": "a-find-a-trainer",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "Find a Trainer"
     },
     {
      "key": "span-about-us-2",
      "tag": "span",
      "ctx": "section.section>div.container.split>div>span.eyebrow",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "About Us"
     },
     {
      "key": "h2-serious-training-serious-results",
      "tag": "h2",
      "ctx": "section.section>div.container.split>div>h2",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "Serious Training. Serious Results."
     },
     {
      "key": "p-lorenzo-s-dog-training-team-helps-dogs-of-an",
      "tag": "p",
      "ctx": "section.section>div.container.split>div>p",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Lorenzo's Dog Training Team helps dogs of any age, size, breed, and temperament become more reliable in real life. The mission is practical: keep dogs out of shelters and in safe, happy homes by teaching owners leadership, rules, boundaries, and clear communication."
     },
     {
      "key": "li-dog-obedience-training-and-advanced-off-leas",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Dog obedience training and advanced off-leash obedience."
     },
     {
      "key": "li-dog-behavior-modification-for-difficult-or-u",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Dog behavior modification for difficult or unsafe habits."
     },
     {
      "key": "li-specialty-service-assistance-alert-scent-uti",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Specialty, service, assistance, alert, scent, utility, and retrieval training."
     },
     {
      "key": "li-trainer-education-through-an-academy-ldtt-ce",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "Trainer education through an Academy / LDTT Certification path."
     },
     {
      "key": "span-about-the-founder",
      "tag": "span",
      "ctx": "section.section.soft>div.container.founder-grid>div>span.eyebrow",
-     "anchor": "",
+     "anchor": "Serious Training. Serious Results.",
      "text": "About the Founder"
     },
     {
      "key": "h2-lorenzo-miller",
      "tag": "h2",
      "ctx": "section.section.soft>div.container.founder-grid>div>h2",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "Lorenzo Miller"
     },
     {
      "key": "p-lorenzo-miller-s-journey-with-dogs-began-lon",
      "tag": "p",
      "ctx": "section.section.soft>div.container.founder-grid>div>p",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "Lorenzo Miller's journey with dogs began long before he ever built a company, trained professionals, or developed a nationally recognized system. It began as a child growing up in the inner city with a deep compassion for the stray dogs wandering the neighborhoods around him."
     },
     {
      "key": "p-at-just-six-years-old-lorenzo-could-not-igno",
      "tag": "p",
      "ctx": "section.section.soft>div.container.founder-grid>div>p",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "At just six years old, Lorenzo could not ignore what others walked past. He watched hungry dogs knock over garbage cans searching for food and shelter, and while most people saw a problem, he saw responsibility. He began bringing stray dogs home whenever he could. Knowing his parents would not allow him to keep them, Lorenzo secretly hid the dogs in his bedroom, training them to remain calm and quiet so they would not be discovered."
     },
     {
      "key": "p-what-looked-like-childhood-curiosity-quickly",
      "tag": "p",
      "ctx": "section.section.soft>div.container.founder-grid>div>p",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "What looked like childhood curiosity quickly revealed itself as something much deeper."
     },
     {
      "key": "p-by-the-age-of-ten-lorenzo-s-parents-recogniz",
      "tag": "p",
      "ctx": "section.section.soft>div.container.founder-grid>div>p",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "By the age of ten, Lorenzo's parents recognized that his connection to dogs was more than a passing phase. They began sending him to work with professional dog trainers, where he immersed himself in the study of dog behavior, obedience, communication, and structure. Over the years, Lorenzo trained under multiple professionals throughout the 1970s and 1980s, studying a wide range of techniques and philosophies across different disciplines of dog training."
     },
     {
      "key": "p-but-lorenzo-noticed-something-important-ever",
      "tag": "p",
      "ctx": "section.section.soft>div.container.founder-grid>div>p",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "But Lorenzo noticed something important: every system had strengths, and every system had weaknesses."
     },
     {
      "key": "p-driven-by-a-relentless-commitment-to-results",
      "tag": "p",
      "ctx": "section.section.soft>div.container.founder-grid>div>p",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "Driven by a relentless commitment to results, he began combining the most effective elements from the various methods he studied while eliminating the limitations he repeatedly observed in the field. Through decades of hands-on experience, refinement, and real-world application, Lorenzo developed his own distinctive philosophy and training system - one built around clarity, communication, structure, accountability, and lasting transformation between dogs and their owners."
     },
     {
      "key": "p-while-attending-college-lorenzo-supported-hi",
      "tag": "p",
      "ctx": "section.section.soft>div.container.founder-grid>div>p",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "While attending college, Lorenzo supported himself by providing in-home dog training services, continuing to sharpen both his technique and his understanding of human behavior, leadership, and communication inside the home environment."
     },
     {
      "key": "a-book-an-evaluation",
      "tag": "a",
      "ctx": "section.section.soft>div.container.founder-grid>div>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Lorenzo Miller",
      "text": "Book an Evaluation"
     },
     {
      "key": "h2-keep-dogs-in-safe-happy-homes",
      "tag": "h2",
      "ctx": "section.navy.section>div.container.split>div>h2",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "Keep dogs in safe, happy homes."
     },
     {
      "key": "p-the-method-teaches-communication-owner-leade",
      "tag": "p",
      "ctx": "section.navy.section>div.container.split>div>p",
-     "anchor": "",
+     "anchor": "Keep dogs in safe, happy homes.",
      "text": "The method teaches communication, owner leadership, rules, boundaries, and follow-through so families can build lasting relationships with their dogs."
     },
     {
      "key": "a-explore-dog-training",
      "tag": "a",
      "ctx": "body>section.navy.section>div.container.split>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Keep dogs in safe, happy homes.",
      "text": "Explore Dog Training"
     },
     {
      "key": "h2-ready-for-serious-results",
      "tag": "h2",
      "ctx": "div.container>div.cta-band>div>h2",
-     "anchor": "",
+     "anchor": "About Lorenzo's Dog Training Team",
      "text": "Ready for serious results?"
     },
     {
      "key": "p-start-with-an-evaluation-so-we-can-match-the",
      "tag": "p",
      "ctx": "div.container>div.cta-band>div>p",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Start with an evaluation so we can match the right trainer and program to your goals."
     },
     {
      "key": "a-book-evaluation-2",
      "tag": "a",
      "ctx": "section.section.tight>div.container>div.cta-band>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Book Evaluation"
     },
     {
      "key": "a-book-evaluation-3",
      "tag": "a",
      "ctx": "html>body>a.floating-cta",
-     "anchor": "",
+     "anchor": "Team",
      "text": "Book Evaluation"
     }
    ],
@@ -1615,189 +1615,189 @@
      "key": "p-our-corporate-headquarters-in-cleveland-supp",
      "tag": "p",
      "ctx": "section.page-hero.page-hero-solid>div.container>div.page-hero-copy>p.lead",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Our corporate headquarters in Cleveland supports hands-on dog training, trainer education, and nationwide service operations."
     },
     {
      "key": "a-book-evaluation",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Book Evaluation"
     },
     {
      "key": "a-find-a-trainer",
      "tag": "a",
      "ctx": "div.container>div.page-hero-copy>div.hero-actions>a.btn.btn-outline",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Find a Trainer"
     },
     {
      "key": "strong-40",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "40+"
     },
     {
      "key": "span-years-experience",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Years Experience"
     },
     {
      "key": "strong-nationwide",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Nationwide"
     },
     {
      "key": "span-trainer-network",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Trainer Network"
     },
     {
      "key": "strong-thousands-of",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Thousands of"
     },
     {
      "key": "span-dogs-trained-annually",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Dogs Trained Annually"
     },
     {
      "key": "strong-17-000",
      "tag": "strong",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>strong",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "17,000"
     },
     {
      "key": "span-sq-ft-headquarters",
      "tag": "span",
      "ctx": "div.stats-wrap>div.container.stats>div.stat>span",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Sq. Ft. Headquarters"
     },
     {
      "key": "h3-our-cleveland-corporate-headquarters",
      "tag": "h3",
      "ctx": "div.container>div.facility-clean.facility-feature>div.facility-caption>h3",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Our Cleveland Corporate Headquarters"
     },
     {
      "key": "p-a-professional-campus-built-to-support-serio",
      "tag": "p",
      "ctx": "div.container>div.facility-clean.facility-feature>div.facility-caption>p",
-     "anchor": "",
+     "anchor": "Our Cleveland Corporate Headquarters",
      "text": "A professional campus built to support serious training, experienced trainers, and clients nationwide."
     },
     {
      "key": "h2-explore-the-facility",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Explore the facility."
     },
     {
      "key": "p-a-cleaner-look-at-the-headquarters-entrances",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Explore the facility.",
      "text": "A cleaner look at the headquarters, entrances, training grounds, and dog-focused campus spaces."
     },
     {
      "key": "h2-a-place-to-train-with-purpose",
      "tag": "h2",
      "ctx": "section.section>div.container.split>div>h2",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "A place to train with purpose."
     },
     {
      "key": "p-our-cleveland-headquarters-is-designed-to-su",
      "tag": "p",
      "ctx": "section.section>div.container.split>div>p",
-     "anchor": "",
+     "anchor": "A place to train with purpose.",
      "text": "Our Cleveland headquarters is designed to support hands-on work, trainer development, and a professional national operation."
     },
     {
      "key": "li-dedicated-training-grounds-and-working-space",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "A place to train with purpose.",
      "text": "Dedicated training grounds and working spaces."
     },
     {
      "key": "li-obstacle-and-utility-training-environments",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "A place to train with purpose.",
      "text": "Obstacle and utility training environments."
     },
     {
      "key": "li-indoor-and-outdoor-boarding-support",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "A place to train with purpose.",
      "text": "Indoor and outdoor boarding support."
     },
     {
      "key": "li-hands-on-environment-for-clients-and-trainer",
      "tag": "li",
      "ctx": "div.container.split>div>ul.check-list>li",
-     "anchor": "",
+     "anchor": "A place to train with purpose.",
      "text": "Hands-on environment for clients and trainer education."
     },
     {
      "key": "h2-the-academy-campus",
      "tag": "h2",
      "ctx": "section.section.soft>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "The Academy Campus."
     },
     {
      "key": "p-additional-grounds-and-property-assets-suppo",
      "tag": "p",
      "ctx": "section.section.soft>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "The Academy Campus.",
      "text": "Additional grounds and property assets support the headquarters and training operation."
     },
     {
      "key": "h2-ready-for-serious-results",
      "tag": "h2",
      "ctx": "div.container>div.cta-band>div>h2",
-     "anchor": "",
+     "anchor": "Cleveland Training Facility Built for Real Results",
      "text": "Ready for serious results?"
     },
     {
      "key": "p-start-with-an-evaluation-so-we-can-match-the",
      "tag": "p",
      "ctx": "div.container>div.cta-band>div>p",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Start with an evaluation so we can match the right trainer and program to your goals."
     },
     {
      "key": "a-book-evaluation-2",
      "tag": "a",
      "ctx": "section.section.tight>div.container>div.cta-band>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Ready for serious results?",
      "text": "Book Evaluation"
     },
     {
      "key": "a-book-evaluation-3",
      "tag": "a",
      "ctx": "html>body>a.floating-cta",
-     "anchor": "",
+     "anchor": "Team",
      "text": "Book Evaluation"
     }
    ],
@@ -1826,84 +1826,84 @@
      "key": "p-tell-us-what-you-need-help-with-we-will-rout",
      "tag": "p",
      "ctx": "section.contact-hero.page-hero.page-hero-solid>div.container>div.page-hero-copy>p.lead",
-     "anchor": "",
+     "anchor": "Book an Evaluation or Start the Right Path",
      "text": "Tell us what you need help with. We will route your request toward dog training, behavior help, specialty work, a local trainer, or the trainer career path."
     },
     {
      "key": "h2-request-a-service",
      "tag": "h2",
      "ctx": "section.contact-form-section.section.soft>div.contact-form-layout.container.split>div>h2",
-     "anchor": "",
+     "anchor": "Book an Evaluation or Start the Right Path",
      "text": "Request a Service"
     },
     {
      "key": "p-complete-the-contact-form-below-and-lorenzo",
      "tag": "p",
      "ctx": "section.contact-form-section.section.soft>div.contact-form-layout.container.split>div>p",
-     "anchor": "",
+     "anchor": "Request a Service",
      "text": "Complete the contact form below and Lorenzo's production office will review your request, log it to the shared sheet, and follow up during business hours."
     },
     {
      "key": "h2-our-corporate-headquarters",
      "tag": "h2",
      "ctx": "div.container>div.contact-details>article.headquarters-card>h2",
-     "anchor": "",
+     "anchor": "Book an Evaluation or Start the Right Path",
      "text": "Our Corporate Headquarters"
     },
     {
      "key": "p-our-corporate-headquarters-is-located-in-cle",
      "tag": "p",
      "ctx": "div.container>div.contact-details>article.headquarters-card>p",
-     "anchor": "",
+     "anchor": "Our Corporate Headquarters",
      "text": "Our Corporate Headquarters is located in Cleveland, Ohio, serving as the center of our training, trainer support, and nationwide operations."
     },
     {
      "key": "strong-address",
      "tag": "strong",
      "ctx": "article.headquarters-card>div.contact-list>div.contact-item>strong",
-     "anchor": "",
+     "anchor": "Our Corporate Headquarters",
      "text": "Address"
     },
     {
      "key": "strong-email",
      "tag": "strong",
      "ctx": "article.headquarters-card>div.contact-list>div.contact-item>strong",
-     "anchor": "",
+     "anchor": "Our Corporate Headquarters",
      "text": "Email"
     },
     {
      "key": "a-fill-out-the-contact-form",
      "tag": "a",
      "ctx": "article.headquarters-card>div.contact-list>div.contact-item>a",
-     "anchor": "",
+     "anchor": "Our Corporate Headquarters",
      "text": "Fill out the contact form"
     },
     {
      "key": "strong-phone",
      "tag": "strong",
      "ctx": "article.headquarters-card>div.contact-list>div.contact-item>strong",
-     "anchor": "",
+     "anchor": "Our Corporate Headquarters",
      "text": "Phone"
     },
     {
      "key": "h3-nationwide-dog-training-services",
      "tag": "h3",
      "ctx": "div.container>div.contact-details>aside.nationwide-card>h3",
-     "anchor": "",
+     "anchor": "Our Corporate Headquarters",
      "text": "Nationwide Dog Training Services"
     },
     {
      "key": "p-with-a-team-of-experienced-trainers-spread-a",
      "tag": "p",
      "ctx": "div.container>div.contact-details>aside.nationwide-card>p",
-     "anchor": "",
+     "anchor": "Nationwide Dog Training Services",
      "text": "With a team of experienced trainers spread across the country, we've got you covered. Click on our Trainers tab to find a trainer near you and start your pup's journey to success."
     },
     {
      "key": "a-find-a-trainer-near-you",
      "tag": "a",
      "ctx": "div.container>div.contact-details>aside.nationwide-card>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Nationwide Dog Training Services",
      "text": "Find a Trainer Near You"
     }
    ],
@@ -1939,364 +1939,364 @@
      "key": "p-watch-a-real-client-result-get-the-5-step-ca",
      "tag": "p",
      "ctx": "section.ad-hero-v2>div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>p.ad-lead",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Watch a real client result, get the 5-step calm dog blueprint, and request the right next step for your dog."
     },
     {
      "key": "span-any-age",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-benefit-row>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Any age"
     },
     {
      "key": "span-any-breed",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-benefit-row>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Any breed"
     },
     {
      "key": "span-real-world-results",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-benefit-row>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Real-world results"
     },
     {
      "key": "span-leash-pulling",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-issue-strip>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Leash pulling"
     },
     {
      "key": "span-barking",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-issue-strip>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Barking"
     },
     {
      "key": "span-jumping",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-issue-strip>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Jumping"
     },
     {
      "key": "span-house-soiling",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-issue-strip>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "House-soiling"
     },
     {
      "key": "span-reactivity",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.ad-issue-strip>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Reactivity"
     },
     {
      "key": "span-free-pdf-guide",
      "tag": "span",
      "ctx": "div.ad-hero-v2-copy>div.challenge-guide-card>div>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Free PDF Guide"
     },
     {
      "key": "strong-the-5-step-calm-dog-blueprint",
      "tag": "strong",
      "ctx": "div.ad-hero-v2-copy>div.challenge-guide-card>div>strong",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "The 5-Step Calm Dog Blueprint"
     },
     {
      "key": "p-15-minute-daily-routine-for-focus-obedience",
      "tag": "p",
      "ctx": "div.ad-hero-v2-copy>div.challenge-guide-card>div>p",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "15-minute daily routine for focus, obedience, and calmer behavior before advanced training begins."
     },
     {
      "key": "a-download-the-free-guide",
      "tag": "a",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>div.challenge-guide-card>a",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Download the Free Guide"
     },
     {
      "key": "li-help-for-pulling-barking-jumping-house-soili",
      "tag": "li",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>ul.ad-checks.ad-checks-v2>li",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Help for pulling, barking, jumping, house-soiling, reactivity, and aggression concerns"
     },
     {
      "key": "li-owner-leadership-rules-timing-boundaries-and",
      "tag": "li",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>ul.ad-checks.ad-checks-v2>li",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Owner leadership, rules, timing, boundaries, and consistency built into the process"
     },
     {
      "key": "li-office-routed-follow-up-so-your-request-gets",
      "tag": "li",
      "ctx": "div.ad-hero-v2-grid.container>div.ad-hero-v2-copy>ul.ad-checks.ad-checks-v2>li",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Office-routed follow-up so your request gets handled clearly"
     },
     {
      "key": "span-real-client-results",
      "tag": "span",
      "ctx": "figure.ad-hero-v2-media.ad-hero-video-card>div.ad-video-frame>button.ad-video-cover>span.video-bubble",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Real Client Results"
     },
     {
      "key": "strong-see-the-result-request-help-next",
      "tag": "strong",
      "ctx": "div.ad-hero-v2-grid.container>figure.ad-hero-v2-media.ad-hero-video-card>figcaption>strong",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "See the result. Request help next."
     },
     {
      "key": "span-real-family-real-client-results",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>figure.ad-hero-v2-media.ad-hero-video-card>figcaption>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Real family. Real client results."
     },
     {
      "key": "span-fast-request",
      "tag": "span",
      "ctx": "div.ad-hero-v2-grid.container>aside.ad-consult-panel>div.ad-consult-header>span",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Fast Request"
     },
     {
      "key": "h2-download-the-free-guide-and-book-your-consul",
      "tag": "h2",
      "ctx": "div.ad-hero-v2-grid.container>aside.ad-consult-panel>div.ad-consult-header>h2",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Download the free guide and book your consultation."
     },
     {
      "key": "p-tell-us-what-is-going-on-with-your-dog-the-o",
      "tag": "p",
      "ctx": "div.ad-hero-v2-grid.container>aside.ad-consult-panel>div.ad-consult-header>p",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "Tell us what is going on with your dog. The office routes the request and follows up with the next step."
     },
     {
      "key": "strong-40",
      "tag": "strong",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>strong",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "40+"
     },
     {
      "key": "span-years-of-experience",
      "tag": "span",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>span",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "Years of experience"
     },
     {
      "key": "strong-100-000",
      "tag": "strong",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>strong",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "100,000+"
     },
     {
      "key": "span-dogs-trained-of-all-breeds",
      "tag": "span",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>span",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "Dogs trained of all breeds"
     },
     {
      "key": "strong-50",
      "tag": "strong",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>strong",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "50+"
     },
     {
      "key": "span-professional-trainers-nationwide",
      "tag": "span",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>span",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "Professional trainers nationwide"
     },
     {
      "key": "strong-1-request",
      "tag": "strong",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>strong",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "1 Request"
     },
     {
      "key": "span-office-routed-next-step",
      "tag": "span",
      "ctx": "section.ad-proof-band-v2>div.ad-proof-grid-v2.container>div>span",
-     "anchor": "",
+     "anchor": "Download the free guide and book your consultation.",
      "text": "Office-routed next step"
     },
     {
      "key": "h2-your-5-step-calm-dog-challenge",
      "tag": "h2",
      "ctx": "section.ad-path-section-v2.section>div.container>div.section-title>h2",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Your 5-step calm dog challenge."
     },
     {
      "key": "p-use-this-simple-routine-before-walks-meals-d",
      "tag": "p",
      "ctx": "section.ad-path-section-v2.section>div.container>div.section-title>p",
-     "anchor": "",
+     "anchor": "Your 5-step calm dog challenge.",
      "text": "Use this simple routine before walks, meals, door greetings, and training sessions. It creates a calmer dog before the behavior gets out of hand."
     },
     {
      "key": "h3-burn-the-extra-energy",
      "tag": "h3",
      "ctx": "div.container>div.ad-service-grid-v2>article>h3",
-     "anchor": "",
+     "anchor": "Your 5-step calm dog challenge.",
      "text": "Burn the extra energy"
     },
     {
      "key": "p-give-the-brain-and-body-a-job-before-expecti",
      "tag": "p",
      "ctx": "div.container>div.ad-service-grid-v2>article>p",
-     "anchor": "",
+     "anchor": "Burn the extra energy",
      "text": "Give the brain and body a job before expecting calm listening, heel, sit, stay, come, down, or place."
     },
     {
      "key": "h3-reward-calm-choices",
      "tag": "h3",
      "ctx": "div.container>div.ad-service-grid-v2>article>h3",
-     "anchor": "",
+     "anchor": "Your 5-step calm dog challenge.",
      "text": "Reward calm choices"
     },
     {
      "key": "p-build-better-habits-by-catching-eye-contact",
      "tag": "p",
      "ctx": "div.container>div.ad-service-grid-v2>article>p",
-     "anchor": "",
+     "anchor": "Reward calm choices",
      "text": "Build better habits by catching eye contact, quiet body language, and check-ins before mistakes happen."
     },
     {
      "key": "h3-end-every-session-winning",
      "tag": "h3",
      "ctx": "div.container>div.ad-service-grid-v2>article>h3",
-     "anchor": "",
+     "anchor": "Your 5-step calm dog challenge.",
      "text": "End every session winning"
     },
     {
      "key": "p-short-consistent-sessions-that-end-with-succ",
      "tag": "p",
      "ctx": "div.container>div.ad-service-grid-v2>article>p",
-     "anchor": "",
+     "anchor": "End every session winning",
      "text": "Short, consistent sessions that end with success help your dog understand what leadership feels like."
     },
     {
      "key": "h2-a-free-guide-first-a-clearer-next-step-after",
      "tag": "h2",
      "ctx": "section.ad-how-v2>div.ad-how-grid-v2.container>div>h2",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "A free guide first. A clearer next step after."
     },
     {
      "key": "p-the-short-form-is-intentionally-simple-for-a",
      "tag": "p",
      "ctx": "section.ad-how-v2>div.ad-how-grid-v2.container>div>p",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "The short form is intentionally simple for ad traffic. Lorenzo's office follows up, confirms the dog and location, and helps identify the training path that fits."
     },
     {
      "key": "strong-watch-a-real-result",
      "tag": "strong",
      "ctx": "div.ad-how-grid-v2.container>ol>li>strong",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "Watch a real result"
     },
     {
      "key": "span-see-the-type-of-real-life-change-families-ar",
      "tag": "span",
      "ctx": "div.ad-how-grid-v2.container>ol>li>span",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "See the type of real-life change families are looking for."
     },
     {
      "key": "strong-get-the-calm-dog-blueprint",
      "tag": "strong",
      "ctx": "div.ad-how-grid-v2.container>ol>li>strong",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "Get the calm dog blueprint"
     },
     {
      "key": "span-use-five-simple-daily-steps-while-the-office",
      "tag": "span",
      "ctx": "div.ad-how-grid-v2.container>ol>li>span",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "Use five simple daily steps while the office reviews your request."
     },
     {
      "key": "strong-match-the-next-step",
      "tag": "strong",
      "ctx": "div.ad-how-grid-v2.container>ol>li>strong",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "Match the next step"
     },
     {
      "key": "span-the-office-gathers-the-full-details-and-rout",
      "tag": "span",
      "ctx": "div.ad-how-grid-v2.container>ol>li>span",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "The office gathers the full details and routes the evaluation or trainer follow-up."
     },
     {
      "key": "span-free-training-ebook",
      "tag": "span",
      "ctx": "section.market-guide-section.section>div.container.market-guide-card>div>span.eyebrow",
-     "anchor": "",
+     "anchor": "A free guide first. A clearer next step after.",
      "text": "Free Training Ebook"
     },
     {
      "key": "h2-download-the-free-guide-now",
      "tag": "h2",
      "ctx": "section.market-guide-section.section>div.container.market-guide-card>div>h2",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Download the free guide now."
     },
     {
      "key": "strong-the-5-step-calm-dog-blueprint-2",
      "tag": "strong",
      "ctx": "div.container.market-guide-card>div>p>strong",
-     "anchor": "",
+     "anchor": "Download the free guide now.",
      "text": "The 5-Step Calm Dog Blueprint"
     },
     {
      "key": "h2-ready-for-a-calmer-safer-better-trained-dog",
      "tag": "h2",
      "ctx": "div.container>div.ad-cta-v2.cta-band>div>h2",
-     "anchor": "",
+     "anchor": "Stop the daily dog problems before they get worse.",
      "text": "Ready for a calmer, safer, better-trained dog?"
     },
     {
      "key": "p-send-the-quick-request-and-let-lorenzo-s-off",
      "tag": "p",
      "ctx": "div.container>div.ad-cta-v2.cta-band>div>p",
-     "anchor": "",
+     "anchor": "Ready for a calmer, safer, better-trained dog?",
      "text": "Send the quick request and let Lorenzo's office help with the next step."
     },
     {
      "key": "a-book-my-consultation",
      "tag": "a",
      "ctx": "section.section.tight>div.container>div.ad-cta-v2.cta-band>a.btn.btn-red",
-     "anchor": "",
+     "anchor": "Ready for a calmer, safer, better-trained dog?",
      "text": "Book My Consultation"
     }
    ],
