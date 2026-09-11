@@ -143,14 +143,16 @@ function stampRow(row, stamps) {
 }
 
 async function listPages() {
+  // cover_pick/hero_pick: two small JSON-path values instead of the whole page bodies,
+  // so the card list can show a thumbnail without hauling every draft across the wire.
   const [rows, stamps] = await Promise.all([
-    supabaseFetch(`/rest/v1/ad_pages?select=${PAGE_COLUMNS}&status=neq.archived&order=updated_at.desc`),
+    supabaseFetch(`/rest/v1/ad_pages?select=${PAGE_COLUMNS},cover_pick:draft_content->>cover,hero_pick:draft_content->hero->>photo&status=neq.archived&order=updated_at.desc`),
     sentToLiveStamps()
   ]);
   return rows.map(row => {
-    const { draft_content, published_content, ...summary } = stampRow(row, stamps);
+    const { cover_pick, hero_pick, ...summary } = stampRow(row, stamps);
     // The card list carries one thumbnail address: the chosen cover, else the hero photo.
-    const cover = draft_content?.cover || draft_content?.hero?.photo || published_content?.cover || published_content?.hero?.photo || "";
+    const cover = cover_pick || hero_pick || "";
     return { ...summary, cover, page_type: pageTypeOf(summary), public_path: publicPathFor(pageTypeOf(summary), summary.slug) };
   });
 }
