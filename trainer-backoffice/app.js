@@ -813,7 +813,7 @@ const clientStatusToDb = {
 const clientStatusFromDb = Object.fromEntries(Object.entries(clientStatusToDb).map(([label, value]) => [value, label]));
 // QA 2026-09-05 roles matrix: office admins also see Trainer Pages and the Page
 // Editor (edit content; publish / lock / add / delete stay Super Admin).
-const officeAdminViews = ["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "pathwayTest", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
+const officeAdminViews = ["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
 
 function objectHas(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -4508,7 +4508,7 @@ function adminNav() {
     ["settings", "Settings", "settings"]
   ];
   return isOfficeAdmin()
-    ? items.filter(([view]) => officeAdminViews.includes(view))
+    ? items.filter(([view]) => canAccessAdminView(view))
     : items;
 }
 
@@ -4525,6 +4525,7 @@ function isOfficeAdmin() {
 }
 
 function canAccessAdminView(view) {
+  if (view === "pathwayTest") return Boolean(window.LDTT_IS_SANDBOX); // practice-only test screen (rule 63), any admin
   return !isOfficeAdmin() || officeAdminViews.includes(view);
 }
 
