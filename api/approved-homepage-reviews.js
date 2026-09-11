@@ -83,12 +83,19 @@ async function signedMediaUrl(pathOrUrl) {
   if (!value) return "";
   if (/^(data:|blob:|https?:|\/)/i.test(value)) return value;
   const encodedPath = value.split("/").map(encodeURIComponent).join("/");
-  const data = await supabaseFetch(`/storage/v1/object/sign/trainer-submissions/${encodedPath}`, {
-    method: "POST",
-    body: JSON.stringify({ expiresIn: 60 * 60 * 12 })
-  });
-  const signed = data?.signedURL || data?.signedUrl || "";
-  return signed.startsWith("http") ? signed : `${SUPABASE_URL}/storage/v1${signed}`;
+  try {
+    const data = await supabaseFetch(`/storage/v1/object/sign/trainer-submissions/${encodedPath}`, {
+      method: "POST",
+      body: JSON.stringify({ expiresIn: 60 * 60 * 12 })
+    });
+    const signed = data?.signedURL || data?.signedUrl || "";
+    return signed.startsWith("http") ? signed : `${SUPABASE_URL}/storage/v1${signed}`;
+  } catch (error) {
+    // One missing file (the practice copy's bucket has no copy of live uploads) must not
+    // take every review off the page: that review simply shows without its photo.
+    console.warn("approved reviews: could not sign a photo link", value.slice(0, 80), error?.message || error);
+    return "";
+  }
 }
 
 module.exports = async function handler(req, res) {

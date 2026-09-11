@@ -10562,6 +10562,33 @@ function publicTrainerProfileMarkup(trainer) {
   </section>`;
 }
 
+// Public trainer page: review photos live in a private bucket, so the page's saved copy
+// of the photo address (a plain public link) fails and the broken-image guard hides it.
+// Ask the reviews API for a signed link and the office's framing choice, then show it
+// (Joshua 2026-09-11: "the photo is not showing properly on the trainer page").
+async function refreshPublicReviewMedia(trainer) {
+  if (!trainer?.id || !document.querySelector(".trainer-review-media")) return;
+  try {
+    const response = await fetch(`/api/approved-homepage-reviews?destination_type=trainer_page&destination_id=${encodeURIComponent(trainer.id)}`, { cache: "no-store" });
+    const data = await response.json();
+    for (const review of data?.reviews || []) {
+      if (!review.media_url || !review.id) continue;
+      const button = document.querySelector(`[data-open-public-review-media="${CSS.escape(String(review.id))}"]`);
+      const img = button?.querySelector("img");
+      if (!img) continue;
+      const holder = button.closest(".trainer-review-media");
+      delete img.dataset.ldttBroken;
+      img.style.display = "";
+      if (holder) holder.style.display = "";
+      if (review.photo_position) img.style.objectPosition = review.photo_position;
+      button.dataset.mediaUrl = review.media_url;
+      if (img.getAttribute("src") !== review.media_url) img.src = review.media_url;
+    }
+  } catch (error) {
+    console.warn("trainer page review photos: signed links unavailable", error);
+  }
+}
+
 function renderPublicSite() {
   const params = new URLSearchParams(window.location.search);
   const trainer = repairPublicPhotoRoles(trainerById(requestedPublicTrainerKey() || params.get("trainer") || state.selectedTrainerId));
@@ -10573,6 +10600,7 @@ function renderPublicSite() {
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = trainer.seoDescription || `Professional dog obedience training and behavior modification with ${trainer.name} in ${trainer.market}, backed by Lorenzo's Dog Training Team.`;
   document.getElementById("publicSite").innerHTML = publicSiteMarkup(trainer);
+  refreshPublicReviewMedia(trainer);
   applyLiveEditsToDocument(document, trainer.liveEdits || []);
   applySectionBuilderSettings(document, trainer);
   recordTrainerPageView(trainer);
