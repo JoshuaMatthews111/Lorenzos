@@ -758,3 +758,12 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     Customer/Trainer/Leader/Operations by tester name and warns when one phone
     plays several parts. Keep that warning: "every text came to me" must never be
     a mystery again.
+
+68. **Page Editor layout fields are whitelists, and empty means the design's own.**
+    `content.cover` (card thumbnail; falls back to the hero photo), per-section
+    `width` ("", wide, full) and `size` ("", small, medium, large, full), and the
+    "image" section type (photo/alt/caption/link, empty photo renders nothing) are
+    all sanitized in `normalizeContent` — never render an office-typed value into
+    a class name. The pages LIST endpoint selects cover + hero photo as JSON-path
+    columns (`cover_pick`, `hero_pick`); it must never haul full `draft_content`
+    for every page. (2026-09-11, Claude)
