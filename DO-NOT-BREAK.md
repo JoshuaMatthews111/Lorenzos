@@ -675,3 +675,18 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     client testimonial." as placeholder reviews (Brady DeRemer, Tabatha Shelley, slug "s");
     `placeholderReviewCopy()` treats that text as an empty slot, so it never renders.
     Staff-only portal labels may still say it.
+
+61. **Website text spots: the office edits words, the code owns everything else (Joshua
+    2026-09-11).** `site_text_marker.py` tags the plain-text headlines, paragraphs, labels and
+    button words of the 8 main pages with `data-edit="<key>"` (never inside header, footer,
+    nav, forms or the texting consent wording) and writes `site-text-manifest.json`.
+    `build.py` runs it after every build, so a rebuild keeps the tags; keys are matched in
+    page order, so a spot keeps its key when the code changes its words. Office text lives
+    in `site_text` (draft_value, live_value, base_default = the code text they saw). The
+    public page (`script.js`) swaps in live_value with textContent only; any failure keeps
+    the coded words. Page Editor → Main Website: click a spot to edit (draft), "Publish this
+    page's text" and "Reset to code text" need a full name and are logged
+    (`site_text_published` / `site_text_reset`). A spot whose code text changed after an
+    office edit keeps the office text live and is flagged "The code changed this spot since
+    your edit"; a spot the code removed is kept and flagged, never silently dropped.
+    Anything not tagged stays code-owned: changes there go through Joshua.

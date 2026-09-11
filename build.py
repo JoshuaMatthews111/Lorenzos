@@ -245,4 +245,7 @@ for filename,data in pages.items():
     title_text,body=data[0],data[1]
     include_cta=data[2] if len(data)>2 else True
     (root/filename).write_text(page(title_text,body,filename,include_cta))
+# Rule 61: website text spots (data-edit) are added after every build, with stable keys.
+import site_text_marker
+site_text_marker.mark_files(root)
 print(f"Built {len(pages)} staging pages")

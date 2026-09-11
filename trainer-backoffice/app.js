@@ -3676,6 +3676,8 @@ function mainWebsitePages() {
     { id: "/specialty-advanced.html", label: "Specialty Training" },
     { id: "/become-a-trainer.html", label: "Become a Trainer" },
     { id: "/find-a-trainer.html", label: "Find a Trainer" },
+    { id: "/basic-obedience.html", label: "Basic Obedience" },
+    { id: "/get-started.html", label: "Get Started" },
     { id: "/facility.html", label: "Our Facility" },
     { id: "/about.html", label: "About" },
     { id: "/contact.html", label: "Contact" }
@@ -6160,6 +6162,115 @@ function liveDataReferenceLinks() {
   </section>`;
 }
 
+// ---- Website text spots (rule 61, Joshua 2026-09-11) ------------------------
+// The office edits the tagged plain-text spots of the main website in the Page
+// Editor ("Main Website"). Drafts first; Publish (typed full name, logged) puts them
+// on the website; the code keeps every other word. See api/site-text.js.
+const siteText = { manifest: null, rows: [], loaded: false, loading: false, error: "" };
+
+async function siteTextFetch(url, options = {}) {
+  const token = window.LDTT_PORTAL?.accessToken?.() || "";
+  const response = await fetch(url, { cache: "no-store", ...options, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) } });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.message || `Website text request failed (${response.status}).`);
+  return data;
+}
+
+async function loadSiteText(force = false) {
+  if (siteText.loading || (siteText.loaded && !force)) return;
+  siteText.loading = true;
+  try {
+    const manifest = siteText.manifest || await fetch("/site-text-manifest.json", { cache: "no-store" }).then(response => response.json());
+    const data = await siteTextFetch("/api/site-text?all=1");
+    siteText.manifest = manifest;
+    siteText.rows = data.rows || [];
+    siteText.loaded = true;
+    siteText.error = "";
+  } catch (error) {
+    siteText.error = error.message;
+  } finally {
+    siteText.loading = false;
+    refreshSiteTextControls();
+  }
+}
+
+function siteTextPageFor(pageId = state.builderMainPage || "/index.html") {
+  const entry = Object.entries(siteText.manifest?.pages || {}).find(([, page]) => `/${page.file}` === pageId);
+  return entry ? { id: entry[0], ...entry[1] } : null;
+}
+
+function siteTextControls() {
+  if (session.role !== "admin") return "";
+  if (!siteText.loaded && !siteText.loading && !siteText.error) setTimeout(() => loadSiteText(), 0);
+  return `<div class="editor-control-section site-text-controls" id="siteTextControls">${siteTextControlsInner()}</div>`;
+}
+
+function siteTextControlsInner() {
+  if (siteText.error) return `<h3>Website text</h3><p class="builder-help">The website text could not be loaded: ${escapeHtml(siteText.error)}</p><button class="btn btn-outline btn-small" type="button" data-site-text-reload>Try again</button>`;
+  if (!siteText.loaded) return `<h3>Website text</h3><p class="builder-help">Loading the website text…</p>`;
+  const page = siteTextPageFor();
+  if (!page) return `<h3>Website text</h3><p class="builder-help">This page has no editable text yet. Ask Joshua if you need a change here.</p>`;
+  const spots = new Map((page.spots || []).map(spot => [spot.key, spot]));
+  const rows = siteText.rows.filter(row => row.page === page.id && (row.draft_value != null || row.live_value != null));
+  const drafts = rows.filter(row => row.draft_value != null && spots.has(row.key)).length;
+  const live = rows.filter(row => row.live_value != null).length;
+  const list = rows.map(row => {
+    const spot = spots.get(row.key);
+    const codeChanged = spot && row.base_default && row.base_default !== spot.text;
+    const flags = [
+      row.draft_value != null ? `<span class="status draft">Draft waiting</span>` : "",
+      row.live_value != null ? `<span class="status live">On the website</span>` : "",
+      !spot ? `<span class="status lost">No longer on the page</span>` : "",
+      codeChanged ? `<span class="status lost">The code changed this spot since your edit</span>` : ""
+    ].join(" ");
+    return `<li class="site-text-row"><div class="site-text-flags">${flags}</div><p><strong>${escapeHtml(row.draft_value ?? row.live_value ?? "")}</strong></p><small>Code text: ${escapeHtml(spot?.text || row.base_default || "")}</small><div class="row-actions">${row.draft_value != null ? `<button class="btn btn-outline btn-small" type="button" data-site-text-undo="${escapeHtml(row.key)}">Undo draft</button>` : ""}<button class="btn btn-outline btn-small" type="button" data-site-text-reset="${escapeHtml(row.key)}">Reset to code text</button></div></li>`;
+  }).join("");
+  return `<h3>Website text</h3>
+    <p class="builder-help">Turn on Edit Overlay, then click a headline, paragraph or button in the preview to change its words. Enter saves, Escape cancels. Each change saves as a draft; nothing reaches the website until you press Publish. Parts that will not open are set in the code: ask Joshua to change those.</p>
+    <p class="site-text-counts"><strong>${drafts}</strong> draft${drafts === 1 ? "" : "s"} waiting · <strong>${live}</strong> change${live === 1 ? "" : "s"} on the website</p>
+    <div class="row-actions"><button class="btn btn-red" type="button" data-site-text-publish ${drafts ? "" : "disabled"}>Publish this page's text</button><button class="btn btn-outline" type="button" data-site-text-discard ${drafts ? "" : "disabled"}>Discard all drafts</button></div>
+    ${list ? `<ul class="site-text-list">${list}</ul>` : ""}`;
+}
+
+function refreshSiteTextControls() {
+  const box = document.getElementById("siteTextControls");
+  if (box) box.innerHTML = siteTextControlsInner();
+}
+
+function reloadBuilderPreview() {
+  const frame = document.getElementById("pageEditorPreview");
+  if (!frame) return;
+  frame.addEventListener("load", () => injectLiveBuilder(frame), { once: true });
+  try { frame.contentWindow?.location.reload(); } catch { /* the frame went away */ }
+}
+
+async function saveSiteTextDraft(key, value) {
+  const page = siteTextPageFor();
+  if (!page) throw new Error("This page has no editable text.");
+  await siteTextFetch("/api/site-text", { method: "POST", body: JSON.stringify({ operation: "save_draft", page: page.id, key, value }) });
+  await loadSiteText(true);
+}
+
+function confirmSiteTextName(title, detail, goLabel) {
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    dialog.className = "action-confirmation-dialog practice-reset-dialog site-text-dialog";
+    dialog.innerHTML = `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><h2>${escapeHtml(title)}</h2><p>${escapeHtml(detail)}</p><label class="send-live-name"><span>Your full name</span><input type="text" data-site-text-name autocomplete="name" placeholder="First and last name" maxlength="200" required></label><div class="row-actions" style="justify-content:center"><button type="button" class="btn btn-outline" data-site-text-cancel>Not yet</button><button type="button" class="btn btn-red" data-site-text-go disabled>${escapeHtml(goLabel)}</button></div>`;
+    document.body.appendChild(dialog);
+    const input = dialog.querySelector("[data-site-text-name]");
+    const go = dialog.querySelector("[data-site-text-go]");
+    const done = value => { dialog.close(); dialog.remove(); resolve(value); };
+    input.addEventListener("input", () => { go.disabled = !fullNameOrEmpty(input.value); });
+    input.addEventListener("keydown", keyEvent => { if (keyEvent.key === "Enter" && !go.disabled) go.click(); });
+    go.addEventListener("click", () => { const name = fullNameOrEmpty(input.value); if (name) done(name); });
+    dialog.querySelectorAll(".action-confirmation-close,[data-site-text-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
+    dialog.addEventListener("click", clickEvent => { if (clickEvent.target === dialog) done(false); });
+    dialog.addEventListener("cancel", () => done(false));
+    dialog.showModal();
+    setTimeout(() => input.focus(), 50);
+  });
+}
+
 // Draft feature + delete/restore of trainer pages (Joshua 2026-09-10, rules 56 and 59).
 // A live page with saved-but-unpublished draft changes (revision ahead of the
 // published revision). Buttons that publish on their own must not publish those.
@@ -8426,7 +8537,7 @@ function trainerPageEditor() {
   const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
   const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
   const controls = {
-    page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${selectedElementControls}`,
+    page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${state.builderSurface === "site" ? siteTextControls() : ""}${selectedElementControls}`,
     sections: sectionControls,
     media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images & Video</h3><p class="builder-help">Simple rule: Headshot is for Find a Trainer cards. Bio Photo is for View Bio and the landing-page bio section.</p><div class="editor-image-grid">${editorImageCard("profilePhoto", "Headshot (cards only)", "Find a Trainer cards only", { frameKey: "profilePhotoFrame", positionKey: "profilePhotoPosition", fitKey: "profilePhotoFit", scaleKey: "profilePhotoScale", fallbackFit: "contain", fallbackFrame: "portrait" }) }${editorImageCard("heroTrainerPhoto", "Top Landing Photo", "First trainer photo on the landing page", { frameKey: "heroPhotoFrame", positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale" }) }${editorImageCard("landingBioPhoto", "Bio Photo (View Bio)", "View Bio page and landing-page bio section", { frameKey: "bioPhotoFrame", positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", fallbackFit: "cover", fallbackFrame: "tight" }) }${editorImageCard("image", "Hero Background", "Wide background behind the hero") }${editorImageCard("companyLogo", "Company Logo", "Optional approved local logo") }${editorVideoCard()}</div></div>`,
     style: `<div class="editor-control-section"><h3>Typography & Color</h3><label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS","Impact"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label><label><span>Type Scale</span><input type="range" min="0.85" max="1.25" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label><label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label><label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label></div><div class="editor-control-section"><h3>Approved Reviews</h3>${trainerApprovedReviewManagerMarkup(trainer, { compact: true })}${field("Review 1 Client", "review1Author", trainer.review1Author)}${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}${field("Review 2 Client", "review2Author", trainer.review2Author)}${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}${field("Review 3 Client", "review3Author", trainer.review3Author)}${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}</div>`,
@@ -8481,7 +8592,8 @@ function injectLiveBuilder(frame) {
   if (!frame || state.activeView !== "pageEditor") return;
   const doc = frame.contentDocument;
   if (!doc) return;
-  applyLiveEditsToDocument(doc, activeBuilderEdits());
+  // Rule 61: on the main website only real website text counts; old browser-only edits are not shown.
+  if (state.builderSurface !== "site") applyLiveEditsToDocument(doc, activeBuilderEdits());
   if (state.builderSurface === "trainer") applySectionBuilderSettings(doc, trainerById());
   if (state.builderMode !== "edit") return;
   if (!doc.getElementById("ldtt-builder-style")) {
@@ -8508,6 +8620,44 @@ function injectLiveBuilder(frame) {
       state.builderSelectedSelector = selector;
       persistStateSnapshot();
       const label = element.textContent?.trim()?.slice(0, 64) || element.alt || element.tagName.toLowerCase();
+      if (state.builderSurface === "site") {
+        // Rule 61: only the tagged text spots are the office's; everything else is the code's.
+        const key = element.getAttribute("data-edit");
+        if (!key || element.children.length) {
+          showToast("This part is set in the code. Ask Joshua to change it.", 4000);
+          return;
+        }
+        const before = element.textContent;
+        element.setAttribute("contenteditable", "true");
+        element.focus();
+        const spotRange = doc.createRange();
+        spotRange.selectNodeContents(element);
+        spotRange.collapse(false);
+        const spotSelection = doc.getSelection();
+        spotSelection.removeAllRanges();
+        spotSelection.addRange(spotRange);
+        const onKey = keyEvent => {
+          if (keyEvent.key === "Enter") { keyEvent.preventDefault(); element.blur(); }
+          if (keyEvent.key === "Escape") { keyEvent.preventDefault(); element.textContent = before; element.blur(); }
+        };
+        element.addEventListener("keydown", onKey);
+        element.addEventListener("blur", async () => {
+          element.removeAttribute("contenteditable");
+          element.removeEventListener("keydown", onKey);
+          const value = element.textContent.replace(/\s+/g, " ").trim();
+          element.textContent = value || before;
+          if (!value) { showToast("Text cannot be empty. Use Reset to code text to go back to the original words.", 5000); return; }
+          if (value === before) return;
+          try {
+            await saveSiteTextDraft(key, value);
+            showToast("Draft saved. It goes on the website when you press Publish this page's text.", 5000);
+          } catch (error) {
+            element.textContent = before;
+            showToast(`Not saved: ${error.message}`, 6000);
+          }
+        }, { once: true });
+        return;
+      }
       const isText = !["IMG", "VIDEO"].includes(element.tagName) && element.children.length < 2;
       if (isText) {
         element.setAttribute("contenteditable", "true");
@@ -11582,6 +11732,40 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  if (event.target.closest("[data-site-text-reload]")) { loadSiteText(true); return; }
+  const siteTextUndo = event.target.closest("[data-site-text-undo]");
+  const siteTextReset = event.target.closest("[data-site-text-reset]");
+  const siteTextPublish = event.target.closest("[data-site-text-publish]");
+  const siteTextDiscard = event.target.closest("[data-site-text-discard]");
+  if (siteTextUndo || siteTextReset || siteTextPublish || siteTextDiscard) {
+    const page = siteTextPageFor();
+    if (!page) return;
+    try {
+      if (siteTextUndo) {
+        await siteTextFetch("/api/site-text", { method: "POST", body: JSON.stringify({ operation: "discard_draft", page: page.id, key: siteTextUndo.dataset.siteTextUndo }) });
+        showToast("Draft undone.");
+      } else if (siteTextDiscard) {
+        if (!window.confirm(`Discard every text draft on the ${page.label} page? The website does not change.`)) return;
+        await siteTextFetch("/api/site-text", { method: "POST", body: JSON.stringify({ operation: "discard_draft", page: page.id }) });
+        showToast("Drafts discarded.");
+      } else if (siteTextReset) {
+        const name = await confirmSiteTextName("Put this spot back to the code text?", "The website shows the original words again. Your name is saved in the log.", "Reset to code text");
+        if (!name) return;
+        await siteTextFetch("/api/site-text", { method: "POST", body: JSON.stringify({ operation: "reset", page: page.id, key: siteTextReset.dataset.siteTextReset, name }) });
+        showToast("Back to the code text. The website updates within a minute.", 5000);
+      } else {
+        const name = await confirmSiteTextName(`Publish the text changes on the ${page.label} page?`, "Your drafts go on the website. Your name is saved in the log.", "Publish");
+        if (!name) return;
+        const result = await siteTextFetch("/api/site-text", { method: "POST", body: JSON.stringify({ operation: "publish", page: page.id, name }) });
+        showToast(`Published ${result.published || ""} change${result.published === 1 ? "" : "s"}. The website shows them within a minute.`, 6000);
+      }
+      await loadSiteText(true);
+      reloadBuilderPreview();
+    } catch (error) {
+      showToast(`Not changed: ${error.message}`, 6000);
+    }
+    return;
+  }
   const deleteTrainerPage = event.target.closest("[data-delete-trainer-page]");
   if (deleteTrainerPage) {
     const trainer = trainerById(deleteTrainerPage.dataset.deleteTrainerPage);
@@ -12334,7 +12518,7 @@ document.addEventListener("click", async event => {
     }
     if (state.builderSurface !== "trainer") {
       persistStateSnapshot();
-      showToast("Builder workspace changes saved");
+      showToast(state.builderSurface === "site" ? "Website text saves as a draft as soon as you click away from it. Press Publish this page's text to put it on the website." : "Builder workspace changes saved", 6000);
       return;
     }
     const publish = editorSave.dataset.editorSave === "publish";

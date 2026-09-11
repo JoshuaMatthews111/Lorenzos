@@ -1103,6 +1103,35 @@ document.querySelectorAll('input[name="phone"]').forEach(input=>{
   input.addEventListener('input',formatPhone);
   if(input.value) formatPhone();
 });
+// Website text the office edits in the Page Editor (rule 61). Plain text only
+// (textContent); if anything fails, the coded words stay. Staff previews show drafts.
+(()=>{
+  const spots=[...document.querySelectorAll('[data-edit]')];
+  if(!spots.length) return;
+  const originals=new Map(spots.map(el=>[el,el.textContent]));
+  const params=new URLSearchParams(location.search);
+  const preview=params.has('builderPreview')||params.get('site_text_preview')==='1';
+  let token='';
+  if(preview){try{const s=JSON.parse(localStorage.getItem('ldttPortalAuth.v1')||sessionStorage.getItem('ldttPortalAuth.v1')||'null');token=(s&&s.access_token)||'';}catch(e){}}
+  const cacheKey='ldttSiteText:'+location.pathname;
+  const apply=texts=>{
+    if(!texts||typeof texts!=='object') return;
+    spots.forEach(el=>{
+      if(el.children.length) return;
+      const v=texts[el.getAttribute('data-edit')];
+      const next=(typeof v==='string'&&v.trim())?v:originals.get(el);
+      if(el.textContent!==next) el.textContent=next;
+    });
+  };
+  if(!preview){try{apply(JSON.parse(localStorage.getItem(cacheKey)||'null'));}catch(e){}}
+  const ctrl=typeof AbortController==='function'?new AbortController():null;
+  const timer=setTimeout(()=>{if(ctrl)ctrl.abort();},2500);
+  const draft=preview&&token;
+  fetch('/api/site-text?path='+encodeURIComponent(location.pathname)+(draft?'&draft=1':''),{cache:draft?'no-store':'default',headers:draft?{Authorization:'Bearer '+token}:{},signal:ctrl?ctrl.signal:undefined})
+    .then(r=>r.ok?r.json():null)
+    .then(d=>{clearTimeout(timer);if(!d||!d.ok)return;apply(d.texts||{});if(!preview){try{localStorage.setItem(cacheKey,JSON.stringify(d.texts||{}));}catch(e){}}})
+    .catch(()=>{});
+})();
 document.querySelectorAll('form').forEach(form=>{
   if(form.querySelector('[name="company_website"]')) return;
   const field=document.createElement('input');
