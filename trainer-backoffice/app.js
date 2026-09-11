@@ -6264,7 +6264,7 @@ function pathwayTestScreen() {
   const data = pathwayTest.data || {};
   const testers = data.testers || [];
   const testerOptions = (selected) => `<option value="">— nobody (that role's texts are skipped) —</option>${testers.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === selected ? "selected" : ""}>${escapeHtml(t.name)} ${escapeHtml(t.phone)}</option>`).join("")}`;
-  const pick = (needle) => testers.find(t => new RegExp(needle, "i").test(t.name))?.id || testers[0]?.id || "";
+  const pick = (needle) => testers.find(t => new RegExp(needle, "i").test(t.name))?.id || "";
   const setup = `
     <p class="panel-copy">${escapeHtml(pathwayTest.notice || "")}</p>
     ${pathwayTest.error ? `<p class="panel-copy" style="color:#b00020">${escapeHtml(pathwayTest.error)}</p>` : ""}
@@ -6277,7 +6277,7 @@ function pathwayTestScreen() {
       <label class="check-row"><input type="checkbox" name="bite"> Bite, attack or serious aggression mentioned (safety review)</label>
       <h3>2. Who plays each part (tester phones only)</h3>
       <div class="form-grid-two">
-        <label>Customer<select name="customer_tester">${testerOptions(pick("josh"))}</select></label>
+        <label>Customer<select name="customer_tester">${testerOptions(pick("angela") || pick("josh"))}</select></label>
         <label>Trainer<select name="trainer_tester">${testerOptions(pick("tim"))}</select></label>
         <label>Market leader<select name="leader_tester">${testerOptions(pick("tim"))}</select></label>
         <label>Operations (Tim)<select name="operations_tester">${testerOptions(pick("tim"))}</select></label>
