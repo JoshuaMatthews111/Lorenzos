@@ -730,3 +730,9 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     map only (`MARKETS`); other ZIPs go to a person. "fast" speed = 1 plan hour per minute;
     "real" speed holds customer texts 9 PM–8 AM Eastern. The portal screen (`pathwayTest`)
     is in the nav only when `window.LDTT_IS_SANDBOX` is set.
+
+64. **Get Started has no "I'm also interested in" boxes** (added 2026-09-11, Claude). The
+    Investor network / Donor or project support / Specialty training checkboxes were removed
+    from both forms on `get-started.html` (commit d42139c) and deployed to live and the practice
+    copy. Do not re-add them. Its form must match the ad landing pages: same fields, same
+    SMS consent wording. Check: `curl -sL https://lorenzosdogtrainingteam.com/get-started | grep -ci "investor network"` → 0.
