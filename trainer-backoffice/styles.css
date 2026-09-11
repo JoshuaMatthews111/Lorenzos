@@ -5587,3 +5587,10 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 
 /* Website text spots (rule 61) */
 .site-text-counts{margin:6px 0 10px}.site-text-list{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}.site-text-row{border:1px solid #e3e6ee;border-radius:10px;padding:10px 12px;background:#fff}.site-text-row p{margin:6px 0 4px}.site-text-row small{display:block;color:#6b7280;margin-bottom:8px}.site-text-flags{display:flex;gap:6px;flex-wrap:wrap}
+
+/* Lead Journey Test (practice copy only, rule 63) */
+.pathway-journey{margin-top:14px}
+.pathway-messages{display:grid;gap:6px;margin-top:10px}
+.pathway-message{border:1px solid #dce7f2;border-radius:8px;padding:7px 10px;background:#f8fbff;font-size:.8rem}
+.pathway-message summary{cursor:pointer}
+.pathway-body{white-space:pre-wrap;font:inherit;margin:8px 0 0;color:#1d2f4a}

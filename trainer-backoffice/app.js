@@ -813,7 +813,7 @@ const clientStatusToDb = {
 const clientStatusFromDb = Object.fromEntries(Object.entries(clientStatusToDb).map(([label, value]) => [value, label]));
 // QA 2026-09-05 roles matrix: office admins also see Trainer Pages and the Page
 // Editor (edit content; publish / lock / add / delete stay Super Admin).
-const officeAdminViews = ["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
+const officeAdminViews = ["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "pathwayTest", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
 
 function objectHas(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -4501,6 +4501,7 @@ function adminNav() {
     ["clients", "Clients", "users"],
     ["approvals", "Reviews", "star", badges.pendingReviews],
     ["communications", "Communications", "message"],
+    ...(window.LDTT_IS_SANDBOX ? [["pathwayTest", "Lead Journey Test", "message"]] : []), // practice copy only (rule 63)
     ["reports", "Reports", "report"],
     ["adLandingPages", "Ad Landing Pages", "monitor"],
     ["portalAccess", "Portal Access", "shield"],
@@ -4603,6 +4604,7 @@ function renderTopbar() {
     import: ["Client Import", "Prototype CSV import with preview, duplicate checks, and consent protection."],
     approvals: ["Trainer Reviews", "Read the complete review, inspect attached photos or videos, and publish or reject each submission."],
     communications: ["Communications", "Lead alerts, ownership, and client messaging are managed here."],
+    pathwayTest: ["Lead Journey Test", "Practice copy only. Walk a made-up lead through the texting pathway. Texts go only to the tester phones you pick."],
     reports: ["Conversion Reports", "Conversions use confirmed lifecycle events and never browser-only counters."],
     adLandingPages: ["Ad Landing Pages", "Super Admin tracking for paid-ad market pages, traffic, form submissions, time on page, and conversion."],
     portalAccess: ["Portal Access", "Super Admin controls for staff, office admin, and trainer login access."],
@@ -6074,6 +6076,9 @@ const adminScreens = {
   communications() {
     return communicationsScreen();
   },
+  pathwayTest() {
+    return pathwayTestScreen();
+  },
   reports() {
     const metrics = getMetrics();
     return `
@@ -6191,6 +6196,131 @@ function liveDataReferenceLinks() {
 // Editor ("Main Website"). Drafts first; Publish (typed full name, logged) puts them
 // on the website; the code keeps every other word. See api/site-text.js.
 const siteText = { manifest: null, rows: [], loaded: false, loading: false, error: "" };
+
+
+// ---------------------------------------------------------------------------
+// Lead Journey Test (Joshua 2026-09-11) — PRACTICE COPY ONLY (rule 63).
+// api/lead-journey.js answers 404 on live. Texts go only to active Communications testers.
+const pathwayTest = { loaded: false, loading: false, data: null, error: "", notice: "", busy: false, timer: null, open: new Set() };
+
+async function pathwayRequest(payload = null) {
+  const token = window.LDTT_PORTAL?.accessToken?.() || "";
+  const response = await fetch("/api/lead-journey", {
+    method: payload ? "POST" : "GET",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: payload ? JSON.stringify(payload) : undefined
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.message || `Lead journey request failed (${response.status}).`);
+  return data;
+}
+
+async function loadPathwayTest(force = false) {
+  if (pathwayTest.loading || (pathwayTest.loaded && !force)) return;
+  pathwayTest.loading = true;
+  try {
+    pathwayTest.data = await pathwayRequest();
+    pathwayTest.loaded = true;
+    pathwayTest.error = "";
+  } catch (error) {
+    pathwayTest.error = error.message;
+  } finally {
+    pathwayTest.loading = false;
+    if (state.activeView === "pathwayTest") render();
+  }
+  // While the screen is open, send whatever is due and refresh (every 20 s).
+  if (!pathwayTest.timer) {
+    pathwayTest.timer = window.setInterval(async () => {
+      if (state.activeView !== "pathwayTest" || !session.loggedIn) { window.clearInterval(pathwayTest.timer); pathwayTest.timer = null; return; }
+      if (pathwayTest.busy || workspaceHasTypedInput()) return;
+      try { await pathwayRequest({ operation: "tick" }); } catch { /* shown on the next load */ }
+      loadPathwayTest(true);
+    }, 20000);
+  }
+}
+
+function pathwayWhen(value) {
+  if (!value) return "";
+  const diff = new Date(value).getTime() - Date.now();
+  const minutes = Math.round(Math.abs(diff) / 60000);
+  const text = minutes < 1 ? "now" : minutes < 60 ? `${minutes} min` : minutes < 60 * 48 ? `${Math.round(minutes / 60)} h` : `${Math.round(minutes / 1440)} d`;
+  return diff > 0 ? `in ${text}` : `${text} ago`;
+}
+
+const PATHWAY_ACTIONS = [
+  ["book", "Customer books the evaluation", "btn-red"],
+  ["contacted", "Trainer marks CONTACTED", "btn-outline"],
+  ["customer_no_show", "Customer no-show", "btn-outline"],
+  ["trainer_no_show", "Trainer no-show", "btn-outline"],
+  ["won", "Won: paid", "btn-outline"],
+  ["stop", "Stop (do not contact)", "btn-outline"]
+];
+
+function pathwayTestScreen() {
+  if (!window.LDTT_IS_SANDBOX) return panel("Lead Journey Test", "", `<p class="panel-copy">This test screen exists only on the practice copy.</p>`, "pad");
+  if (!pathwayTest.loaded && !pathwayTest.error) { loadPathwayTest(); return panel("Lead Journey Test", "", `<p class="panel-copy">Loading…</p>`, "pad"); }
+  const data = pathwayTest.data || {};
+  const testers = data.testers || [];
+  const testerOptions = (selected) => `<option value="">— nobody (that role's texts are skipped) —</option>${testers.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === selected ? "selected" : ""}>${escapeHtml(t.name)} ${escapeHtml(t.phone)}</option>`).join("")}`;
+  const pick = (needle) => testers.find(t => new RegExp(needle, "i").test(t.name))?.id || testers[0]?.id || "";
+  const setup = `
+    <p class="panel-copy">${escapeHtml(pathwayTest.notice || "")}</p>
+    ${pathwayTest.error ? `<p class="panel-copy" style="color:#b00020">${escapeHtml(pathwayTest.error)}</p>` : ""}
+    <p class="panel-copy">${data.twilio_ready ? "Twilio is connected. Texts go out for real, only to the tester phones below, marked [LDTT TEST]." : "Twilio is not set up on this copy: the flow runs and shows every text, but nothing is sent."} Marketing texts (win-back, reviews, referrals) are held: the toll-free number is approved for customer care only.</p>
+    <form data-pathway-form class="form">
+      <h3>1. The made-up lead</h3>
+      <div class="form-grid-two"><label>First name<input required name="first_name" maxlength="60" placeholder="Sam"></label><label>Last name<input name="last_name" maxlength="60" placeholder="Test"></label></div>
+      <div class="form-grid-two"><label>ZIP code<input required name="zip" maxlength="10" placeholder="44105" inputmode="numeric"></label><label>Dog's name<input name="dog_name" maxlength="40" placeholder="Max"></label></div>
+      <label>What they need help with<select required name="problem"><option value="">Select one</option>${(data.problems || []).map(p => `<option>${escapeHtml(p)}</option>`).join("")}</select></label>
+      <label class="check-row"><input type="checkbox" name="bite"> Bite, attack or serious aggression mentioned (safety review)</label>
+      <h3>2. Who plays each part (tester phones only)</h3>
+      <div class="form-grid-two">
+        <label>Customer<select name="customer_tester">${testerOptions(pick("josh"))}</select></label>
+        <label>Trainer<select name="trainer_tester">${testerOptions(pick("tim"))}</select></label>
+        <label>Market leader<select name="leader_tester">${testerOptions(pick("tim"))}</select></label>
+        <label>Operations (Tim)<select name="operations_tester">${testerOptions(pick("tim"))}</select></label>
+      </div>
+      <h3>3. Speed</h3>
+      <label>Clock<select name="speed"><option value="fast">Fast demo: 1 hour of the plan = 1 minute (24 h follow-up arrives in 24 min)</option><option value="real">Real timing (24 h means 24 hours; customer texts wait 9 PM–8 AM)</option></select></label>
+      <p class="field-help">Cleveland ZIPs (440xx, 441xx) route to Eric Beck, backup John DelBane. Cleveland Heights (44106, 44112, 44118, 44121) route to Harley McGrew, backup Eric Beck. Any other ZIP goes to a person (Operations).</p>
+      <button class="btn btn-red" type="submit" ${pathwayTest.busy ? "disabled" : ""}>Start this lead</button>
+    </form>`;
+  const journeys = (data.journeys || []).map(j => {
+    const done = /WON|DO NOT CONTACT/.test(j.state);
+    const canAct = !done && j.market_key;
+    const actions = canAct ? PATHWAY_ACTIONS.filter(([key]) => (key === "book" ? !j.appointment_at : key === "stop" || key === "won" || j.appointment_at))
+      .map(([key, label, cls]) => `<button class="btn ${cls} btn-small" type="button" data-pathway-action="${key}" data-pathway-id="${escapeHtml(j.id)}" ${pathwayTest.busy ? "disabled" : ""}>${label}</button>`).join(" ") : "";
+    const messages = (j.messages || []).map(m => {
+      const badge = { sent: "✅ sent", scheduled: "⏳ waiting", sending: "… sending", failed: "❌ failed", cancelled: "— cancelled", skipped: "⚠️ skipped" }[m.status] || m.status;
+      return `<details class="pathway-message" ${pathwayTest.open.has(m.id) ? "open" : ""} data-pathway-message="${escapeHtml(m.id)}"><summary><strong>${escapeHtml(badge)}</strong> · ${escapeHtml(m.template_key)} → ${escapeHtml(m.to_role)} ${escapeHtml(m.to_phone || "")} · ${escapeHtml(m.status === "sent" ? `sent ${pathwayWhen(m.sent_at)}` : m.status === "scheduled" ? `due ${pathwayWhen(m.due_at)}` : "")}${m.error ? ` · ${escapeHtml(m.error)}` : ""}</summary><pre class="pathway-body">${escapeHtml(m.body)}</pre></details>`;
+    }).join("");
+    return `<article class="panel pad pathway-journey">
+      <div class="row-actions" style="justify-content:space-between"><h3>${escapeHtml([j.first_name, j.last_name].filter(Boolean).join(" "))} · ZIP ${escapeHtml(j.zip || "")} → ${escapeHtml(j.market_name || "no trainer area")}</h3><span class="portal-tag">${escapeHtml(j.state)}</span></div>
+      <p class="panel-copy">${escapeHtml(j.problem || "")}${j.dog_name ? ` · dog: ${escapeHtml(j.dog_name)}` : ""}${j.bite ? " · ⚠️ safety review" : ""} · trainer: <strong>${escapeHtml(j.assigned_trainer || "—")}</strong> (backup ${escapeHtml(j.backup_trainer || "—")}, leader ${escapeHtml(j.leader_name || "—")})${j.appointment_at ? ` · evaluation ${escapeHtml(formatDateTime(j.appointment_at))}` : ""} · ${escapeHtml(j.speed === "real" ? "real timing" : "fast demo")} · started ${escapeHtml(pathwayWhen(j.created_at))} by ${escapeHtml(j.created_by_name || "")}</p>
+      <div class="row-actions">${actions}</div>
+      <div class="pathway-messages">${messages || "<p class=\"panel-copy\">No texts yet.</p>"}</div>
+    </article>`;
+  }).join("");
+  return `${panel("Lead Journey Test", `<button class="btn btn-outline btn-small" type="button" data-pathway-reload>Refresh</button>`, setup, "pad")}
+    <h2 class="panel-title">Test leads (newest first)</h2>${journeys || `<p class="panel-copy">No test leads yet. Start one above.</p>`}`;
+}
+
+async function runPathwayAction(payload, doneNotice) {
+  if (pathwayTest.busy) return;
+  pathwayTest.busy = true;
+  render();
+  try {
+    const result = await pathwayRequest(payload);
+    pathwayTest.notice = `${doneNotice} ${result.sent ? `${result.sent} text(s) sent.` : ""} ${result.skipped ? `${result.skipped} skipped (not a tester phone).` : ""} ${result.failed ? `${result.failed} failed.` : ""}`.trim();
+    pathwayTest.error = "";
+  } catch (error) {
+    pathwayTest.error = error.message;
+  } finally {
+    pathwayTest.busy = false;
+    await loadPathwayTest(true);
+  }
+}
 
 async function siteTextFetch(url, options = {}) {
   const token = window.LDTT_PORTAL?.accessToken?.() || "";
@@ -11807,6 +11937,15 @@ document.addEventListener("click", async event => {
     }
     return;
   }
+  if (event.target.closest("[data-pathway-reload]")) { loadPathwayTest(true); return; }
+  const pathwayAction = event.target.closest("[data-pathway-action]");
+  if (pathwayAction) {
+    const label = PATHWAY_ACTIONS.find(([key]) => key === pathwayAction.dataset.pathwayAction)?.[1] || "Step";
+    runPathwayAction({ operation: "action", journey_id: pathwayAction.dataset.pathwayId, action: pathwayAction.dataset.pathwayAction }, `${label}: done.`);
+    return;
+  }
+  const pathwayMessage = event.target.closest("[data-pathway-message]");
+  if (pathwayMessage) { window.setTimeout(() => { if (pathwayMessage.open) pathwayTest.open.add(pathwayMessage.dataset.pathwayMessage); else pathwayTest.open.delete(pathwayMessage.dataset.pathwayMessage); }, 0); }
   if (event.target.closest("[data-site-text-reload]")) { loadSiteText(true); return; }
   const siteTextUndo = event.target.closest("[data-site-text-undo]");
   const siteTextReset = event.target.closest("[data-site-text-reset]");
@@ -13694,6 +13833,15 @@ document.addEventListener("drop", event => {
 });
 
 document.addEventListener("submit", async event => {
+  if (event.target.matches("[data-pathway-form]")) {
+    event.preventDefault();
+    const form = new FormData(event.target);
+    const payload = { operation: "start" };
+    for (const [key, value] of form.entries()) payload[key] = value;
+    payload.bite = form.get("bite") === "on";
+    await runPathwayAction(payload, `Lead started for ${payload.first_name}.`);
+    return;
+  }
   event.preventDefault();
   if (event.target.matches("[data-communications-alert-form]")) {
     const data = new FormData(event.target);

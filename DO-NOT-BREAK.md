@@ -717,3 +717,16 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     with the page at publish time. `signedMediaUrl()` returns "" for a file it cannot sign
     (the practice bucket has no copy of live uploads) instead of failing the whole list.
     Trainer pages take `SITE_ASSET_VERSION` for the portal stylesheet — never a fixed stamp.
+63. **Lead Journey Test is PRACTICE ONLY and texts testers only (Joshua 2026-09-11).**
+    `api/lead-journey.js` answers 404 unless `isSandbox()`; admin login required. Tables
+    `practice.lead_journeys` / `practice.journey_messages` exist ONLY in the practice
+    schema (nothing in `public`, so the pull ignores them). Every text is claimed
+    (scheduled → sending) before it is sent, goes only to a phone that is an ACTIVE row in
+    `communications_testers` (checked again at send time; anything else is `skipped`),
+    is prefixed `[LDTT TEST]`, and is capped at 60 an hour. Wording is Tim + Angela's
+    (`lib/lead-journey.js`, from `docs/revenue-pathway/`); templates marked `office: true`
+    fill gaps the documents left. Marketing messages (`HELD_MARKETING`) are not sendable:
+    the toll-free number is approved for CUSTOMER_CARE only. Routing is the Cleveland test
+    map only (`MARKETS`); other ZIPs go to a person. "fast" speed = 1 plan hour per minute;
+    "real" speed holds customer texts 9 PM–8 AM Eastern. The portal screen (`pathwayTest`)
+    is in the nav only when `window.LDTT_IS_SANDBOX` is set.
