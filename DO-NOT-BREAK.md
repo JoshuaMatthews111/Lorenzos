@@ -118,6 +118,12 @@ Verification additions:
     `data-application-search`, `data-client-search`, plus the design/flow fields).
     A box with an empty key is wiped by any `render()`. New typing fields must be added
     to that regex or they will regress Melissa's 2026-09-04 bug.
+    Since 2026-09-11 (the password box that emptied while typing) there is a second net:
+    a box with none of those attributes gets an automatic key from its other stable
+    attributes (id, type, placeholder, aria-label, autocomplete, data-*), twins get
+    "#1, #2…" ordinals, `enhancePasswordFields()` puts focus, caret and the Show state
+    back after wrapping a password box, and a background redraw waits while someone types
+    in an open `<dialog>` (delete page, restore, reset, publish names). Keep all four.
 15. **"Add Office Note" empties its box before `render()`.** The safety net refills any
     typed box a redraw left empty, so a box still holding the saved wording would look
     unsaved. Keep the `textarea.value = ""` line before the repaint.
@@ -698,3 +704,16 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     this page's text" and "Reset to code text" need a full name and are logged. The public
     swap (`script.js`) is textContent only and fails open. On the practice copy live wins
     per spot (pull mode office). Anything not tagged stays code-owned: changes go through Joshua.
+62. **Review photos: one 4:3 whole-photo frame everywhere, signed links on trainer pages
+    (Joshua 2026-09-11).** The homepage (`styles.css .homepage-approved-review-media`),
+    the trainer pages (`trainer-backoffice/styles.css .trainer-review-media`) and the Page
+    Editor preview (`.review-frame-preview`) all use `aspect-ratio: 4/3` with
+    `object-fit: contain`, so the whole photo always shows and the office's "how this photo
+    sits" choice (`content_submissions.photo_position`) is the same on every page. The
+    `trainer-submissions` bucket is PRIVATE: a plain public link answers 400 and the
+    broken-image guard hides the photo. Trainer pages therefore call
+    `refreshPublicReviewMedia()` (app.js) → `/api/approved-homepage-reviews?destination_type=trainer_page`
+    for signed links + positions after every public render; the photo choice is also saved
+    with the page at publish time. `signedMediaUrl()` returns "" for a file it cannot sign
+    (the practice bucket has no copy of live uploads) instead of failing the whole list.
+    Trainer pages take `SITE_ASSET_VERSION` for the portal stylesheet — never a fixed stamp.
