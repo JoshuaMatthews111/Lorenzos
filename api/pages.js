@@ -149,7 +149,9 @@ async function listPages() {
   ]);
   return rows.map(row => {
     const { draft_content, published_content, ...summary } = stampRow(row, stamps);
-    return { ...summary, page_type: pageTypeOf(summary), public_path: publicPathFor(pageTypeOf(summary), summary.slug) };
+    // The card list carries one thumbnail address: the chosen cover, else the hero photo.
+    const cover = draft_content?.cover || draft_content?.hero?.photo || published_content?.cover || published_content?.hero?.photo || "";
+    return { ...summary, cover, page_type: pageTypeOf(summary), public_path: publicPathFor(pageTypeOf(summary), summary.slug) };
   });
 }
 

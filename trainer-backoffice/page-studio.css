@@ -32,7 +32,8 @@ body.ps-builder-fullscreen.ps-rail-hidden .page-editor-shell.fullscreen-builder 
 .ps-big-btn.ghost.on-dark{background:transparent;color:#fff;border-color:rgba(255,255,255,.4)}
 .ps-big-btn:disabled{opacity:.5;cursor:default}
 .ps-page-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
-.ps-page-card{display:grid;gap:10px;padding:18px;border:1px solid #d8e3f0;border-radius:16px;background:#fff}
+.ps-page-card{display:grid;gap:10px;padding:18px;border:1px solid #d8e3f0;border-radius:16px;background:#fff;overflow:hidden}
+.ps-card-cover{margin:-18px -18px 4px;height:120px;background-size:cover;background-position:center;border-bottom:1px solid #e4ebf4}
 .ps-page-card strong{font-size:1.1rem;color:#082754}
 .ps-page-card .ps-addr{font-family:ui-monospace,Menlo,monospace;font-size:.85rem;color:#53677f;word-break:break-all}
 .ps-page-card .ps-meta{font-size:.82rem;color:#64758d}

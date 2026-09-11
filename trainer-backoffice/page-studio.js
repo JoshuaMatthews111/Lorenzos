@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260905site";
+  const VERSION = "20260911editor2";
   const API = "/api/pages"; // site-builder: one API for ad, site and landing pages (api/ad-pages.js is an alias)
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
   const store = { pages: null, markets: [], starters: [], importable: [], sandbox: false, loading: false, error: "" };
@@ -166,7 +166,9 @@
   function pageCard(page) {
     const type = page.page_type || "ad";
     const path = page.public_path || (type === "ad" ? `/ads/${page.slug}` : `/${page.slug}`);
+    const coverSrc = page.cover ? (/^https?:\/\//i.test(page.cover) ? page.cover : `/${page.cover}`) : "";
     return `<article class="ps-page-card" data-ps-type="${esc(type)}">
+        ${coverSrc ? `<div class="ps-card-cover" style="background-image:url('${esc(coverSrc)}')" role="img" aria-label="Page cover"></div>` : ""}
         <div><span class="ps-pill ${page.status === "published" ? "published" : "draft"}">${page.status === "published" ? "Live" : "Draft"}</span> <span class="ps-pill static">${esc(TYPE_LABEL[type] || type)}</span></div>
         <strong>${esc(page.title || page.market || page.slug)}</strong>
         <span class="ps-addr">${esc(path)}</span>
@@ -389,9 +391,23 @@
         return `${field("Eyebrow", p("eyebrow"), section.eyebrow)}${field("Heading", p("heading"), section.heading)}${field("Paragraph", p("text"), section.text, { type: "textarea", rows: 4 })}<p class="ps-help">The trainer names come from the Page tab (“Trainers”).</p>`;
       case "custom":
         return `${field("Eyebrow (optional)", p("eyebrow"), section.eyebrow)}${field("Heading", p("heading"), section.heading)}${field("Paragraph", p("text"), section.text, { type: "textarea", rows: 5 })}${field("Button text (blank = no button)", p("button"), section.button)}`;
+      case "image":
+        return `${photoPicker("Photo", p("photo"), section.photo)}
+          ${field("Photo description (alt text)", p("photoAlt"), section.photoAlt)}
+          ${field("Caption under the photo (optional)", p("caption"), section.caption)}
+          ${field("Link when clicked (optional, https://…)", p("link"), section.link, { placeholder: "https://…" })}
+          <p class="ps-help">Pick a photo from the library or paste any https:// image address. Use “Photo size” and “Section width” below to resize and widen it.</p>`;
       default:
         return "";
     }
+  }
+
+  // Layout choices every section carries: width for all, photo size where a photo exists.
+  function layoutFields(section, index) {
+    const p = key => `sections.${index}.${key}`;
+    const width = field("Section width", p("width"), section.width || "", { type: "select", options: [["", "Design width"], ["wide", "Wide (1400px)"], ["full", "Full bleed — edge to edge"]] });
+    const size = section.photo !== undefined ? field("Photo size", p("size"), section.size || "", { type: "select", options: [["", "Design size"], ["small", "Small (420px)"], ["medium", "Medium (680px)"], ["large", "Large (1050px)"], ["full", "As wide as the section"]] }) : "";
+    return `<div class="ps-item"><div class="ps-item-head"><span>Layout</span></div>${width}${size}</div>`;
   }
 
   function photoPicker(label, path, value) {
@@ -433,7 +449,7 @@
             <button type="button" class="ps-icon-btn" data-ps-act="duplicate" data-index="${index}" title="Duplicate">⧉</button>
             <button type="button" class="ps-icon-btn danger" data-ps-act="remove" data-index="${index}" title="Remove">✕</button>
           </div>
-          ${open ? `<div class="ps-section-body">${sectionFields(section, index)}</div>` : ""}
+          ${open ? `<div class="ps-section-body">${sectionFields(section, index)}${layoutFields(section, index)}</div>` : ""}
         </article>`;
       }).join("");
       rail.innerHTML = `
@@ -463,6 +479,8 @@
         ${field("Nearby places", "nearby", d.nearby, { list: true, rows: 4 })}
         ${field("ZIP codes", "zipCodes", d.zipCodes, { list: true, rows: 3 })}
         ${field("Spanish-speaking market (adds the Spanish strip)", "spanish", d.spanish, { type: "checkbox" })}
+        <h3>Card cover image</h3>
+        ${photoPicker("Cover shown on this page's card in Page Studio (blank = the hero photo)", "cover", d.cover)}
         <h3>Danger zone</h3>
         ${editor.page.status === "published" ? `<button type="button" class="ps-btn" data-ps-act="unpublish">Take this page offline</button>` : ""}
         <button type="button" class="ps-btn" style="color:#b00020;border-color:#f1c2ca" data-ps-act="archive">Remove this page</button>`;
