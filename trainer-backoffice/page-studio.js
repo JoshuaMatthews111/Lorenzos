@@ -243,6 +243,15 @@
     rail.type = "button"; rail.className = "btn btn-outline ps-rail-btn"; rail.dataset.psBuilderRail = "1";
     rail.textContent = document.body.classList.contains("ps-rail-hidden") ? "Show Controls" : "Hide Controls";
     actions.prepend(rail); actions.prepend(fs);
+    // Vetting 2026-09-12 (rule 78): full screen covers the Page Editor / Page Studio / Lead forms tabs, and
+    // Lead forms has no menu item, so the top bar carries the other two doors (the portal's own data-view
+    // navigation; leaving the editor drops full screen because the shell is gone).
+    [["formEditor", "Lead forms"], ["pageStudio", "Page Studio"]].forEach(([view, label]) => {
+      const door = document.createElement("button");
+      door.type = "button"; door.className = "btn btn-outline ps-door-btn"; door.dataset.view = view; door.dataset.psBuilderDoor = view;
+      door.textContent = label;
+      actions.prepend(door);
+    });
   }
 
   function setBuilderFullscreen(on) {

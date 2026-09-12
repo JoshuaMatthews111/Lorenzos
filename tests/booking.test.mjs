@@ -202,7 +202,7 @@ test("availability: Google's free times minus held times and the next hour; the 
   assert.equal(calls.filter(c => c.host === "calendar-pa.clients6.google.com").length, 1);
   const daniel = await call(bookingApi, { method: "GET", query: { trainer: "daniel-bainbridge" } });
   assert.deepEqual(daniel.payload.locations, ["in_home"]);
-  assert.equal(daniel.payload.trainer.market, "Crestview, Florida");
+  assert.equal(daniel.payload.trainer.market, "Crestview, FL");
   assert.equal((await call(bookingApi, { method: "GET", query: { trainer: "nobody" } })).statusCode, 404);
 });
 

@@ -1177,3 +1177,26 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       Fixing it is a database change to the pull (rules 46 + 52 + the 25-check `tests/practice-pull.sql` proof), so it
       needs its own step and Joshua's OK.
     Tests: 2 in `tests/media-layout.test.mjs`. Audit: the rule 77 check.
+
+## Vetting pass on the practice-copy screenshots (added 2026-09-12, Claude)
+
+78. **What a picky client saw in the 2026-09-12 proof screenshots stays fixed.**
+    - The practice banner (`#sandboxBanner`, sticky, z-index 9400) sat on top of the lead panel (fixed, top 0), so
+      the lead panel's × close button could not be clicked on the practice copy (`elementFromPoint` on the × answered
+      `sandboxBanner`). `applyEnvironmentBadge()` now writes the banner's real height to `--ldtt-banner-h` (again on
+      resize, it wraps on narrow screens) and `body.is-sandbox .lead-detail-panel` + the full-screen editor shell start
+      below it. Live never has `is-sandbox`, so live keeps `top:0`.
+    - Rule 76 made the Page Editor open full screen every time, and the full-screen shell (fixed, z-index 9000)
+      covers the Page Editor / Page Studio / Lead forms tabs. Lead forms has no menu item, so the office could not
+      reach the rule 75 form editor at all. `decorateBuilder()` (page-studio.js) now adds "Lead forms" and
+      "Page Studio" buttons (`data-view`, `data-ps-builder-door`) to the full-screen top bar. Leaving the editor drops
+      full screen because the shell is gone. A new full-screen screen must keep a way out to its sibling tabs.
+    - Booking cards used whatever the trainer row said ("Cleveland, OH" next to "Streetsboro, Ohio",
+      "Crestview, Florida"). `marketLabel()` shortens a trailing full US state name to its postal code. The distance
+      ("Under 1 mi away") sits in a `nowrap` span so it never breaks onto two lines on a phone.
+    - The Sales board's empty column said "Empty — ready for testing." (on LIVE too). It now says
+      "No leads in this stage yet." (live gets it with the next live release).
+    - Not changed, reported: the booking form pre-fills "Physical address" with the lead's street only (a Contact Us
+      lead keeps city/state/ZIP in their own columns); an in-home trainer-alert text then carries the street only.
+      Fixing it touches the Make payload (`service_address`), so it needs its own step.
+    Tests: 5 in `tests/vetting-fixes.test.mjs`.

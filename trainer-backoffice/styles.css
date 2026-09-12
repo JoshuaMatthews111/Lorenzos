@@ -5303,6 +5303,10 @@ button:disabled{cursor:not-allowed}
 
 /* ---- Sandbox banner ---- */
 .sandbox-banner{position:sticky;top:0;z-index:9400;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:9px 18px;background:repeating-linear-gradient(135deg,#f7b500,#f7b500 14px,#ffcf4d 14px,#ffcf4d 28px);color:#2b1d00;font-size:.82rem;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.16)}
+/* Vetting 2026-09-12 (rule 78): on the practice copy the sticky banner sat on top of the lead panel's × and the
+   full-screen editor's top bar. Both now start below it. --ldtt-banner-h is set by applyEnvironmentBadge(). */
+body.is-sandbox .lead-detail-panel{top:var(--ldtt-banner-h,0px);height:calc(100vh - var(--ldtt-banner-h,0px))}
+body.is-sandbox.ps-builder-fullscreen .page-editor-shell.fullscreen-builder{top:var(--ldtt-banner-h,0px)}
 .sandbox-banner strong{background:#2b1d00;color:#ffcf4d;padding:3px 10px;border-radius:999px;font-size:.72rem;letter-spacing:.08em}
 body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shares the same practice changes. The live site never changes.";display:block;margin-top:14px;padding:9px 12px;border-radius:8px;background:#fff6dd;border:1px solid #f0cf7a;color:#5b4300;font-size:.78rem;font-weight:700}
 

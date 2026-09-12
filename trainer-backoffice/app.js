@@ -8476,7 +8476,7 @@ function salesPipelineView() {
     const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more</p>` : "";
     return `<section class="sales-column ${tone}">
       <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${columnCounts.get(id) ?? items.length}</span></header>
-      <div class="sales-column-body">${cards || `<p class="sales-empty">Empty &mdash; ready for testing.</p>`}${more}</div>
+      <div class="sales-column-body">${cards || `<p class="sales-empty">No leads in this stage yet.</p>`}${more}</div>
     </section>`;
   }).join("");
 
@@ -14979,6 +14979,12 @@ async function applyEnvironmentBadge() {
     banner.setAttribute("role", "status");
     banner.innerHTML = `<strong>PRACTICE COPY</strong><span>PRACTICE COPY — a full copy of live. Everything works here. Nothing here reaches the website or real people. Use Send to live when a page is ready.</span>`;
     document.body.prepend(banner);
+    // Vetting 2026-09-12 (rule 78): the banner is sticky at the top while the lead panel and the full-screen
+    // editor are fixed at top:0, so the banner covered the lead panel's × button. CSS reads the banner's real
+    // height (it wraps to 2-3 lines on narrow screens). Practice copy only: live never draws the banner.
+    const setBannerHeight = () => document.body.style.setProperty("--ldtt-banner-h", `${banner.offsetHeight}px`);
+    setBannerHeight();
+    window.addEventListener("resize", setBannerHeight, { passive: true });
   } catch (error) {
     console.warn("LDTT environment check failed", error);
   }
