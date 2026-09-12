@@ -18,7 +18,7 @@ test("booking cards show one state style: the postal code, never the full name",
 test("booking page: the distance never breaks onto two lines", () => {
   const page = read("lib/booking-page.js");
   assert.match(page, /\.nowrap\{white-space:nowrap\}/);
-  assert.match(page, /<span class="nowrap">' \+ esc\(milesText\(c\.miles\)\)/);
+  assert.match(page, /<span class="nowrap">· ' \+ esc\(milesText\(c\.miles\)\)/, "the dot travels with the distance, never left dangling");
 });
 
 test("practice banner never covers the lead panel's close button or the full-screen editor top bar", () => {
