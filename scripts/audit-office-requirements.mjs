@@ -350,6 +350,28 @@ const checks = [
       && /if\(!env\?\.sandbox\) return;/.test(practiceBlock) && /document\.addEventListener\('submit',[\s\S]*?\},true\);/.test(practiceBlock) && !/formsubmit|form-delivery|relayFormDeliveries\(/i.test(practiceBlock)
       && /Office email waiting for the Resend key/.test(app) && /data-pipeline-send-queued/.test(app) && /data-pipeline-\(email\|label\|trainer-phone\|practice-email\)=/.test(app);
   })()],
+  // booking page redesign: ZIP first, trainer cards within 50 miles, questions, calendar or request (rule 74, step 3c)
+  ["rule 74: the booking page runs ZIP -> trainer cards (50 miles from each trainer's Base ZIP, bundled Census ZIP file, no outside call) -> Rachel's questions -> calendar or 'Request this trainer' -> congratulations; a request never moves the lead to Eval Scheduled and never holds a time; /book wins over the trainer catch-all; Base ZIP is 5 digits or empty on create and update; the migration is additive in both schemas", (() => {
+    const bookingApi = read("api/booking.js");
+    const request = bookingApi.slice(bookingApi.indexOf("async function requestTrainer("), bookingApi.indexOf("async function callback("));
+    const page = read("lib/booking-page.js");
+    const at = id => page.indexOf(`id="${id}"`);
+    const zipLib = read("lib/zip-distance.js");
+    const centroids = JSON.parse(read("lib/zip-centroids.json"));
+    const baseZipMigration = read("supabase/migrations/20260912160000_trainer_base_zip.sql");
+    const mutation = read("api/operational-mutation.js");
+    const bookRewrite = vercel.rewrites.findIndex(r => r.source === "/book" && r.destination === "/api/booking-page");
+    return Object.keys(centroids).length > 30000 && Array.isArray(centroids["44128"]) && !/fetch\(|https?:\/\//.test(zipLib.replace(/\/\/[^\n]*/g, ""))
+      && /const RADIUS_MILES = 50;/.test(bookingLib) && /milesBetween\(zip, trainer\.base_zip\)/.test(bookingLib) && /!\/\^office-draft-\/\.test\(t\.slug\)/.test(bookingLib)
+      && request.length > 0 && !/status: "evaluation_scheduled"|eval_scheduled_at|booking_holds|googleSlots/.test(request) && /requested: true,/.test(request) && /await P\.afterOfficeRequest\(\{ lead: record, kind: "trainer_request" \}\)/.test(request)
+      && /await P\.afterOfficeRequest\(\{ lead: record, kind: "no_trainer" \}\)/.test(bookingApi)
+      && at("stepZip") > 0 && at("stepZip") < at("stepForm") && at("stepForm") < at("stepTime") && at("stepTime") < at("stepDone") && /Enter your ZIP code/.test(page) && /866\.436\.4959/.test(page)
+      && bookRewrite >= 0 && bookRewrite < vercel.rewrites.findIndex(r => r.source === "/:slug")
+      && /add column if not exists base_zip text;[\s\S]*practice\.trainers add column if not exists base_zip text;/.test(baseZipMigration) && !/\bdrop\b|\btruncate\b|\bdelete\b/i.test(baseZipMigration.replace(/--[^\n]*/g, ""))
+      && (mutation.match(/const zipCheck = cleanBaseZip\(changes\.base_zip\);/g) || []).length === 2 && /"base_zip" \/\/ rule 74/.test(mutation)
+      && /\{ profile: "profileBaseZip", public: "savedBaseZip", landing: null, label: "Base ZIP \(booking page distance\)", baseZip: true \}/.test(app)
+      && /const route = await B\.routeZip\(lead\.zip, settings\)/.test(pipelineLib) && /const route = await B\.routeZip\(intake\.value\.zip, settings\);/.test(read("api/booking-lead.js"));
+  })()],
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

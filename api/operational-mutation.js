@@ -37,7 +37,8 @@ const ENTITY_CONFIG = {
     table: "trainers",
     fields: new Set([
       "slug", "full_name", "email", "phone", "market", "service_area", "state", "bio",
-      "headshot_url", "status", "access_status", "credentials", "specialties", "social_links"
+      "headshot_url", "status", "access_status", "credentials", "specialties", "social_links",
+      "base_zip" // rule 74: the booking page measures the 50-mile radius from this ZIP
     ])
   },
   trainer_page: {
@@ -140,6 +141,14 @@ function filterChanges(config, changes) {
   return Object.fromEntries(
     Object.entries(changes || {}).filter(([key]) => config.fields.has(key))
   );
+}
+
+// rule 74: Base ZIP = exactly 5 digits, or empty (stored as null = not listed on the booking page).
+function cleanBaseZip(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return { value: null };
+  if (!/^\d{5}$/.test(text)) return { error: "Base ZIP must be 5 digits (for example 44128). Leave it empty to keep this trainer off the booking page." };
+  return { value: text };
 }
 
 // publish-guard (2026-09-05, approval ef605d4f). A trainer page may only be
@@ -378,6 +387,12 @@ async function updateRecord(admin, body, requestId) {
       changes.eval_scheduled_at = when ? when.toISOString() : null;
     }
   }
+  // rule 74: a trainer's Base ZIP is 5 digits or empty (empty = not listed on the booking page).
+  if (entityType === "trainer" && "base_zip" in changes) {
+    const zipCheck = cleanBaseZip(changes.base_zip);
+    if (zipCheck.error) return { status: 400, body: { ok: false, message: zipCheck.error } };
+    changes.base_zip = zipCheck.value;
+  }
   // rule 45: an application save sends only the keys it owns (the office stage
   // stamp). Merge them into the stored raw_payload so a stale browser can never
   // replace the applicant's answers or another staff member's stamp wholesale.
@@ -423,6 +438,11 @@ async function createRecord(admin, body, requestId) {
   if (!config) return { status: 400, body: { ok: false, message: "Unsupported operational record." } };
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No valid fields were supplied." } };
+  if (entityType === "trainer" && "base_zip" in changes) { // rule 74
+    const zipCheck = cleanBaseZip(changes.base_zip);
+    if (zipCheck.error) return { status: 400, body: { ok: false, message: zipCheck.error } };
+    changes.base_zip = zipCheck.value;
+  }
   const guard = publishGuardViolation(entityType, null, changes); // publish-guard
   if (guard) return guard;
   await assertTrainerEmailFree(entityType, changes, ""); // onboarding

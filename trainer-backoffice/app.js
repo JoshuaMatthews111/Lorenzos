@@ -960,6 +960,8 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     serviceArea: content.service_area || remoteTrainer.service_area || "",
     profileServiceArea: remoteTrainer.service_area || "",
     publicServiceArea: remoteTrainer.service_area || "",
+    profileBaseZip: remoteTrainer.base_zip || "", // rule 74: booking page distance
+    savedBaseZip: remoteTrainer.base_zip || "",
     phone: remoteTrainer.phone || "(866) 436-4959",
     profilePhone: remoteTrainer.phone || "",
     publicPhone: remoteTrainer.phone || "",
@@ -2037,7 +2039,9 @@ async function persistTrainerRecordNow(trainer, options = {}) {
     access_status: trainer.accessStatus === "Disabled" ? "disabled" : "active",
     credentials: String(trainer.profileCredentialsText || "").split(/\n|,/).map(value => value.trim()).filter(Boolean),
     specialties: String(trainer.profileSpecialtiesText || "").split(/\n|,/).map(value => value.trim()).filter(Boolean),
-    social_links: trainer.socials || {}
+    social_links: trainer.socials || {},
+    // rule 74: only sent when the portal knows the trainer's Base ZIP, so an old record never blanks it.
+    ...(trainer.profileBaseZip !== undefined ? { base_zip: String(trainer.profileBaseZip || "").trim() || null } : {})
   };
   const persistProfile = options.skipProfile !== true && (options.persistProfile !== false || !trainer.remoteId);
   if (trainer.remoteId && persistProfile) {
@@ -2217,6 +2221,7 @@ async function persistPublicTrainerField(trainer, profileKey) {
     profileMarket: ["market", trainer.profileMarket || null],
     profileState: ["state", trainer.profileState || null],
     profileServiceArea: ["service_area", trainer.profileServiceArea || null],
+    profileBaseZip: ["base_zip", String(trainer.profileBaseZip || "").trim() || null], // rule 74: 5 digits or empty (server checks)
     profilePhone: ["phone", trainer.profilePhone || null],
     profileEmail: ["email", trainer.profileEmail || null],
     profileBio: ["bio", trainer.profileBio || null],
@@ -8985,6 +8990,7 @@ function profileFieldPairs() {
     { profile: "profileMarket", public: "publicMarket", landing: "market", label: "City / Market" },
     { profile: "profileState", public: "publicState", landing: "state", label: "State" },
     { profile: "profileServiceArea", public: "publicServiceArea", landing: "serviceArea", label: "Service Area", area: true },
+    { profile: "profileBaseZip", public: "savedBaseZip", landing: null, label: "Base ZIP (booking page distance)", baseZip: true }, // rule 74
     { profile: "profilePhone", public: "publicPhone", landing: "phone", label: "Public Phone" },
     { profile: "profileEmail", public: "publicEmail", landing: "email", label: "Public Email" },
     { profile: "profileBio", public: "publicBio", landing: "bio", label: "Trainer Bio", area: true },
@@ -9013,10 +9019,15 @@ function syncRow(trainer, pair) {
     ? `<div class="profile-photo-upload"><img src="${escapeHtml(profileValue || "/assets/lorenzo-logo-transparent.png")}" alt="${escapeHtml(pair.label)} preview"><label class="upload-drop"><strong>Upload headshot file</strong><small>JPG, PNG, WebP, or GIF</small><input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" data-trainer-upload="${pair.profile}"></label></div>`
     : pair.area
     ? `<textarea data-profile-field="${pair.profile}" placeholder="${escapeHtml(pair.label)}">${escapeHtml(profileValue)}</textarea>`
+    : pair.baseZip
+    ? `<input data-profile-field="${pair.profile}" value="${escapeHtml(profileValue)}" placeholder="e.g. 44128" inputmode="numeric" maxlength="5" pattern="[0-9]{5}">`
     : `<input data-profile-field="${pair.profile}" value="${escapeHtml(profileValue)}" placeholder="${escapeHtml(pair.label)}">`;
+  // rule 74: the Base ZIP row saves straight to the trainer record (the booking page reads it); it has no landing copy.
+  const publicWords = pair.baseZip ? ["✓ Saved for the booking page", "Not saved yet", "Save Base ZIP"] : ["✓ Matches public profile", "Needs public profile update", "Update frontend"];
   return `<article class="profile-sync-row ${publicMatches && landingMatches ? "matches" : "mismatch"}">
     <label><span>${escapeHtml(pair.label)}</span>${control}</label>
-    ${pair.public ? `<div class="sync-meta"><span class="sync-state ${publicMatches ? "match" : "mismatch"}">${publicMatches ? "✓ Matches public profile" : "Needs public profile update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-public-field="${pair.profile}">Update frontend</button></div>` : ""}
+    ${pair.public ? `<div class="sync-meta"><span class="sync-state ${publicMatches ? "match" : "mismatch"}">${publicMatches ? publicWords[0] : publicWords[1]}</span><button class="btn btn-outline btn-small" type="button" data-sync-public-field="${pair.profile}">${publicWords[2]}</button></div>` : ""}
+    ${pair.baseZip ? `<p class="field-hint">Clients within 50 miles of this ZIP see this trainer on the booking page (/book), nearest first. Leave it empty to keep this trainer off the booking page.</p>` : ""}
     ${pair.landing ? `<div class="sync-meta"><span class="sync-state ${landingMatches ? "match" : "mismatch"}">${landingMatches ? "✓ Matches landing page" : "Needs landing page update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-profile-field="${pair.profile}" data-landing-field="${pair.landing}" data-sync-list="${pair.list ? "true" : "false"}">Update landing page</button></div>` : ""}
   </article>`;
 }
@@ -9769,15 +9780,22 @@ function leadBookingBlock(lead) {
   const booking = leadRawPayload(lead).booking;
   if (!booking || typeof booking !== "object") return "";
   const intake = booking.intake || {};
-  if (!booking.slot_start) {
-    const slug = intake.trainer_slug || "";
-    const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : "";
-    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span><p>${link ? `Not booked yet. Booking link for ${escapeHtml(intake.trainer_name || slug)}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : "No trainer serves this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
-  }
   const client = booking.client || {};
   const dogs = Array.isArray(booking.dogs) ? booking.dogs : [];
   const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
   const dogRows = dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Sex", dog.sex)}${row("Spayed/Neutered?", dog.fixed)}${row("Vaccinations up to date?", dog.vaccinated)}${row("Age", dog.age)}${row("Breed", dog.breed)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog.behavior || "—")}</strong></div></div></div>`).join("");
+  // rule 74: "Request this trainer" (no calendar yet) and the no-trainer-nearby callback.
+  const callback = booking.callback && typeof booking.callback === "object" ? booking.callback : null;
+  const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 50 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
+  if (!booking.slot_start && booking.requested) {
+    return `<section class="detail-note-block lead-booking-block"><span>Trainer requested online</span><p>The client asked for <strong>${escapeHtml(booking.trainer_name || booking.trainer_slug || "a trainer")}</strong> · ${escapeHtml(booking.location_label || "In-home")}. No time was booked: this trainer has no online calendar yet.</p><p class="field-hint">Call the client to pick a day and time, then set this lead to Evaluation Scheduled with the eval date + time.</p>${callbackNote}${leadPipelineNotices(lead)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
+  }
+  if (!booking.slot_start) {
+    const slug = intake.trainer_slug || "";
+    const pipelineLink = String(leadRawPayload(lead).pipeline?.book_url || "").replace(/^https?:\/\/[^/]+/, "");
+    const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : (/^\/book\//.test(pipelineLink) ? pipelineLink : "");
+    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 50 miles." : "No trainer within 50 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
+  }
   return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
 

@@ -48,8 +48,8 @@ function fakeWorld({ resendFail = false } = {}) {
     leads: [], booking_holds: [], site_settings: [], lead_events: [], lifecycle_events: [],
     communications_testers: [{ phone: "+1 (440) 214-2915", active: true }, { phone: "440-821-7077", active: true }],
     trainers: [
-      { id: "cbf54e9f-d68c-44ba-b6ad-d48549caca8e", slug: "lorenzo-miller", full_name: "Lorenzo Miller", market: "Cleveland, OH", state: "Ohio", headshot_url: "/x.jpg", status: "active" },
-      { id: "45875481-0bb3-420f-9add-6fdceb7efa51", slug: "daniel-bainbridge", full_name: "Daniel Bainbridge", market: "Crestview", state: "Florida", headshot_url: "/d.jpg", status: "active" }
+      { id: "cbf54e9f-d68c-44ba-b6ad-d48549caca8e", slug: "lorenzo-miller", full_name: "Lorenzo Miller", market: "Cleveland, OH", state: "Ohio", headshot_url: "/x.jpg", status: "active", base_zip: "44128" },
+      { id: "45875481-0bb3-420f-9add-6fdceb7efa51", slug: "daniel-bainbridge", full_name: "Daniel Bainbridge", market: "Crestview", state: "Florida", headshot_url: "/d.jpg", status: "active", base_zip: "32536" }
     ]
   };
   const calls = [];

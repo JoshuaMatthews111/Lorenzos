@@ -37,6 +37,10 @@
       "destination": "/api/ad-page?slug=:slug&via=site"
     },
     {
+      "source": "/book",
+      "destination": "/api/booking-page"
+    },
+    {
       "source": "/book/:slug",
       "destination": "/api/booking-page?slug=:slug"
     },

@@ -979,3 +979,52 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       scenario has one Twilio module with the booking-link wording and no pathway filter). Until that route exists (needs
       Joshua's OK to create or change a Make scenario) the text is recorded as not sent with that reason.
     Tests: `tests/office-email.test.mjs` (12). Audit: the rule 73 check.
+
+## Booking page redesign: ZIP first, pick a trainer (added 2026-09-12, Claude, portal chain step 3c)
+
+74. **The booking page is Joshua's exact order: ZIP -> trainer cards -> Rachel's questions -> calendar (or request) ->
+    congratulations. Distance comes from the bundled Census ZIP file and each trainer's office-editable Base ZIP.**
+    - **Entry.** `/book` and `/book/<slug>?lead=<id>` (vercel.json rewrites; `/book` sits before the `/:slug`
+      trainer catch-all) both land on step 1 "Enter your ZIP code". The ZIP is pre-filled from the lead (or `?zip=`)
+      and the cards load at once. The slug in the address is only a hint; the client always picks. Ad pages, 2.0 pages
+      and the Contact Us option-C booking texts all use this entry. Practice copy only: every route answers 404 on
+      live first (rule 71 unchanged).
+    - **Distance.** `lib/zip-centroids.json` = U.S. Census 2024 Gazetteer ZCTA national file (public domain),
+      compacted to `{ZIP:[lat,lng]}` (33,791 ZIPs, 3 decimals). `lib/zip-distance.js` `milesBetween()` = haversine
+      miles. No outside call. Never swap it for a paid or rate-limited geocoder without Joshua.
+    - **Base ZIP.** `trainers.base_zip` (text, 5 digits or null, CHECK `trainers_base_zip_5_digits`) in BOTH schemas
+      (`supabase/migrations/20260912160000_trainer_base_zip.sql`, applied as `trainer_base_zip`; additive; no trigger
+      exists on trainers, so the fill bumped no version). Filled for all 29 live active trainers from their market
+      city (the city's central ZIP; Lorenzo = 44128, the training center's ZIP). The file lists every choice.
+      Practice-only test/draft rows (donal-duck, o-brien-test-*, office-draft-*) are left empty. Empty = the trainer
+      is NOT on the booking page. The office edits it in Trainer Network -> Profile Editor -> "Base ZIP (booking page
+      distance)" -> "Save Base ZIP" (`persistPublicTrainerField` -> operational-mutation). The server accepts only 5
+      digits or empty (`cleanBaseZip`, on create AND update, plain 400 otherwise). A full trainer save sends `base_zip`
+      only when the portal loaded it (`trainer.profileBaseZip !== undefined`), so an old tab never blanks it.
+    - **Step 1 cards.** GET `/api/booking?zip=` -> every trainer with `status = active`, a 5-digit Base ZIP and not an
+      `office-draft-*` slug, within `RADIUS_MILES` (50), nearest first: photo (`headshot_url`, only `https://` or a
+      site path), name, market, "N mi away", and "Online calendar" or "Office schedules". Nobody within 50 miles ->
+      "The office will match you with a trainer" + a callback form (POST `{op:"callback"}`: first name + 10-digit phone
+      required) -> the office is told (queued Resend email, kind `no_trainer`).
+    - **Step 2.** Rachel's 11 Alpha fields + more dogs (rule 71 validation). Location: a trainer's `booking_trainers`
+      row decides; otherwise a trainer whose market names Cleveland offers in-home OR the training center (4815 Orchard
+      Rd, Garfield Heights, OH 44128), everyone else in-home (`locationRule`).
+    - **Step 3.** A trainer WITH a calendar: the mock calendar (read-only ListAvailableSlots, rule 71) and a confirm
+      button; booking keeps every step-2/3/3b guarantee (hold, Eval Scheduled in Leads AND Sales with the time,
+      pathway 2 texts only with consent + tester phones, the Resend office email). A trainer WITHOUT a calendar:
+      "Request this trainer — the office will schedule you" (POST `{op:"request"}`): the lead gets the chosen trainer
+      and every answer in `raw_payload.booking` (`requested: true`, no `slot_start`), `sales_pipeline: true`, and its
+      STATUS IS NOT CHANGED. Only a real picked slot = Eval Scheduled. No hold, no Google call, no text. The office gets
+      the Resend email (kind `trainer_request`, queued without the key). One notice per trainer / per callback ZIP, so
+      a double tap never emails twice. A booked lead cannot be turned into a request (409); a later booking supersedes
+      a pending request email.
+    - **Step 4.** Congratulations: trainer photo + name, day/time (or "the office calls you to schedule"), the address
+      (in-home: the client's address; training center: its address), what happens next, office phone 866.436.4959.
+      Reopening the link shows it again (`outcome`).
+    - **Text routing (rule 72) now uses the radius.** Non-trainer-page leads: the nearest trainer within 50 miles WITH a
+      calendar is assigned (same as before for Cleveland / Crestview); if only no-calendar trainers are near, the link
+      still goes out (`/book/<nearest>?lead=`) but no trainer is assigned until the client picks; nobody within 50 miles
+      = no link, no text, office follow-up. Trainer-page leads still stay with their own trainer (rule 72 unchanged).
+      `/api/booking-lead` answers the same contract (`trainer_slug` null only when nobody is within 50 miles).
+    - The lead panel shows "Trainer requested online" (with every answer) and "Callback asked" (`leadBookingBlock`).
+    Tests: `tests/booking-zip.test.mjs` (10). Audit: the rule 74 check.

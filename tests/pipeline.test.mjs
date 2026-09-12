@@ -39,8 +39,8 @@ function fakeWorld() {
       { phone: "+12165550000", active: false }
     ],
     trainers: [
-      { id: "cbf54e9f-d68c-44ba-b6ad-d48549caca8e", slug: "lorenzo-miller", full_name: "Lorenzo Miller", market: "Cleveland, OH", state: "Ohio", headshot_url: "/x.jpg", status: "active" },
-      { id: "45875481-0bb3-420f-9add-6fdceb7efa51", slug: "daniel-bainbridge", full_name: "Daniel Bainbridge", market: "Crestview", state: "Florida", headshot_url: "/d.jpg", status: "active" },
+      { id: "cbf54e9f-d68c-44ba-b6ad-d48549caca8e", slug: "lorenzo-miller", full_name: "Lorenzo Miller", market: "Cleveland, OH", state: "Ohio", headshot_url: "/x.jpg", status: "active", base_zip: "44128" },
+      { id: "45875481-0bb3-420f-9add-6fdceb7efa51", slug: "daniel-bainbridge", full_name: "Daniel Bainbridge", market: "Crestview", state: "Florida", headshot_url: "/d.jpg", status: "active", base_zip: "32536" },
       { id: "11111111-0bb3-420f-9add-6fdceb7efa51", slug: "fred-harris", full_name: "Fred Harris", market: "Columbus, OH", state: "Ohio", headshot_url: "/f.jpg", status: "active" }
     ]
   };

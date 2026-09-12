@@ -24,11 +24,15 @@ module.exports = async function handler(req, res) {
 
   try {
     const settings = await B.loadSettings();
-    const setting = B.trainerForZip(intake.value.zip, settings);
+    // Step 3c (rule 74): the 50-mile radius from each trainer's Base ZIP. The nearest trainer WITH a calendar
+    // is assigned; if only trainers without a calendar are near, the link still works (the client picks a
+    // trainer on the page). Nobody within 50 miles = trainer_slug null, no link, office follow-up.
+    const route = await B.routeZip(intake.value.zip, settings);
+    const setting = route.calendar;
     const trainer = setting ? await B.trainerRow(setting.slug) : null;
     const routed = setting && trainer ? setting : null;
     const { lead, reused } = await B.createLead({ intake: intake.value, setting: routed, trainer, via: "booking-lead" });
-    const slug = routed ? routed.slug : null;
+    const slug = routed ? routed.slug : (route.nearest?.slug || null);
     // Step 3 (rule 72): the same pipeline every source enters. SMS consent + a trainer for the ZIP ->
     // Make pathway 1 (booking-link text, tester phones only). A double submit never texts twice (reused,
     // and enterPipeline claims before it sends). Never fails the request: the lead is already saved.
@@ -43,9 +47,11 @@ module.exports = async function handler(req, res) {
       trainer_name: trainer?.full_name || null,
       book_url: slug ? B.bookUrl(slug, lead.id) : null,
       duplicate: reused || undefined,
-      message: slug
+      message: routed
         ? `Thanks, ${intake.value.first_name}! Pick a time for your free evaluation with ${trainer.full_name}.`
-        : `Thanks, ${intake.value.first_name}! Our office will call you to set up your free evaluation.`
+        : slug
+          ? `Thanks, ${intake.value.first_name}! Pick your trainer for your free evaluation.`
+          : `Thanks, ${intake.value.first_name}! Our office will call you to set up your free evaluation.`
     });
   } catch (error) {
     console.error("booking_lead_failed", String(error?.message || error));
