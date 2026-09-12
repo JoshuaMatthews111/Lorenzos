@@ -4067,6 +4067,11 @@ function wireTrainerMediaDrag(doc) {
     const rect = el.getBoundingClientRect();
     const parentWidth = el.parentElement?.getBoundingClientRect().width || rect.width || 1;
     drag = { el, part, mode, x0: event.clientX, y0: event.clientY, w0: w, x: x || 0, y: y || 0, rectWidth: rect.width, parentWidth, moved: false, values: null };
+    // rule 77 (conflict hunt 2026-09-12): every render() rebuilds this preview iframe, so a 30 s poll
+    // or a realtime lead change landing mid-drag threw the drag away unsaved. Hold background redraws
+    // for the length of the drag, like a card drag (rule 57; userIsReadingRecord caps it at 20 s).
+    dragInProgress = true;
+    dragStartedAt = Date.now();
     el.classList.add("ldtt-media-active");
     (mode === "resize" ? handle : el).setPointerCapture?.(event.pointerId);
     event.preventDefault();
@@ -4101,6 +4106,7 @@ function wireTrainerMediaDrag(doc) {
     const { el, part, moved, values } = drag;
     el.classList.remove("ldtt-media-active");
     drag = null;
+    dragInProgress = false; // rule 77: the held redraw runs on the next flush
     if (!moved || !values) return;
     suppressClick = true;
     const trainer = trainerById();

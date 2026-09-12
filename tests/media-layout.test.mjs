@@ -144,3 +144,24 @@ test("Page Editor opens full screen on entry; Lead Journey Test is off the menu 
   assert.ok(app.includes('if (view === "pathwayTest") return leadJourneyTestEnabled();'));
   assert.ok(app.includes("function pathwayTestScreen()"), "the screen code is kept");
 });
+
+// rule 77 (conflict hunt 2026-09-12): every render() rebuilds the Page Editor preview iframe, so a
+// photo/logo drag must hold background redraws the way a card drag does (rule 57), and let go after.
+test("Page Editor photo drag holds background redraws for the length of the drag", () => {
+  const src = app.match(/function wireTrainerMediaDrag\(doc\) \{[\s\S]*?\n\}\n/)[0];
+  const begin = src.match(/function begin\(event, el, mode\) \{[\s\S]*?\n  \}/)[0];
+  assert.ok(/dragInProgress = true;\s*dragStartedAt = Date\.now\(\);/.test(begin), "begin() holds redraws");
+  const end = src.match(/const onEnd = \(\) => \{[\s\S]*?\n  \};/)[0];
+  assert.ok(end.indexOf("dragInProgress = false;") > -1 && end.indexOf("dragInProgress = false;") < end.indexOf("if (!moved || !values) return;"), "onEnd() lets go even for a plain click");
+  assert.ok(/if \(typeof dragInProgress !== "undefined" && dragInProgress\) \{\s*if \(Date\.now\(\) - dragStartedAt < 20000\) return true;/.test(app), "the 20 s cap still applies");
+});
+
+// rule 77: no raw control bytes in the server libraries (grep and `file` treated them as binary,
+// which hid them from text searches). Regexes spell control characters as \u escapes.
+test("server libraries carry no raw control bytes", () => {
+  for (const name of ["booking.js", "lead-forms.js", "pipeline.js", "office-email.js", "booking-page.js", "zip-distance.js"]) {
+    const bytes = readFileSync(new URL(`../lib/${name}`, import.meta.url));
+    const bad = [...bytes].findIndex(b => b < 9 || (b > 13 && b < 32) || b === 127);
+    assert.equal(bad, -1, `lib/${name} has a raw control byte at offset ${bad}`);
+  }
+});

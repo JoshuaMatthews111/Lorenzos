@@ -1145,3 +1145,35 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     - **Lead Journey Test** is off the menu behind `LEAD_JOURNEY_TEST_IN_MENU = false` (rule 63 updated).
     Not covered this round: the Site Builder's block photos keep their own upload and size controls (unchanged).
     Tests: `tests/media-layout.test.mjs` (7). Audit: the rule 76 check.
+
+## Conflict hunt across the 2026-09-12 lanes (added 2026-09-12, Claude)
+
+77. **A photo/logo drag on the Page Editor preview holds background redraws; the server libraries carry no
+    raw control bytes.**
+    - Every `render()` rebuilds `#pageEditorPreview` (srcdoc, line ~9041). The rule 76 drag (`wireTrainerMediaDrag`)
+      did not set `dragInProgress`, so a 30 s poll or a realtime lead change (450 ms debounce) landing mid-drag
+      rebuilt the iframe and threw the drag away unsaved. `begin()` now sets `dragInProgress = true` +
+      `dragStartedAt`, and `onEnd()` clears it BEFORE its early return (a plain click lets go too). The
+      rule 57 20 s cap in `userIsReadingRecord()` still frees a lost drag. Page Studio's drag is not affected: its
+      overlay lives on `document.body`, outside `#workspaceView`, and only its own edits repaint it.
+    - `lib/booking.js` (line ~309) and `lib/lead-forms.js` (line ~220) held raw NUL / 0x1F / DEL bytes inside
+      regex character classes. `file` and `grep` treated both files as binary and printed nothing for them,
+      which hides them from text audits. They now read ` -`; behaviour proven identical
+      (cleanLabel, cleanChoices, normalizeFields, validateEvalForm on all 300 low code points). `api/lead-journey.js`
+      line 23 has the same raw bytes: left alone on purpose (live runs its own d42139c copy; the route is 404 there).
+    - Checked and fine on 2026-09-12 (keep them true): lead status CHECK in both schemas holds every status the
+      pipeline writes; every practice `booking_holds` row equals its lead's `eval_scheduled_at` and no held slot is
+      offered; Make pathways 1-6 keep `text:equal` tester filters on every Twilio module, and every `{{1.x}}` they map
+      is in `lib/pipeline.js`'s payload; the sandbox clock 6239634 is inactive; the Contact Us `I want to` options
+      equal `CONTACT_US_LANES`; the `booking_eval` form keys equal `CLIENT_FIELDS` + `DOG_FIELDS`; CORS allows only
+      the 2.0 origin (an unknown origin gets no allow-origin); live answers 404 for booking-lead, booking,
+      booking-page, /book/<slug>, pipeline, lead-forms, lead-journey, send-to-live, practice-reset; live
+      `/contact`, `/get-started`, `script.js`, `styles.css` hash to their recorded baselines.
+    - **KNOWN BROKEN, NOT FIXED (rule 46):** the practice copy's pull from live has not committed since
+      2026-09-10 08:35 UTC. `/api/operational-data` answers `practiceSync {ok:false, reason:"timeout"}` (its 1.5 s
+      budget), `pull_last_ok` returns null, `practice_private.pull_log` is silent since then, and on 2026-09-12
+      18 live leads were missing from `practice.leads` with 10 practice rows older than live. The authenticator
+      role has `statement_timeout=8s`; a pull that cannot finish inside it rolls back whole, so it never catches up.
+      Fixing it is a database change to the pull (rules 46 + 52 + the 25-check `tests/practice-pull.sql` proof), so it
+      needs its own step and Joshua's OK.
+    Tests: 2 in `tests/media-layout.test.mjs`. Audit: the rule 77 check.

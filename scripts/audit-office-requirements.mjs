@@ -423,6 +423,17 @@ const checks = [
       && /if \(view === "pathwayTest"\) return leadJourneyTestEnabled\(\);/.test(app) && /function pathwayTestScreen\(\)/.test(app);
     return template && studio && editor && journey;
   })()],
+  // conflict hunt 2026-09-12 (rule 77): a Page Editor photo/logo drag holds background redraws like a card drag
+  // (rule 57), and the new server libraries carry no raw control bytes (they hid the files from grep).
+  ["rule 77: the Page Editor photo/logo drag sets dragInProgress in begin() and clears it in onEnd() before any early return, so a poll or realtime redraw can never rebuild the preview mid-drag; lib/booking.js and lib/lead-forms.js carry no raw control bytes", (() => {
+    const src = (app.match(/function wireTrainerMediaDrag\(doc\) \{[\s\S]*?\n\}\n/) || [""])[0];
+    const begin = (src.match(/function begin\(event, el, mode\) \{[\s\S]*?\n  \}/) || [""])[0];
+    const end = (src.match(/const onEnd = \(\) => \{[\s\S]*?\n  \};/) || [""])[0];
+    const hold = /dragInProgress = true;\s*dragStartedAt = Date\.now\(\);/.test(begin)
+      && end.indexOf("dragInProgress = false;") > -1 && end.indexOf("dragInProgress = false;") < end.indexOf("if (!moved || !values) return;");
+    const clean = ["lib/booking.js", "lib/lead-forms.js"].every(file => !/[ --]/.test(read(file)));
+    return hold && clean;
+  })()],
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);
