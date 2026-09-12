@@ -4,9 +4,11 @@
 -- The booking page (/book) lists the trainers whose Base ZIP is within 50 miles of the
 -- client's ZIP. Empty Base ZIP = the trainer is not listed there. The office edits it in
 -- Trainer Network -> Profile Editor -> "Base ZIP (booking page distance)".
--- No trigger exists on trainers in either schema (checked 2026-09-12), so this fill bumps
--- no version and writes no audit row. The practice pull re-hashes on the new shared column
--- (rule 52) and both schemas get the same values here.
+-- CORRECTION (after applying): trainers carries BEFORE UPDATE triggers increment_record_version
+-- and set_trainers_updated_at in both schemas (information_schema.triggers hid them; pg_trigger
+-- shows them). So this fill bumped version +1 and set updated_at on every filled row (29 live).
+-- No other column changed and no audit row was written. The practice pull re-hashes on the new
+-- shared column (rule 52) and both schemas get the same values here.
 --
 -- How each Base ZIP was chosen (from the trainer's market city, 2026-09-12):
 --   the market city's central / downtown ZIP (Census ZCTA present in lib/zip-centroids.json):

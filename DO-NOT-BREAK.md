@@ -993,8 +993,12 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       compacted to `{ZIP:[lat,lng]}` (33,791 ZIPs, 3 decimals). `lib/zip-distance.js` `milesBetween()` = haversine
       miles. No outside call. Never swap it for a paid or rate-limited geocoder without Joshua.
     - **Base ZIP.** `trainers.base_zip` (text, 5 digits or null, CHECK `trainers_base_zip_5_digits`) in BOTH schemas
-      (`supabase/migrations/20260912160000_trainer_base_zip.sql`, applied as `trainer_base_zip`; additive; no trigger
-      exists on trainers, so the fill bumped no version). Filled for all 29 live active trainers from their market
+      (`supabase/migrations/20260912160000_trainer_base_zip.sql`, applied as `trainer_base_zip`; additive). CORRECTION:
+      trainers DOES carry BEFORE UPDATE triggers `increment_record_version` + `set_trainers_updated_at` in both schemas
+      (`information_schema.triggers` hid them; always check `pg_trigger`). The fill therefore bumped `version` +1 and
+      `updated_at` (09:59 UTC 2026-09-12) on all 29 live trainer rows; no other column changed, no audit row. A portal
+      tab open on a trainer from before then got a plain 409 on its next save; a reload clears it. A future data fill on
+      trainers should expect the same. Filled for all 29 live active trainers from their market
       city (the city's central ZIP; Lorenzo = 44128, the training center's ZIP). The file lists every choice.
       Practice-only test/draft rows (donal-duck, o-brien-test-*, office-draft-*) are left empty. Empty = the trainer
       is NOT on the booking page. The office edits it in Trainer Network -> Profile Editor -> "Base ZIP (booking page
