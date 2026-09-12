@@ -222,6 +222,10 @@ Verification additions:
       (capture) level and drops tracking. Flip it to `true` ONLY in the same commit that deploys
       the functions (DSN Command approval 1908fe77-39a6-4820-80d5-ed5dd42e62cc).
     - `api/form-delivery.js` stays 423 on the practice copy (fan-out to real inboxes).
+    - 2026-09-12 (rule 72): `submit-contact` IS deployed with the flag (v9), so the practice copy's LEAD
+      forms (`.contact-intake`, `.market-guide-form`, `.ad-exit-form`, `.office-lead-form`) are ON there and
+      save practice leads. The global flag stays `false` because the other three functions are not deployed
+      with it; their forms and tracking stay off.
 
 Verification additions:
 - `node --test tests/*.test.mjs` (12 tests: name refused 400 + accepted, name in log / live note / live stamp, reset name 400 + recorded).
@@ -867,3 +871,56 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     Tests: `tests/booking.test.mjs` (10). Proof on the practice copy: `/api/booking?trainer=lorenzo-miller`
     and `daniel-bainbridge` list real times; a POSTed booking moves the practice lead and the time drops
     out of the list; live `/api/booking-lead`, `/api/booking`, `/book/lorenzo-miller` answer 404.
+
+## One pipeline + texts (added 2026-09-12, Claude, portal chain step 3)
+
+72. **Every lead source enters ONE pipeline; texts only with SMS consent and only to tester phones;
+    FormSubmit is never touched.** Joshua's hard rule: "Do not break the form submit. FormSubmit is for the
+    current Contact page. Resend is for the sales pipeline."
+    - **The office's current new-lead email is sacred.** Baseline recorded 2026-09-12 before this step:
+      every website lead form is intercepted by `script.js` (`wireAsyncForm`), saved by the Edge Function
+      `submit-contact`, then `relayFormDeliveries()` POSTs `/api/form-delivery`, which sends the Google
+      Sheet row and the FormSubmit email to `production@lorenzosdogtrainingteam.com` (subject "New Lorenzo's
+      Dog Training Team Contact Form Submission"); a failed server send is retried from the browser
+      (`submitEmailRelay`). Trainer pages (`app.js` `office-lead-form`) do the same. Live
+      `form_delivery_attempts`, 14 days to 2026-09-12: formsubmit_email 91 accepted / 95 failed (then browser
+      retry), latest 04:54 UTC. `relayFormDeliveries`, `api/form-delivery.js`, every form `action` and every
+      page's FormSubmit markup are unchanged by this step (the HTML diff is the `?v=` stamp only). Never
+      reroute FormSubmit through anything else; never add a FormSubmit fallback; never re-send it. The stash
+      `portal3-attempt1-REROUTED-FORMSUBMIT-do-not-apply-2026-09-12` did that and was stopped: never apply it.
+    - **Practice copy only this round.** `api/pipeline.js` answers 404 on live before anything else.
+      `script.js` reaches the pipeline only through `deliverOrEnterPipeline()`, whose check is synchronous
+      (`window.LDTT_IS_SANDBOX===true`), so live calls `relayFormDeliveries()` exactly as before with no
+      added wait. `app.js` trainer pages branch the same way (`window.LDTT_IS_SANDBOX === true`).
+    - **Which forms are on on the practice copy:** only the LEAD forms that post to `submit-contact`
+      (`.contact-intake`, `.market-guide-form`, `.ad-exit-form`, `.office-lead-form`), because only
+      `submit-contact` is deployed with the practice flag (version 9; checked 2026-09-12 with
+      get_edge_function: it carries `requestSchema`). `submit-trainer-application` (v8),
+      `submit-content-review` and `track-site-event` are NOT deployed with the flag: their forms and tracking
+      stay switched off on the practice copy and `LDTT_EDGE_PRACTICE_FLAG_DEPLOYED` stays `false` (rule 20).
+    - **`lib/pipeline.js` `enterPipeline(leadId)`** (POST `/api/pipeline {op:"enter"}` from the practice
+      page after `submit-contact` answers, and from `/api/booking-lead`): route -> decide the text -> CLAIM
+      (version-guarded PATCH stamping `raw_payload.pipeline.entered_at`) -> send only if this call won ->
+      record. Two calls at once text once. Only for a lead made in the last 30 minutes (409 otherwise).
+      Routing: a trainer-page lead stays with ITS trainer (a link only if that trainer takes online
+      bookings, else office follow-up; never handed to another trainer by ZIP); every other lead by ZIP
+      (rule 71). It sets `raw_payload.sales_pipeline = true` (Sales tab, rule 2) and never changes the
+      status. The free ebook opt-in (`lead_type: pdf_download`) is left alone.
+    - **Texts (Make, never Twilio directly):** pathway 1 (scenario 6237328, env `LDTT_MAKE_HOOK_PATHWAY1`)
+      = booking-link text, only when `sms_consent = true`, a booking link exists, and the phone is an ACTIVE
+      `communications_testers` row. Pathway 2 (6237333, `LDTT_MAKE_HOOK_PATHWAY2`) after a booking
+      (`api/booking.js` -> `afterBooking`) = customer confirmation (consent + tester) and the trainer alert,
+      which on the practice copy goes to the tester phone in the settings box (default Joshua
+      +14402142915), never to the real trainer; one notice per hold, so a hold never texts twice. The hook
+      URLs live only in Vercel Preview env (never committed). Every Twilio module in both scenarios keeps
+      its `text:equal` tester filter; never `text:contains`.
+    - **Office email recipients box** (Settings, practice copy, office logins): `site_settings` key
+      `pipeline_office_emails` (`{recipients:[{label,email}], practice_trainer_phone}`), defaults
+      marketing@, melissazuk@, rachelleggett@ (lorenzosdogtrainingteam.com), tmillerk999@gmail.com and an
+      empty Angela slot. Save needs an office login (`authorizeRequest require: "admin"`); bad addresses
+      answer 400 and nothing is written. The boxes are on the `typedFieldKey()` whitelist (rule 14). This
+      step only STORES the list: the office booking email is step 3b, on Resend only.
+    - The lead panel shows what the pipeline did (`leadPipelineNotices()`: each text sent, or the plain
+      reason it was not); `pipeline` is in `LEAD_INTERNAL_RAW_FIELD_KEYS`. `/staff?view=leads&lead=<id>`
+      opens that lead (the trainer alert text links there).
+    Tests: `tests/pipeline.test.mjs` (10). Audit: the rule 72 check.

@@ -369,13 +369,22 @@ const submitEmailRelay=async (endpoint,entries,subject)=>{
 // notice and lets the practice forms save into the practice schema.
 // ---------------------------------------------------------------------------
 const practiceFormsOff=env=>Boolean(env?.sandbox)&&!LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
+// Portal chain step 3 (DO-NOT-BREAK rule 72, 2026-09-12): submit-contact IS deployed with the practice
+// flag (version 9: x-ldtt-practice: 1 writes the practice schema), so the LEAD forms that post to it are
+// ON on the practice copy and feed the one pipeline. submit-trainer-application, submit-content-review
+// and track-site-event are NOT deployed with the flag, so their forms and tracking stay off (rule 20).
+// Live never reads any of this: practiceFormsOff(env) is false there.
+const LDTT_PRACTICE_LEAD_FORMS_ON=true;
+const PRACTICE_LEAD_FORM_SELECTOR='.contact-intake,.market-guide-form,.ad-exit-form,.office-lead-form';
+const practiceLeadForm=form=>LDTT_PRACTICE_LEAD_FORMS_ON&&Boolean(form?.matches?.(PRACTICE_LEAD_FORM_SELECTOR));
+const practiceFunctionOff=(env,functionName)=>practiceFormsOff(env)&&!(LDTT_PRACTICE_LEAD_FORMS_ON&&functionName==='submit-contact');
 const practiceHeaders=env=>(env?.sandbox?{[LDTT_PRACTICE_HEADER]:'1'}:{});
 window.LDTT_PRACTICE_HEADERS=practiceHeaders;
 // Visible notice on every public form + submit disabled + submit swallowed at
 // the document (capture) level, so forms wired by market-landing.js / ad-funnel.js
 // and forms added later are covered too.
 const switchOffPracticeForm=form=>{
-  if(form.dataset.practiceOff==='1'||form.closest('#publicSite')) return;
+  if(form.dataset.practiceOff==='1'||form.closest('#publicSite')||practiceLeadForm(form)) return;
   form.dataset.practiceOff='1';
   const notice=document.createElement('div');
   notice.className='practice-form-notice';
@@ -389,7 +398,7 @@ publicEnvironment.then(env=>{
   if(!practiceFormsOff(env)) return;
   document.addEventListener('submit',event=>{
     const form=event.target.closest('form');
-    if(!form) return;
+    if(!form||practiceLeadForm(form)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     switchOffPracticeForm(form);
@@ -406,7 +415,7 @@ const submitPublicFormToSupabase=async (functionName,entries)=>{
   const config=window.LDTT_SUPABASE;
   if(!config?.enabled||!config.functionsBaseUrl) return {skipped:true};
   const env=await publicEnvironment;
-  if(practiceFormsOff(env)){
+  if(practiceFunctionOff(env,functionName)){
     // Tracking is simply dropped on the practice copy; a form is refused in plain words.
     if(functionName==='track-site-event') return {skipped:true,practice:true};
     throw new Error(PRACTICE_FORM_OFF_MESSAGE);
@@ -643,9 +652,29 @@ const relayFormDeliveries=async(formType,entries,canonical,form)=>{
   return result;
 };
 
+// Practice copy only (rule 72): the office fan-out (/api/form-delivery -> Google Sheet + FormSubmit) is
+// blocked there (423, rule 5), so a practice lead goes to the one pipeline instead: ZIP routing, the Sales
+// tab, and the booking-link text when SMS consent is ticked (tester phones only).
+// relayFormDeliveries above is UNCHANGED. On live window.LDTT_IS_SANDBOX is never true, so the check is
+// synchronous and the office's current new-lead email path runs exactly as before, with no added wait.
+const enterPracticePipeline=async(canonical,entries)=>{
+  if(!canonical?.lead_id) return {ok:true,practice:true,pipeline:null};
+  try{
+    const response=await fetch('/api/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'enter',lead_id:canonical.lead_id,via:String(entries?.source_page||'website-form').slice(0,60)})});
+    const pipeline=await response.json().catch(()=>({}));
+    return {ok:true,practice:true,pipeline};
+  }catch(error){
+    console.warn('LDTT practice pipeline could not start',error);
+    return {ok:true,practice:true,pipeline:null};
+  }
+};
+const deliverOrEnterPipeline=(formType,entries,canonical,form)=>window.LDTT_IS_SANDBOX===true
+  ? enterPracticePipeline(canonical,entries)
+  : relayFormDeliveries(formType,entries,canonical,form);
+
 window.LDTT_FORM_DELIVERY={
   submitCanonical:submitPublicFormToSupabase,
-  relay:relayFormDeliveries
+  relay:deliverOrEnterPipeline
 };
 
 const updateStoredDelivery=(storageKey,submissionId,updates)=>{
@@ -683,7 +712,7 @@ if(contactForm){
       }
       const canonical=await submitPublicFormToSupabase('submit-contact',entries);
       if(canonical?.skipped||(!canonical?.lead_id&&!canonical?.application_id)) throw new Error('The live office record could not be confirmed. Please try again.');
-      await relayFormDeliveries('contact',entries,canonical,form);
+      await deliverOrEnterPipeline('contact',entries,canonical,form);
     }
   });
 }

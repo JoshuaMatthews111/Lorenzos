@@ -753,6 +753,10 @@ function applyUrlState() {
   const trainerId = params.get("trainer");
   if (view) state.activeView = view;
   if (trainerId && state.trainers.some(t => t.id === trainerId)) state.selectedTrainerId = trainerId;
+  // Rule 72: a trainer alert text (and, from step 3b, the office booking email) links straight to one
+  // lead: /staff?view=leads&lead=<id>. leadDetailPanel() finds it by its database id at draw time.
+  const leadId = params.get("lead");
+  if (leadId && /^[0-9a-f-]{36}$/i.test(leadId)) { state.activeView = "leads"; state.selectedLeadId = leadId; }
 }
 
 const leadStatusToDb = {
@@ -4771,7 +4775,7 @@ function typedFieldKey(field) {
     // onboarding: the trainer editor boxes were missing here — the page editor
     // (data-editor-field), the profile editor (data-profile-field), the trainer's
     // social links, video links and the Send-to-live name box.
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair)).join("|"); // rule 70: the lead eval box
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-pipeline-(email|label|trainer-phone)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72: the office email box
   if (own) return `${formKey}::${own}`;
   // Safety net (Joshua 2026-09-11, the password box that emptied while typing): a box
   // with none of the attributes above is no longer left with an empty key. Its key is
@@ -6164,7 +6168,7 @@ const adminScreens = {
     return portalAccessScreen();
   },
     settings() {
-    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + practiceResetPanel();
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + pipelineSettingsPanel() + practiceResetPanel();
   }
 };
 
@@ -6558,6 +6562,63 @@ function confirmTrainerPageRestore(trainer) {
     dialog.showModal();
     setTimeout(() => nameInput.focus(), 50);
   });
+}
+
+// Rule 72 (portal chain step 3): the office types who gets the "eval booked, log it into Alpha" email.
+// Step 3b sends that email through Resend; this box only keeps the list. Practice copy + office logins
+// only this round (the route answers 404 on live). Also the practice trainer-alert tester phone.
+let pipelineSettingsState = { loaded: false, loading: false, settings: null, error: "" };
+
+async function loadPipelineSettings() {
+  if (pipelineSettingsState.loading) return;
+  pipelineSettingsState.loading = true;
+  try {
+    const token = await window.LDTT_PORTAL?.accessToken?.();
+    const response = await fetch("/api/pipeline?op=settings", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load (${response.status}).`);
+    pipelineSettingsState = { loaded: true, loading: false, settings: payload.settings, error: "" };
+  } catch (error) {
+    pipelineSettingsState = { loaded: true, loading: false, settings: null, error: error.message || String(error) };
+  }
+  render();
+}
+
+function pipelineSettingsPanel() {
+  if (!window.LDTT_IS_SANDBOX || session.role !== "admin") return "";
+  const title = "Booking emails to the office";
+  if (!pipelineSettingsState.loaded) {
+    if (!pipelineSettingsState.loading) setTimeout(loadPipelineSettings, 0);
+    return panel(title, "", `<p class="panel-copy">Loading the email list…</p>`, "pad");
+  }
+  if (!pipelineSettingsState.settings) {
+    return panel(title, "", `<p class="panel-copy">The email list did not load: ${escapeHtml(pipelineSettingsState.error)}. Reload the page to try again.</p>`, "pad");
+  }
+  const s = pipelineSettingsState.settings;
+  const rows = [...(s.recipients || []), { label: "", email: "" }, { label: "", email: "" }];
+  const inputs = rows.map((r, i) => `<div class="pipeline-recipient-row" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px"><input type="text" data-pipeline-label="${i}" value="${escapeHtml(r.label)}" placeholder="Name (e.g. Angela)" maxlength="40" style="flex:0 1 180px"><input type="email" data-pipeline-email="${i}" value="${escapeHtml(r.email)}" placeholder="name@example.com" maxlength="160" style="flex:1 1 260px"></div>`).join("");
+  const saved = s.saved ? `Last saved by ${escapeHtml(s.updated_by || "office staff")}${s.updated_at ? ` on ${escapeHtml(new Date(s.updated_at).toLocaleString())}` : ""}.` : "Not saved yet: these are the starting addresses. Press Save to keep them.";
+  return panel(title, "", `<p class="panel-copy">When a customer books an evaluation online, everyone below gets an email with the booked time, the trainer, every answer from the form, and the step: <strong>Log this client into Alpha, then mark the lead "Added to Alpha"</strong>. Type or change an address and press Save. Clear a box to stop that person's emails. The new-lead emails you get today do not change.</p><p class="field-hint">Practice copy: the booking email itself is switched on in the next step. This list is who will get it.</p>${inputs}<label style="display:block;margin:12px 0 8px"><span>Practice copy only: trainer alert texts go to this tester phone (never the real trainer)</span><input type="tel" data-pipeline-trainer-phone value="${escapeHtml(s.practice_trainer_phone || "")}" placeholder="+1 440 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><button class="btn btn-red" type="button" data-pipeline-save>Save the email list</button><p class="field-hint">${saved}</p>`, "pad");
+}
+
+async function savePipelineSettings() {
+  const recipients = [...document.querySelectorAll("[data-pipeline-email]")].map(input => ({
+    email: input.value.trim(),
+    label: (document.querySelector(`[data-pipeline-label="${input.dataset.pipelineEmail}"]`)?.value || "").trim()
+  })).filter(r => r.email || r.label);
+  const practicePhone = document.querySelector("[data-pipeline-trainer-phone]")?.value.trim() || "";
+  const token = await window.LDTT_PORTAL?.accessToken?.();
+  const response = await fetch("/api/pipeline", {
+    method: "POST", cache: "no-store",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` },
+    body: JSON.stringify({ op: "save_settings", recipients, practice_trainer_phone: practicePhone })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
+  pipelineSettingsState = { loaded: true, loading: false, settings: payload.settings, error: "" };
+  const count = (payload.settings.recipients || []).filter(r => r.email).length;
+  showToast(`Saved. Booking emails will go to ${count} address${count === 1 ? "" : "es"}.`);
+  render();
 }
 
 // Practice copy only: "Reset practice copy to match live" (api/practice-reset.js).
@@ -7703,6 +7764,7 @@ const LEAD_INTERNAL_RAW_FIELD_KEYS = new Set([
   "request_id",
   "requestId",
   "payload_hash",
+  "pipeline", // rule 72: what the pipeline texted (or why not), drawn by leadPipelineNotices() in the lead panel
   "booking" // rule 71: online booking answers, drawn by leadBookingBlock() in the lead panel
 ]);
 
@@ -8318,7 +8380,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 }
 
 function leadDetailPanel() {
-  const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
+  const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
   return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(your computer's time zone; shows on the Eval Scheduled card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt))}"></label><label class="check-row lead-alpha-check"><input type="checkbox" data-lead-alpha-check="${lead.id}" ${lead.addedToAlpha ? "checked" : ""}> Added to Alpha</label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
@@ -9648,6 +9710,26 @@ function leadEvalLabel(value) {
 
 // Online booking (rule 71): the time the customer booked on /book/<trainer> and every eval answer.
 // Nothing here is ever booked in Google; the trainer or TC reserves the time there.
+// Rule 72: what the pipeline did for this lead (each text sent, or the plain reason it was not).
+function leadPipelineNotices(lead) {
+  const pipeline = leadRawPayload(lead).pipeline;
+  if (!pipeline || typeof pipeline !== "object") return "";
+  const say = item => {
+    if (!item || typeof item !== "object") return "";
+    if (item.status === "sent") return "sent";
+    if (item.status === "sending") return "sending…";
+    return `${item.status === "failed" ? "FAILED" : "not sent"}${item.reason ? `: ${item.reason}` : ""}`;
+  };
+  const lines = [];
+  if (pipeline.new_lead_text) lines.push(`Booking-link text: ${say(pipeline.new_lead_text)}${pipeline.new_lead_text.to_last4 ? ` (to ...${pipeline.new_lead_text.to_last4})` : ""}`);
+  const last = Array.isArray(pipeline.booking_notices) ? pipeline.booking_notices[pipeline.booking_notices.length - 1] : null;
+  if (last) {
+    const t = last.texts || {};
+    lines.push(`Confirmation + trainer alert texts: ${say(t)}${t.customer_last4 ? ` (customer ...${t.customer_last4})` : ""}${t.trainer_last4 ? ` (trainer alert ...${t.trainer_last4})` : ""}${t.status === "sent" && t.notes ? `. ${t.notes}` : ""}`);
+  }
+  return lines.length ? `<p class="field-hint lead-pipeline-notices">${lines.map(escapeHtml).join("<br>")}</p>` : "";
+}
+
 function leadBookingBlock(lead) {
   const booking = leadRawPayload(lead).booking;
   if (!booking || typeof booking !== "object") return "";
@@ -9655,13 +9737,13 @@ function leadBookingBlock(lead) {
   if (!booking.slot_start) {
     const slug = intake.trainer_slug || "";
     const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : "";
-    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span><p>${link ? `Not booked yet. Booking link for ${escapeHtml(intake.trainer_name || slug)}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : "No trainer serves this ZIP yet. Office follow-up: call this lead."}</p></section>`;
+    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span><p>${link ? `Not booked yet. Booking link for ${escapeHtml(intake.trainer_name || slug)}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : "No trainer serves this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
   }
   const client = booking.client || {};
   const dogs = Array.isArray(booking.dogs) ? booking.dogs : [];
   const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
   const dogRows = dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Sex", dog.sex)}${row("Spayed/Neutered?", dog.fixed)}${row("Vaccinations up to date?", dog.vaccinated)}${row("Age", dog.age)}${row("Breed", dog.breed)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog.behavior || "—")}</strong></div></div></div>`).join("");
-  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p><div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
+  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
 
 function leadCardEvalLine(lead) {
@@ -10545,7 +10627,7 @@ function heardAboutUsSelect(selected = "") {
 }
 
 function officeLeadFormMarkup(trainer, compact = false) {
-  return `<form class="landing-form-card office-lead-form ${compact ? "compact" : ""}" id="contact" data-trainer-id="${escapeHtml(trainer.id)}" ${practicePublicFormsOff() ? 'data-practice-off="1"' : ""}>${practiceFormNotice()}
+  return `<form class="landing-form-card office-lead-form ${compact ? "compact" : ""}" id="contact" data-trainer-id="${escapeHtml(trainer.id)}" ${practiceLeadFormOff() ? 'data-practice-off="1"' : ""}>${practiceLeadFormOff() ? practiceFormNotice() : ""}
     <h3>Book your free consultation</h3>
     <p>Tell Lorenzo's office about your dog. Lorenzo's office will review your request and follow up with the next step.</p>
     <input type="hidden" name="trainer_name" value="${escapeHtml(trainer.name)}">
@@ -10999,6 +11081,13 @@ const PRACTICE_FORM_OFF_MESSAGE = "PRACTICE COPY — this form is switched off h
 function practicePublicFormsOff() {
   return Boolean(window.LDTT_IS_SANDBOX) && !LDTT_EDGE_PRACTICE_FLAG_DEPLOYED;
 }
+// Rule 72 (portal chain step 3): submit-contact IS deployed with the practice flag (version 9), so the
+// trainer landing page LEAD form is on on the practice copy and feeds the one pipeline. Reviews and
+// tracking (functions not deployed with the flag) stay off. Same switch as script.js.
+const LDTT_PRACTICE_LEAD_FORMS_ON = true;
+function practiceLeadFormOff() {
+  return practicePublicFormsOff() && !LDTT_PRACTICE_LEAD_FORMS_ON;
+}
 function practiceFormNotice() {
   return practicePublicFormsOff() ? `<div class="practice-form-notice landing-practice-notice" role="alert">${escapeHtml(PRACTICE_FORM_OFF_MESSAGE)}</div>` : "";
 }
@@ -11006,7 +11095,7 @@ function practiceFormNotice() {
 async function submitToSupabase(functionName, entries) {
   const config = window.LDTT_SUPABASE;
   if (!config?.enabled || !config.functionsBaseUrl) return { skipped: true };
-  if (practicePublicFormsOff()) {
+  if (practicePublicFormsOff() && !(functionName === "submit-contact" && !practiceLeadFormOff())) {
     if (functionName === "track-site-event") return { skipped: true, practice: true };
     throw new Error(PRACTICE_FORM_OFF_MESSAGE);
   }
@@ -11925,6 +12014,13 @@ document.addEventListener("click", async event => {
     if (!window.confirm("Clear the local activity log on this device?")) return;
     state.activityLog = [];
     saveState("Activity log cleared");
+    return;
+  }
+  const pipelineSave = event.target.closest("[data-pipeline-save]");
+  if (pipelineSave) {
+    pipelineSave.disabled = true;
+    try { await savePipelineSettings(); } catch (error) { showToast(`Not saved: ${error.message}`, 8000); }
+    finally { pipelineSave.disabled = false; }
     return;
   }
   const practiceReset = event.target.closest("[data-practice-reset]");
@@ -14197,7 +14293,7 @@ document.addEventListener("submit", async event => {
     return;
   }
   if (event.target.classList.contains("office-lead-form")) {
-    if (practicePublicFormsOff()) {
+    if (practiceLeadFormOff()) {
       // Practice copy: refused before anything is sent (see submitToSupabase).
       event.preventDefault();
       const formStatus = event.target.querySelector(".landing-form-status");
@@ -14231,6 +14327,18 @@ document.addEventListener("submit", async event => {
       const canonical = await submitToSupabase("submit-contact", entries);
       if (canonical?.skipped || (!canonical?.lead_id && !canonical?.application_id)) {
         throw new Error("The live office record could not be confirmed. Please try again.");
+      }
+      if (window.LDTT_IS_SANDBOX === true) {
+        // Rule 72: practice copy only -> the one pipeline (/api/form-delivery answers 423 there). Live never
+        // comes here, so the office's current new-lead email path below is unchanged.
+        if (canonical.lead_id) {
+          await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "enter", lead_id: canonical.lead_id, via: "trainer-page" }) })
+            .catch(error => console.warn("LDTT practice pipeline could not start", error));
+        }
+        event.target.reset();
+        setLandingStatus("Thank you. Your consultation request was submitted. Lorenzo's office has the details and will follow up with the next step.");
+        showFormSuccessModal();
+        return;
       }
       const relayResponse = await fetch("/api/form-delivery", {
         method: "POST",

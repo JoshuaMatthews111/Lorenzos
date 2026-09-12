@@ -11,6 +11,7 @@
 // NEVER books in Google. The trainer / TC reserves the time in Google themselves.
 const { isSandbox } = require("../lib/sandbox");
 const B = require("../lib/booking");
+const P = require("../lib/pipeline");
 
 const OFFICE_PHONE = "(866) 436-4959";
 const LEAD_SELECT = "id,first_name,last_name,email,phone,zip,dog_name,status,version,raw_payload,trainer_slug,eval_scheduled_at,source_page,trainer_market,address_line_1";
@@ -211,6 +212,12 @@ async function book(req, res) {
   } catch (error) {
     console.error("booking_events_failed", String(error?.message || error));
   }
+
+  // Step 3 (rule 72): Make pathway 2 (customer confirmation + trainer alert, tester phones only).
+  // Never throws; what happened is kept in raw_payload.pipeline.booking_notices for the lead panel.
+  // The office booking email is step 3b (Resend) and is not sent here.
+  await P.afterBooking({ lead: record, booking: record.raw_payload?.booking || {}, trainer, setting })
+    .catch(error => console.error("pipeline_after_booking_failed", String(error?.message || error)));
 
   return res.status(200).json({
     ok: true,

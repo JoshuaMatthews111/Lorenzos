@@ -8,6 +8,7 @@
 // CORS: the 2.0 ad pages (https://ldtt-ads-v2-sandbox.vercel.app) call it cross-origin.
 const { isSandbox } = require("../lib/sandbox");
 const B = require("../lib/booking");
+const P = require("../lib/pipeline");
 
 module.exports = async function handler(req, res) {
   if (!isSandbox()) return res.status(404).json({ ok: false, message: "Not found." });
@@ -28,6 +29,13 @@ module.exports = async function handler(req, res) {
     const routed = setting && trainer ? setting : null;
     const { lead, reused } = await B.createLead({ intake: intake.value, setting: routed, trainer, via: "booking-lead" });
     const slug = routed ? routed.slug : null;
+    // Step 3 (rule 72): the same pipeline every source enters. SMS consent + a trainer for the ZIP ->
+    // Make pathway 1 (booking-link text, tester phones only). A double submit never texts twice (reused,
+    // and enterPipeline claims before it sends). Never fails the request: the lead is already saved.
+    if (!reused) {
+      await P.enterPipeline(lead.id, { via: "booking-lead" })
+        .catch(error => console.error("pipeline_enter_failed", String(error?.message || error)));
+    }
     return res.status(200).json({
       ok: true,
       lead_id: lead.id,
