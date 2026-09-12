@@ -815,3 +815,55 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       would 308 to a page that cannot find slug `shantelle-tuck`. Both go together.
     Tests: `tests/lead-cards.test.mjs`. Check on the practice copy: an Eval Scheduled card shows the
     time; the Alpha pill toggles without opening the card and survives a reload.
+
+## Online booking (added 2026-09-12, Claude, portal chain step 2)
+
+71. **Booking reads Google, books only in OUR database, and is practice-only this round.**
+    - `api/booking-lead.js` (the one door for every lead source), `api/booking.js` (GET free times /
+      POST book) and `api/booking-page.js` (`/book/<trainer_slug>?lead=<id>`, vercel.json rewrite)
+      answer **404 on live before anything else** (`if (!isSandbox()) return res.status(404)`). On the
+      practice copy every table call goes through `lib/booking.js` `sb()` → `supabaseRequest()`, so
+      leads land in `practice.leads` (rule 20). Never add a live path without a separate live release.
+    - **Never book in Google.** The only Google call is
+      `AppointmentBookingService/ListAvailableSlots` (read-only). `assertReadOnlyGoogleCall()` throws
+      for any other calendar-pa URL, the audit refuses any other method name or `/calendar/v3/`, and
+      `tests/booking.test.mjs` greps the files. The public web key is scraped from the schedule page at
+      runtime and cached in memory (6 h, refetched on a 400/401/403); it is never committed and never
+      sent to the browser. Slots are cached 60 s per trainer; a booking re-asks Google with no cache.
+    - A booked time is HELD in `practice.booking_holds` (partial unique index: one `held` row per
+      trainer + start time, so a second booking of the same time answers 409 "That time was just
+      taken"). Held times and anything starting within the hour are never offered. A rebook of the
+      same lead releases its earlier hold; a failed lead update releases the new hold. The trainer /
+      TC reserves the time in Google themselves (the lead panel says so).
+    - A booking moves the lead to `evaluation_scheduled` with `eval_scheduled_at` = the slot (Leads
+      board "Evaluation Scheduled" + the rule-70 card line) and `raw_payload.sales_pipeline = true`
+      (Sales "Booked", rule 2), updates name / phone / email / address / dog names + breeds from the
+      form, and keeps every answer in `raw_payload.booking` (client, dogs[], location, when, trainer,
+      hold id; the `intake` record from booking-lead is kept). The PATCH is guarded by `version=eq.<v>`
+      and re-merged once on a clash. It writes `lead_events` status_changed and the
+      `lifecycle_events` `evaluation_scheduled` row (funnel), like a portal status change.
+    - Eval form = Rachel's 11 Alpha fields (first + last name, phone, email, physical address; per dog:
+      name, sex, spayed/neutered, vaccinations up to date, age, breed, behavioral challenges), up to 6
+      dogs, all required server-side (400, nothing written). Location: `location_mode`
+      `in_home_or_center` (Cleveland / Lorenzo: in-home OR training center 4815 Orchard Rd, Garfield
+      Heights, OH 44128), `in_home` (every other market), `center_only` (available for the office).
+    - Trainer settings (Google schedule id, time zone, slot minutes, ZIP prefixes, location rule) live in
+      `practice.site_settings` key `booking_trainers`, editable without a deploy; `lib/booking.js`
+      `DEFAULT_TRAINERS` carries the same values so a practice Reset (which truncates practice.*) falls
+      back instead of breaking. ZIP routing = longest matching prefix: 440/441 → lorenzo-miller,
+      325 → daniel-bainbridge, anything else → `trainer_slug: null`, no booking link, office follow-up.
+    - `/api/booking-lead` contract: POST `{first_name,last_name,phone,email,zip,problem,dog_name,
+      sms_consent:boolean,source_page}` → `{ok:true, lead_id, trainer_slug, book_url}`. CORS allows
+      `https://ldtt-ads-v2-sandbox.vercel.app` and the practice host (POST + OPTIONS). A double submit
+      (same email, else phone, through this door within 30 min) returns the same lead. New leads carry
+      `sales_pipeline: true`, `raw_payload.trainer_market` (the card's market label, `leadMarketLabel()`,
+      reads raw_payload, not the column) and the lead_events / lifecycle_events rows submit-contact writes.
+    - The lead panel draws `leadBookingBlock()` (booked time, trainer, location, every answer, or the
+      booking link / "No trainer serves this ZIP yet"); `booking` is in `LEAD_INTERNAL_RAW_FIELD_KEYS`
+      so it never becomes a sheet column. Sales cards carry `leadCardEvalLine()`.
+    - Migration `20260912140000_online_booking_practice.sql` creates nothing in `public` (audit checks it).
+      The live release needs `public.booking_holds`, the settings row in `public.site_settings`, and the
+      routes switched on together — plan it as its own step.
+    Tests: `tests/booking.test.mjs` (10). Proof on the practice copy: `/api/booking?trainer=lorenzo-miller`
+    and `daniel-bainbridge` list real times; a POSTed booking moves the practice lead and the time drops
+    out of the list; live `/api/booking-lead`, `/api/booking`, `/book/lorenzo-miller` answer 404.

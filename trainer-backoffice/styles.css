@@ -5606,3 +5606,10 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .lead-card-sources .lead-alpha-toggle.is-yes { border-color: #d80f35; background: #fff5f7; color: #082754; }
 .lead-alpha-toggle .alpha-check { color: #d80f35; font-size: 1rem; font-weight: 900; line-height: 1; }
 .lead-detail-panel .field-hint { font-weight: 400; color: #64748b; font-size: .75rem; }
+
+/* rule 71: online booking block in the lead panel + eval time on Sales cards */
+.lead-booking-block p { margin: 4px 0; }
+.lead-booking-block .lead-contact-grid { margin-top: 8px; }
+.lead-booking-dog { margin-top: 10px; border-top: 1px solid rgba(0, 0, 0, 0.08); padding-top: 8px; }
+.lead-booking-dog em { font-style: normal; font-weight: 800; }
+.sales-card .lead-card-eval { margin: 4px 0 0; font-size: 12px; }
