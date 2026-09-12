@@ -131,6 +131,34 @@ test("refused (404) when not running as the practice copy", async () => {
   }
 });
 
+test("rule 75: lead forms - the practice DRAFT becomes the LIVE draft with the typed name; the live published forms never change; logged", async () => {
+  const LF = require("../lib/lead-forms.js");
+  const actor = { email: OFFICE.email, name: "Angela Office" };
+  const livePhone = LF.defaultFields("contact"); livePhone.find(f => f.key === "phone").label = "Mobile";
+  const liveStore = LF.publish(LF.saveDraft(LF.blankStore(), "contact", livePhone, actor).store, { actor, name: "Live Publisher" }).store;
+  const practiceStore = LF.removeField(LF.blankStore(), "ad_landing", "zip", { actor, name: "Melissa Zuk" }).store;
+  const { live, practice } = makeWorld({
+    live: { site_settings: [{ key: "lead_forms", value: liveStore, updated_at: "2026-09-05T09:00:00.000000+00:00" }] },
+    practice: { site_settings: [{ key: "lead_forms", value: practiceStore, updated_at: "2026-09-05T09:30:00.000000+00:00" }] }
+  });
+  assert.equal((await call({ kind: "lead_forms", sent_by_name: "Angela" })).statusCode, 400, "one-word name refused before anything is written");
+  const res = await call({ kind: "lead_forms" });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.match(res.body.message, /Page Editor → Lead forms/);
+  const row = live.site_settings[0];
+  assert.deepEqual(row.value.published, liveStore.published, "the live published forms are untouched");
+  assert.equal(row.value.draft.forms.ad_landing.find(f => f.key === "zip").removed, true, "the practice draft is the live draft now");
+  assert.equal(row.value.sent_from_practice.name, NAME);
+  assert.equal(row.value.sent_from_practice.note, "Sent from practice copy by Angela Office (angela@lorenzosdogtrainingteam.com) on Sep 5, 2026, 6:05 AM ET");
+  assert.match(row.updated_by, /^Angela Office angela@lorenzosdogtrainingteam\.com \(from practice copy\)$/);
+  assert.equal(practice.send_to_live_log.at(-1).entity_type, "lead_forms");
+  assert.equal(practice.send_to_live_log.at(-1).sent_by_name, NAME);
+  assert.deepEqual(practice.site_settings[0].value, practiceStore, "the practice row is only read");
+  // Nothing changed on the practice copy yet -> nothing to send.
+  makeWorld({ live: { site_settings: [] }, practice: { site_settings: [] } });
+  assert.equal((await call({ kind: "lead_forms" })).statusCode, 400);
+});
+
 test("refused (403) for a trainer role and for no token", async () => {
   makeWorld();
   assert.equal((await call({ kind: "trainer_page", id: "x" }, "trainer-token")).statusCode, 403);

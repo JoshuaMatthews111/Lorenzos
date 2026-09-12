@@ -120,7 +120,7 @@ const trainerOpportunityPages = trainerOpportunityGenerator
 const oldCopyBar = read("trainer-backoffice/old-copy-bar.js");
 const staffShell = read("staff.html");
 const vercelConfig = JSON.parse(read("vercel.json"));
-const shellTags = html => [...html.matchAll(/(?:app|supabase|page-studio|site-builder|old-copy-bar|metrics)\.js\?v=([a-z0-9]+)/g)].map(m => m[1]);
+const shellTags = html => [...html.matchAll(/(?:app|supabase|page-studio|site-builder|form-editor|old-copy-bar|metrics)\.js\?v=([a-z0-9]+)/g)].map(m => m[1]); // rule 75: form-editor.js rides the same tag
 const noStoreSources = vercelConfig.headers.filter(h => h.headers.some(x => x.key === "Cache-Control" && /no-store/.test(x.value))).map(h => h.source);
 const stylesSheet = read("trainer-backoffice/styles.css");
 
@@ -132,7 +132,7 @@ const checks = [
   ["bookmarks: the old-copy bar is a standalone script loaded by BOTH portal shells before the portal boots, /api/environment names the canonical hosts (LDTT_PRACTICE_HOST, default practice.lorenzosdogtrainingteam.com), and the bar cannot be closed", /function ldttOldCopyDecide\(hostname, info\)/.test(oldCopyBar) && oldCopyBar.includes("This is an old copy of the practice portal. Bookmark ") && !/dismiss|close/i.test(oldCopyBar.replace(/\/\/.*$/gm, "")) && /old-copy-bar\.js\?v=/.test(portalIndex) && /old-copy-bar\.js\?v=/.test(staffShell) && portalIndex.indexOf("old-copy-bar.js") < portalIndex.indexOf("/trainer-backoffice/app.js?") && /LDTT_PRACTICE_HOST \|\| "practice\.lorenzosdogtrainingteam\.com"/.test(environmentApi) && /canonicalHosts/.test(environmentApi)],
   ["bookmarks: the build bumped ?v= — every portal script tag on trainer-backoffice/index.html AND staff.html sits on ONE tag, the same on both shells, and staff.html loads the full portal (metrics, page-studio, site-builder)", new Set([...shellTags(portalIndex), ...shellTags(staffShell)]).size === 1 && shellTags(portalIndex).length >= 6 && shellTags(staffShell).length >= 6 && /page-studio\.js\?v=/.test(staffShell) && /site-builder\.js\?v=/.test(staffShell) && /metrics\.js\?v=/.test(staffShell)],
   ["bookmarks: the portal shells are served no-store (/staff, /trainer-backoffice, /trainer-backoffice/, index.html, every *.html) so a saved address always fetches the current shell", ["/staff", "/staff.html", "/trainer-backoffice", "/trainer-backoffice/", "/trainer-backoffice/index.html", "/trainer-backoffice/(.*)\\.html"].every(source => noStoreSources.includes(source))],
-  ["roles (browser): an admin row with no permission_level is NOT a super admin (fails closed to office admin), office admins see Trainer Pages + Page Editor + Page Studio but never Sales, Reviews, Ad Landing Pages or Portal Access, and every Super-Admin-only action is gated", /return "office_admin";\n\}/.test(app) && /if \(session\.role !== "admin"\) return false;\n  if \(portalUser\?\.permission_level\) return portalUser\.permission_level === "office_admin";/.test(app) && !/OFFICE_ADMIN_EMAILS\.has\(portalUserEmail\(user\)\) \? "office_admin" : "super_admin"/.test(app) && /const officeAdminViews = \["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio"\]/.test(app) && /function canAccessAdminView\(view\)/.test(app) && /if \(!isSuperAdmin\(\)\) return panel\("Portal Access"/.test(app) && /if \(!isSuperAdmin\(\)\) return panel\("Ad Landing Pages"/.test(app) && /if \(!isSuperAdmin\(\) \|\| !record\?\.remoteId \|\| record\.status !== "Archived"\) return "";/.test(app)],
+  ["roles (browser): an admin row with no permission_level is NOT a super admin (fails closed to office admin), office admins see Trainer Pages + Page Editor + Page Studio but never Sales, Reviews, Ad Landing Pages or Portal Access, and every Super-Admin-only action is gated", /return "office_admin";\n\}/.test(app) && /if \(session\.role !== "admin"\) return false;\n  if \(portalUser\?\.permission_level\) return portalUser\.permission_level === "office_admin";/.test(app) && !/OFFICE_ADMIN_EMAILS\.has\(portalUserEmail\(user\)\) \? "office_admin" : "super_admin"/.test(app) && /const officeAdminViews = \["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio", "formEditor"\]/.test(app) && /function canAccessAdminView\(view\)/.test(app) && /if \(!isSuperAdmin\(\)\) return panel\("Portal Access"/.test(app) && /if \(!isSuperAdmin\(\)\) return panel\("Ad Landing Pages"/.test(app) && /if \(!isSuperAdmin\(\) \|\| !record\?\.remoteId \|\| record\.status !== "Archived"\) return "";/.test(app)],
   // auth (2026-09-05): one shared verifier, fail closed
   ["auth: every portal API verifies its bearer token through lib/portal-auth.js — no /auth/v1/user call outside the verifier (except the self-service password change and the durability proof's fake), and every api/ file that reads headers.authorization requires the lib (12 endpoints do)", authUserOutsideVerifier.length === 0 && bearerReadersOffTheVerifier.length === 0 && filesOnTheVerifier.length >= 12 && /async function verifyPortalUser\(accessToken/.test(portalAuthLib) && /async function authorizeRequest\(req, res/.test(portalAuthLib) && /supabaseRequest\(path\)/.test(portalAuthLib)],
   ["auth: no `permission_level || \"super_admin\"` fallback anywhere in api/ or lib/ — an admin row with a NULL or unknown permission_level is refused (fail closed) and named in a console.warn", openPermissionFallback.length === 0 && /ADMIN_LEVELS\.has\(level\)/.test(portalAuthLib) && /console\.warn\(`portal-auth: admin portal user \$\{user\.id\}/.test(portalAuthLib)],
@@ -371,6 +371,38 @@ const checks = [
       && (mutation.match(/const zipCheck = cleanBaseZip\(changes\.base_zip\);/g) || []).length === 2 && /"base_zip" \/\/ rule 74/.test(mutation)
       && /\{ profile: "profileBaseZip", public: "savedBaseZip", landing: null, label: "Base ZIP \(booking page distance\)", baseZip: true \}/.test(app)
       && /const route = await B\.routeZip\(lead\.zip, settings\)/.test(pipelineLib) && /const route = await B\.routeZip\(intake\.value\.zip, settings\);/.test(read("api/booking-lead.js"));
+  })()],
+  // lead form editor (rule 75, portal chain step 4)
+  ["rule 75: lead form editor - the API is 404 on live unless LDTT_LEAD_FORMS_LIVE=1 and only publish/discard exist there; a removal needs a full name, carries its warning (phone = texts stop, ZIP = matching stops, texting box = no texts) and is logged + undoable; only remove/restore change the removed flag; the texting consent wording is locked; Send to live writes the live DRAFT only and refuses to change the published forms; the public pages apply the forms only where /api/environment says so and never touch the pinned FormSubmit blocks; live's environment answer is unchanged; the booking questions follow the published form; the practice-only migration creates nothing in public", (() => {
+    const api = read("api/lead-forms.js");
+    const lib = read("lib/lead-forms.js");
+    const stl = read("api/send-to-live.js");
+    const script = read("script.js");
+    const block = script.slice(script.indexOf("// LEAD FORM EDITOR (portal chain step 4")).replace(/\/\/[^\n]*/g, "");
+    const env = read("api/environment.js");
+    const booking = read("api/booking.js");
+    const migration = read("supabase/migrations/20260912180000_lead_forms_send_to_live.sql").replace(/--[^\n]*/g, "");
+    const sendFn = stl.slice(stl.indexOf("async function sendLeadForms("), stl.indexOf("module.exports = async function handler("));
+    return /module\.exports = async function handler\(req, res\) \{\n  if \(!isSandbox\(\) && !liveSwitchedOn\(\)\) return res\.status\(404\)/.test(api)
+      && /const PRACTICE_ONLY_OPS = new Set\(\["save_draft", "remove_field", "restore_field", "reset_form"\]\);/.test(api) && /if \(PRACTICE_ONLY_OPS\.has\(op\) && !isSandbox\(\)\)/.test(api)
+      && /authorizeRequest\(req, res, \{ require: "admin"/.test(api) && /await audit\(access, `lead_form_\$\{entry\.action\}`/.test(api)
+      && /const typed = fullNameOrEmpty\(name\);\n  if \(!typed\) throw fail\(400, "Type your full name \(first and last\) so the log shows who removed this question\."\);/.test(lib)
+      && /action: "removed", form: formId, form_label: formById\(formId\)\.label, field_key: key, field_label: target\.label,\n\s+effect: effectFor\(formId, key\), by_name: typed/.test(lib)
+      && /phone: "TEXTS STOP/.test(lib) && /zip: "TRAINER MATCHING STOPS/.test(lib) && /sms_consent: "NO TEXTS AT ALL/.test(lib)
+      && /const consent = \(\) => f\("sms_consent", "Texting consent box", "consent", false, \{ lockLabel: true, lockRequired: true/.test(lib)
+      && /const removedFlag = \(item, key\) => \(trustRemoved \? item\?\.removed === true : priorByKey\.get\(key\)\?\.removed === true\);/.test(lib)
+      && sendFn.indexOf("LF.assertPublishedUnchanged(") > 0 && sendFn.indexOf("LF.assertPublishedUnchanged(") < sendFn.indexOf("await liveFetch(`/rest/v1/site_settings?key=eq.${LF.SETTINGS_KEY}&updated_at=")
+      && !/published_content|published_revision/.test(sendFn) && /\["trainer_page", "ad_page", "lead_forms"\]\.includes\(kind\)/.test(stl)
+      && /if\(!env\?\.sandbox&&!env\?\.leadForms\) return;/.test(block) && /if\(!config\|\|!config\.changed\) return;/.test(block)
+      && !/formsubmit|form-delivery|relayFormDeliveries|submitEmailRelay|LDTT_FORM_DELIVERY/i.test(block)
+      && script.indexOf("// LEAD FORM EDITOR (portal chain step 4") > script.indexOf("const contactForm=document.querySelector('.contact-intake');")
+      && /\.\.\.\(isSandbox\(\) \|\| process\.env\.LDTT_LEAD_FORMS_LIVE === "1" \? \{ leadForms: true \} : \{\}\)/.test(env)
+      && (booking.match(/B\.validateEvalForm\(body, (setting|rule), await bookingQuestions\(\)\)/g) || []).length === 2
+      && /function validateEvalForm\(body = \{\}, setting, formFields = null\)/.test(bookingLib)
+      && /tab\("formEditor", "Lead forms"/.test(app) && /\/\^data-lf-\(label\|choices\|new-label\|placeholder\|name\)=\/\.test\(pair\)/.test(app)
+      && /\$\{leadExtraAnswersBlock\(lead\)\}\$\{leadBookingBlock\(lead\)\}<label>Status/.test(app)
+      && [staffShell, read("trainer-backoffice/index.html")].every(html => /trainer-backoffice\/form-editor\.js\?v=/.test(html))
+      && /practice\.send_to_live_log/.test(migration) && !/\bpublic\./.test(migration) && !/\bdrop table\b|\btruncate\b|\bdelete\b/i.test(migration);
   })()],
 ];
 

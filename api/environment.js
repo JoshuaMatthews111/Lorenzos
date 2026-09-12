@@ -31,7 +31,11 @@ module.exports = async function handler(req, res) {
     canonicalHost: hosts[0],
     canonicalHosts: hosts,
     practiceHost: practiceHost(),
-    liveHost: LIVE_HOST
+    liveHost: LIVE_HOST,
+    // Rule 75: the public pages ask /api/lead-forms for the office's edited forms only when this is true
+    // (practice copy, or live once LDTT_LEAD_FORMS_LIVE=1). The key is left out otherwise, so live's
+    // answer is exactly what it was before the form editor.
+    ...(isSandbox() || process.env.LDTT_LEAD_FORMS_LIVE === "1" ? { leadForms: true } : {})
   });
 };
 module.exports.practiceHost = practiceHost;

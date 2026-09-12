@@ -34,6 +34,7 @@
 const { isSandbox } = require("../lib/sandbox");
 const portalAuth = require("../lib/portal-auth.js");
 const template = require("../lib/ad-page-template.js");
+const LF = require("../lib/lead-forms.js"); // rule 75: kind "lead_forms"
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -321,6 +322,26 @@ async function sendAdPage(auth, id, slugHint, copied) {
 }
 
 // ---------------------------------------------------------------------------
+// Rule 75: the lead forms (Page Editor -> Lead forms). The practice copy's DRAFT forms become the LIVE row's draft
+// (site_settings key "lead_forms"). The live published forms, revision, date and publisher are never touched
+// (LF.assertPublishedUnchanged throws before the write otherwise); publishing stays on the live portal. The write
+// only lands while the live row is the one read (updated_at), so a publish on live a moment ago is never overwritten.
+async function sendLeadForms(auth) {
+  const at = deps.now().toISOString();
+  const practiceRow = (await practiceFetch(`/rest/v1/site_settings?key=eq.${LF.SETTINGS_KEY}&select=value,updated_at&limit=1`))?.[0] || null;
+  const practiceStore = LF.normalizeStore(practiceRow?.value);
+  if (!Object.keys(practiceStore.draft.forms).length) throw fail(400, "Nothing to send yet: no lead form has been changed on the practice copy.");
+  const liveRow = (await liveFetch(`/rest/v1/site_settings?key=eq.${LF.SETTINGS_KEY}&select=value,updated_at&limit=1`))?.[0] || null;
+  const liveStore = LF.normalizeStore(liveRow?.value);
+  const next = LF.assertPublishedUnchanged(liveStore, LF.receiveFromPractice(liveStore, practiceStore, { name: auth.sentByName, login: auth.email, at }));
+  const body = { value: next, updated_by: `${auth.sentByName} ${auth.email} (from practice copy)`, updated_at: at };
+  const rows = liveRow
+    ? await liveFetch(`/rest/v1/site_settings?key=eq.${LF.SETTINGS_KEY}&updated_at=eq.${encodeURIComponent(liveRow.updated_at)}`, { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(body) })
+    : await liveFetch("/rest/v1/site_settings", { method: "POST", headers: { Prefer: "return=representation" }, body: JSON.stringify({ key: LF.SETTINGS_KEY, ...body }) });
+  if (!Array.isArray(rows) || !rows.length) throw fail(409, "The live forms changed a moment ago. Please press Send to live again.");
+  return { practice_id: LF.SETTINGS_KEY, live_id: LF.SETTINGS_KEY, slug: "lead-forms", at, forms: Object.keys(next.draft.forms) };
+}
+
 module.exports = async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -340,14 +361,16 @@ module.exports = async function handler(req, res) {
     const kind = clean(body.kind, 40);
     const id = clean(body.id, 120);
     const slugHint = clean(body.slug, 120);
-    if (!["trainer_page", "ad_page"].includes(kind)) throw fail(400, 'kind must be "trainer_page" or "ad_page".');
-    if (!id && !slugHint) throw fail(400, "Which page?");
+    if (!["trainer_page", "ad_page", "lead_forms"].includes(kind)) throw fail(400, 'kind must be "trainer_page", "ad_page" or "lead_forms".');
+    if (kind !== "lead_forms" && !id && !slugHint) throw fail(400, "Which page?");
     // Who is sending this. Checked before anything is read or written.
     auth.sentByName = fullNameOrEmpty(body.sent_by_name);
     if (!auth.sentByName) throw fail(400, NAME_REQUIRED_MESSAGE);
 
     const copied = new Map(); // "bucket/key" → copied | exists
-    const result = kind === "trainer_page" ? await sendTrainerPage(auth, id, slugHint, copied) : await sendAdPage(auth, id, slugHint, copied);
+    const result = kind === "trainer_page" ? await sendTrainerPage(auth, id, slugHint, copied)
+      : kind === "ad_page" ? await sendAdPage(auth, id, slugHint, copied)
+        : await sendLeadForms(auth);
 
     // The practice copy shows "Sent to live ✓ at <time>" from this log.
     await practiceFetch("/rest/v1/send_to_live_log", {
@@ -355,7 +378,7 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({ entity_type: kind, entity_id: result.practice_id || id || result.live_id, slug: result.slug, live_id: result.live_id, sent_by: auth.email, sent_by_name: auth.sentByName, sent_at: result.at })
     });
 
-    const where = kind === "trainer_page" ? "Trainer Network" : "Page Studio";
+    const where = kind === "trainer_page" ? "Trainer Network" : kind === "ad_page" ? "Page Studio" : "Page Editor → Lead forms";
     const files = [...copied.values()].filter(v => v === "copied").length;
     return res.status(200).json({
       ok: true, sandbox: true, kind, ...result, sent_at: result.at, sent_by_name: auth.sentByName, files_copied: files,

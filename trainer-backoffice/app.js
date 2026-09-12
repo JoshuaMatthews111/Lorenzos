@@ -817,7 +817,7 @@ const clientStatusToDb = {
 const clientStatusFromDb = Object.fromEntries(Object.entries(clientStatusToDb).map(([label, value]) => [value, label]));
 // QA 2026-09-05 roles matrix: office admins also see Trainer Pages and the Page
 // Editor (edit content; publish / lock / add / delete stay Super Admin).
-const officeAdminViews = ["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio"]; // page-studio: office staff edit ad pages
+const officeAdminViews = ["dashboard", "trainerPages", "pageEditor", "trainers", "leads", "applications", "clients", "communications", "reports", "settings", "pageStudio", "formEditor"]; // page-studio: office staff edit ad pages; formEditor: the lead forms (rule 75)
 
 function objectHas(object, key) {
   return Object.prototype.hasOwnProperty.call(object || {}, key);
@@ -4780,7 +4780,7 @@ function typedFieldKey(field) {
     // onboarding: the trainer editor boxes were missing here — the page editor
     // (data-editor-field), the profile editor (data-profile-field), the trainer's
     // social links, video links and the Send-to-live name box.
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-pipeline-(email|label|trainer-phone|practice-email)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72/73: the office email box
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-pipeline-(email|label|trainer-phone|practice-email)=/.test(pair) || /^data-lf-(label|choices|new-label|placeholder|name)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72/73: the office email box; rule 75: the form editor boxes
   if (own) return `${formKey}::${own}`;
   // Safety net (Joshua 2026-09-11, the password box that emptied while typing): a box
   // with none of the attributes above is no longer left with an empty key. Its key is
@@ -6102,6 +6102,9 @@ const adminScreens = {
   },
   pageStudio() { // page-studio: the screen lives in page-studio.js
     return `${pageWorkTabs("pageStudio")}${window.LDTT_PAGE_STUDIO?.screen?.() || panel("Page Studio", "", "<p class=\"panel-copy\">Page Studio is still loading. Refresh the page if this stays.</p>", "pad")}`;
+  },
+  formEditor() { // rule 75: the lead form editor lives in form-editor.js
+    return `${pageWorkTabs("formEditor")}${window.LDTT_FORM_EDITOR?.screen?.() || panel("Lead forms", "", "<p class=\"panel-copy\">The form editor is still loading. Refresh the page if this stays.</p>", "pad")}`;
   },
   trainers() {
     return isOfficeAdmin()
@@ -8393,7 +8396,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(your computer's time zone; shows on the Eval Scheduled card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt))}"></label><label class="check-row lead-alpha-check"><input type="checkbox" data-lead-alpha-check="${lead.id}" ${lead.addedToAlpha ? "checked" : ""}> Added to Alpha</label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(your computer's time zone; shows on the Eval Scheduled card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt))}"></label><label class="check-row lead-alpha-check"><input type="checkbox" data-lead-alpha-check="${lead.id}" ${lead.addedToAlpha ? "checked" : ""}> Added to Alpha</label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -9692,7 +9695,7 @@ function pageWorkTabs(active) {
   // doors. Either screen jumps to the other in one click, so nobody hunts the
   // sidebar to find where new pages are built.
   const tab = (view, label, help) => `<button type="button" class="page-work-tab ${active === view ? "active" : ""}" data-view="${view}"><strong>${label}</strong><small>${help}</small></button>`;
-  return `<div class="page-work-tabs">${tab("pageEditor", "Page Editor", "Edit what exists: trainer pages, website pages, portal screens")}${tab("pageStudio", "Page Studio", "Build new: website pages, landing pages, ad pages — even fully custom")}</div>`;
+  return `<div class="page-work-tabs">${tab("pageEditor", "Page Editor", "Edit what exists: trainer pages, website pages, portal screens")}${tab("pageStudio", "Page Studio", "Build new: website pages, landing pages, ad pages — even fully custom")}${tab("formEditor", "Lead forms", "Every lead form: add, remove, reorder and rename questions")}</div>`; // rule 75: third door
 }
 
 function leadDogLabel(lead, style = "paren") {
@@ -9777,6 +9780,21 @@ async function sendQueuedOfficeEmailsNow() {
   pipelineSettingsState = { ...pipelineSettingsState, loaded: false, loading: false };
   await refreshOperationalData("manual").catch(() => {});
   render();
+}
+
+// Rule 75: answers to the questions the office ADDED in the form editor. Website forms submit them as
+// "Extra: <question>" (kept on the lead as-is); the booking page keeps them in booking.client_custom and each
+// dog's custom list. Nothing here when a lead has none.
+function leadExtraAnswersBlock(lead) {
+  const raw = leadRawPayload(lead);
+  const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+  const rows = [
+    ...Object.entries(raw).filter(([key, value]) => key.startsWith("Extra: ") && String(value ?? "").trim()).map(([key, value]) => [key.slice(7), value]),
+    ...(Array.isArray(booking.client_custom) ? booking.client_custom.map(item => [item?.label, item?.value]) : []),
+    ...(Array.isArray(booking.dogs) ? booking.dogs.flatMap((dog, i) => (Array.isArray(dog?.custom) ? dog.custom.map(item => [`Dog ${i + 1}${dog.name ? ` (${dog.name})` : ""}: ${item?.label || ""}`, item?.value]) : [])) : [])
+  ].filter(([label, value]) => String(label || "").trim() && String(value ?? "").trim());
+  if (!rows.length) return "";
+  return `<section class="detail-note-block lead-extra-answers"><span>Extra questions (added in Lead forms)</span><div class="lead-contact-grid">${rows.map(([label, value]) => `<div class="wide"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div></section>`;
 }
 
 function leadBookingBlock(lead) {

@@ -321,7 +321,9 @@
 	      landing_url: window.location.href,
       delivery_local: "saved",
       delivery_email: "pending",
-      delivery_supabase: functionsBaseUrl ? "pending" : "not_connected"
+      delivery_supabase: functionsBaseUrl ? "pending" : "not_connected",
+      // Rule 75: questions the office added in Lead forms arrive as "Extra: <question>" fields.
+      ...Object.fromEntries([...new Set(formData.keys())].filter(key => key.startsWith("Extra: ")).map(key => [key, formData.getAll(key).map(String).join(", ")]))
     };
     const status = guideForm.querySelector(".market-guide-status");
     const button = guideForm.querySelector('button[type="submit"]');

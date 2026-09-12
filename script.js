@@ -1240,4 +1240,229 @@ document.querySelectorAll('form').forEach(form=>{
   field.style.cssText='position:absolute;left:-10000px;width:1px;height:1px;opacity:0;pointer-events:none';
   form.appendChild(field);
 });
+
+// ---------------------------------------------------------------------------
+// LEAD FORM EDITOR (portal chain step 4, Joshua 2026-09-12, DO-NOT-BREAK rule 75).
+// The office edits every lead form in the Page Editor ("Lead forms"). The PUBLISHED forms come from
+// /api/lead-forms and are applied here to the form that is already on the page:
+//   - only where /api/environment says sandbox or leadForms (live: not this round, so live pages never ask);
+//   - a form the office never changed is not touched at all (changed:false), and only the questions and
+//     attributes the office changed are touched (per-question diff);
+//   - where a form posts is never changed: FormSubmit, relayFormDeliveries, the Contact handler and every
+//     block tests/office-email.test.mjs pins are untouched (rule 73). It only changes the questions inside;
+//   - an office-added question is named "Extra: <question>", so the lead record, the office emails and
+//     FormSubmit's table all carry the question next to the answer;
+//   - a removed question is hidden AND disabled (never submitted). The four fields the lead saver insists on
+//     (submit-contact: first name, last name, email, phone) get a hidden stand-in, so a lead is still saved:
+//     the flow degrades exactly as the editor's warning said, it never breaks.
+// ---------------------------------------------------------------------------
+const LEAD_FORM_FALLBACKS={first_name:'Website visitor',last_name:'Not given',phone:'Not given'};
+const LEAD_FORM_GROUPS='.form-grid-two,.form-grid-three,.market-guide-name-row,.landing-more-grid,details';
+const leadFormIdFor=form=>{
+  if(form.dataset.leadForm) return form.dataset.leadForm;
+  if(form.closest('#pageEditorPreview')||form.matches('.lp-form')) return '';
+  if(form.matches('.office-lead-form')) return 'trainer_consult';
+  if(form.matches('.market-guide-form')) return 'booklet';
+  if(!form.matches('.contact-intake')) return '';
+  const path=window.location.pathname.toLowerCase().replace(/\.html$/,'').replace(/\/+$/,'');
+  if(path==='/contact'||path==='/p/contact') return 'contact';
+  if(path==='/get-started') return 'get_started';
+  if(/^\/(dog-training-[a-z-]+|ads\/[a-z0-9-]+)$/.test(path)) return 'ad_landing';
+  return '';
+};
+const lfStyle=()=>{
+  if(document.getElementById('ldtt-lead-form-style')) return;
+  const style=document.createElement('style');
+  style.id='ldtt-lead-form-style';
+  style.textContent='.lead-form-flow{display:grid;gap:12px;grid-column:1/-1}.lead-form-extra.wide{grid-column:1/-1}.lead-form-extra-group{border:0;padding:0;margin:0 0 12px;min-width:0}.lead-form-extra-group legend{font-weight:700;margin:0 0 6px;padding:0}.lead-form-choice{display:flex!important;align-items:center;gap:8px;font-weight:500;margin:4px 0}.lead-form-choice input{width:auto!important;min-height:0!important;margin:0!important}';
+  document.head.appendChild(style);
+};
+const lfOuter=(form,el)=>{let node=el;while(node.parentElement&&node.parentElement!==form&&node.parentElement.matches(LEAD_FORM_GROUPS)) node=node.parentElement;return node;};
+const lfText=(wrap,control)=>{
+  const first=wrap.firstElementChild;
+  if(first&&first.tagName==='SPAN'&&!first.classList.contains('required-mark')&&!first.contains(control)&&!wrap.classList.contains('consent-row')) return {span:first};
+  const node=[...wrap.childNodes].find(n=>n.nodeType===Node.TEXT_NODE&&n.textContent.trim());
+  return node?{node}:null;
+};
+const lfSetLabel=(wrap,control,label)=>{
+  const target=lfText(wrap,control);
+  if(!target) return;
+  if(target.span){target.span.textContent=label;return;}
+  const next=target.node.nextSibling;
+  target.node.textContent=label+(next&&next.nodeType===Node.ELEMENT_NODE&&next!==control&&!next.classList.contains('required-mark')?' ':'');
+};
+const lfMark=(wrap,control,required)=>{
+  wrap.querySelectorAll(':scope > .required-mark, :scope > span > .required-mark').forEach(mark=>mark.remove());
+  const target=lfText(wrap,control);
+  if(target?.node&&!required) target.node.textContent=target.node.textContent.replace(/\s*\*\s*$/,' ');
+  if(!required) return;
+  if(target?.span) addRequiredMark(target.span);
+  else addRequiredMark(wrap,control);
+};
+const lfChoices=(select,choices)=>{
+  const old=[...select.options];
+  const blank=old[0]&&old[0].value===''?old[0]:null;
+  const valueOf=new Map(old.map(option=>[option.textContent.trim(),option.value]));
+  const current=select.value;
+  select.textContent='';
+  if(blank) select.appendChild(blank);
+  choices.forEach(choice=>{
+    const option=document.createElement('option');
+    option.textContent=choice;
+    option.value=valueOf.has(choice)?valueOf.get(choice):choice;
+    select.appendChild(option);
+  });
+  if([...select.options].some(option=>option.value===current)) select.value=current;
+};
+const lfExtra=field=>{
+  if(field.type==='checkboxes'||field.type==='yesno'){
+    const box=document.createElement('fieldset');
+    box.className='lead-form-extra lead-form-extra-group wide';
+    box.dataset.leadFormKey=field.key;
+    const legend=document.createElement('legend');
+    legend.textContent=field.label;
+    box.appendChild(legend);
+    (field.type==='yesno'?['Yes','No']:(field.choices||[])).forEach(choice=>{
+      const row=document.createElement('label');
+      row.className='lead-form-choice';
+      const input=document.createElement('input');
+      input.type=field.type==='yesno'?'radio':'checkbox';
+      input.name=field.name;
+      input.value=choice;
+      if(field.required&&field.type==='yesno') input.required=true;
+      const text=document.createElement('span');
+      text.textContent=choice;
+      row.append(input,text);
+      box.appendChild(row);
+    });
+    if(field.required){
+      if(field.type==='checkboxes') box.dataset.leadFormRequiredGroup='1';
+      addRequiredMark(legend);
+    }
+    return box;
+  }
+  const wrap=document.createElement('label');
+  wrap.className='lead-form-extra wide';
+  wrap.dataset.leadFormKey=field.key;
+  wrap.appendChild(document.createTextNode(field.label));
+  let control;
+  if(field.type==='textarea'){control=document.createElement('textarea');control.rows=3;control.maxLength=2000;}
+  else if(field.type==='select'){
+    control=document.createElement('select');
+    const blank=document.createElement('option');
+    blank.value='';
+    blank.textContent='Select one';
+    control.appendChild(blank);
+    (field.choices||[]).forEach(choice=>{const option=document.createElement('option');option.textContent=choice;control.appendChild(option);});
+  }else{
+    control=document.createElement('input');
+    control.type={email:'email',phone:'tel',number:'number',date:'date'}[field.type]||'text';
+    if(control.type!=='number'&&control.type!=='date') control.maxLength=300;
+    if(field.type==='phone'){control.autocomplete='tel';control.inputMode='tel';}
+  }
+  control.name=field.name;
+  if(field.required) control.required=true;
+  if(field.placeholder) control.placeholder=field.placeholder;
+  wrap.appendChild(control);
+  if(field.required) addRequiredMark(wrap,control);
+  return wrap;
+};
+// Checkboxes have no built-in "pick at least one": the first box carries the message until one is ticked.
+const lfGroups=form=>form.querySelectorAll('[data-lead-form-required-group]').forEach(box=>{
+  const boxes=[...box.querySelectorAll('input[type="checkbox"]')];
+  if(boxes.length) boxes[0].setCustomValidity(boxes.some(item=>item.checked)?'':'Please pick at least one.');
+});
+const lfBeforeEnd=(form,node)=>{
+  const stop=form.querySelector('.consent-optional,.consent-row,.landing-consent,.form-status,.market-guide-status,.landing-form-status,button[type="submit"]');
+  if(stop) stop.parentElement.insertBefore(node,stop);
+  else form.appendChild(node);
+};
+const applyLeadForm=(form,config)=>{
+  lfStyle();
+  const fields=Array.isArray(config.fields)?config.fields:[];
+  const present=new Map();
+  fields.filter(field=>field.builtin).forEach(field=>{
+    const control=[...form.querySelectorAll(`[name="${field.key}"]`)].find(el=>el.type!=='hidden');
+    const wrap=control?.closest('label');
+    if(control&&wrap&&form.contains(wrap)) present.set(field.key,{field,control,wrap});
+  });
+  present.forEach(({field,control,wrap})=>{
+    if(field.removed){
+      wrap.hidden=true;
+      wrap.dataset.leadFormRemoved='1';
+      control.required=false;
+      control.disabled=true;
+      if(field.key==='sms_consent'&&wrap.previousElementSibling?.matches('.consent-optional')) wrap.previousElementSibling.hidden=true;
+      if(field.key==='phone') form.querySelectorAll('.form-disclaimer').forEach(note=>{note.hidden=true;});
+      const fallback=field.key==='email'?`not-given-${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}@noemail.invalid`:LEAD_FORM_FALLBACKS[field.key];
+      if(fallback&&!form.querySelector(`input[type="hidden"][name="${field.key}"]`)){
+        const standIn=document.createElement('input');
+        standIn.type='hidden';
+        standIn.name=field.key;
+        standIn.setAttribute('value',fallback);
+        standIn.dataset.leadFormStandIn='1';
+        form.appendChild(standIn);
+      }
+      return;
+    }
+    if(field.type==='consent') return;
+    if(field.diff?.label) lfSetLabel(wrap,control,field.label);
+    if(field.diff?.required){
+      control.required=field.required===true;
+      wrap.querySelectorAll(':scope > small').forEach(hint=>{if(/required|optional/i.test(hint.textContent||'')) hint.remove();});
+    }
+    if(field.diff?.label||field.diff?.required) lfMark(wrap,control,control.required);
+    if(field.diff?.choices&&control instanceof HTMLSelectElement&&Array.isArray(field.choices)) lfChoices(control,field.choices);
+  });
+  const visible=fields.filter(field=>!field.removed);
+  const nodeOf=new Map();
+  visible.forEach(field=>{
+    if(field.builtin){const hit=present.get(field.key);if(hit) nodeOf.set(field.key,hit.wrap);}
+    else nodeOf.set(field.key,lfExtra(field));
+  });
+  if(config.orderChanged){
+    const first=visible.map(field=>present.get(field.key)?.wrap).find(Boolean);
+    const flow=document.createElement('div');
+    flow.className='lead-form-flow';
+    if(first){const anchor=lfOuter(form,first);anchor.parentElement.insertBefore(flow,anchor);}
+    else lfBeforeEnd(form,flow);
+    visible.forEach(field=>{const node=nodeOf.get(field.key);if(node) flow.appendChild(node);});
+    form.querySelectorAll('.form-grid-two,.form-grid-three,.market-guide-name-row,.landing-more-grid,details').forEach(group=>{
+      if(!group.querySelector('label:not([hidden]),fieldset:not([hidden])')) group.hidden=true;
+    });
+  }else{
+    visible.forEach((field,index)=>{
+      if(field.builtin) return;
+      const node=nodeOf.get(field.key);
+      for(let j=index-1;j>=0;j-=1){const prev=nodeOf.get(visible[j].key);if(prev&&prev.isConnected){lfOuter(form,prev).after(node);return;}}
+      for(let j=index+1;j<visible.length;j+=1){const next=nodeOf.get(visible[j].key);if(next&&next.isConnected){const anchor=lfOuter(form,next);anchor.parentElement.insertBefore(node,anchor);return;}}
+      lfBeforeEnd(form,node);
+    });
+  }
+  lfGroups(form);
+  form.addEventListener('change',()=>lfGroups(form));
+  form.addEventListener('reset',()=>window.setTimeout(()=>lfGroups(form),0));
+};
+publicEnvironment.then(env=>{
+  if(!env?.sandbox&&!env?.leadForms) return;
+  fetch('/api/lead-forms?op=public',{cache:'no-store'})
+    .then(response=>response.ok?response.json():null)
+    .then(data=>{
+      const forms=data&&data.ok&&data.forms;
+      if(!forms) return;
+      const run=()=>document.querySelectorAll('form').forEach(form=>{
+        if(form.dataset.leadFormApplied) return;
+        const id=leadFormIdFor(form);
+        if(!id) return;
+        form.dataset.leadFormApplied=id;
+        const config=forms[id];
+        if(!config||!config.changed) return;
+        try{applyLeadForm(form,config);}catch(error){console.warn('LDTT lead form could not be applied',error);}
+      });
+      run();
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',run);
+      new MutationObserver(run).observe(document.documentElement,{childList:true,subtree:true});
+    })
+    .catch(()=>{});
+});
 })();

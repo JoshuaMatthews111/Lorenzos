@@ -162,7 +162,9 @@
 	      market: marketName,
       _subject: `New ${ebookTitle} request - ${marketName}`,
       _template: "table",
-      _captcha: "false"
+      _captcha: "false",
+      // Rule 75: questions the office added in Lead forms arrive as "Extra: <question>" fields.
+      ...Object.fromEntries([...new Set(data.keys())].filter(key => key.startsWith("Extra: ")).map(key => [key, data.getAll(key).map(String).join(", ")]))
     };
   };
 

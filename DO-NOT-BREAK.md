@@ -1032,3 +1032,52 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       `/api/booking-lead` answers the same contract (`trainer_slug` null only when nobody is within 50 miles).
     - The lead panel shows "Trainer requested online" (with every answer) and "Callback asked" (`leadBookingBlock`).
     Tests: `tests/booking-zip.test.mjs` (10). Audit: the rule 74 check.
+
+## Lead form editor (added 2026-09-12, Claude, portal chain step 4)
+
+75. **The office edits every lead form from Page Editor → Lead forms; a removal is warned, named, logged and
+    undoable; the website's form submit path is never touched.** Maintainer's guide + 2.0 hand-off: `docs/FORM-EDITOR.md`.
+    - **Forms covered** (`lib/lead-forms.js` `FORMS`): Contact Us, Get Started, Ad landing pages (built-in market pages +
+      Page Studio `/ads/*`; the quiz `/lp-test-*` pages are NOT changed yet), Trainer page form, Free booklet form, 2.0 ad
+      pages (served by the API; the 2.0 project still draws its own form until its hand-off), Booking page questions.
+      Each form's ORIGINAL questions equal what the page has today (`tests/lead-forms.test.mjs` reads the HTML), and a form
+      whose published questions equal the original is not touched at all (`changed:false`).
+    - **Storage:** `site_settings` key `lead_forms` in this deployment's schema: `{draft, published, log, sent_from_practice}`.
+      No new table. Writes are optimistic (`updated_at=eq.<read>`): two people editing at once → the second gets a plain 409.
+    - **Edits:** add (short text, long text, email, phone, number, dropdown, checkboxes, yes/no, date), rename, required,
+      reorder, dropdown/checkbox choices. Office text is data: `cleanLabel()` strips `< >` and control characters, the browser
+      draws it with `textContent`, the booking page escapes it. The texting consent box's wording and "never required" are
+      LOCKED (rule 47: Twilio approved one wording; consent is not a condition). The booking page's Sex / Spayed / Vaccinated
+      answer lists are locked (Alpha needs those answers). An added question is submitted as `Extra: <question>`.
+    - **Removal:** red warning with the exact effect (`effectFor`): Phone = TEXTS STOP; ZIP = TRAINER MATCHING STOPS; texting
+      box = NO TEXTS AT ALL; Contact Us "I want to" = office follow-up, no text, nobody to Applications; booking questions = Alpha
+      needs it. The signed-in person's name is filled in (editable, two words required, 400 otherwise). The log keeps who, login,
+      when, which form, which question and the effect; `audit_events` gets `lead_form_removed` (entity_type `lead_form`). Undo =
+      `restore_field`. ONLY remove/restore change the removed flag: a save can never un-remove, and a question missing from a
+      save is kept, never dropped silently (`normalizeFields`).
+    - **Degrades, never breaks:** a removed question is hidden AND disabled on the page. `submit-contact` (shared with live, NOT
+      changed) refuses a lead without first name, last name, email and phone, so a removed one gets a hidden stand-in
+      ("Website visitor", "Not given", "Not given", a unique `not-given-…@noemail.invalid`). No phone / no consent → the pipeline's
+      own rules send no text; no ZIP → no trainer match → office follow-up. The booking page: `validateEvalForm(body, setting,
+      formFields)` requires only published, required questions (null = the original 11, all required, exactly as before); a blank
+      answer never overwrites what the lead already has (`answeredContact`); with neither phone nor email a new booking lead skips
+      the duplicate lookup instead of matching someone else.
+    - **Practice → live (rule 18 pattern):** the practice copy edits the draft, "Publish on the practice copy" makes practice pages
+      use it, "Send to live" (`api/send-to-live.js` kind `lead_forms`, typed full name, rule-18 red warning) puts the practice
+      DRAFT into the LIVE row's draft. `LF.assertPublishedUnchanged()` runs before the write: the live published forms, revision,
+      date and publisher never change. `practice.send_to_live_log` (entity_type `lead_forms`, migration
+      `20260912180000_lead_forms_send_to_live.sql`, practice only) and the live `sent_from_practice` stamp keep the name. Publishing
+      stays on the live portal.
+    - **Live is unchanged this round:** `api/lead-forms.js` answers 404 on live before anything else unless `LDTT_LEAD_FORMS_LIVE=1`;
+      with it, live only allows public / editor / publish / discard (edits answer 409 "changed on the practice copy").
+      `/api/environment` adds `leadForms: true` only on the practice copy or with that switch, so live's answer is byte-identical,
+      and the `script.js` block (appended AFTER every pinned rule-73 block; it never names FormSubmit, form-delivery or
+      relayFormDeliveries) only asks for forms when `env.sandbox || env.leadForms`.
+    - **Answers:** website forms keep `Extra: <question>` on the lead (submit-contact stores the whole payload); the booklet
+      scripts pass them on; the booking page keeps `booking.client_custom` and each dog's `custom`. The lead panel shows them
+      (`leadExtraAnswersBlock`, drawn BEFORE `leadBookingBlock`), the Resend office emails carry an "Extra questions" section,
+      and FormSubmit's table includes them automatically on live (the form's own fields).
+    - **Portal:** `trainer-backoffice/form-editor.js` (both shells, same `?v=`), third Page Editor door "Lead forms"
+      (`formEditor` view, office admins too). Every typing box carries `data-lf-*` and is on the `typedFieldKey()` whitelist (rule 14);
+      the new-question box is emptied before `render()` (rule 15).
+    Tests: `tests/lead-forms.test.mjs` (13) + 1 in `tests/send-to-live.test.mjs`. Audit: the rule 75 check.

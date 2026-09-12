@@ -18,6 +18,27 @@
 const { isSandbox } = require("../lib/sandbox");
 const B = require("../lib/booking");
 const P = require("../lib/pipeline");
+const LF = require("../lib/lead-forms"); // rule 75: the booking questions come from the form editor
+
+// Rule 75: the published booking questions (null on any trouble -> the original 11, all required).
+const bookingQuestions = () => LF.loadPublishedFields(B.sbOrThrow, "booking_eval");
+
+// Rule 75: a question the office removed comes back blank. A blank answer never wipes what the lead
+// already has (the name, phone and email it came in with stay). With every question asked (the original
+// form) this is exactly the old update.
+function answeredContact(client, dogs) {
+  const names = dogs.map(d => d.name).filter(Boolean).join(", ");
+  const breeds = dogs.map(d => d.breed).filter(Boolean).join(", ");
+  return {
+    ...(client.first_name ? { first_name: client.first_name } : {}),
+    ...(client.last_name ? { last_name: client.last_name } : {}),
+    ...(client.phone ? { phone: client.phone } : {}),
+    ...(client.email ? { email: client.email } : {}),
+    ...(client.address ? { address_line_1: client.address } : {}),
+    ...(names ? { dog_name: names } : {}),
+    ...(breeds ? { dog_breed: breeds } : {})
+  };
+}
 
 const OFFICE_PHONE = "(866) 436-4959";
 const LEAD_SELECT = "id,first_name,last_name,email,phone,zip,dog_name,status,version,raw_payload,trainer_slug,eval_scheduled_at,source_page,trainer_market,address_line_1";
@@ -147,9 +168,10 @@ async function patchLeadWithRetry(lead, buildChanges) {
 // The lead for a booking-page submit: the one from the link, or a new practice lead from the form.
 async function leadForForm({ leadId, client, dogs, slug, setting, trainer, zip, via }) {
   if (leadId) return getLead(leadId);
-  const addressZip = (client.address.match(/\b(\d{5})(?:-\d{4})?\b/g) || []).pop()?.slice(0, 5) || "";
+  const addressZip = (String(client.address || "").match(/\b(\d{5})(?:-\d{4})?\b/g) || []).pop()?.slice(0, 5) || "";
   const created = await B.createLead({
-    intake: { first_name: client.first_name, last_name: client.last_name, phone: client.phone, email: client.email, zip: B.digits(zip).slice(0, 5) || addressZip, problem: dogs[0]?.behavior?.slice(0, 300) || "", dog_name: dogs.map(d => d.name).join(", "), sms_consent: false, source_page: `book/${slug}` },
+    // Rule 75: a removed first-name question -> the same stand-in the website forms use.
+    intake: { first_name: client.first_name || LF.FALLBACKS.first_name, last_name: client.last_name, phone: client.phone, email: client.email, zip: B.digits(zip).slice(0, 5) || addressZip, problem: dogs[0]?.behavior?.slice(0, 300) || "", dog_name: dogs.map(d => d.name).join(", "), sms_consent: false, source_page: `book/${slug}` },
     setting, trainer, via
   });
   return getLead(created.lead.id);
@@ -162,7 +184,7 @@ async function book(req, res, body) {
   if (!setting) return res.status(404).json({ ok: false, message: `This trainer does not take online bookings yet. Please call ${OFFICE_PHONE}.` });
   const startSec = parseStart(body.slot_start);
   if (!startSec) return res.status(400).json({ ok: false, message: "Pick a time first." });
-  const form = B.validateEvalForm(body, setting);
+  const form = B.validateEvalForm(body, setting, await bookingQuestions());
   if (form.errors.length) return res.status(400).json({ ok: false, message: form.errors[0], errors: form.errors });
   const leadId = B.clean(body.lead_id, 60);
   if (leadId && !B.UUID.test(leadId)) return res.status(400).json({ ok: false, message: "That booking link is not complete. Please use the link from your text again." });
@@ -202,13 +224,7 @@ async function book(req, res, body) {
     record = await patchLeadWithRetry(lead, current => {
       const raw = current.raw_payload && typeof current.raw_payload === "object" ? current.raw_payload : {};
       return {
-        first_name: client.first_name,
-        last_name: client.last_name,
-        phone: client.phone,
-        email: client.email,
-        address_line_1: client.address,
-        dog_name: dogs.map(d => d.name).join(", "),
-        dog_breed: dogs.map(d => d.breed).join(", "),
+        ...answeredContact(client, dogs),
         status: "evaluation_scheduled",
         eval_scheduled_at: slotIso,
         ...B.trainerFields(setting, trainer),
@@ -230,6 +246,7 @@ async function book(req, res, body) {
             location,
             location_label: locationLabel,
             client,
+            client_custom: form.value.client_custom || undefined, // rule 75: office-added questions
             dogs,
             hold_id: holdRow.id || null,
             booked_at: now
@@ -295,7 +312,7 @@ async function requestTrainer(req, res, body) {
     return res.status(404).json({ ok: false, message: `We could not find that trainer. Please call ${OFFICE_PHONE}.` });
   }
   const rule = B.locationRule(trainer, null);
-  const form = B.validateEvalForm(body, rule);
+  const form = B.validateEvalForm(body, rule, await bookingQuestions());
   if (form.errors.length) return res.status(400).json({ ok: false, message: form.errors[0], errors: form.errors });
   const leadId = B.clean(body.lead_id, 60);
   if (leadId && !B.UUID.test(leadId)) return res.status(400).json({ ok: false, message: "That booking link is not complete. Please use the link from your text again." });
@@ -312,13 +329,7 @@ async function requestTrainer(req, res, body) {
     const raw = rawOf(current);
     const prior = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
     return {
-      first_name: client.first_name,
-      last_name: client.last_name,
-      phone: client.phone,
-      email: client.email,
-      address_line_1: client.address,
-      dog_name: dogs.map(d => d.name).join(", "),
-      dog_breed: dogs.map(d => d.breed).join(", "),
+      ...answeredContact(client, dogs),
       ...B.trainerFields(pseudo, trainer),
       raw_payload: {
         ...raw,
@@ -336,6 +347,7 @@ async function requestTrainer(req, res, body) {
           location,
           location_label: locationLabel,
           client,
+          client_custom: form.value.client_custom || undefined, // rule 75: office-added questions
           dogs
         }
       }
