@@ -5594,3 +5594,15 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .pathway-message{border:1px solid #dce7f2;border-radius:8px;padding:7px 10px;background:#f8fbff;font-size:.8rem}
 .pathway-message summary{cursor:pointer}
 .pathway-body{white-space:pre-wrap;font:inherit;margin:8px 0 0;color:#1d2f4a}
+
+/* Lead cards (meeting 2026-09-11): bold market, eval date + time on Eval Scheduled
+   cards, "Added to Alpha?" toggle with a red check when yes. */
+.lead-card small .lead-card-market { color: #082754; font-weight: 800; }
+.lead-card .lead-card-eval { margin: 7px 0; padding: 6px 8px; border-radius: 6px; background: #eef4ff; color: #082754; font-size: .82rem; }
+.lead-card .lead-card-eval span { text-transform: uppercase; letter-spacing: .06em; font-size: .68rem; font-weight: 800; color: #53657e; margin-right: 4px; }
+.lead-card .lead-card-eval.is-missing { background: #fff7e6; color: #8a5a00; font-size: .76rem; }
+.lead-card-sources .lead-alpha-toggle { margin-right: auto; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #cbd8e8; border-radius: 999px; background: #fff; color: #53657e; font: inherit; font-size: .72rem; font-weight: 700; padding: 2px 9px; cursor: pointer; }
+.lead-card-sources .lead-alpha-toggle:hover { border-color: #d80f35; color: #082754; }
+.lead-card-sources .lead-alpha-toggle.is-yes { border-color: #d80f35; background: #fff5f7; color: #082754; }
+.lead-alpha-toggle .alpha-check { color: #d80f35; font-size: 1rem; font-weight: 900; line-height: 1; }
+.lead-detail-panel .field-hint { font-weight: 400; color: #64748b; font-size: .75rem; }

@@ -81,7 +81,8 @@
     ["captured",  "Captured & Responded",   "marketing", ["new_inquiry", "office_contacted", "engaged_no_outcome"]],
     ["booked",    "Booked",                 "marketing", ["evaluation_scheduled"]],
     ["confirmed", "Confirmed",              "marketing", ["site_visit"]],
-    ["evaluated", "In the Trainer's Hands", "sales",     ["evaluation_complete"]],
+    // Label only (meeting 2026-09-11): renamed from the old trainer-hands wording. Key and statuses unchanged (rule 10).
+    ["evaluated", "Eval Completed",         "sales",     ["evaluation_complete"]],
     ["won",       "Won",                    "won",       ["became_client"]],
     ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead"]],
     ["winback",   "Win-back",               "winback",   ["lost_no_response", "follow_up_call_needed", "evaluation_cancelled", "lost_no_trainer_area"]]

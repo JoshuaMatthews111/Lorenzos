@@ -12,7 +12,9 @@ const ENTITY_CONFIG = {
       "assigned_user_id", "status", "lost_reason", "office_notes", "raw_payload",
       "trainer_id", "assigned_trainer_name", "trainer_market", "trainer_city", "trainer_state",
       "first_name", "last_name", "email", "phone", "city", "state", "zip",
-      "dog_name", "dog_breed", "service_interest", "lead_source", "referral_detail", "comments"
+      "dog_name", "dog_breed", "service_interest", "lead_source", "referral_detail", "comments",
+      // lead cards (2026-09-12, rule 70): real columns on leads in both schemas.
+      "eval_scheduled_at", "added_to_alpha"
     ])
   },
   application: {
@@ -367,6 +369,15 @@ async function updateRecord(admin, body, requestId) {
   }
   const changes = filterChanges(config, body.changes);
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No supported changes were supplied." } };
+  // lead cards (2026-09-12): a real yes/no and a real timestamp, or nothing is written.
+  if (entityType === "lead") {
+    if ("added_to_alpha" in changes) changes.added_to_alpha = changes.added_to_alpha === true;
+    if ("eval_scheduled_at" in changes) {
+      const when = changes.eval_scheduled_at ? new Date(changes.eval_scheduled_at) : null;
+      if (when && Number.isNaN(when.getTime())) return { status: 400, body: { ok: false, message: "The eval date and time could not be read. Pick it again." } };
+      changes.eval_scheduled_at = when ? when.toISOString() : null;
+    }
+  }
   // rule 45: an application save sends only the keys it owns (the office stage
   // stamp). Merge them into the stored raw_payload so a stale browser can never
   // replace the applicant's answers or another staff member's stamp wholesale.

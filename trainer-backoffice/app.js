@@ -1129,6 +1129,9 @@ function remoteLeadToUi(row) {
     assignedUserId: row.assigned_user_id || "",
     next: raw.follow_up_date || "Office follow-up needed",
     followUpDate: raw.follow_up_date || "",
+    // lead cards (2026-09-12): real columns on leads (both schemas).
+    evalScheduledAt: row.eval_scheduled_at || "",
+    addedToAlpha: row.added_to_alpha === true,
     clientNote,
     comments: clientNote,
     additional_interest: raw.additional_interest || "",
@@ -2265,6 +2268,33 @@ async function persistLeadRecord(lead) {
   return result.record;
 }
 
+// lead cards (2026-09-12): the eval time and the "Added to Alpha?" tick save ONLY
+// their own column, so a stale tab saving one can never flip the other back.
+async function persistLeadFields(lead, changes, summary) {
+  if (!remoteReady || session.role !== "admin" || !lead?.remoteId) return;
+  const result = await window.LDTT_PORTAL.operationalMutation({
+    operation: "update",
+    entity_type: "lead",
+    id: lead.remoteId,
+    action: "lead_updated",
+    summary,
+    changes
+  });
+  lead.version = Number(result.version || lead.version || 1);
+  lead.updatedAt = result.updated_at || lead.updatedAt;
+  return result.record;
+}
+
+function saveLeadAlpha(leadId, yes) {
+  const lead = updateLeadRecord(leadId, { addedToAlpha: yes === true });
+  if (!lead) return;
+  const detail = `${lead.owner || "Lead"} ${yes ? "marked as added to Alpha" : "marked as not in Alpha"}.`;
+  // Flip the pill now; the save + reload below can take a few seconds.
+  if (remoteReady && !(typeof dragInProgress !== "undefined" && dragInProgress)) render();
+  if (remoteReady) runRemoteMutation(yes ? "Marked as added to Alpha" : "Marked as not in Alpha", () => persistLeadFields(lead, { added_to_alpha: yes === true }, detail), { type: "Lead", detail });
+  else saveState(yes ? "Marked as added to Alpha" : "Marked as not in Alpha");
+}
+
 async function persistLeadWorkflow(lead) {
   await persistLeadRecord(lead);
   // The database conversion trigger creates or updates the related client and
@@ -2326,7 +2356,7 @@ function officeNoteTimeline(entityType, entityId) {
     const revisions = remoteNoteRevisions
       .filter(revision => revision.office_note_id === note.id)
       .sort((a, b) => timestampValue(b.created_at) - timestampValue(a.created_at));
-    return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorLabel(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><div class="row-actions">${ownsOfficeNote(note) ? `<button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button><button class="btn btn-outline btn-small btn-danger-outline" type="button" data-delete-office-note="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Delete</button>` : ""}</div></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorLabel(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
+    return `<article><div class="office-note-heading"><div><strong>${escapeHtml(portalActorName(note.created_by))}</strong><time>${escapeHtml(formatDateTime(note.updated_at || note.created_at))}${note.updated_at && note.updated_at !== note.created_at ? " · edited" : ""}</time></div><div class="row-actions">${ownsOfficeNote(note) ? `<button class="btn btn-outline btn-small" type="button" data-toggle-note-edit="${escapeHtml(note.id)}">Edit</button><button class="btn btn-outline btn-small btn-danger-outline" type="button" data-delete-office-note="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Delete</button>` : ""}</div></div><p>${escapeHtml(note.note)}</p><div class="office-note-editor" data-note-editor="${escapeHtml(note.id)}" hidden><textarea data-office-note-edit="${escapeHtml(note.id)}">${escapeHtml(note.note)}</textarea><button class="btn btn-red btn-small" type="button" data-save-office-note-edit="${escapeHtml(note.id)}" data-entity-type="${escapeHtml(entityType)}" data-entity-id="${escapeHtml(entityId)}">Save Note Edit</button></div>${revisions.length ? `<details class="office-note-history"><summary>View edit history (${revisions.length})</summary>${revisions.map(revision => `<div><strong>${escapeHtml(portalActorName(revision.edited_by))}</strong><time>${escapeHtml(formatDateTime(revision.created_at))}</time><p>${escapeHtml(revision.previous_note || "")}</p></div>`).join("")}</details>` : ""}</article>`;
   }).join("")}</div>`;
 }
 
@@ -2879,6 +2909,18 @@ function portalActorLabel(userOrId) {
   return email ? `${name} (${email})` : name;
 }
 
+// Office notes show the staff NAME only, never the login email (meeting 2026-09-11:
+// "it was gone, came back after an update"). portalActorLabel() appends the email
+// whenever a name is on file, so note bylines must never use it. No name on file
+// (the name would just be the email) -> "Office staff".
+function portalActorName(userOrId) {
+  const user = typeof userOrId === "string" ? portalUserById(userOrId) : userOrId;
+  if (!user) return "Office staff";
+  const name = String(portalDisplayName(user) || "").trim();
+  if (!name || name === "Staff name required" || name.includes("@")) return "Office staff";
+  return name;
+}
+
 function isDemoPortalUser(user) {
   return Boolean(user?.demo || String(user?.user_id || "").startsWith("demo-"));
 }
@@ -3024,6 +3066,8 @@ function currentActorMeta() {
 
 function activityActorLabel(row) {
   const user = portalUserById(row?.actorId) || portalUserByEmail(row?.actorEmail);
+  // rule 70: an office note's byline is the staff name only, here too.
+  if (row?.type === "Office Note") return user ? portalActorName(user) : (row?.actor || "Office staff");
   if (user) return portalActorLabel(user);
   return row?.actor || "System";
 }
@@ -3077,7 +3121,7 @@ function recordActivity(action, detail = "", type = "Portal") {
 function officeNoteActivityRows() {
   return (remoteOfficeNotes || []).map(note => {
     const user = portalUserById(note.created_by);
-    const actor = portalActorLabel(note.created_by);
+    const actor = portalActorName(note.created_by);
     return {
       id: `office-note-${note.id}`,
       createdAt: note.created_at,
@@ -4727,7 +4771,7 @@ function typedFieldKey(field) {
     // onboarding: the trainer editor boxes were missing here — the page editor
     // (data-editor-field), the profile editor (data-profile-field), the trainer's
     // social links, video links and the Send-to-live name box.
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair)).join("|");
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair)).join("|"); // rule 70: the lead eval box
   if (own) return `${formKey}::${own}`;
   // Safety net (Joshua 2026-09-11, the password box that emptied while typing): a box
   // with none of the attributes above is no longer left with an empty key. Its key is
@@ -7586,7 +7630,7 @@ function leadOutcomeTable(sourceRows = realLeadRows()) {
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client / Dog</th><th>Trainer</th><th>Service</th><th>Status</th><th>Latest Office Note</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
     const latest = latestOfficeNote("lead", lead.remoteId);
     const noteText = latest?.note || lead.note || "";
-    const noteMeta = latest ? `${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}` : lead.note ? "Saved on lead record" : "";
+    const noteMeta = latest ? `${portalActorName(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}` : lead.note ? "Saved on lead record" : "";
     return `<tr><td><strong>${escapeHtml(lead.owner)}</strong>${leadDogLabel(lead) ? `<small>${escapeHtml(leadDogLabel(lead))}</small>` : ""}</td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.service)}</td><td>${statusSelect(lead)}</td><td>${escapeHtml(noteText || "No note yet")}<small>${escapeHtml(noteMeta)}</small></td><td><button class="btn btn-red" data-open-lead="${lead.id}">Open / Add Note</button></td></tr>`;
   }).join("") || `<tr><td colspan="6">No website lead submissions match the current filters.</td></tr>`}</tbody></table></div><p class="panel-copy">Website contact submissions are shared with authorized office users through Supabase.</p>`;
 }
@@ -8260,7 +8304,7 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
 const boardColumns = METRICS?.BOARD_COLUMNS || [];
 function boardStatus(status) { return METRICS.boardStatus(status); }
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who"><strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div>${leadCardDetailLines(lead)}${leadAssignmentLine(lead)}<div class="lead-card-sources">${leadSourceBadge(lead)}</div></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who"><strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div>${leadCardDetailLines(lead)}${leadAssignmentLine(lead)}<div class="lead-card-sources">${leadAlphaToggle(lead)}${leadSourceBadge(lead)}</div></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -8274,7 +8318,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div><label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(your computer's time zone; shows on the Eval Scheduled card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt))}"></label><label class="check-row lead-alpha-check"><input type="checkbox" data-lead-alpha-check="${lead.id}" ${lead.addedToAlpha ? "checked" : ""}> Added to Alpha</label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -9540,7 +9584,7 @@ function applicationTable() {
   return `<div class="application-sheet-actions"><span class="status live">${escapeHtml(activeFilter)} view</span><p>Review the applicant, change recruiting status, and leave office notes. Use the filter at the top of this Applications page to change which records show here.</p></div>
   <div class="table-wrap"><table class="data-table application-data-table"><thead><tr><th>Applicant</th><th>Received</th><th>Location</th><th>Contact</th><th>Source</th><th>Status</th><th>Latest Office Note</th><th>Full Application</th></tr></thead><tbody>${rows.map(app => {
     const latest = latestOfficeNote("application", app.remoteId);
-    return `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(applicationInquiryTypeLabel(app))}</small></td><td>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.market || app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td>${escapeHtml(app.source_form || app.referral_source || "Website")}<small>${escapeHtml(app.source_page || "")}</small></td><td>${applicationStatusSelect(app)}</td><td>${escapeHtml(latest?.note || app.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorLabel(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`;
+    return `<tr data-open-application="${escapeHtml(app.id)}"><td><strong>${escapeHtml(`${app.first_name || ""} ${app.last_name || ""}`.trim() || "Applicant")}</strong><small>${escapeHtml(applicationInquiryTypeLabel(app))}</small></td><td>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</td><td>${escapeHtml([app.city, app.state, app.zip].filter(Boolean).join(", ") || "—")}<small>${escapeHtml(app.market || app.address_line_1 || "")}</small></td><td>${escapeHtml(app.phone || "—")}<small>${escapeHtml(app.email || "—")}</small></td><td>${escapeHtml(app.source_form || app.referral_source || "Website")}<small>${escapeHtml(app.source_page || "")}</small></td><td>${applicationStatusSelect(app)}</td><td>${escapeHtml(latest?.note || app.note || "No note yet")}<small>${latest ? escapeHtml(`${portalActorName(latest.created_by)} · ${formatDateTime(latest.updated_at || latest.created_at)}`) : ""}</small></td><td><button class="btn btn-outline btn-small" type="button" data-open-application="${escapeHtml(app.id)}">Open Record</button></td></tr>`;
   }).join("") || `<tr><td colspan="8">No trainer applications found yet.</td></tr>`}</tbody></table></div>`;
 }
 
@@ -9585,8 +9629,40 @@ function leadCardDetailLines(lead) {
   // full record still spells out what is missing.
   const known = value => (value && value !== "Pending" ? value : "");
   const line1 = [known(lead.dog), known(lead.service)].filter(Boolean).join(" · ");
-  const line2 = [leadMarketLabel(lead), formatPhoneNumber(lead.phone) || lead.email || "", `SMS ${lead.smsConsent}`].filter(Boolean).join(" · ");
-  return `${line1 ? `<p>${escapeHtml(line1)}</p>` : ""}<small>${escapeHtml(line2)}</small>`;
+  // Meeting 2026-09-11: the market name is bold on the card.
+  const market = leadMarketLabel(lead);
+  const rest = [formatPhoneNumber(lead.phone) || lead.email || "", `SMS ${lead.smsConsent}`].filter(Boolean).join(" · ");
+  const line2 = `${market ? `<strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${market && rest ? " · " : ""}${escapeHtml(rest)}`;
+  return `${leadCardEvalLine(lead)}${line1 ? `<p>${escapeHtml(line1)}</p>` : ""}<small>${line2}</small>`;
+}
+
+// Meeting 2026-09-11: Eval Scheduled cards show the eval date + time without
+// opening the lead. Shown in the viewer's own time zone, with its short name.
+function leadEvalLabel(value) {
+  const date = parseTimestamp(value);
+  if (!date) return "";
+  return date.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+}
+
+function leadCardEvalLine(lead) {
+  if (lead.status !== "Evaluation Scheduled") return "";
+  const label = leadEvalLabel(lead.evalScheduledAt);
+  return label
+    ? `<p class="lead-card-eval"><span>Eval</span> <strong>${escapeHtml(label)}</strong></p>`
+    : `<p class="lead-card-eval is-missing">Eval date + time not set. Open the lead to add it.</p>`;
+}
+
+// Meeting 2026-09-11: "Added to Alpha?" yes/no, set from the card; yes = red check.
+function leadAlphaToggle(lead) {
+  const yes = lead.addedToAlpha === true;
+  return `<button type="button" class="lead-alpha-toggle${yes ? " is-yes" : ""}" data-lead-alpha="${escapeHtml(lead.id)}" aria-pressed="${yes ? "true" : "false"}" title="${yes ? "Added to Alpha. Click to mark it as not added." : "Not in Alpha yet. Click once this lead is added to Alpha."}">${yes ? `<span class="alpha-check" aria-hidden="true">✓</span>Added to Alpha` : "Added to Alpha? No"}</button>`;
+}
+
+function datetimeLocalValue(value) {
+  const date = parseTimestamp(value);
+  if (!date) return "";
+  const pad = n => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function applicationPipelineBoard() {
@@ -11697,6 +11773,15 @@ document.addEventListener("click", async event => {
   if (dealCustomAdd) { const f = dealForm(); state.dealForm = { ...f, custom_dates: [...f.custom_dates, ""] }; render(); return; }
   const dealCustomRemove = event.target.closest("[data-deal-custom-remove]");
   if (dealCustomRemove) { const f = dealForm(); const i = Number(dealCustomRemove.dataset.dealCustomRemove); state.dealForm = { ...f, custom_dates: f.custom_dates.filter((_, k) => k !== i) }; render(); return; }
+  // lead cards (2026-09-12): the Alpha button sits inside a card that opens on click.
+  const alphaToggle = event.target.closest("[data-lead-alpha]");
+  if (alphaToggle) {
+    event.preventDefault();
+    event.stopPropagation();
+    const alphaLead = allLeadRows().find(item => item.id === alphaToggle.dataset.leadAlpha);
+    saveLeadAlpha(alphaToggle.dataset.leadAlpha, !(alphaLead?.addedToAlpha === true));
+    return;
+  }
   const openLead = event.target.closest("[data-open-lead]");
   // The guard below stops a ROW click from firing when someone uses a control inside that
   // row (status dropdown, archive button). But the dashboard's "Open / Add Note" IS a button
@@ -13582,6 +13667,22 @@ document.addEventListener("change", async event => {
       detail: `${lead?.owner || "Lead"} follow-up date set to ${followup.value || "not set"}.`
     });
     else saveState("Follow-up date saved");
+    return;
+  }
+  const evalAt = event.target.closest("[data-lead-eval-at]");
+  if (evalAt) {
+    const when = evalAt.value ? new Date(evalAt.value) : null;
+    const iso = when && !Number.isNaN(when.getTime()) ? when.toISOString() : "";
+    const lead = updateLeadRecord(evalAt.dataset.leadEvalAt, { evalScheduledAt: iso });
+    if (!lead) return;
+    const detail = `${lead.owner || "Lead"} eval date + time set to ${leadEvalLabel(iso) || "not set"}.`;
+    if (remoteReady) runRemoteMutation("Eval date + time saved", () => persistLeadFields(lead, { eval_scheduled_at: iso || null }, detail), { type: "Lead", detail });
+    else saveState("Eval date + time saved");
+    return;
+  }
+  const alphaCheck = event.target.closest("[data-lead-alpha-check]");
+  if (alphaCheck) {
+    saveLeadAlpha(alphaCheck.dataset.leadAlphaCheck, alphaCheck.checked);
     return;
   }
   const lostReason = event.target.closest("[data-lead-lost-reason]");

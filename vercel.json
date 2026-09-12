@@ -15,6 +15,16 @@
       "source": "/dog-training-panama-city-fl",
       "destination": "/dog-training-panama-city-beach-fl",
       "permanent": false
+    },
+    {
+      "source": "/s",
+      "destination": "/shantelletuck",
+      "permanent": true
+    },
+    {
+      "source": "/trainer-bio-s",
+      "destination": "/trainer-bio-shantelle-tuck",
+      "permanent": true
     }
   ],
   "rewrites": [

@@ -781,3 +781,37 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     Live status 2026-09-12: DATA fixed on live; the checkbox CODE is on the practice copy only
     (commit b7b9f8e). Live is a hand-mixed build (portal app.js = 084bd11, get-started = d42139c),
     so a live release must be assembled per file — never promote this branch whole.
+
+## Lead cards (added 2026-09-12, Claude, meeting 2026-09-11)
+
+70. **Lead cards: eval time, Added to Alpha, bold market, name-only note bylines, Eval Completed.**
+    - Two REAL columns on `leads` in BOTH schemas (`supabase/migrations/20260912120000_lead_eval_time_and_alpha.sql`,
+      applied as version 20260912073552): `eval_scheduled_at timestamptz` and
+      `added_to_alpha boolean not null default false`. Additive only: no status change (rule 10),
+      no count change (rule 1). Both are on the lead whitelist in `api/operational-mutation.js`;
+      the server stores `added_to_alpha` as `=== true` and `eval_scheduled_at` as ISO (or null),
+      and answers 400 "The eval date and time could not be read. Pick it again." without writing.
+    - The browser saves each through `persistLeadFields()` with ONLY its own key, so an Alpha tick
+      can never resend a stale status or eval time and vice versa. Never fold them back into
+      `persistLeadRecord()`.
+    - Eval Scheduled cards show "EVAL <day, date, time, zone>" (viewer's time zone) or the amber
+      "Eval date + time not set" line. The lead panel carries the `datetime-local` box
+      (`data-lead-eval-at`, on the `typedFieldKey()` whitelist, rule 14) and the Added to Alpha tick.
+    - Every card carries the "Added to Alpha?" pill (`data-lead-alpha`); its click handler runs
+      BEFORE `[data-open-lead]` and stops the card from opening. Yes = red ✓.
+    - The market name on the card is `<strong class="lead-card-market">`.
+    - Office note bylines (note heading, edit history, Latest Office Note column, Recent Activity)
+      use `portalActorName()` = the staff NAME, or "Office staff" when no real name is on file.
+      NEVER `portalActorLabel()` there: it appends the login email (the meeting's "it came back
+      after an update"). The audit checks it.
+    - Sales stage `evaluated` is labelled "Eval Completed" (was "In the Trainer's Hands"). Label
+      only: key `evaluated` and status `evaluation_complete` unchanged.
+    - Shantelle Tuck (Atlanta): practice slug is `shantelle-tuck` (`20260912120100_practice_shantelle_slug.sql`),
+      static page `shantelletuck.html`, and `vercel.json` sends `/s` → `/shantelletuck` and
+      `/trainer-bio-s` → `/trainer-bio-shantelle-tuck` (308). LIVE still has slug `s`: the live SQL is
+      `scripts/sql/2026-09-12-live-shantelle-slug.sql`, NOT run. Run it ONLY in the same live
+      release that ships `shantelletuck.html` + those two redirects; run first, live `/s` would
+      hang on "Loading trainer page...". Ship the redirects without the SQL and live `/s`
+      would 308 to a page that cannot find slug `shantelle-tuck`. Both go together.
+    Tests: `tests/lead-cards.test.mjs`. Check on the practice copy: an Eval Scheduled card shows the
+    time; the Alpha pill toggles without opening the card and survives a reload.
