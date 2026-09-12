@@ -988,6 +988,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     bioPhotoFit: content.bio_photo_fit || existing.bioPhotoFit || "cover",
     bioPhotoScale: content.bio_photo_scale || existing.bioPhotoScale || 100,
     bioPhotoFrame: content.bio_photo_frame || existing.bioPhotoFrame || "tight",
+    ...trainerMediaFromContent(content), // rule 76: logo + photo size/move, from the saved page only ("" = design's own)
     companyLogo: remotePage?.logo_url || "",
     layout: templateFromDb(remotePage?.template_key),
     // publish-guard: "published" without a servable page is shown as Draft, unlocked, so the office sees the truth and can publish it properly.
@@ -1936,6 +1937,7 @@ function trainerDraftContent(trainer) {
     bio_photo_fit: trainer.bioPhotoFit || "cover",
     bio_photo_scale: trainer.bioPhotoScale || 100,
     bio_photo_frame: trainer.bioPhotoFrame || "tight",
+    ...trainerMediaToContent(trainer), // rule 76: logo_width/x/y, hero_photo_width/x/y, bio_photo_width/x/y (clamped, "" = design's own)
     seo_title: trainer.seoTitle,
     seo_description: trainer.seoDescription,
     review1_author: trainer.review1Author,
@@ -4003,6 +4005,142 @@ function markBuilderDraftDirty(message = "Builder change saved to draft", detail
   if (message) showToast(message);
 }
 
+// rule 76 (portal chain step 5): on the Page Editor preview, drag the logo, the top
+// landing photo or the bio photo to MOVE it, and drag its red corner handle to RESIZE
+// it. It writes the same keys as the sliders (trainerMediaSpec), clamped the same way,
+// saves the draft through markBuilderDraftDirty(), and never publishes anything.
+// A press without a real drag (under 4 px) is left alone, so the Edit Overlay click
+// that selects an element still works.
+function syncMediaLayoutControls(trainer, part) {
+  const spec = trainerMediaSpec()[part] || [];
+  const values = trainerMediaValues(trainer, part);
+  spec.forEach(([key], index) => {
+    const value = values[index];
+    const input = document.querySelector(`.media-layout-controls input[data-editor-field="${CSS.escape(key)}"]`);
+    const readout = document.querySelector(`[data-media-readout="${CSS.escape(key)}"]`);
+    if (input) input.value = value === "" ? (index === 0 ? (part === "logo" ? 112 : 100) : 0) : value;
+    if (readout) readout.textContent = index === 0 && value === "" ? "Design size" : `${value === "" ? 0 : value}${readout.dataset.unit || "px"}`;
+  });
+}
+
+function wireTrainerMediaDrag(doc) {
+  if (!doc?.body || doc.__ldttMediaDrag) return;
+  doc.__ldttMediaDrag = true;
+  // The bio photo sits in a different frame per approved layout (all four draw it with bioPhotoStyle).
+  const targets = [["logo", ".landing-brand img"], ["hero", '[data-trainer-image-role="heroTrainerPhoto"]'], ["bio", ".landing-trainer-photo img, .lp3-photo img, .lp5-photo img, .lp6-trainer-image img"]];
+  const style = doc.createElement("style");
+  style.textContent = `[data-ldtt-media]{cursor:move!important;touch-action:none;user-select:none;-webkit-user-drag:none}
+    [data-ldtt-media]:hover,[data-ldtt-media].ldtt-media-active{outline:3px solid #0b6bff!important;outline-offset:3px!important}
+    .ldtt-media-handle{position:absolute;z-index:2147483000;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:5px;background:#d80f35;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:nwse-resize;touch-action:none;display:none}`;
+  doc.head.appendChild(style);
+  const handle = doc.createElement("div");
+  handle.className = "ldtt-media-handle";
+  handle.title = "Drag to resize";
+  doc.body.appendChild(handle);
+  const win = doc.defaultView;
+  let current = null;
+  let drag = null;
+  let suppressClick = false;
+  const placeHandle = el => {
+    const rect = el.getBoundingClientRect();
+    // A photo taller than the preview would hide its corner; keep the handle on screen.
+    handle.style.left = `${Math.min(rect.right, win.innerWidth - 14) + win.scrollX}px`;
+    handle.style.top = `${Math.min(rect.bottom, win.innerHeight - 14) + win.scrollY}px`;
+    handle.style.display = "block";
+    current = el;
+  };
+  targets.forEach(([part, selector]) => doc.querySelectorAll(selector).forEach(el => {
+    el.dataset.ldttMedia = part;
+    el.setAttribute("draggable", "false");
+    el.addEventListener("pointerenter", () => { if (!drag) placeHandle(el); });
+    el.addEventListener("pointerdown", event => begin(event, el, "move"));
+  }));
+  win.addEventListener("scroll", () => { if (current && !drag) placeHandle(current); }, { passive: true });
+  handle.addEventListener("pointerdown", event => { if (current) begin(event, current, "resize"); });
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, Math.round(value)));
+  function begin(event, el, mode) {
+    if (event.button !== 0) return;
+    const trainer = trainerById();
+    if (!trainer) return;
+    const part = el.dataset.ldttMedia;
+    const [w, x, y] = trainerMediaValues(trainer, part);
+    const rect = el.getBoundingClientRect();
+    const parentWidth = el.parentElement?.getBoundingClientRect().width || rect.width || 1;
+    drag = { el, part, mode, x0: event.clientX, y0: event.clientY, w0: w, x: x || 0, y: y || 0, rectWidth: rect.width, parentWidth, moved: false, values: null };
+    el.classList.add("ldtt-media-active");
+    (mode === "resize" ? handle : el).setPointerCapture?.(event.pointerId);
+    event.preventDefault();
+  }
+  const onMove = event => {
+    if (!drag) return;
+    const dx = event.clientX - drag.x0;
+    const dy = event.clientY - drag.y0;
+    if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+    drag.moved = true;
+    const [[, , wMin, wMax], [, , xMin, xMax], [, , yMin, yMax]] = trainerMediaSpec()[drag.part];
+    if (drag.mode === "move") {
+      const nx = clamp(drag.x + dx, xMin, xMax);
+      const ny = clamp(drag.y + dy, yMin, yMax);
+      drag.el.style.translate = `${nx}px ${ny}px`;
+      drag.values = { x: nx, y: ny };
+    } else if (drag.part === "logo") {
+      const nw = clamp((drag.w0 === "" ? drag.rectWidth : drag.w0) + dx, wMin, wMax);
+      drag.el.style.width = `${nw}px`;
+      drag.el.style.height = "auto";
+      drag.values = { w: nw };
+    } else {
+      const startPct = drag.w0 === "" ? (drag.rectWidth / drag.parentWidth) * 100 : drag.w0;
+      const nw = clamp(startPct + (dx / drag.parentWidth) * 100, wMin, wMax);
+      Object.assign(drag.el.style, { width: `${nw}%`, height: "auto", minHeight: "0", maxHeight: "none", marginInline: "auto", display: "block" });
+      drag.values = { w: nw };
+    }
+    if (drag.mode === "resize" || current === drag.el) placeHandle(drag.el);
+  };
+  const onEnd = () => {
+    if (!drag) return;
+    const { el, part, moved, values } = drag;
+    el.classList.remove("ldtt-media-active");
+    drag = null;
+    if (!moved || !values) return;
+    suppressClick = true;
+    const trainer = trainerById();
+    if (!trainer) return;
+    const [[wKey], [xKey], [yKey]] = trainerMediaSpec()[part];
+    if ("w" in values) trainer[wKey] = values.w;
+    if ("x" in values) { trainer[xKey] = values.x; trainer[yKey] = values.y; }
+    trainer._editedAt = Date.now(); // onboarding rule 31: this edit outlives a save that started before it
+    const thing = part === "logo" ? "Logo" : part === "hero" ? "Top landing photo" : "Bio photo";
+    syncMediaLayoutControls(trainer, part);
+    refreshPageEditorPreview();
+    markBuilderDraftDirty(`${thing} ${"w" in values ? "resized" : "moved"} — saved to the draft`, `${trainer.name} ${thing.toLowerCase()} was ${"w" in values ? "resized" : "moved"} on the Page Editor preview.`);
+  };
+  doc.addEventListener("pointermove", onMove);
+  doc.addEventListener("pointerup", onEnd);
+  doc.addEventListener("pointercancel", onEnd);
+  doc.addEventListener("click", event => { if (suppressClick) { suppressClick = false; event.preventDefault(); event.stopPropagation(); } }, true);
+}
+
+// rule 76: "Put it back where the design puts it" clears the three keys; the sliders show the new state at once.
+document.addEventListener("click", event => {
+  const reset = event.target?.closest?.("[data-media-reset]");
+  if (!reset) return;
+  const trainer = trainerById();
+  if (!trainer) return;
+  const part = reset.dataset.mediaReset;
+  (trainerMediaSpec()[part] || []).forEach(([key]) => { trainer[key] = ""; });
+  trainer._editedAt = Date.now();
+  syncMediaLayoutControls(trainer, part);
+  refreshPageEditorPreview();
+  markBuilderDraftDirty(`${part === "logo" ? "Logo" : "Photo"} put back where the design puts it`, `${trainer.name} ${part} size and place were reset in the page editor.`);
+});
+// rule 76: the slider readouts follow the thumb while it moves (the save runs on its own handler).
+document.addEventListener("input", event => {
+  const slider = event.target?.closest?.(".media-layout-controls input[type=range]");
+  if (!slider) return;
+  const readout = slider.closest("label")?.querySelector("[data-media-readout]");
+  if (readout) readout.textContent = `${slider.value}${readout.dataset.unit || "px"}`;
+});
+
 function mediaKind(file) {
   return file.type.startsWith("video/") ? "video" : "image";
 }
@@ -4561,7 +4699,7 @@ function adminNav() {
     ["clients", "Clients", "users"],
     ["approvals", "Reviews", "star", badges.pendingReviews],
     ["communications", "Communications", "message"],
-    ...(window.LDTT_IS_SANDBOX ? [["pathwayTest", "Lead Journey Test", "message"]] : []), // practice copy only (rule 63)
+    ...(leadJourneyTestEnabled() ? [["pathwayTest", "Lead Journey Test", "message"]] : []), // practice copy only, and OFF the menu since 2026-09-12 (rule 63)
     ["reports", "Reports", "report"],
     ["adLandingPages", "Ad Landing Pages", "monitor"],
     ["portalAccess", "Portal Access", "shield"],
@@ -4584,8 +4722,18 @@ function isOfficeAdmin() {
   return true;
 }
 
+// Rule 63 (updated 2026-09-12, portal chain step 5): the Lead Journey Test screen is OFF the
+// menu. Joshua: "not needed since it's supplied and functional now" — the real pipeline
+// (rules 71-75) replaces it. The screen, api/lead-journey.js and the practice tables are
+// all kept. To bring it back, set LEAD_JOURNEY_TEST_IN_MENU to true (still practice copy
+// only). A saved screen pointing at it falls back to the Dashboard.
+function leadJourneyTestEnabled() {
+  const LEAD_JOURNEY_TEST_IN_MENU = false;
+  return LEAD_JOURNEY_TEST_IN_MENU && Boolean(window.LDTT_IS_SANDBOX);
+}
+
 function canAccessAdminView(view) {
-  if (view === "pathwayTest") return Boolean(window.LDTT_IS_SANDBOX); // practice-only test screen (rule 63), any admin
+  if (view === "pathwayTest") return leadJourneyTestEnabled(); // practice-only test screen (rule 63), hidden behind the flag above
   return !isOfficeAdmin() || officeAdminViews.includes(view);
 }
 
@@ -8802,6 +8950,24 @@ function trainerPageEditor() {
   const field = (label, name, value, options = {}) => `<label class="${options.wide ? "wide" : ""}"><span>${escapeHtml(label)}</span>${options.area
     ? `<textarea data-editor-field="${name}">${escapeHtml(value || "")}</textarea>`
     : `<input ${options.type ? `type="${options.type}"` : ""} data-editor-field="${name}" value="${escapeHtml(value || "")}">`}</label>`;
+  // rule 76: size + move for the logo and the two page photos. The sliders carry
+  // data-editor-field, so the page editor's own input/change handlers save them
+  // (draft, preview refresh, remote save); trainerMediaStyle() clamps what they send.
+  const mediaLayoutControls = part => {
+    const spec = trainerMediaSpec()[part];
+    if (!spec) return "";
+    const [[wKey, , wMin, wMax], [xKey, , xMin, xMax], [yKey, , yMin, yMax]] = spec;
+    const [w, x, y] = trainerMediaValues(trainer, part);
+    const unit = part === "logo" ? "px" : "%";
+    const thing = part === "logo" ? "logo" : "photo";
+    return `<div class="media-layout-controls" data-media-part="${part}">
+      <label><span>${part === "logo" ? "Logo size" : "Photo size"} <strong data-media-readout="${wKey}" data-unit="${unit}">${w === "" ? "Design size" : `${w}${unit}`}</strong></span><input type="range" min="${wMin}" max="${wMax}" step="1" data-editor-field="${wKey}" value="${w === "" ? (part === "logo" ? 112 : 100) : w}" aria-label="${part === "logo" ? "Logo size" : "Photo size"}"></label>
+      <label><span>Move left / right <strong data-media-readout="${xKey}" data-unit="px">${x || 0}px</strong></span><input type="range" min="${xMin}" max="${xMax}" step="1" data-editor-field="${xKey}" value="${x || 0}" aria-label="Move left or right"></label>
+      <label><span>Move up / down <strong data-media-readout="${yKey}" data-unit="px">${y || 0}px</strong></span><input type="range" min="${yMin}" max="${yMax}" step="1" data-editor-field="${yKey}" value="${y || 0}" aria-label="Move up or down"></label>
+      <button class="btn btn-outline btn-small" type="button" data-media-reset="${part}">Put the ${thing} back where the design puts it</button>
+      <small class="photo-drag-help">Or drag the ${thing} on the page preview to move it, and drag its red corner handle to resize it. On phones a moved ${thing} stays in the design's place; its size still applies.</small>
+    </div>`;
+  };
   const editorImageCard = (key, title, description, frameOptions = {}) => {
     const imageValue = key === "profilePhoto" ? trainerHeadshot(trainer) : (trainer[key] || "/assets/lorenzo-logo-transparent.png");
     const frameClass = frameOptions.frameKey ? ` photo-frame-${photoFramePresetValue(trainer[frameOptions.frameKey], frameOptions.fallbackFrame || "standard")}` : "";
@@ -8818,7 +8984,7 @@ function trainerPageEditor() {
     return `<article class="editor-image-card">
     <div><strong>${escapeHtml(title)}</strong><span>${escapeHtml(description)}</span></div>
     <div class="editor-image-preview${frameClass}"${frameAttrs}><img src="${escapeHtml(imageValue)}" style="${imageStyle}" alt="${escapeHtml(title)} preview"></div>
-    ${imageFrameControls(trainer, frameOptions, "editor")}
+    ${imageFrameControls(trainer, frameOptions, "editor")}${frameOptions.mediaPart ? mediaLayoutControls(frameOptions.mediaPart) : ""}
     <label class="editor-upload"><span>Upload ${escapeHtml(title)}</span><input type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" data-editor-upload="${escapeHtml(key)}"></label>
   </article>`;
   };
@@ -8844,7 +9010,7 @@ function trainerPageEditor() {
   const controls = {
     page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${state.builderSurface === "site" ? siteTextControls() : ""}${selectedElementControls}`,
     sections: sectionControls,
-    media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images & Video</h3><p class="builder-help">Simple rule: Headshot is for Find a Trainer cards. Bio Photo is for View Bio and the landing-page bio section.</p><div class="editor-image-grid">${editorImageCard("profilePhoto", "Headshot (cards only)", "Find a Trainer cards only", { frameKey: "profilePhotoFrame", positionKey: "profilePhotoPosition", fitKey: "profilePhotoFit", scaleKey: "profilePhotoScale", fallbackFit: "contain", fallbackFrame: "portrait" }) }${editorImageCard("heroTrainerPhoto", "Top Landing Photo", "First trainer photo on the landing page", { frameKey: "heroPhotoFrame", positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale" }) }${editorImageCard("landingBioPhoto", "Bio Photo (View Bio)", "View Bio page and landing-page bio section", { frameKey: "bioPhotoFrame", positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", fallbackFit: "cover", fallbackFrame: "tight" }) }${editorImageCard("image", "Hero Background", "Wide background behind the hero") }${editorImageCard("companyLogo", "Company Logo", "Optional approved local logo") }${editorVideoCard()}</div></div>`,
+    media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images & Video</h3><p class="builder-help">Simple rule: Headshot is for Find a Trainer cards. Bio Photo is for View Bio and the landing-page bio section.</p><div class="editor-image-grid">${editorImageCard("profilePhoto", "Headshot (cards only)", "Find a Trainer cards only", { frameKey: "profilePhotoFrame", positionKey: "profilePhotoPosition", fitKey: "profilePhotoFit", scaleKey: "profilePhotoScale", fallbackFit: "contain", fallbackFrame: "portrait" }) }${editorImageCard("heroTrainerPhoto", "Top Landing Photo", "First trainer photo on the landing page", { frameKey: "heroPhotoFrame", positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale", mediaPart: "hero" }) }${editorImageCard("landingBioPhoto", "Bio Photo (View Bio)", "View Bio page and landing-page bio section", { frameKey: "bioPhotoFrame", positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", fallbackFit: "cover", fallbackFrame: "tight", mediaPart: "bio" }) }${editorImageCard("image", "Hero Background", "Wide background behind the hero") }${editorImageCard("companyLogo", "Company Logo", "Upload a new logo, then size it and move it", { mediaPart: "logo" }) }${editorVideoCard()}</div></div>`,
     style: `<div class="editor-control-section"><h3>Typography & Color</h3><label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS","Impact"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label><label><span>Type Scale</span><input type="range" min="0.85" max="1.25" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label><label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label><label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label></div><div class="editor-control-section"><h3>Approved Reviews</h3>${trainerApprovedReviewManagerMarkup(trainer, { compact: true })}${field("Review 1 Client", "review1Author", trainer.review1Author)}${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}${field("Review 2 Client", "review2Author", trainer.review2Author)}${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}${field("Review 3 Client", "review3Author", trainer.review3Author)}${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}</div>`,
     history: `<div class="editor-control-section"><h3>Live Edits</h3>${renderLiveEditList(trainer)}<button class="btn btn-outline" type="button" data-reset-live-edits>Reset All Live Edits</button></div>`
   };
@@ -8900,6 +9066,7 @@ function injectLiveBuilder(frame) {
   // Rule 61: on the main website only real website text counts; old browser-only edits are not shown.
   if (state.builderSurface !== "site") applyLiveEditsToDocument(doc, activeBuilderEdits());
   if (state.builderSurface === "trainer") applySectionBuilderSettings(doc, trainerById());
+  if (state.builderSurface === "trainer") wireTrainerMediaDrag(doc); // rule 76: drag to move, corner handle to resize (Browse and Edit Overlay)
   if (state.builderMode !== "edit") return;
   if (!doc.getElementById("ldtt-builder-style")) {
     const style = doc.createElement("style");
@@ -10778,7 +10945,8 @@ function commonFooterFunnel(trainer) {
 function landingHeader(trainer) {
   const logo = trainer.companyLogo || "/assets/lorenzo-logo-white.png";
   const hasReviews = Boolean(trainerReviewsMarkup(trainer));
-  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a>${hasReviews ? `<a href="#reviews">Results</a>` : ""}<a class="landing-review-nav" href="#submit-review">Leave a Review</a><a href="#contact">Contact</a></nav></header>`;
+  const logoLayoutStyle = trainerMediaStyle(trainer, "logo"); // rule 76: size + move ("" = design's own)
+  return `<header class="landing-nav"><a class="landing-brand" href="#top"><img src="${escapeHtml(logo)}" alt="${escapeHtml(trainer.name)} dog training"${logoLayoutStyle ? ` style="${logoLayoutStyle}"` : ""}><div><strong>${escapeHtml(trainer.name)}</strong><span>Powered by Lorenzo's Dog Training Team</span></div></a><nav><a href="#services">Services</a><a href="#trainer">Trainer</a>${hasReviews ? `<a href="#reviews">Results</a>` : ""}<a class="landing-review-nav" href="#submit-review">Leave a Review</a><a href="#contact">Contact</a></nav></header>`;
 }
 
 function trainerCity(trainer) {
@@ -10850,7 +11018,60 @@ function publicReviewFormMarkup(trainer) {
 
 function publicContainedTrainerPhotoStyle(trainer, positionKey = "bioPhotoPosition", fallbackPosition = "center center") {
   const position = photoFrameValue(trainer?.[positionKey], fallbackPosition);
-  return `object-position:${escapeHtml(position)};object-fit:contain;transform:none;background:#061f46;`;
+  return `object-position:${escapeHtml(position)};object-fit:contain;transform:none;background:#061f46;${positionKey === "bioPhotoPosition" ? trainerMediaStyle(trainer, "bio") : ""}`;
+}
+
+// Photos + logo on trainer pages: size and move (portal chain step 5, DO-NOT-BREAK rule 76).
+// Rule-68 pattern: numbers only, clamped to these limits, "" = the design's own, so a
+// page nobody sized draws exactly as before. Stored in draft_content (and so in
+// published_content after Publish) as logo_width/x/y, hero_photo_width/x/y and
+// bio_photo_width/x/y. Function declarations on purpose: public trainer pages run this
+// file too, and a top-level const read before its line would blank them (rule 43).
+function trainerMediaSpec() {
+  return {
+    logo: [["logoWidth", "logo_width", 40, 320], ["logoX", "logo_x", -150, 150], ["logoY", "logo_y", -30, 30]],
+    hero: [["heroPhotoWidth", "hero_photo_width", 30, 100], ["heroPhotoX", "hero_photo_x", -300, 300], ["heroPhotoY", "hero_photo_y", -200, 200]],
+    bio: [["bioPhotoWidth", "bio_photo_width", 30, 100], ["bioPhotoX", "bio_photo_x", -300, 300], ["bioPhotoY", "bio_photo_y", -200, 200]]
+  };
+}
+
+function cleanTrainerMediaNumber(value, min, max) {
+  if (value === "" || value === null || value === undefined || typeof value === "boolean") return "";
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : "";
+}
+
+// [width, x, y] for one part, each a clamped integer or "".
+function trainerMediaValues(trainer, part) {
+  return (trainerMediaSpec()[part] || []).map(([key, , min, max]) => cleanTrainerMediaNumber(trainer?.[key], min, max));
+}
+
+// CSS built only from those integers. "" when nothing was changed.
+// `translate` (not `transform`) so it never fights the design's own transform;
+// styles.css drops it on phones, so a moved photo never breaks the phone layout.
+function trainerMediaStyle(trainer, part) {
+  const [w, x, y] = trainerMediaValues(trainer, part);
+  const move = x || y ? `translate:${x || 0}px ${y || 0}px;` : "";
+  if (part === "logo") return `${w !== "" ? `width:${w}px;height:auto;max-width:46vw;` : ""}${move}`;
+  return `${w !== "" ? `width:${w}%;height:auto;min-height:0;max-height:none;margin-inline:auto;display:block;` : ""}${move}`;
+}
+
+// Saved page content -> the editor's keys. A key the page never had is "" (the design's own).
+function trainerMediaFromContent(content) {
+  const out = {};
+  for (const part of Object.values(trainerMediaSpec())) {
+    for (const [uiKey, contentKey, min, max] of part) out[uiKey] = cleanTrainerMediaNumber(content?.[contentKey], min, max);
+  }
+  return out;
+}
+
+// The editor's keys -> what is saved in draft_content.
+function trainerMediaToContent(trainer) {
+  const out = {};
+  for (const part of Object.values(trainerMediaSpec())) {
+    for (const [uiKey, contentKey, min, max] of part) out[contentKey] = cleanTrainerMediaNumber(trainer?.[uiKey], min, max);
+  }
+  return out;
 }
 
 function publicSiteMarkup(trainer) {
@@ -10861,7 +11082,7 @@ function publicSiteMarkup(trainer) {
   const heroTrainerPhoto = escapeHtml(trainerHeroPhoto(trainer));
   const bioTrainerPhoto = escapeHtml(trainerBioPhoto(trainer));
   const heroPhotoPosition = photoFrameValue(trainer.heroPhotoPosition, "center top");
-  const heroPhotoStyle = `object-position:${escapeHtml(heroPhotoPosition)};object-fit:contain;transform:none;background:#071f46;`;
+  const heroPhotoStyle = `object-position:${escapeHtml(heroPhotoPosition)};object-fit:contain;transform:none;background:#071f46;${trainerMediaStyle(trainer, "hero")}`; // rule 76: size + move ("" = design's own)
   const bioPhotoStyle = publicContainedTrainerPhotoStyle(trainer, "bioPhotoPosition", "center center");
   const styleSettings = trainer.styleSettings || {};
   const styleAttr = `--lp-font:${escapeHtml(styleSettings.fontFamily || "Inter")};--lp-scale:${Number(styleSettings.fontScale || 1)};--lp-primary:${escapeHtml(styleSettings.brandPrimary || "#071f44")};--lp-accent:${escapeHtml(styleSettings.brandAccent || "#d80f35")}`;

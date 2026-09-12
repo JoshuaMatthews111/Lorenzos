@@ -51,6 +51,15 @@ body.ps-builder-fullscreen.ps-rail-hidden .page-editor-shell.fullscreen-builder 
 #psSendLive{display:inline-flex;align-items:center;gap:8px}
 .ps-empty{padding:28px;border:2px dashed #b9c9dc;border-radius:16px;background:#f7fbff;color:#53677f;text-align:center;font-size:1rem}
 
+/* ───────── rule 76: photo + logo upload, size and move ───────── */
+.ps-upload-row{align-items:center;gap:10px;margin:4px 0 8px}
+.ps-upload-btn{position:relative;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;min-height:40px;font-weight:900}
+.ps-thumb{display:inline-block;width:64px;height:44px;border-radius:8px;border:1px solid #cbd8e8;background:#fff center/cover no-repeat}
+.ps-thumb-logo{width:120px;background-color:#071f44;background-size:contain;background-origin:content-box;padding:4px}
+.ps-media-controls .ps-slider span{display:flex;justify-content:space-between;gap:8px}
+.ps-media-controls .ps-slider input[type=range]{width:100%;min-height:28px;padding:0}
+.ps-media-controls .ps-slider b{color:#082754;font-weight:900}
+
 /* ───────── the full-screen overlay editor ───────── */
 .ps-overlay{position:fixed;inset:0;z-index:9500;display:grid;grid-template-rows:auto minmax(0,1fr);
   background:#dfe6ef;color:#102b4d;font-family:Inter,ui-sans-serif,system-ui,Arial,sans-serif}

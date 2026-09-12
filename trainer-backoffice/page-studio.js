@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260911editor2";
+  const VERSION = "20260912photos2"; // rule 76: photo + logo upload, size, move
   const API = "/api/pages"; // site-builder: one API for ad, site and landing pages (api/ad-pages.js is an alias)
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
   const store = { pages: null, markets: [], starters: [], importable: [], sandbox: false, loading: false, error: "" };
@@ -407,12 +407,90 @@
     const p = key => `sections.${index}.${key}`;
     const width = field("Section width", p("width"), section.width || "", { type: "select", options: [["", "Design width"], ["wide", "Wide (1400px)"], ["full", "Full bleed — edge to edge"]] });
     const size = section.photo !== undefined ? field("Photo size", p("size"), section.size || "", { type: "select", options: [["", "Design size"], ["small", "Small (420px)"], ["medium", "Medium (680px)"], ["large", "Large (1050px)"], ["full", "As wide as the section"]] }) : "";
-    return `<div class="ps-item"><div class="ps-item-head"><span>Layout</span></div>${width}${size}</div>`;
+    const media = section.photo !== undefined ? mediaControls(`sections.${index}`, section) : ""; // rule 76
+    return `<div class="ps-item"><div class="ps-item-head"><span>Layout</span></div>${width}${size}</div>${media}`;
+  }
+
+  // rule 76: a stored photo value is a site path ("assets/…") or an https:// link.
+  const assetSrc = value => (/^https?:\/\//i.test(value) || String(value).startsWith("/") ? value : `/${value}`);
+
+  // rule 76: size + move for one photo (or the logo). The sliders write whitelisted
+  // numbers only (template.normalizeContent clamps them); empty = the design's own.
+  function mediaControls(path, item, kind = "photo") {
+    const L = template.MEDIA_LIMITS;
+    const isLogo = kind === "logo";
+    const [wKey, xKey, yKey] = isLogo ? ["w", "x", "y"] : ["photoW", "photoX", "photoY"];
+    const [wL, xL, yL] = isLogo ? [L.logoW, L.logoX, L.logoY] : [L.photoW, L.photoX, L.photoY];
+    const w = item?.[wKey];
+    const x = item?.[xKey] || 0;
+    const y = item?.[yKey] || 0;
+    const unit = isLogo ? "px" : "%";
+    const thing = isLogo ? "logo" : "photo";
+    const slider = (label, key, lim, value, shown, u) => `<label class="ps-field ps-slider"><span>${esc(label)} <b data-ps-readout>${esc(shown)}</b></span><input type="range" min="${lim[0]}" max="${lim[1]}" step="1" data-ps-field="${esc(`${path}.${key}`)}" data-ps-num="1" data-unit="${u}" value="${value}"></label>`;
+    return `<div class="ps-item ps-media-controls"><div class="ps-item-head"><span>${isLogo ? "Logo size + place" : "Photo size + place"}</span></div>
+      ${slider(isLogo ? "Logo size" : "Photo size", wKey, wL, w ?? (isLogo ? 164 : 100), w === undefined || w === "" ? "Design size" : `${w}${unit}`, unit)}
+      ${slider("Move left / right", xKey, xL, x, `${x}px`, "px")}
+      ${slider("Move up / down", yKey, yL, y, `${y}px`, "px")}
+      <button type="button" class="ps-btn" data-ps-act="media-reset" data-path="${esc(path)}" data-kind="${kind}">Put the ${thing} back where the design puts it</button>
+      <p class="ps-help">Or drag the ${thing} in the preview to move it, and drag its red corner handle to resize it. On phones a moved ${thing} keeps the design's place; its size still applies.</p></div>`;
+  }
+
+  function logoFields(d) {
+    const logo = d.logo || {};
+    return `<div class="ps-field"><span>Logo in the page header (blank = the standard LDTT logo)</span>
+      <div class="ps-row ps-upload-row"><label class="ps-btn ps-upload-btn">Upload a new logo<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-ps-upload="logo.photo" hidden></label><span class="ps-thumb ps-thumb-logo" style="background-image:url('${esc(assetSrc(logo.photo || "assets/lorenzo-logo-white.png"))}')" role="img" aria-label="Current logo"></span></div>
+      <input data-ps-field="logo.photo" value="${esc(logo.photo || "")}" placeholder="https://… (blank = the standard logo)">
+      ${logo.photo ? `<button type="button" class="ps-btn" data-ps-act="logo-standard">Use the standard LDTT logo again</button>` : ""}</div>
+      ${mediaControls("logo", logo, "logo")}`;
+  }
+
+  // Phone photos are often 5-12 MB. Vercel refuses a request body over ~4.5 MB and the
+  // upload travels as base64 (a third bigger), so a JPG/PNG/WebP over 3 MB is scaled down
+  // here first (longest side 2400 px). A GIF or SVG over 3 MB is refused in plain words.
+  const UPLOAD_RAW_LIMIT = 3 * 1024 * 1024;
+  function readAsDataUrl(file) {
+    return new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => reject(new Error("Could not read the file.")); r.readAsDataURL(file); });
+  }
+  async function shrinkForUpload(file) {
+    const url = await readAsDataUrl(file);
+    if (file.size <= UPLOAD_RAW_LIMIT) return { type: file.type, data: url };
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error("That file is bigger than 3 MB. Make it smaller and try again.");
+    const img = await new Promise((resolve, reject) => { const i = new Image(); i.onload = () => resolve(i); i.onerror = () => reject(new Error("That picture could not be opened. Try a JPG or PNG.")); i.src = url; });
+    const scale = Math.min(1, 2400 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+    const bytes = dataUrl => Math.ceil((dataUrl.length - dataUrl.indexOf(",") - 1) * 0.75);
+    if (file.type === "image/png") { const png = canvas.toDataURL("image/png"); if (bytes(png) <= UPLOAD_RAW_LIMIT) return { type: "image/png", data: png }; }
+    let quality = 0.86;
+    let out = canvas.toDataURL("image/jpeg", quality);
+    while (bytes(out) > UPLOAD_RAW_LIMIT && quality > 0.45) { quality -= 0.1; out = canvas.toDataURL("image/jpeg", quality); }
+    if (bytes(out) > UPLOAD_RAW_LIMIT) throw new Error("That picture is still too big after shrinking. Try a smaller one.");
+    return { type: "image/jpeg", data: out };
+  }
+  // Same upload path as the Site Builder: api/pages.js operation "upload" (UPLOAD_TYPES),
+  // into trainer-page-assets (practice-trainer-page-assets on the practice copy). Publish
+  // copies a practice upload into the live bucket (rule 27); Send to live does the same (rule 18).
+  async function uploadInto(file, path) {
+    if (!editor || !file) return;
+    if (!/^image\/(jpeg|png|webp|gif|svg\+xml)$/.test(file.type)) { toast("Choose a JPG, PNG, WebP, GIF or SVG picture."); return; }
+    try {
+      toast("Uploading…", 20000);
+      const prepared = await shrinkForUpload(file);
+      const result = await api({ operation: "upload", name: file.name, type: prepared.type, data: prepared.data });
+      setPath(path, result.url);
+      markDirty({ rerail: true });
+      toast("Uploaded. It is in the draft now; Publish puts it on the page.", 4500);
+    } catch (error) {
+      toast(`Upload failed: ${error.message}`, 6000);
+    }
   }
 
   function photoPicker(label, path, value) {
     const choices = photoChoices();
     return `<div class="ps-field"><span>${esc(label)}</span>
+      <div class="ps-row ps-upload-row"><label class="ps-btn ps-upload-btn">Upload a new photo<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" data-ps-upload="${esc(path)}" hidden></label>${value ? `<span class="ps-thumb" style="background-image:url('${esc(assetSrc(value))}')" role="img" aria-label="Current photo"></span>` : ""}</div>
       <div class="ps-photo-grid">${choices.map(p => `<button type="button" class="${p === value ? "selected" : ""}" data-ps-photo="${esc(path)}" data-src="${esc(p)}" style="background-image:url('/${esc(p)}')" title="${esc(p)}"></button>`).join("")}</div>
       <input data-ps-field="${esc(path)}" value="${esc(value || "")}" placeholder="assets/market-photos/… or https://…"></div>`;
   }
@@ -427,6 +505,7 @@
       ${field("Check list", "hero.checks", h.checks, { list: true, rows: 5 })}
       ${field("Show the price pill?", "hero.priceMode", h.priceMode, { type: "select", options: [["quiet", "No"], ["forward", "Yes — “Training from $1,250”"]] })}
       ${photoPicker("Hero photo", "hero.photo", h.photo)}
+      ${h.casePanel || h.heroVideo ? "" : mediaControls("hero", h)}
       ${field("Photo title", "hero.photoName", h.photoName)}${field("Photo caption", "hero.photoCaption", h.photoCaption)}
       ${field("Designed panel instead of a photo", "hero.casePanel", h.casePanel, { type: "select", options: template.CASE_PANELS.map(c => [c.id, c.label]) })}
       <p class="ps-help">The lead form, phone number, Google tag and Meta pixel are part of every page and cannot be removed.</p>`;
@@ -486,6 +565,8 @@
         <button type="button" class="ps-btn" style="color:#b00020;border-color:#f1c2ca" data-ps-act="archive">Remove this page</button>`;
     } else if (editor.tab === "style") {
       rail.innerHTML = `
+        <h3>Logo</h3>
+        ${logoFields(d)}
         <h3>Fonts</h3>
         ${field("Headline font", "font", d.font, { type: "select", options: template.FONTS.map(f => [f.id, f.label]) })}
         ${field("Body font", "fontBody", d.fontBody, { type: "select", options: template.FONTS.map(f => [f.id, f.label]) })}
@@ -542,6 +623,115 @@
       }, true);
     });
     doc.querySelectorAll("form").forEach(form => form.addEventListener("submit", e => e.preventDefault()));
+    wireMediaDrag(doc); // rule 76
+  }
+
+  // rule 76: in the preview, drag a photo or the logo to MOVE it and drag its red corner
+  // handle to RESIZE it. It writes the same keys as the sliders (photoW/X/Y, logo.w/x/y);
+  // normalizeContent clamps them and the draft autosaves like any other edit. A press
+  // without a real drag (under 4 px) stays a click: a photo opens its section, the logo
+  // opens the Style tab. Nothing is published until Publish.
+  function wireMediaDrag(doc) {
+    if (!doc?.body || !editor) return;
+    const L = template.MEDIA_LIMITS;
+    const style = doc.createElement("style");
+    style.textContent = ".ps-media-handle{position:absolute;z-index:2147483000;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:5px;background:#d80f35;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.35);cursor:nwse-resize;touch-action:none;display:none}";
+    doc.head.appendChild(style);
+    const handle = doc.createElement("div");
+    handle.className = "ps-media-handle";
+    handle.title = "Drag to resize";
+    doc.body.appendChild(handle);
+    const win = doc.defaultView;
+    let current = null;
+    let drag = null;
+    let suppressClick = false;
+    const clamp = (value, [min, max]) => Math.min(max, Math.max(min, Math.round(value)));
+    const targetFor = key => {
+      if (key === "hero") return { item: editor.draft.hero, logo: false, openId: "hero" };
+      if (key === "logo") return { item: editor.draft.logo || {}, logo: true };
+      const section = editor.draft.sections.find(s => s.id === key);
+      return section ? { item: section, logo: false, openId: section.id } : null;
+    };
+    const placeHandle = el => {
+      const rect = el.getBoundingClientRect();
+      // A photo taller than the preview would hide its corner; keep the handle on screen.
+      handle.style.left = `${Math.min(rect.right, win.innerWidth - 14) + win.scrollX}px`;
+      handle.style.top = `${Math.min(rect.bottom, win.innerHeight - 14) + win.scrollY}px`;
+      handle.style.display = "block";
+      current = el;
+    };
+    function begin(event, el, mode) {
+      if (event.button !== 0) return;
+      const target = targetFor(el.dataset.psMedia);
+      if (!target) return;
+      const rect = el.getBoundingClientRect();
+      const it = target.item;
+      drag = {
+        el, target, mode, x0: event.clientX, y0: event.clientY, rectWidth: rect.width,
+        parentWidth: el.parentElement?.getBoundingClientRect().width || rect.width || 1,
+        w0: target.logo ? it.w : it.photoW, x: (target.logo ? it.x : it.photoX) || 0, y: (target.logo ? it.y : it.photoY) || 0,
+        moved: false, values: null
+      };
+      el.classList.add("ps-media-active");
+      (mode === "resize" ? handle : el).setPointerCapture?.(event.pointerId);
+      event.preventDefault();
+    }
+    doc.querySelectorAll("[data-ps-media]").forEach(el => {
+      el.setAttribute("draggable", "false");
+      el.addEventListener("pointerenter", () => { if (!drag) placeHandle(el); });
+      el.addEventListener("pointerdown", event => begin(event, el, "move"));
+    });
+    handle.addEventListener("pointerdown", event => { if (current) begin(event, current, "resize"); });
+    win.addEventListener("scroll", () => { if (current && !drag) placeHandle(current); }, { passive: true });
+    doc.addEventListener("pointermove", event => {
+      if (!drag) return;
+      const dx = event.clientX - drag.x0;
+      const dy = event.clientY - drag.y0;
+      if (!drag.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+      drag.moved = true;
+      const logo = drag.target.logo;
+      if (drag.mode === "move") {
+        const x = clamp(drag.x + dx, logo ? L.logoX : L.photoX);
+        const y = clamp(drag.y + dy, logo ? L.logoY : L.photoY);
+        drag.el.style.translate = `${x}px ${y}px`;
+        drag.values = { x, y };
+      } else if (logo) {
+        const w = clamp((drag.w0 ?? drag.rectWidth) + dx, L.logoW);
+        Object.assign(drag.el.style, { width: `${w}px`, height: "auto" });
+        drag.values = { w };
+      } else {
+        const start = drag.w0 ?? (drag.rectWidth / drag.parentWidth) * 100;
+        const w = clamp(start + (dx / drag.parentWidth) * 100, L.photoW);
+        Object.assign(drag.el.style, { maxWidth: `${w}%`, marginInline: "auto", display: "block" });
+        drag.values = { w };
+      }
+      placeHandle(drag.el);
+    });
+    const end = () => {
+      if (!drag) return;
+      const { el, target, moved, values } = drag;
+      el.classList.remove("ps-media-active");
+      drag = null;
+      if (!moved || !values || !editor) return;
+      suppressClick = true;
+      const it = target.item;
+      if (target.logo) {
+        if ("w" in values) it.w = values.w; else { it.x = values.x; it.y = values.y; }
+        editor.draft.logo = it;
+        editor.tab = "style";
+      } else {
+        if ("w" in values) it.photoW = values.w; else { it.photoX = values.x; it.photoY = values.y; }
+        editor.selectedId = target.openId; editor.openId = target.openId; editor.tab = "sections";
+      }
+      markDirty({ rerail: true });
+      toast(`${target.logo ? "Logo" : "Photo"} ${"w" in values ? "resized" : "moved"} (draft). Publish puts it on the page.`);
+    };
+    doc.addEventListener("pointerup", end);
+    doc.addEventListener("pointercancel", end);
+    doc.addEventListener("click", event => {
+      if (suppressClick) { suppressClick = false; event.preventDefault(); event.stopPropagation(); return; }
+      if (event.target.closest?.('[data-ps-media="logo"]')) { event.preventDefault(); event.stopPropagation(); editor.tab = "style"; paintTop(); paintRail(); }
+    }, true);
   }
 
   function selectSection(id, { scroll = true } = {}) {
@@ -563,7 +753,10 @@
   function setPath(path, value) {
     const parts = path.split(".");
     let node = editor.draft;
-    for (let i = 0; i < parts.length - 1; i += 1) node = node[parts[i]];
+    for (let i = 0; i < parts.length - 1; i += 1) {
+      if (!node[parts[i]] || typeof node[parts[i]] !== "object") node[parts[i]] = {}; // rule 76: "logo.w" on a page with no logo yet
+      node = node[parts[i]];
+    }
     node[parts[parts.length - 1]] = value;
   }
 
@@ -578,11 +771,22 @@
   }
 
   function onFieldInput(event) {
+    const upload = event.target.closest?.("[data-ps-upload]"); // rule 76: Upload a new photo / logo
+    if (upload) {
+      if (event.type === "change" && upload.files?.[0] && editor) { const file = upload.files[0]; upload.value = ""; uploadInto(file, upload.dataset.psUpload); }
+      return;
+    }
     const el = event.target.closest("[data-ps-field]");
     if (!el || !editor) return;
     const path = el.dataset.psField;
     let value;
     if (el.type === "checkbox") value = el.checked;
+    else if (el.dataset.psNum) {
+      // rule 76: a size / move slider. A number; normalizeContent clamps it on save and render.
+      value = Number(el.value);
+      const readout = el.closest(".ps-field")?.querySelector("[data-ps-readout]");
+      if (readout) readout.textContent = `${value}${el.dataset.unit || ""}`;
+    }
     else if (el.dataset.psList) value = el.value.split("\n").map(v => v.trim()).filter(Boolean);
     else value = el.value;
     if (el.type === "color" || (el.type === "text" && /^(mk1|mk2|accent)$/.test(path))) {
@@ -669,6 +873,20 @@
         return;
       }
       case "clear-accent": d.accent = ""; markDirty({ rerail: true }); return;
+      case "media-reset": { // rule 76: back to the design's own size and place
+        const keys = btn.dataset.kind === "logo" ? ["w", "x", "y"] : ["photoW", "photoX", "photoY"];
+        const item = String(btn.dataset.path || "").split(".").reduce((node, part) => node?.[part], d);
+        if (item && typeof item === "object") keys.forEach(key => { delete item[key]; });
+        markDirty({ rerail: true });
+        toast(`${btn.dataset.kind === "logo" ? "Logo" : "Photo"} is back where the design puts it (draft).`);
+        return;
+      }
+      case "logo-standard": { // rule 76
+        if (d.logo) d.logo.photo = "";
+        markDirty({ rerail: true });
+        toast("The standard LDTT logo is back in the draft.");
+        return;
+      }
       case "preview": {
         try {
           btn.disabled = true;
@@ -905,13 +1123,20 @@
   const observe = () => {
     const workspace = document.getElementById("workspaceView");
     if (!workspace) return;
+    // Step 5 (Joshua 2026-09-12, rule 76): the Page Editor OPENS full screen, every
+    // time someone enters it — not only after pressing ⛶. The portal redraws the
+    // shell often; only a real entry (shell absent -> present) turns it on, so a
+    // person who pressed "Exit Full Screen" is not pulled back by a background redraw.
+    let builderShown = false;
     const check = () => {
       if (document.getElementById("pageStudioRoot") && !store.pages && !store.loading) loadPages();
       decorateBuilder();
+      const shown = Boolean($(".page-editor-shell.fullscreen-builder"));
+      if (shown && !builderShown) setBuilderFullscreen(true);
+      builderShown = shown;
     };
     new MutationObserver(check).observe(workspace, { childList: true, subtree: false });
     check();
-    try { if (localStorage.getItem("ps-builder-fullscreen") === "1" && $(".page-editor-shell.fullscreen-builder")) setBuilderFullscreen(true); } catch { /* ignore */ }
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", observe); else observe();
 

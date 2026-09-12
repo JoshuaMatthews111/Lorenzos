@@ -5613,3 +5613,12 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .lead-booking-dog { margin-top: 10px; border-top: 1px solid rgba(0, 0, 0, 0.08); padding-top: 8px; }
 .lead-booking-dog em { font-style: normal; font-weight: 800; }
 .sales-card .lead-card-eval { margin: 4px 0 0; font-size: 12px; }
+
+/* rule 76 (portal chain step 5): photo + logo size and move. A moved picture keeps the
+   design's own place on phones (its size still applies), so the phone layout never breaks. */
+@media (max-width: 700px) { img[style*="translate:"] { translate: none !important; } }
+.media-layout-controls { display: grid; gap: 8px; margin-top: 8px; padding: 10px; border: 1px solid #dce7f4; border-radius: 12px; background: #f7fbff; }
+.media-layout-controls label { display: grid; gap: 4px; margin: 0; color: #082754; font-weight: 900; font-size: .78rem; }
+.media-layout-controls label span { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.media-layout-controls input[type="range"] { width: 100%; min-height: 28px; }
+.media-layout-controls .btn { justify-self: start; }

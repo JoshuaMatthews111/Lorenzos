@@ -734,6 +734,15 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     map only (`MARKETS`); other ZIPs go to a person. "fast" speed = 1 plan hour per minute;
     "real" speed holds customer texts 9 PM–8 AM Eastern. The portal screen (`pathwayTest`)
     is in the nav only when `window.LDTT_IS_SANDBOX` is set.
+    **UPDATED 2026-09-12 (portal chain step 5): the screen is OFF the menu.** Joshua: "not needed
+    since it's supplied and functional now" — the real pipeline (rules 71-75) replaces it.
+    `leadJourneyTestEnabled()` in `app.js` returns `LEAD_JOURNEY_TEST_IN_MENU && window.LDTT_IS_SANDBOX`,
+    and `LEAD_JOURNEY_TEST_IN_MENU` is `false`, so neither the menu nor `canAccessAdminView("pathwayTest")`
+    offers it (a saved screen pointing at it falls back to the Dashboard). Everything else is KEPT and
+    still obeys the rules above: `pathwayTestScreen()`, `api/lead-journey.js` (404 on live), the practice
+    tables, the tester-only texting and the sandbox clock (Make 6239634, inactive). To bring it back, set
+    the constant to `true` (practice copy only, as before) and bump the cache stamp. Do not delete the code
+    without Joshua. Checked by `tests/media-layout.test.mjs` and the rule 76 audit check.
 
 64. **Get Started has no "I'm also interested in" boxes** (added 2026-09-11, Claude). The
     Investor network / Donor or project support / Specialty training checkboxes were removed
@@ -1081,3 +1090,53 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       (`formEditor` view, office admins too). Every typing box carries `data-lf-*` and is on the `typedFieldKey()` whitelist (rule 14);
       the new-question box is emptied before `render()` (rule 15).
     Tests: `tests/lead-forms.test.mjs` (13) + 1 in `tests/send-to-live.test.mjs`. Audit: the rule 75 check.
+
+## Photos + logo: change, move, resize; editors full screen (added 2026-09-12, Claude, portal chain step 5)
+
+76. **The office changes, moves and resizes photos and the logo in Page Studio and the Page Editor. Only
+    clamped integers ever reach CSS, "empty" means the design's own, and an unchanged page renders
+    byte-for-byte as before.**
+    - **Record before the change:** all 12 built-in market pages rendered with the old template and the new
+      one gave identical public HTML (12/12 sha256 equal); the editor render was identical once the new
+      editor-only hooks were removed (12/12). `tests/media-layout.test.mjs` keeps checking that an unchanged
+      page renders the same and ships no new markup.
+    - **Page Studio (ad pages, `lib/ad-page-template.js`), rule-68 pattern.** New content keys:
+      `logo {photo, w, x, y}` (the header logo: own picture, width px, move px) and `photoW` / `photoX` /
+      `photoY` on the hero and on every section that has a photo (width % of its frame, move px).
+      `MEDIA_LIMITS` = photoW 20-100, photoX -400..400, photoY -300..300, logoW 60-360, logoX -200..200,
+      logoY -40..40. `normalizeContent` clamps them to integers and LEAVES THEM OUT when empty, so stored
+      JSON and exports of unchanged pages do not move. `logo.photo` goes through `safeUrl` (https or a site
+      path; javascript:/data: refused). CSS comes only from `photoStyle()` / `logoStyle()` over those integers.
+      Moves use the CSS `translate` property; the phone rule (`MEDIA_PHONE_CSS`, below 700px the move is
+      dropped, the size stays) ships only on a page where something was moved. `data-ps-media` hooks exist only
+      in the editor render.
+    - **Page Studio editor (`page-studio.js`):** every photo picker and the Style tab's new Logo box have
+      "Upload a new photo/logo" through the EXISTING `api/pages.js` operation `upload` (`UPLOAD_TYPES`, bucket
+      `trainer-page-assets` / `practice-trainer-page-assets`). JPG/PNG/WebP over 3 MB are scaled down in the browser
+      first (longest side 2400px) because Vercel refuses bodies over ~4.5 MB and the upload travels as base64;
+      GIF/SVG over 3 MB are refused in plain words. Sliders (size, move left/right, move up/down) + "Put it back
+      where the design puts it". In the preview: drag a photo or the logo to move it, drag the red corner handle
+      to resize it (same keys, clamped); a press under 4px stays a click (photo opens its section, logo opens
+      Style). Everything is draft until Publish. `setPath` builds a missing `logo` object on the way.
+    - **Page Editor (trainer pages, `app.js`):** the Top Landing Photo, Bio Photo and Company Logo cards carry
+      size + move sliders and a reset button (`mediaLayoutControls`, `data-editor-field`, so the existing
+      handlers save them). Saved in `draft_content` (so in `published_content` after Publish) as
+      `logo_width/x/y`, `hero_photo_width/x/y`, `bio_photo_width/x/y` by `trainerMediaToContent`; read back by
+      `trainerMediaFromContent` FROM THE SAVED PAGE ONLY (never from browser state, so drafts never reach the
+      public page, rule 56); drawn only through `trainerMediaStyle()` (logo 40-320px, move -150..150 / -30..30;
+      photos 30-100%, move -300..300 / -200..200). All are function declarations, not top-level consts, because
+      public trainer pages run app.js too (rule 43). On the preview, `wireTrainerMediaDrag()` gives the same
+      drag-to-move + corner-handle resize (Browse and Edit Overlay); it stamps `_editedAt` (rule 31) and saves
+      through `markBuilderDraftDirty()`. The existing crop drag on the card preview and the "Photo scale" slider
+      are unchanged. `styles.css` drops a move on phones.
+    - **Practice -> live:** uploads made on the practice copy land in `practice-trainer-page-assets`; Publish copies
+      them into the deployment's own bucket (`collectMedia` sees `logo.photo` because `photo` is in `MEDIA_KEYS`,
+      rule 27) and Send to live copies them to the live bucket and re-points every URL (`repointPracticeUploads`
+      walks every key, rule 18). Send to live stays draft-only.
+    - **Full screen:** Page Studio's ad editor and the Site Builder are fixed full-screen overlays. The Page Editor
+      now OPENS full screen every time it is entered (`page-studio.js` observe(): shell absent -> present turns it
+      on); "Exit Full Screen (Esc)" still works and a background redraw does not pull it back. It no longer depends
+      on a remembered choice.
+    - **Lead Journey Test** is off the menu behind `LEAD_JOURNEY_TEST_IN_MENU = false` (rule 63 updated).
+    Not covered this round: the Site Builder's block photos keep their own upload and size controls (unchanged).
+    Tests: `tests/media-layout.test.mjs` (7). Audit: the rule 76 check.

@@ -404,6 +404,25 @@ const checks = [
       && [staffShell, read("trainer-backoffice/index.html")].every(html => /trainer-backoffice\/form-editor\.js\?v=/.test(html))
       && /practice\.send_to_live_log/.test(migration) && !/\bpublic\./.test(migration) && !/\bdrop table\b|\btruncate\b|\bdelete\b/i.test(migration);
   })()],
+  // photos + logo: change, move, resize; editors full screen; Lead Journey Test off the menu (rule 76 + rule 63, portal chain step 5)
+  ["rule 76: photos + logo - Page Studio keeps logo {photo,w,x,y} and photoW/photoX/photoY only as clamped integers (left out when empty) and builds their CSS only from those integers, the logo address goes through safeUrl, uploads reuse api/pages.js operation upload, the preview drag writes the same keys; the Page Editor saves logo/hero/bio size + move through trainerMediaToContent, reads them from the saved page only and draws them only through trainerMediaStyle; phones drop a move; the Page Editor opens full screen on entry and Page Studio is a full-screen overlay; Lead Journey Test is off the menu behind LEAD_JOURNEY_TEST_IN_MENU with its code kept (rule 63)", (() => {
+    const template = /const MEDIA_LIMITS = Object\.freeze\(\{ photoW: \[20, 100\], photoX: \[-400, 400\], photoY: \[-300, 300\], logoW: \[60, 360\], logoX: \[-200, 200\], logoY: \[-40, 40\] \}\);/.test(adPageTemplateSource)
+      && /\.\.\.photoLayout\(hero\)/.test(adPageTemplateSource) && /const logo = logoLayout\(src\.logo\);/.test(adPageTemplateSource)
+      && /if \(section\.photo !== undefined\) Object\.assign\(section, photoLayout\(raw\)\);/.test(adPageTemplateSource)
+      && /const photo = safeUrl\(raw\.photo\);/.test(adPageTemplateSource)
+      && /return `\$\{m\.photoW \? `max-width:\$\{m\.photoW\}%;margin-inline:auto;display:block;` : ""\}/.test(adPageTemplateSource)
+      && /const mediaPhone = anyMoved \? MEDIA_PHONE_CSS : "";/.test(adPageTemplateSource);
+    const studio = /api\(\{ operation: "upload", name: file\.name, type: prepared\.type, data: prepared\.data \}\)/.test(pageStudio) && /UPLOAD_TYPES = \{ "image\/jpeg"/.test(adPagesApi)
+      && /wireMediaDrag\(doc\); \/\/ rule 76/.test(pageStudio) && /\$\{logoFields\(d\)\}/.test(pageStudio)
+      && /if \(shown && !builderShown\) setBuilderFullscreen\(true\);/.test(pageStudio) && /\.ps-overlay\{position:fixed;inset:0;z-index:9500/.test(siteBuilderCss);
+    const editor = /\.\.\.trainerMediaToContent\(trainer\), \/\/ rule 76/.test(app) && /\.\.\.trainerMediaFromContent\(content\), \/\/ rule 76/.test(app)
+      && /function cleanTrainerMediaNumber\(value, min, max\) \{/.test(app) && /wireTrainerMediaDrag\(doc\); \/\/ rule 76/.test(app)
+      && (app.match(/trainerMediaStyle\(trainer, "(hero|bio|logo)"\)/g) || []).length >= 3
+      && /@media \(max-width: 700px\) \{ img\[style\*="translate:"\] \{ translate: none !important; \} \}/.test(styles);
+    const journey = /const LEAD_JOURNEY_TEST_IN_MENU = false;/.test(app) && /\.\.\.\(leadJourneyTestEnabled\(\) \? \[\["pathwayTest", "Lead Journey Test", "message"\]\] : \[\]\)/.test(app)
+      && /if \(view === "pathwayTest"\) return leadJourneyTestEnabled\(\);/.test(app) && /function pathwayTestScreen\(\)/.test(app);
+    return template && studio && editor && journey;
+  })()],
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);
