@@ -791,9 +791,14 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     office decides. A page with no reviews shows NO review section (Aryson verified live).
     Check: live `/fredharris` shows only the Bruno review; `grep -c '"review1Author": "Local Client"'
     trainer-roster.js` → 0.
-    Live status 2026-09-12: DATA fixed on live; the checkbox CODE is on the practice copy only
-    (commit b7b9f8e). Live is a hand-mixed build (portal app.js = 084bd11, get-started = d42139c),
-    so a live release must be assembled per file — never promote this branch whole.
+    Live status 2026-09-12 07:57 ET: DATA fixed on live AND the checkbox CODE is LIVE. Production =
+    dpl_8L3eDtFZ4Si3whyyWnGXGMDjmt8B (ldtt-site-r7gg9qns2), stamp ?v=20260912livefix1, built as:
+    d42139c base (26 landing pages, get-started, api+lib/lead-journey) + trainer-backoffice/app.js and
+    styles.css from 084bd11 + b7b9f8e's app.js/trainer-roster.js hunks. /.nexora/ is no longer served
+    (54 files now 404; .nexora/ is in .vercelignore + .gitignore). ROLLBACK: `vercel promote
+    dpl_H67c7WDariMAq83BbhoWZWLVeiKQ` (ldtt-site-lopmujumb, the 2026-09-11 build). Live is still a
+    hand-mixed build, so a live release must be assembled per file from d42139c — never promote this
+    branch whole, and never deploy live from the SSD folder again (that is how .nexora/ leaked).
 
 ## Lead cards (added 2026-09-12, Claude, meeting 2026-09-11)
 
