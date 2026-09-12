@@ -20,3 +20,4 @@ assets/_originals/
 *.bak
 *.bak-*
 *.bak-security
+.nexora/
