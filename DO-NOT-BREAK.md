@@ -1200,3 +1200,15 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       lead keeps city/state/ZIP in their own columns); an in-home trainer-alert text then carries the street only.
       Fixing it touches the Make payload (`service_address`), so it needs its own step.
     Tests: 5 in `tests/vetting-fixes.test.mjs`.
+
+79. **Office booking emails use the Resend key already saved in the portal; Operations (Tim) gets two
+    texts (Joshua 2026-09-12, practice copy).** `lib/office-email.js` `officeResendConfig()` uses Vercel
+    `RESEND_API_KEY` when set, otherwise the Communications Settings key (`resend_api_key` secret +
+    `resend_from_address` = marketing@lorenzosdogtrainingteam.com) read through `supabaseRequest` (the
+    schema switch) and `rpc communications_read_setting_secret` — the same key password reset uses. Still
+    Resend only, never FormSubmit (rule 73). Practice copy office emails go to marketing@ for now.
+    Operations alert: `sendOpsAlert()` texts the Settings "Operations phone" (default Tim +12168168026)
+    when a lead starts its journey (`enterPipeline`) and when an evaluation is booked (`afterBooking`),
+    through Make scenario 6254549 (env LDTT_MAKE_HOOK_OPS, Preview only; tester filter on every route),
+    only to an active tester phone, practice copy only. Recorded on the lead as pipeline.ops_new_lead and
+    booking_notices[].ops_alert. Online bookings move to Eval Scheduled by themselves (verified).
