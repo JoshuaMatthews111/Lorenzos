@@ -233,7 +233,7 @@ test("the key arrives: 'send queued' sends the saved email ONCE through Resend, 
     assert.equal(sent[0].url, "https://api.resend.com/emails");
     assert.equal(sent[0].headers.Authorization, "Bearer test-resend-key");
     assert.equal(sent[0].headers["Idempotency-Key"], `ldtt-booking-email-${lead.id}-${db.leads[0].raw_payload.booking.hold_id}`);
-    assert.deepEqual(sent[0].body.to, ["mr.matthews2022@gmail.com"], "practice copy: the one test address, never the office list by default");
+    assert.deepEqual(sent[0].body.to, ["marketing@lorenzosdogtrainingteam.com"], "practice copy: the one test address, never the office list by default");
     assert.equal(sent[0].body.from, "Lorenzo's Dog Training Team <no-reply@lorenzosdogtrainingteam.com>");
     const { html, text, subject } = sent[0].body;
     assert.match(subject, /^\[PRACTICE COPY\] Eval booked: Joshua Proof with Lorenzo Miller/);
@@ -332,8 +332,8 @@ test("send_queued and the settings need an office login; settings report the Res
   const { calls } = fakeWorld();
   assert.equal((await call(pipelineApi, { body: { op: "send_queued" } })).statusCode, 403);
   assert.equal(resendCalls(calls).length, 0);
-  assert.equal(P.defaultSettings().practice_email_to, "mr.matthews2022@gmail.com");
-  assert.equal(P.normalizeSettings({ recipients: [] }).value.practice_email_to, "mr.matthews2022@gmail.com", "a row saved before 3b keeps the test address");
+  assert.equal(P.defaultSettings().practice_email_to, "marketing@lorenzosdogtrainingteam.com");
+  assert.equal(P.normalizeSettings({ recipients: [] }).value.practice_email_to, "marketing@lorenzosdogtrainingteam.com", "a row saved before 3b keeps the test address");
   assert.equal(P.normalizeSettings({ recipients: [], practice_email_to: "" }).value.practice_email_to, "");
   assert.equal(P.normalizeSettings({ recipients: [], practice_email_to: "nope" }).errors.length, 1);
 });

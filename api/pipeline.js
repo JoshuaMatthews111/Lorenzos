@@ -36,7 +36,7 @@ module.exports = async function handler(req, res) {
       const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
       if (!access) return;
       if (op === "settings") {
-        const config = M.resendConfig();
+        const config = await M.officeResendConfig();
         return res.status(200).json({
           ok: true, settings: await P.loadSettings(), defaults: P.defaultSettings(),
           email: { resend_ready: config.ready, from: config.from, queued: await P.queuedOfficeEmailCount() }
