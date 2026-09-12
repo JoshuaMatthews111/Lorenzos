@@ -1011,6 +1011,10 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     review2Copy: objectHas(content, "review2_copy") ? (content.review2_copy || "") : (existing.review2Copy || ""),
 	    review3Author: objectHas(content, "review3_author") ? (content.review3_author || "") : (existing.review3Author || ""),
 	    review3Copy: objectHas(content, "review3_copy") ? (content.review3_copy || "") : (existing.review3Copy || ""),
+    // A manual testimonial is shown only when the office ticked "Show on page" (Joshua 2026-09-12).
+    review1Show: content.review1_show === true,
+    review2Show: content.review2_show === true,
+    review3Show: content.review3_show === true,
     approvedReviews: Array.isArray(content.approved_reviews) ? content.approved_reviews : (existing.approvedReviews || []),
 	    liveEdits: Array.isArray(content.live_edits) ? content.live_edits : (existing.liveEdits || []),
 	    mediaLibrary: Array.isArray(content.media_library) ? content.media_library : (existing.mediaLibrary || []),
@@ -1931,6 +1935,9 @@ function trainerDraftContent(trainer) {
 	    review2_copy: trainer.review2Copy,
 	    review3_author: trainer.review3Author,
 	    review3_copy: trainer.review3Copy,
+	    review1_show: trainer.review1Show === true,
+	    review2_show: trainer.review2Show === true,
+	    review3_show: trainer.review3Show === true,
 	    approved_reviews: Array.isArray(trainer.approvedReviews) ? trainer.approvedReviews : [],
 	    live_edits: Array.isArray(trainer.liveEdits) ? trainer.liveEdits : [],
 	    media_library: Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [],
@@ -8627,7 +8634,7 @@ function trainerAdminForm() {
     `</div><div class="form-grid bio-photo-url-row">${textField("landingBioPhoto", "Bio Photo URL (View Bio + Landing Bio)", { wide: true, help: "Paste the approved candid photo URL here if upload is blocked. Save & Publish sends this exact photo to the View Bio page." })}</div></div><div class="wizard-upload-grid image-role-grid">`
   );
   if (step === 5) content = `<div class="form-grid">${textField("specialtiesText", "Services / Specialties", { wide: true, area: true, placeholder: "Obedience Training\nBehavior Modification\nPuppy Training", help: "Enter one approved service per line." })}${textField("credentialsText", "Credentials / Trust Points", { wide: true, area: true, placeholder: "Lorenzo's Certified Dog Trainer\nLDTT training system\nOngoing education", help: "Enter one approved credential per line." })}</div><div class="credential-preview"><img src="../assets/lorenzo-logo-transparent.png" alt="Lorenzo's Dog Training Team"><div><strong>Powered by Lorenzo's Dog Training Team</strong><span>Serious Training. Serious Results.</span></div></div>`;
-  if (step === 6) content = `${trainerApprovedReviewManagerMarkup(t)}<div class="brand-lock-note"><strong>Reviews are not published automatically.</strong> Use the Review Inbox above to publish approved client reviews to this trainer. Click X to remove a review placement. Leave the optional boxes below blank unless the office intentionally wants a manual testimonial on this trainer page.</div><div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Optional Manual Testimonial ${n}</h3>${textField(`review${n}Author`, "Client Name", { placeholder: "Leave blank unless approved" })}${textField(`review${n}Copy`, "Approved Review", { area: true, placeholder: "Leave blank unless approved", help: "Published client reviews should normally come from the Review Inbox." })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
+  if (step === 6) content = `${trainerApprovedReviewManagerMarkup(t)}<div class="brand-lock-note"><strong>Reviews are not published automatically.</strong> Use the Review Inbox above to publish approved client reviews to this trainer. Click X to remove a review placement. Leave the optional boxes below blank unless the office intentionally wants a manual testimonial on this trainer page.</div><div class="review-editor-grid">${[1,2,3].map(n => `<section><h3>Optional Manual Testimonial ${n}</h3><label class="check-row"><input type="checkbox" name="admin-trainer-review${n}Show" ${t[`review${n}Show`] === true ? "checked" : ""}> Show this testimonial on the page</label>${textField(`review${n}Author`, "Client Name", { placeholder: "Leave blank unless approved" })}${textField(`review${n}Copy`, "Approved Review", { area: true, placeholder: "Leave blank unless approved", help: "Published client reviews should normally come from the Review Inbox." })}</section>`).join("")}</div><div class="form-grid social-editor">${[["facebook","Facebook"],["instagram","Instagram"],["tiktok","TikTok"]].map(([key,label]) => `<div class="field"><label>${label}<input name="admin-trainer-social-${key}" value="${escapeHtml(t.socials?.[key] || "")}" placeholder="Profile URL"></label><small class="field-help">Leave blank to show an inactive placeholder.</small></div>`).join("")}</div>`;
   if (step === 7) {
     const publicUrl = trainerPublicUrl(t);
     content = `<section class="publish-review publish-review-clear"><div><span>Landing-page status</span><strong>${escapeHtml(t.name)} · ${escapeHtml(layoutName(t.layout))}</strong><small>${escapeHtml(t.pageStatus)} ${t.locked ? "· Office locked" : "· Editable draft"}</small></div><div>${pageStatusBadge(t)}</div></section>${trainerPublishChecklistMarkup(t)}<section class="publish-url-card"><span>Final public address</span><strong>${escapeHtml(publicUrl)}</strong><p>Publishing uses this trainer-specific URL. It will not inherit another trainer’s name, photo, city, state, or page record.</p></section><div class="publish-action-grid"><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Draft Landing Page</a>${t.pageStatus === "Published" ? `<a class="btn btn-outline" href="${escapeHtml(publicUrl)}" target="_blank" rel="noopener">View Published Landing Page</a>` : ""}<button class="btn btn-red" data-toggle-lock="${t.id}">${t.locked ? (trainerHasPublishedPage(t) ? "Edit Live Page" : "Return Page To Draft") : "Publish Landing Page"}</button></div>${t.pageStatus === "Published" ? trainerInviteCard(t) : ""}`;
@@ -10372,6 +10379,7 @@ function trainerReviewsMarkup(trainer) {
   // the editor were saved but never drawn on the page. They follow the Review
   // Inbox reviews here.
   const manualReviews = [1, 2, 3]
+    .filter(n => trainer[`review${n}Show`] === true)
     .map(n => ({ id: `manual-${n}`, author: String(trainer[`review${n}Author`] || "").trim() || "Verified Client", rating: "5", copy: placeholderReviewCopy(String(trainer[`review${n}Copy`] || "").trim()), location: "", mediaUrl: "", mediaType: "", mediaName: "", display: { showText: true, showMedia: false, showAuthor: true, showRating: true, showLocation: false } }))
     .filter(review => review.copy);
   const reviews = [...approvedReviews, ...manualReviews];
@@ -12931,7 +12939,8 @@ document.addEventListener("input", event => {
   if (field.name?.startsWith("admin-trainer-")) {
     const trainer = trainerById();
     const key = field.name.replace("admin-trainer-", "");
-    trainer[key] = key === "locked" ? field.value === "true" : field.value;
+    // Checkboxes (the testimonial "Show on page" ticks) save their tick, not their value.
+    trainer[key] = field.type === "checkbox" ? field.checked : key === "locked" ? field.value === "true" : field.value;
     if (key === "email") trainer.username = field.value;
     if (key === "name") trainer.profileName = field.value;
     if (key === "email") trainer.profileEmail = field.value;
@@ -13702,7 +13711,7 @@ document.addEventListener("change", async event => {
   if (event.target.name?.startsWith("admin-trainer-")) {
     const trainer = trainerById();
     const key = event.target.name.replace("admin-trainer-", "");
-    trainer[key] = key === "locked" ? event.target.value === "true" : event.target.value;
+    trainer[key] = event.target.type === "checkbox" ? event.target.checked : key === "locked" ? event.target.value === "true" : event.target.value;
     if (key === "layout") trainer.pageStatus = trainer.pageStatus === "No Site Started" ? "Draft" : trainer.pageStatus;
     if (key === "name") trainer.profileName = event.target.value;
     if (key === "email") trainer.profileEmail = event.target.value;
