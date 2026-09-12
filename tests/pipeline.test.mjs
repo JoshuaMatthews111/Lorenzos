@@ -115,7 +115,9 @@ function formLead(db, over = {}) {
   const lead = {
     id: `aaaaaaaa-bbbb-4ccc-8ddd-${String(db.leads.length + 1).padStart(12, "0")}`, version: 1, created_at: new Date().toISOString(),
     first_name: "Joshua", last_name: "Proof", phone: "440-214-2915", email: "proof@example.test", zip: "44128", sms_consent: true,
-    trainer_slug: null, comments: "Pulls on the leash", status: "new_inquiry", source_page: "contact.html", raw_payload: { source_page: "contact.html", qa: "true" }, ...over
+    trainer_slug: null, comments: "Pulls on the leash", status: "new_inquiry", source_page: "contact.html",
+    // Step 3b (Option C): a Contact Us lead's lane comes from its "I want to..." answer; this one is a booking lane.
+    raw_payload: { source_page: "contact.html", qa: "true", i_want_to: "Schedule an in person evaluation with a trainer in my area" }, ...over
   };
   db.leads.push(lead);
   return lead;
@@ -251,7 +253,10 @@ test("a booking sends pathway 2 once (customer + the practice trainer-alert test
   assert.equal(saved.eval_scheduled_at, new Date(SLOT_A * 1000).toISOString());
   const notice = saved.raw_payload.pipeline.booking_notices.at(-1);
   assert.equal(notice.texts.status, "sent");
-  assert.equal(notice.office_email, undefined, "no office email in this step (3b, Resend)");
+  // Step 3b (rule 73): no RESEND_API_KEY in this test -> the office email is QUEUED on the lead, nothing is sent.
+  assert.equal(notice.office_email.status, "queued");
+  assert.equal(notice.office_email.reason, "Office email waiting for the Resend key");
+  assert.equal(saved.raw_payload.pipeline.office_email_pending, true);
   // The same hold never texts twice.
   const again = await P.afterBooking({ lead: saved, booking: saved.raw_payload.booking, trainer: { full_name: "Lorenzo Miller" }, setting: null });
   assert.equal(again.texts.status, "skipped");
@@ -293,14 +298,18 @@ test("settings: defaults, bad input refused, save needs an office login", async 
 test("JOSHUA'S HARD RULE: FormSubmit keeps the Contact page, this step sends no email", () => {
   const script = read("script.js");
   const pipelineLib = read("lib/pipeline.js").replace(/\/\/[^\n]*/g, "");
-  // relayFormDeliveries is untouched: it still opens with the /api/form-delivery call, and live reaches it
-  // through a synchronous check (window.LDTT_IS_SANDBOX is never true on live).
+  // relayFormDeliveries is untouched and (step 3b revert) the Contact handler calls it DIRECTLY again, with the
+  // delivery object exactly as before step 3. No wrapper exists. The byte-for-byte hashes are in tests/office-email.test.mjs.
   assert.match(script, /const relayFormDeliveries=async\(formType,entries,canonical,form\)=>\{\n  const response=await fetch\('\/api\/form-delivery',\{/);
-  assert.match(script, /const deliverOrEnterPipeline=\(formType,entries,canonical,form\)=>window\.LDTT_IS_SANDBOX===true\n  \? enterPracticePipeline\(canonical,entries\)\n  : relayFormDeliveries\(formType,entries,canonical,form\);/);
+  assert.match(script, /      await relayFormDeliveries\('contact',entries,canonical,form\);\n/);
+  assert.match(script, /window\.LDTT_FORM_DELIVERY=\{\n  submitCanonical:submitPublicFormToSupabase,\n  relay:relayFormDeliveries\n\};/);
+  assert.ok(!/deliverOrEnterPipeline/.test(script), "the step-3 wrapper is gone");
   assert.match(read("api/form-delivery.js"), /const CONTACT_EMAIL = "https:\/\/formsubmit\.co\/ajax\/production@lorenzosdogtrainingteam\.com";/);
   assert.match(read("api/form-delivery.js"), /if \(blockedInSandbox\(res, "Submitting this form"\)\) return;/);
   assert.match(read("contact.html"), /<form class="panel form contact-intake" action="https:\/\/formsubmit\.co\/production@lorenzosdogtrainingteam\.com" method="POST"/);
-  assert.ok(!/formsubmit|form-delivery|resend/i.test(pipelineLib), "the pipeline never touches FormSubmit, form-delivery or Resend");
+  assert.ok(!/formsubmit|form-delivery/i.test(pipelineLib), "the pipeline never touches FormSubmit or form-delivery");
+  // Step 3b (rule 73): its ONLY email path is Resend, through lib/office-email.js (tests/office-email.test.mjs).
+  assert.match(pipelineLib, /await M\.sendViaResend\(/);
   // Only submit-contact is let through on the practice copy; the other functions stay off (rule 20).
   assert.match(script, /const practiceFunctionOff=\(env,functionName\)=>practiceFormsOff\(env\)&&!\(LDTT_PRACTICE_LEAD_FORMS_ON&&functionName==='submit-contact'\);/);
   assert.match(script, /const LDTT_EDGE_PRACTICE_FLAG_DEPLOYED=false;/);

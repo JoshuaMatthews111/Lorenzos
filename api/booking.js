@@ -214,8 +214,8 @@ async function book(req, res) {
   }
 
   // Step 3 (rule 72): Make pathway 2 (customer confirmation + trainer alert, tester phones only).
+  // Step 3b (rule 73): the office booking email, RESEND ONLY, queued on the lead while RESEND_API_KEY is missing.
   // Never throws; what happened is kept in raw_payload.pipeline.booking_notices for the lead panel.
-  // The office booking email is step 3b (Resend) and is not sent here.
   await P.afterBooking({ lead: record, booking: record.raw_payload?.booking || {}, trainer, setting })
     .catch(error => console.error("pipeline_after_booking_failed", String(error?.message || error)));
 

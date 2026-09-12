@@ -652,11 +652,22 @@ const relayFormDeliveries=async(formType,entries,canonical,form)=>{
   return result;
 };
 
-// Practice copy only (rule 72): the office fan-out (/api/form-delivery -> Google Sheet + FormSubmit) is
-// blocked there (423, rule 5), so a practice lead goes to the one pipeline instead: ZIP routing, the Sales
-// tab, and the booking-link text when SMS consent is ticked (tester phones only).
-// relayFormDeliveries above is UNCHANGED. On live window.LDTT_IS_SANDBOX is never true, so the check is
-// synchronous and the office's current new-lead email path runs exactly as before, with no added wait.
+window.LDTT_FORM_DELIVERY={
+  submitCanonical:submitPublicFormToSupabase,
+  relay:relayFormDeliveries
+};
+
+// ---------------------------------------------------------------------------
+// PRACTICE COPY ONLY: the one pipeline as an ADDITIONAL listener (rules 72 + 73, Joshua 2026-09-12:
+// "Do not break the form submit. Resend is for the SALES PIPELINE. FormSubmit is for the current Contact page.")
+// Live never runs any of this (env.sandbox is false there). The Contact handler below, relayFormDeliveries,
+// submitEmailRelay, window.LDTT_FORM_DELIVERY above and every FormSubmit action are byte-for-byte what they
+// were before step 3 (commit 1176038; tests/office-email.test.mjs checks the hashes).
+// On the practice copy /api/form-delivery answers 423 by design (rule 5: a practice lead never reaches a real
+// inbox), so this separate capture listener takes the practice copy's Contact Us submits before the live
+// handler: it saves the PRACTICE lead through submit-contact (x-ldtt-practice) and enters the pipeline.
+// It never posts to FormSubmit or /api/form-delivery.
+// ---------------------------------------------------------------------------
 const enterPracticePipeline=async(canonical,entries)=>{
   if(!canonical?.lead_id) return {ok:true,practice:true,pipeline:null};
   try{
@@ -668,14 +679,71 @@ const enterPracticePipeline=async(canonical,entries)=>{
     return {ok:true,practice:true,pipeline:null};
   }
 };
-const deliverOrEnterPipeline=(formType,entries,canonical,form)=>window.LDTT_IS_SANDBOX===true
-  ? enterPracticePipeline(canonical,entries)
-  : relayFormDeliveries(formType,entries,canonical,form);
-
-window.LDTT_FORM_DELIVERY={
-  submitCanonical:submitPublicFormToSupabase,
-  relay:deliverOrEnterPipeline
+const practiceEsc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+const practiceContactEntries=form=>{
+  const data=new FormData(form);
+  const params=new URLSearchParams(window.location.search);
+  data.set('timestamp',new Date().toISOString());
+  data.set('visitor_id',ldttVisitorId());
+  data.set('session_id',ldttSessionId());
+  data.set('page_url',window.location.href);
+  data.set('sms_consent',data.get('sms_consent')==='yes'?'yes':'no');
+  const smsText=String(form.querySelector('input[name="sms_consent"]')?.closest('label')?.textContent||'').replace(/\s+/g,' ').trim();
+  const phoneNoticeText=String(form.querySelector('.form-disclaimer')?.textContent||'').replace(/\s+/g,' ').trim();
+  if(smsText) data.set('sms_consent_text',smsText);
+  if(phoneNoticeText) data.set('phone_required_notice_text',phoneNoticeText);
+  if(isReleaseQaHost) data.set('qa','true');
+  if(!data.get('source_page')) data.set('source_page',document.title);
+  ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','gbraid','wbraid'].forEach(key=>{
+    const value=params.get(key);
+    if(value) data.set(key,value);
+  });
+  applyStoredTrainerAttribution(data);
+  const entries=formToObject(data);
+  entries.submission_id=`practice-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  if(entries.additional_interest){
+    entries.comments=[entries.comments,`Additional interest: ${entries.additional_interest}.`].filter(Boolean).join('\n\n');
+  }
+  return entries;
 };
+const submitPracticeContact=async form=>{
+  if(form.dataset.submitting==='true'||!form.reportValidity()) return;
+  const status=form.querySelector('.form-status');
+  const say=(html,type)=>{if(status){status.className=`form-status ${type}`;status.innerHTML=html;}};
+  const button=form.querySelector('button[type="submit"]');
+  form.dataset.submitting='true';
+  button?.setAttribute('disabled','disabled');
+  say('Submitting securely...','pending');
+  try{
+    const entries=practiceContactEntries(form);
+    const canonical=await submitPublicFormToSupabase('submit-contact',entries);
+    if(canonical?.skipped||(!canonical?.lead_id&&!canonical?.application_id)) throw new Error('The practice record could not be confirmed. Please try again.');
+    const {pipeline}=await enterPracticePipeline(canonical,entries);
+    const message=form.dataset.successMessage||"Thank you, your request was submitted. Lorenzo's office has your details and will follow up with the next step.";
+    const link=pipeline?.book_url?` <a href="${practiceEsc(pipeline.book_url)}">Pick your evaluation time</a>`:'';
+    say(`PRACTICE COPY: ${practiceEsc(message)}${link}`,'success');
+    showFormSuccessModal(message);
+    form.reset();
+  }catch(error){
+    console.warn('LDTT practice form submission failed',error);
+    say(practiceEsc(error.message||'We could not submit the form. Your information is still on this screen; please try again.'),'error');
+  }finally{
+    delete form.dataset.submitting;
+    button?.removeAttribute('disabled');
+  }
+};
+publicEnvironment.then(env=>{
+  if(!env?.sandbox) return;
+  // The ad pages' ebook forms (market-landing.js / ad-funnel.js) read .relay at submit time.
+  window.LDTT_FORM_DELIVERY={...window.LDTT_FORM_DELIVERY,relay:(formType,entries,canonical)=>enterPracticePipeline(canonical,entries)};
+  document.addEventListener('submit',event=>{
+    const form=event.target?.closest?.('form');
+    if(!form||!form.matches('.contact-intake')||form.closest('#publicSite')) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    submitPracticeContact(form);
+  },true);
+});
 
 const updateStoredDelivery=(storageKey,submissionId,updates)=>{
   const rows=JSON.parse(localStorage.getItem(storageKey)||'[]');
@@ -712,7 +780,7 @@ if(contactForm){
       }
       const canonical=await submitPublicFormToSupabase('submit-contact',entries);
       if(canonical?.skipped||(!canonical?.lead_id&&!canonical?.application_id)) throw new Error('The live office record could not be confirmed. Please try again.');
-      await deliverOrEnterPipeline('contact',entries,canonical,form);
+      await relayFormDeliveries('contact',entries,canonical,form);
     }
   });
 }

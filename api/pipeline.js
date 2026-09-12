@@ -7,12 +7,15 @@
 //                                    Only for a lead made in the last 30 minutes; a second call sends nothing.
 //   GET  ?op=settings                office login. Who gets the office booking email (step 3b sends it) +
 //                                    the practice trainer-alert tester phone.
-//   POST {op:"save_settings", recipients:[{label,email}], practice_trainer_phone}   office login.
-// Nothing here sends email, calls FormSubmit or /api/form-delivery.
+//   POST {op:"save_settings", recipients:[{label,email}], practice_trainer_phone, practice_email_to}   office login.
+//   POST {op:"send_queued"}          office login. Sends every QUEUED office booking email through Resend
+//                                    (rule 73); with no RESEND_API_KEY it sends nothing and says so.
+// Nothing here calls FormSubmit or /api/form-delivery. The only email path is Resend (lib/office-email.js).
 const { isSandbox } = require("../lib/sandbox");
 const { authorizeRequest } = require("../lib/portal-auth");
 const B = require("../lib/booking");
 const P = require("../lib/pipeline");
+const M = require("../lib/office-email");
 
 function actorLabel(access) {
   const actor = access?.actor || {};
@@ -32,7 +35,13 @@ module.exports = async function handler(req, res) {
       const op = B.clean(req.query?.op, 40);
       const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
       if (!access) return;
-      if (op === "settings") return res.status(200).json({ ok: true, settings: await P.loadSettings(), defaults: P.defaultSettings() });
+      if (op === "settings") {
+        const config = M.resendConfig();
+        return res.status(200).json({
+          ok: true, settings: await P.loadSettings(), defaults: P.defaultSettings(),
+          email: { resend_ready: config.ready, from: config.from, queued: await P.queuedOfficeEmailCount() }
+        });
+      }
       return res.status(400).json({ ok: false, message: "Unknown request." });
     }
     if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Use GET or POST." });
@@ -51,6 +60,16 @@ module.exports = async function handler(req, res) {
       const result = await P.saveSettings(body, actorLabel(access));
       if (!result.ok) return res.status(400).json({ ok: false, message: result.errors.join(" "), errors: result.errors });
       return res.status(200).json(result);
+    }
+    if (op === "send_queued") {
+      // Rule 73: "send queued" retry. Resend only; with no key it sends nothing and says so.
+      const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
+      if (!access) return;
+      const result = await P.sendQueuedOfficeEmails();
+      const message = !result.resend_ready
+        ? `${P.WAITING_FOR_KEY}. ${result.waiting} email${result.waiting === 1 ? "" : "s"} saved and waiting.`
+        : `Sent ${result.sent.length}. Failed ${result.failed.length}.${result.failed[0] ? ` ${result.failed[0].message}` : ""}`;
+      return res.status(200).json({ ok: true, message, ...result });
     }
     return res.status(400).json({ ok: false, message: "Unknown request." });
   } catch (error) {

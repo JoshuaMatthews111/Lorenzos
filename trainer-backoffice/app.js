@@ -4775,7 +4775,7 @@ function typedFieldKey(field) {
     // onboarding: the trainer editor boxes were missing here — the page editor
     // (data-editor-field), the profile editor (data-profile-field), the trainer's
     // social links, video links and the Send-to-live name box.
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-pipeline-(email|label|trainer-phone)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72: the office email box
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-pipeline-(email|label|trainer-phone|practice-email)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72/73: the office email box
   if (own) return `${formKey}::${own}`;
   // Safety net (Joshua 2026-09-11, the password box that emptied while typing): a box
   // with none of the attributes above is no longer left with an empty key. Its key is
@@ -6577,7 +6577,7 @@ async function loadPipelineSettings() {
     const response = await fetch("/api/pipeline?op=settings", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load (${response.status}).`);
-    pipelineSettingsState = { loaded: true, loading: false, settings: payload.settings, error: "" };
+    pipelineSettingsState = { loaded: true, loading: false, settings: payload.settings, email: payload.email || null, error: "" };
   } catch (error) {
     pipelineSettingsState = { loaded: true, loading: false, settings: null, error: error.message || String(error) };
   }
@@ -6598,7 +6598,12 @@ function pipelineSettingsPanel() {
   const rows = [...(s.recipients || []), { label: "", email: "" }, { label: "", email: "" }];
   const inputs = rows.map((r, i) => `<div class="pipeline-recipient-row" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 8px"><input type="text" data-pipeline-label="${i}" value="${escapeHtml(r.label)}" placeholder="Name (e.g. Angela)" maxlength="40" style="flex:0 1 180px"><input type="email" data-pipeline-email="${i}" value="${escapeHtml(r.email)}" placeholder="name@example.com" maxlength="160" style="flex:1 1 260px"></div>`).join("");
   const saved = s.saved ? `Last saved by ${escapeHtml(s.updated_by || "office staff")}${s.updated_at ? ` on ${escapeHtml(new Date(s.updated_at).toLocaleString())}` : ""}.` : "Not saved yet: these are the starting addresses. Press Save to keep them.";
-  return panel(title, "", `<p class="panel-copy">When a customer books an evaluation online, everyone below gets an email with the booked time, the trainer, every answer from the form, and the step: <strong>Log this client into Alpha, then mark the lead "Added to Alpha"</strong>. Type or change an address and press Save. Clear a box to stop that person's emails. The new-lead emails you get today do not change.</p><p class="field-hint">Practice copy: the booking email itself is switched on in the next step. This list is who will get it.</p>${inputs}<label style="display:block;margin:12px 0 8px"><span>Practice copy only: trainer alert texts go to this tester phone (never the real trainer)</span><input type="tel" data-pipeline-trainer-phone value="${escapeHtml(s.practice_trainer_phone || "")}" placeholder="+1 440 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><button class="btn btn-red" type="button" data-pipeline-save>Save the email list</button><p class="field-hint">${saved}</p>`, "pad");
+  const mail = pipelineSettingsState.email || {};
+  const resendLine = mail.resend_ready
+    ? `<strong>Resend: ready.</strong> Booking emails go out through Resend from ${escapeHtml(mail.from || "")}.`
+    : `<strong>Office email waiting for the Resend key.</strong> Every booking email is saved on its lead and goes out automatically once the key is added.`;
+  const queuedLine = mail.queued ? ` ${mail.queued} lead${mail.queued === 1 ? " has" : "s have"} an email waiting. <button class="btn btn-outline btn-small" type="button" data-pipeline-send-queued>Send queued office emails now</button>` : "";
+  return panel(title, "", `<p class="panel-copy">When a customer books an evaluation online, everyone below gets an email with the booked time, the trainer, every answer from the form, and the step: <strong>Log this client into Alpha, then mark the lead "Added to Alpha"</strong>. Type or change an address and press Save. Clear a box to stop that person's emails. The new-lead emails you get today do not change: they still come from the website forms exactly as before.</p><p class="field-hint">${resendLine}${queuedLine}</p>${inputs}<label style="display:block;margin:12px 0 8px"><span>Practice copy only: booking emails go to this ONE test address instead of the list above (clear it to send practice emails to the list)</span><input type="email" data-pipeline-practice-email value="${escapeHtml(s.practice_email_to || "")}" placeholder="tester@example.com" maxlength="160" style="display:block;margin-top:4px;max-width:320px"></label><label style="display:block;margin:12px 0 8px"><span>Practice copy only: trainer alert texts go to this tester phone (never the real trainer)</span><input type="tel" data-pipeline-trainer-phone value="${escapeHtml(s.practice_trainer_phone || "")}" placeholder="+1 440 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><button class="btn btn-red" type="button" data-pipeline-save>Save the email list</button><p class="field-hint">${saved}</p>`, "pad");
 }
 
 async function savePipelineSettings() {
@@ -6607,15 +6612,16 @@ async function savePipelineSettings() {
     label: (document.querySelector(`[data-pipeline-label="${input.dataset.pipelineEmail}"]`)?.value || "").trim()
   })).filter(r => r.email || r.label);
   const practicePhone = document.querySelector("[data-pipeline-trainer-phone]")?.value.trim() || "";
+  const practiceEmail = document.querySelector("[data-pipeline-practice-email]")?.value.trim() || "";
   const token = await window.LDTT_PORTAL?.accessToken?.();
   const response = await fetch("/api/pipeline", {
     method: "POST", cache: "no-store",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` },
-    body: JSON.stringify({ op: "save_settings", recipients, practice_trainer_phone: practicePhone })
+    body: JSON.stringify({ op: "save_settings", recipients, practice_trainer_phone: practicePhone, practice_email_to: practiceEmail })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
-  pipelineSettingsState = { loaded: true, loading: false, settings: payload.settings, error: "" };
+  pipelineSettingsState = { ...pipelineSettingsState, loaded: true, loading: false, settings: payload.settings, error: "" };
   const count = (payload.settings.recipients || []).filter(r => r.email).length;
   showToast(`Saved. Booking emails will go to ${count} address${count === 1 ? "" : "es"}.`);
   render();
@@ -9721,13 +9727,42 @@ function leadPipelineNotices(lead) {
     return `${item.status === "failed" ? "FAILED" : "not sent"}${item.reason ? `: ${item.reason}` : ""}`;
   };
   const lines = [];
-  if (pipeline.new_lead_text) lines.push(`Booking-link text: ${say(pipeline.new_lead_text)}${pipeline.new_lead_text.to_last4 ? ` (to ...${pipeline.new_lead_text.to_last4})` : ""}`);
+  // Rule 73: which lane the pipeline took (Contact Us "I want to..." answer, or an evaluation request).
+  if (pipeline.lane?.label) lines.push(`Pipeline lane: ${pipeline.lane.label}${pipeline.lane.answer ? ` (Contact Us: "${pipeline.lane.answer}")` : ""}`);
+  if (pipeline.new_lead_text && (!pipeline.lane || pipeline.lane.key === "booking")) lines.push(`Booking-link text: ${say(pipeline.new_lead_text)}${pipeline.new_lead_text.to_last4 ? ` (to ...${pipeline.new_lead_text.to_last4})` : ""}`);
+  if (pipeline.care_text) lines.push(`Customer-care text: ${say(pipeline.care_text)}${pipeline.care_text.to_last4 ? ` (to ...${pipeline.care_text.to_last4})` : ""}`);
   const last = Array.isArray(pipeline.booking_notices) ? pipeline.booking_notices[pipeline.booking_notices.length - 1] : null;
+  let queued = false;
   if (last) {
     const t = last.texts || {};
     lines.push(`Confirmation + trainer alert texts: ${say(t)}${t.customer_last4 ? ` (customer ...${t.customer_last4})` : ""}${t.trainer_last4 ? ` (trainer alert ...${t.trainer_last4})` : ""}${t.status === "sent" && t.notes ? `. ${t.notes}` : ""}`);
+    const mail = last.office_email;
+    if (mail && typeof mail === "object") {
+      if (mail.status === "sent") lines.push(`Office email: sent through Resend to ${(mail.to || []).join(", ")}${mail.resend_id ? ` (id ${mail.resend_id})` : ""}`);
+      else if (mail.status === "queued") { queued = true; lines.push(/Resend key/.test(mail.reason || "") ? "Office email waiting for the Resend key" : "Office email: queued, it sends in a moment"); }
+      else if (mail.status === "sending") lines.push("Office email: sending…");
+      else if (mail.status === "failed") { queued = true; lines.push(`Office email FAILED: ${mail.reason || "Resend did not send it"}. It is tried again automatically.`); }
+      else if (mail.status === "superseded") lines.push(`Office email: not sent. ${mail.reason || ""}`);
+    }
   }
-  return lines.length ? `<p class="field-hint lead-pipeline-notices">${lines.map(escapeHtml).join("<br>")}</p>` : "";
+  const retry = queued && session.role === "admin" ? `<br><button class="btn btn-outline btn-small" type="button" data-pipeline-send-queued>Send queued office emails now</button>` : "";
+  return lines.length ? `<p class="field-hint lead-pipeline-notices">${lines.map(escapeHtml).join("<br>")}${retry}</p>` : "";
+}
+
+// Rule 73: the "send queued" retry (Resend only; with no key the server sends nothing and says so).
+async function sendQueuedOfficeEmailsNow() {
+  const token = await window.LDTT_PORTAL?.accessToken?.();
+  const response = await fetch("/api/pipeline", {
+    method: "POST", cache: "no-store",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` },
+    body: JSON.stringify({ op: "send_queued" })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not sent (${response.status}).`);
+  showToast(payload.message || "Done.", 8000);
+  pipelineSettingsState = { ...pipelineSettingsState, loaded: false, loading: false };
+  await refreshOperationalData("manual").catch(() => {});
+  render();
 }
 
 function leadBookingBlock(lead) {
@@ -12021,6 +12056,13 @@ document.addEventListener("click", async event => {
     pipelineSave.disabled = true;
     try { await savePipelineSettings(); } catch (error) { showToast(`Not saved: ${error.message}`, 8000); }
     finally { pipelineSave.disabled = false; }
+    return;
+  }
+  const pipelineSendQueued = event.target.closest("[data-pipeline-send-queued]");
+  if (pipelineSendQueued) {
+    pipelineSendQueued.disabled = true;
+    try { await sendQueuedOfficeEmailsNow(); } catch (error) { showToast(`Not sent: ${error.message}`, 8000); }
+    finally { pipelineSendQueued.disabled = false; }
     return;
   }
   const practiceReset = event.target.closest("[data-practice-reset]");

@@ -889,9 +889,11 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       reroute FormSubmit through anything else; never add a FormSubmit fallback; never re-send it. The stash
       `portal3-attempt1-REROUTED-FORMSUBMIT-do-not-apply-2026-09-12` did that and was stopped: never apply it.
     - **Practice copy only this round.** `api/pipeline.js` answers 404 on live before anything else.
-      `script.js` reaches the pipeline only through `deliverOrEnterPipeline()`, whose check is synchronous
-      (`window.LDTT_IS_SANDBOX===true`), so live calls `relayFormDeliveries()` exactly as before with no
-      added wait. `app.js` trainer pages branch the same way (`window.LDTT_IS_SANDBOX === true`).
+      REVISED in step 3b (rule 73): the step-3 wrapper `deliverOrEnterPipeline()` is GONE. The Contact handler
+      calls `relayFormDeliveries('contact',…)` directly again and `window.LDTT_FORM_DELIVERY` is
+      `{submitCanonical, relay: relayFormDeliveries}`, byte-for-byte commit 1176038. The practice copy reaches the
+      pipeline through a SEPARATE capture listener that only exists when `/api/environment` says sandbox (see rule 73).
+      `app.js` trainer pages still branch on `window.LDTT_IS_SANDBOX === true` before their own relay (live skips it).
     - **Which forms are on on the practice copy:** only the LEAD forms that post to `submit-contact`
       (`.contact-intake`, `.market-guide-form`, `.ad-exit-form`, `.office-lead-form`), because only
       `submit-contact` is deployed with the practice flag (version 9; checked 2026-09-12 with
@@ -924,3 +926,56 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       reason it was not); `pipeline` is in `LEAD_INTERNAL_RAW_FIELD_KEYS`. `/staff?view=leads&lead=<id>`
       opens that lead (the trainer alert text links there).
     Tests: `tests/pipeline.test.mjs` (10). Audit: the rule 72 check.
+
+## Office booking email through Resend + Contact Us lanes (added 2026-09-12, Claude, portal chain step 3b)
+
+73. **Resend is for the SALES PIPELINE. FormSubmit is for the current Contact page. Never mix them.**
+    Joshua, 2026-09-12: "Do not break the form submit. Resend is for the SALES PIPELINE. FormSubmit is for the
+    current Contact page."
+    - **The Contact page's FormSubmit submit is frozen at commit 1176038.** `tests/office-email.test.mjs` pins the
+      sha256 (first 16) of: `relayFormDeliveries` dc94a4b4502033b1, the Contact handler (`const contactForm=…`)
+      14ed922c20ecc4f3, `window.LDTT_FORM_DELIVERY={…}` 392ac4bd96f241db, `submitEmailRelay` 01e03717224c248b,
+      `wireAsyncForm` e262f739d5c5fe3c, and the contact.html form markup is unchanged (hash 75cc2858a7cbe55c). The same
+      test RUNS `relayFormDeliveries` and proves it posts `/api/form-delivery` and then FormSubmit
+      `production@lorenzosdogtrainingteam.com` from the browser when the server email failed.
+      `scripts/contact-formsubmit-proof.mjs` proves it in a real browser on the real contact.html (every outside call
+      intercepted, nothing sent). Never wrap, reroute, replace or add to that path; never send a pipeline email with it.
+    - **The practice copy's Contact Us capture is an ADDITIONAL listener** (`script.js`, block `const enterPracticePipeline=`
+      … before `const updateStoredDelivery=`): registered only when `/api/environment` says `sandbox`, it is a document
+      capture `submit` listener for `.contact-intake` forms that saves the practice lead through `submit-contact`
+      (x-ldtt-practice) and posts `/api/pipeline {op:"enter"}`. It never calls FormSubmit, `/api/form-delivery` or
+      `relayFormDeliveries` (on the practice copy form-delivery answers 423 by design, rule 5). On the practice copy only,
+      `window.LDTT_FORM_DELIVERY.relay` is swapped for the pipeline call so the ad pages' ebook forms work there.
+    - **The office booking email goes ONLY through Resend** (`lib/office-email.js`: one `fetch`, to
+      `https://api.resend.com/emails`, key `RESEND_API_KEY`, sender `RESEND_FROM` (default
+      "Lorenzo's Dog Training Team <no-reply@lorenzosdogtrainingteam.com>"), Idempotency-Key
+      `ldtt-booking-email-<lead>-<hold>`). The key is Track 500's (lorenzosdogtrainingteam.com is verified there); it lives
+      only in Vercel env (Preview, set by Joshua with `Env Vault/ldtt-sandbox/set-ldtt-resend.sh`). The vault key in
+      `Env Vault/resend` is a DIFFERENT account (403 "domain is not verified"): never use it.
+    - **No key = QUEUED, never another path.** `afterBooking()` records `booking_notices[].office_email =
+      {status:"queued", reason:"Office email waiting for the Resend key"}` and `pipeline.office_email_pending = true`
+      BEFORE any send, so the booking never waits on or fails because of the email. It is sent automatically once the key
+      is present: after every booking (`sendLeadOfficeEmails` for this lead, then `sendQueuedOfficeEmails()` for all
+      pending leads) and from "Send queued office emails now" (Settings box and lead panel, POST `/api/pipeline
+      {op:"send_queued"}`, office login). Claim-before-send (version-guarded); a stale "sending" (> 5 min) is retried; a
+      Resend failure is recorded with its reason and retried up to 5 times; a rebooked lead only emails its CURRENT booking
+      (older one marked `superseded`). The lead panel shows the state in plain words.
+    - **What the email carries:** the red instruction "Log this client into Alpha, then open the staff portal and mark this
+      lead "Added to Alpha"." + a button to `/staff?view=leads&lead=<id>`, booked time, trainer, where, the 4 client
+      fields, all 7 answers per dog, and the lead details (source, ZIP, I want to, lane, comments, SMS consent, received, id).
+    - **Practice copy recipients:** `site_settings.pipeline_office_emails.practice_email_to` (default
+      `mr.matthews2022@gmail.com`, a row saved before 3b keeps it) receives practice booking emails INSTEAD of the office list,
+      like the trainer-alert tester phone; the email names the list it stood in for. Clear the box to send practice emails to
+      the list. Subjects start "[PRACTICE COPY]".
+    - **Contact Us = Option C** (`lib/pipeline.js` `CONTACT_US_LANES`, overridable by `site_settings` key `pipeline_lanes`
+      `{lanes:[{answer,lane}]}`): in-person / virtual evaluation / training session → `booking` (pathway 1 booking-link text,
+      then the booking flow); "Schedule a free phone consultation…" → `office_call` (customer-care text "Our office will call
+      you shortly", no link, not on Sales); "Learn more about becoming a dog trainer" → `recruiting` (no client text); blank or
+      unknown → `office_follow_up` (no text). Only the Contact Us page (source contact.html / contact, or page_url /contact)
+      uses the table: ad pages, 2.0 pages, market pages and trainer pages always take `booking`. The lane is logged in
+      `raw_payload.pipeline.lane` and shown in the lead panel. The FormSubmit office email goes out in EVERY case (live),
+      untouched. Texts still need SMS consent and an active tester phone (rule 72).
+    - **The customer-care text has its OWN Make route** (`LDTT_MAKE_HOOK_CARE`, never equal to pathway 1's hook: pathway 1's
+      scenario has one Twilio module with the booking-link wording and no pathway filter). Until that route exists (needs
+      Joshua's OK to create or change a Make scenario) the text is recorded as not sent with that reason.
+    Tests: `tests/office-email.test.mjs` (12). Audit: the rule 73 check.
