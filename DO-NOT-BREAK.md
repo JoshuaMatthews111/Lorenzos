@@ -767,3 +767,17 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     a class name. The pages LIST endpoint selects cover + hero photo as JSON-path
     columns (`cover_pick`, `hero_pick`); it must never haul full `draft_content`
     for every page. (2026-09-11, Claude)
+
+69. **A manual testimonial shows only when the office ticks "Show on page" (Joshua 2026-09-12).**
+    The three "Optional Manual Testimonial" boxes carry `review<n>_show`. `trainerReviewsMarkup()`
+    draws a manual testimonial only when that is `true` and the text is not empty. Keys stay
+    PRESENT with "" when blank — a missing key makes the portal fall back to `trainer-roster.js`.
+    The seeded fakes ("Local Client", "Dog Owner", "Verified Client", "Client Name" and their
+    stock lines) were blanked on live and practice data and in `trainer-roster.js`; never re-seed
+    them. Named testimonials (Shavon, Daniel, Deuce) were kept with `_show = true` until the
+    office decides. A page with no reviews shows NO review section (Aryson verified live).
+    Check: live `/fredharris` shows only the Bruno review; `grep -c '"review1Author": "Local Client"'
+    trainer-roster.js` → 0.
+    Live status 2026-09-12: DATA fixed on live; the checkbox CODE is on the practice copy only
+    (commit b7b9f8e). Live is a hand-mixed build (portal app.js = 084bd11, get-started = d42139c),
+    so a live release must be assembled per file — never promote this branch whole.
