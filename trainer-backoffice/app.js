@@ -9746,7 +9746,10 @@ function leadPipelineNotices(lead) {
   let queued = false;
   if (last) {
     const t = last.texts || {};
-    lines.push(`Confirmation + trainer alert texts: ${say(t)}${t.customer_last4 ? ` (customer ...${t.customer_last4})` : ""}${t.trainer_last4 ? ` (trainer alert ...${t.trainer_last4})` : ""}${t.status === "sent" && t.notes ? `. ${t.notes}` : ""}`);
+    // rule 74: a "request this trainer" / no-trainer callback notice sends no texts by design; say what it is instead.
+    if (last.kind === "trainer_request") lines.push("Trainer requested online: no time booked, no texts. The office schedules this client.");
+    else if (last.kind === "no_trainer") lines.push("No trainer within 50 miles: the client asked for a callback. No texts.");
+    else lines.push(`Confirmation + trainer alert texts: ${say(t)}${t.customer_last4 ? ` (customer ...${t.customer_last4})` : ""}${t.trainer_last4 ? ` (trainer alert ...${t.trainer_last4})` : ""}${t.status === "sent" && t.notes ? `. ${t.notes}` : ""}`);
     const mail = last.office_email;
     if (mail && typeof mail === "object") {
       if (mail.status === "sent") lines.push(`Office email: sent through Resend to ${(mail.to || []).join(", ")}${mail.resend_id ? ` (id ${mail.resend_id})` : ""}`);

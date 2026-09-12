@@ -318,4 +318,7 @@ test("the portal saves Base ZIP as 5 digits or empty (server check on create and
   assert.match(app, /\{ profile: "profileBaseZip", public: "savedBaseZip", landing: null, label: "Base ZIP \(booking page distance\)", baseZip: true \}/);
   assert.match(app, /profileBaseZip: \["base_zip", /);
   assert.match(app, /\.\.\.\(trainer\.profileBaseZip !== undefined \? \{ base_zip: /, "a full save never blanks a Base ZIP the portal did not load");
+  // The lead panel never says "texts: not sent" for a request / callback: those send no texts by design.
+  assert.match(app, /if \(last\.kind === "trainer_request"\) lines\.push\("Trainer requested online: no time booked, no texts\./);
+  assert.match(app, /else if \(last\.kind === "no_trainer"\) lines\.push\(/);
 });
