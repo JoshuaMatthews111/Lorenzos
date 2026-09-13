@@ -3755,8 +3755,8 @@ function portalPreviewViews() {
   return [
     { id: "dashboard", label: "Trainer Dashboard" },
     { id: "leads", label: "My Leads" },
+    { id: "deals", label: "Clients" },
     { id: "myPage", label: "My Trainer Page" },
-    { id: "performance", label: "Performance" },
     { id: "submitMedia", label: "Submit Photos/Videos" },
     { id: "submitReviews", label: "Submit Reviews" },
     { id: "settings", label: "Settings" }
@@ -4751,18 +4751,22 @@ function trainerNav() {
     reviewSubmissions: trainerReviewSubmissions(),
     today: new Date().toISOString().slice(0, 10)
   });
+  // Meeting 2026-09-12 (Tim + Angela): the deals tab is now "Clients" (the view key stays "deals");
+  // the Performance tab is gone (the dashboard carries its numbers) and Communications left the menu. The
+  // Communications screen still opens from a New Inquiry card ("Log a call"), so logging contact keeps working.
   return [
     ["dashboard", "Dashboard", "dashboard"],
     ["leads", "My Leads", "lead", badges.myLeads],
-    ["deals", "My Deals", "trophy", badges.paymentsDue],
+    ["deals", "Clients", "trophy", badges.paymentsDue],
     ["myPage", "My Trainer Page", "monitor"],
-    ["performance", "Performance", "report"],
     ["submitMedia", "Submit Photos/Videos", "media", badges.mediaPending],
     ["submitReviews", "Submit Reviews", "star", badges.reviewsPending],
-    ["communications", "Communications", "message"],
     ["settings", "Settings", "settings"]
   ];
 }
+
+// Trainer screens that left the menu on 2026-09-12. A saved screen pointing at one opens the Dashboard.
+const TRAINER_RETIRED_VIEWS = ["performance"];
 
 function renderSidebar() {
   const isAdmin = session.role === "admin";
@@ -4827,7 +4831,7 @@ function renderTopbar() {
   } : {
     dashboard: ["Dashboard", "Assigned leads, office notes, locked page access, and pending submissions."],
     leads: ["My Leads", "See office notes and outcomes for leads assigned to you."],
-    deals: ["My Deals", "Record what you sold and how the balance is arranged. Your money, your balances, in one place."],
+    deals: ["Clients", "Record each client you sold and how the balance is arranged. Your clients, your revenue, your Track 500 countdown."],
     myPage: ["My Trainer Page", "This page is controlled, published, and locked by Lorenzo's office."],
     performance: ["Performance", "Basic lead and conversion numbers from office-managed tracking."],
     submitMedia: ["Submit Photos/Videos", "Send training photos and videos to the office for approval."],
@@ -4870,6 +4874,7 @@ function renderView() {
     state.activeView = "settings";
   }
   if (session.role === "admin" && !canAccessAdminView(state.activeView)) state.activeView = "dashboard";
+  if (session.role !== "admin" && TRAINER_RETIRED_VIEWS.includes(state.activeView)) state.activeView = "dashboard";
   // freshness: no silent local-only mode. A login without a live payload sees the
   // blocking notice (Retry / Sign out) instead of stale or sample rows.
   if (session.loggedIn && !remoteReady && !remoteLoading && window.LDTT_PORTAL?.enabled && !(session.demoUsername && state.demoOfflineAccepted)) {
@@ -4890,6 +4895,7 @@ function renderView() {
   target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
   restoreTypedInput(target, typed);
   restoreScrollState(target, scrolled);
+  wireTrainerScrollSpy();
 }
 
 // A redraw must not throw someone back to the top of a lead they are reading.
@@ -6338,17 +6344,30 @@ const trainerScreens = {
   dashboard() {
     const trainer = trainerById(currentTrainerId());
     const figures = METRICS.trainerDashboard(trainerLeads(trainer.id), trainerSubmissions());
+    const myLeads = trainerLeads(trainer.id);
+    // Meeting 2026-09-12 (Tim + Angela): one page. The overview on top, the working board right under it,
+    // then Clients. The menu stays; scrolling lights up the menu item for the part on screen
+    // (wireTrainerScrollSpy). Every number still comes from metrics.js (rule 34).
     return `
-      ${metricGrid([
-        ["lead", "Assigned Leads", figures.assigned, "Office-managed", ""],
-        ["calendar", "Evaluations Scheduled", figures.evalScheduled, "From office", "up"],
-        ["trophy", "Became Client / Paid", figures.won, "True conversion", "up"],
-        ["media", "Pending Submissions", figures.pendingSubmissions, "Awaiting approval", ""]
-      ])}
+      <section class="trainer-spy-section" data-spy-view="dashboard">
+      <div class="five-up">${metricGrid([
+        ["lead", "Assigned Leads", figures.assigned, "Yours to work", ""],
+        ["calendar", "Evaluations Scheduled", figures.evalScheduled, "Booked for you", figures.evalScheduled ? "up" : ""],
+        ["report", "Evaluations Completed", figures.evalCompleted, "Done by you", figures.evalCompleted ? "up" : ""],
+        ["trophy", "Sold", figures.won, "Became a client", figures.won ? "up" : ""],
+        ["message", "Lost", figures.lost, figures.lost ? "Call these back" : "None right now", figures.lost ? "down" : ""]
+      ])}</div>
       <div class="dashboard-grid">
         ${panel("My Locked Trainer Page", `<a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Page</a>`, lockedPageCard(trainer), "pad")}
         ${panel("Assigned Leads & Office Notes", `<button class="btn btn-outline" data-view="leads">View All</button>`, leadPipelineTable(false), "pad")}
       </div>
+      </section>
+      <section class="trainer-spy-section" data-spy-view="leads" id="trainerPipelineSection">
+        ${panel("My Pipeline", `<button class="btn btn-outline" data-view="leads">Open My Leads</button>`, trainerPipelineBoard(myLeads), "pad")}
+      </section>
+      <section class="trainer-spy-section" data-spy-view="deals" id="trainerClientsSection">
+        ${panel("My Clients", `<button class="btn btn-red" data-view="deals">Submit a Deal</button>`, trainerClientsSummary(trainer), "pad")}
+      </section>
       <div class="dashboard-grid">
         ${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}
         ${panel("Submit Content For Approval", `<button class="btn btn-red" data-view="submitMedia">Submit Media</button><button class="btn btn-outline" data-view="submitReviews">Submit Reviews</button>`, `<p class="panel-copy">Photos, videos, reviews, screenshots, and testimonials go to Lorenzo's office before anything appears publicly.</p>`, "pad")}
@@ -6375,7 +6394,9 @@ const trainerScreens = {
     ])}${panel("Lead Performance By Date Range", "", leadPipelineTable(false), "pad")}${panel("Performance Notes", "", `<p class="panel-copy">These numbers are read-only for trainers. Lorenzo's office owns lead statuses and conversion rules, while this tab lets the trainer review lead activity by last 7 days, last 30 days, last 60 days, or a custom date range.</p>`, "pad")}`;
   },
   submitMedia() {
-    return `<div class="dashboard-grid">${panel("Submit Photos / Videos", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="media">Submit For Approval</button>`, submissionForm("media"), "pad")}${panel("My Photo / Video Status", "", submissionsTable(false, "media"), "pad")}</div>`;
+    // Meeting 2026-09-12: tell trainers what to send. Bill and Arrison edit it; the office approves.
+    const guide = `<section class="source-record-note trainer-media-guide"><span class="status live">What to send</span><p><strong>Before-and-after videos:</strong> the same dog before training and after. <strong>Client testimonials:</strong> a short video of a happy client talking about their dog (ask them first). <strong>Training photos:</strong> clear, bright, dog and client in the picture.</p><p>Just upload it. Bill and Arrison edit it, the office approves it, and then it goes on your page.</p></section>`;
+    return `${guide}<div class="dashboard-grid">${panel("Submit Photos / Videos", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="media">Submit For Approval</button>`, submissionForm("media"), "pad")}${panel("My Photo / Video Status", "", submissionsTable(false, "media"), "pad")}</div>`;
   },
   submitReviews() {
     return `<div class="dashboard-grid">${panel("Submit Review / Testimonial", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="review">Submit For Approval</button>`, submissionForm("review"), "pad")}${panel("My Review Status", "", submissionsTable(false, "review"), "pad")}</div>`;
@@ -8272,12 +8293,23 @@ function dealForm() {
   const f = state.dealForm || {};
   return {
     lead_id: f.lead_id || "", client_name: f.client_name || "", dog_name: f.dog_name || "",
-    program: f.program || "", sold_amount: f.sold_amount ?? "", collected_amount: f.collected_amount ?? "",
+    program: f.program || "", program_choice: f.program_choice || "", sold_amount: f.sold_amount ?? "", collected_amount: f.collected_amount ?? "",
     plan_type: f.plan_type || "paid_in_full", installments: f.installments || 4,
     sold_on: f.sold_on || new Date().toISOString().slice(0, 10),
     custom_dates: Array.isArray(f.custom_dates) && f.custom_dates.length ? f.custom_dates : [""],
     notes: f.notes || "", error: f.error || "", ok: f.ok || "", busy: !!f.busy
   };
+}
+
+// Meeting 2026-09-12: Program is a dropdown. PLACEHOLDER LIST: the 2026-09-11 training list, until Rachel /
+// Missy send the real program names. "Other (type it)" keeps any program possible, and an older deal's
+// program that is not on the list shows as Other with its words kept.
+const DEAL_PROGRAM_CHOICES = ["Obedience On & Off Leash & Household Manners", "Behavior Modification", "Puppy Training & Socialization", "Board & Train Programs", "Service Dog Training"];
+function dealProgramField(f) {
+  const known = DEAL_PROGRAM_CHOICES.includes(f.program);
+  const choice = f.program_choice || (f.program ? (known ? f.program : "__other") : "");
+  const options = DEAL_PROGRAM_CHOICES.map(name => `<option value="${escapeHtml(name)}" ${choice === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("");
+  return `<label>Program<select data-deal-field="program_choice" required><option value="">Pick a program</option>${options}<option value="__other" ${choice === "__other" ? "selected" : ""}>Other (type it)</option></select>${choice === "__other" ? `<input type="text" data-deal-field="program" value="${escapeHtml(known ? "" : f.program)}" required placeholder="Program name">` : ""}</label>`;
 }
 
 function moneyNum(v) { const n = Number(String(v ?? "").replace(/[^0-9.\-]/g, "")); return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0; }
@@ -8315,9 +8347,9 @@ function dealFormMarkup() {
       <label>Date of sale<input type="date" data-deal-field="sold_on" value="${escapeHtml(f.sold_on)}" required></label>
     </div>
     <div class="grid-3">
-      <label>Client name<input type="text" data-deal-field="client_name" value="${escapeHtml(f.client_name)}" required placeholder="Kathy Robinson"></label>
-      <label>Dog name <span class="hint">optional</span><input type="text" data-deal-field="dog_name" value="${escapeHtml(f.dog_name)}"></label>
-      <label>Program<input type="text" data-deal-field="program" value="${escapeHtml(f.program)}" required placeholder="Basic Obedience"></label>
+      <label>Client name ${f.lead_id ? `<span class="hint">from the lead</span>` : ""}<input type="text" data-deal-field="client_name" value="${escapeHtml(f.client_name)}" required placeholder="Kathy Robinson" ${f.lead_id ? "readonly" : ""}></label>
+      <label>Dog name <span class="hint">${f.lead_id ? "from the lead" : "optional"}</span><input type="text" data-deal-field="dog_name" value="${escapeHtml(f.dog_name)}" ${f.lead_id ? "readonly" : ""}></label>
+      ${dealProgramField(f)}
     </div>
     <div class="grid-2">
       <label>Sold for<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="sold_amount" value="${escapeHtml(String(f.sold_amount))}" required placeholder="2500.00"></label>
@@ -8360,29 +8392,138 @@ function refreshDealDerived() {
   if (btn) { const over = moneyNum(f.collected_amount) > moneyNum(f.sold_amount) && moneyNum(f.sold_amount) > 0; btn.disabled = !!(f.busy || over); }
 }
 
-function trainerDealsView() {
-  const trainer = trainerById(currentTrainerId());
+// ---- Trainer Clients (meeting 2026-09-12, Tim + Angela) --------------------
+// "My Deals" became "Clients". The tiles read Clients (Track 500 countdown from 500) / Revenue / Collected /
+// Balance due / Contracted revenue ($1,250,000 counting down as revenue goes up). Numbers: metrics.js only.
+function trainerDealFigures(trainer) {
   const today = new Date().toISOString().slice(0, 10);
-  const figures = METRICS.trainerDeals((state.deals || []).filter(d => d.trainer_id === trainer?.remoteId), state.dealPayments || [], today);
-  const { deals, sold, collected, dueNow, upcoming } = figures;
+  return METRICS.trainerDeals((state.deals || []).filter(d => d.trainer_id === trainer?.remoteId), state.dealPayments || [], today);
+}
+
+function trainerClientTiles(figures) {
+  const due = figures.dueNow.length
+    ? `${figures.dueNow.length} payment${figures.dueNow.length === 1 ? "" : "s"} due now`
+    : figures.upcoming[0] ? `Next: ${figures.upcoming[0].due_on}` : "Nothing scheduled";
+  return `<div class="five-up">${metricGrid([
+    ["trophy", "Clients", figures.clients, `${figures.clientsToGo} to go of ${figures.clientGoal} (Track 500)`, figures.clients ? "up" : ""],
+    ["report", "Revenue", fmtMoney(figures.revenue), "Total sold", ""],
+    ["lead", "Collected", fmtMoney(figures.collected), `${figures.collectedPercent}% of revenue`, figures.collected ? "up" : ""],
+    ["calendar", "Balance Due", fmtMoney(figures.balanceDue), due, figures.dueNow.length ? "down" : ""],
+    ["dashboard", "Contracted Revenue", fmtMoney(figures.revenueToGo), `Left of ${fmtMoney(figures.revenueGoal)}`, ""]
+  ])}</div>`;
+}
+
+// One client row per deal. A click opens "View more" under the row (state.openDealRow).
+function trainerDealsTable(deals) {
+  const open = state.openDealRow || "";
   const rows = deals.map(d => {
     const dp = paymentsForDeal(d.id); const next = dp.find(p => p.status === "scheduled");
-    return `<tr><td>${escapeHtml(d.sold_on)}</td><td><strong>${escapeHtml(d.client_name)}</strong>${d.dog_name ? `<small>${escapeHtml(d.dog_name)}</small>` : ""}</td><td>${escapeHtml(d.program)}</td><td class="amt">${fmtMoney(d.sold_amount)}</td><td class="amt">${fmtMoney(d.collected_amount)}</td><td class="amt">${fmtMoney(d.balance_due)}</td><td>${next ? `${escapeHtml(next.due_on)} &middot; ${fmtMoney(next.amount)}` : (Number(d.balance_due) > 0 ? "&mdash;" : `<span class="status won">Paid</span>`)}</td></tr>`;
+    const isOpen = open === d.id;
+    return `<tr class="deal-row${isOpen ? " is-open" : ""}" data-deal-row="${escapeHtml(d.id)}"><td>${escapeHtml(d.sold_on)}</td><td><strong>${escapeHtml(d.client_name)}</strong>${d.dog_name ? `<small>${escapeHtml(d.dog_name)}</small>` : ""}</td><td>${escapeHtml(d.program)}</td><td class="amt">${fmtMoney(d.sold_amount)}</td><td class="amt">${fmtMoney(d.collected_amount)}</td><td class="amt">${fmtMoney(d.balance_due)}</td><td>${next ? `${escapeHtml(next.due_on)} &middot; ${fmtMoney(next.amount)}` : (Number(d.balance_due) > 0 ? "&mdash;" : `<span class="status won">Paid</span>`)}</td><td><button type="button" class="btn btn-outline btn-small" data-deal-row="${escapeHtml(d.id)}" aria-expanded="${isOpen ? "true" : "false"}">${isOpen ? "Hide" : "View more"}</button></td></tr>${isOpen ? `<tr class="deal-detail-row"><td colspan="8">${trainerDealDetail(d, dp)}</td></tr>` : ""}`;
   }).join("");
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Date</th><th>Client</th><th>Program</th><th>Sold</th><th>Collected</th><th>Balance</th><th>Next payment</th></tr></thead><tbody>${rows || `<tr><td colspan="7">No deals yet. Your first one goes in above.</td></tr>`}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table trainer-deals-table"><thead><tr><th>Date</th><th>Client</th><th>Program</th><th>Revenue</th><th>Collected</th><th>Balance</th><th>Next payment</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="8">No clients yet. Your first one goes in with Submit a Deal.</td></tr>`}</tbody></table></div>`;
+}
+
+function trainerDealDetail(deal, payments) {
+  const lead = deal.lead_id ? state.leads.find(l => (l.remoteId || l.id) === deal.lead_id) : null;
+  const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
+  const phone = lead?.phone ? `<div><span>Phone</span><strong><a href="tel:${escapeHtml(String(lead.phone).replace(/[^0-9+]/g, ""))}">${escapeHtml(lead.phone)}</a></strong></div>` : row("Phone", "");
+  const today = new Date().toISOString().slice(0, 10);
+  const schedule = payments.length ? `<div class="deal-schedule">${payments.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${p.sequence}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(p.due_on)}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>` : "";
+  return `<section class="detail-note-block trainer-deal-detail">
+    <div class="lead-contact-grid">${row("Client", deal.client_name)}${phone}${row("Email", lead?.email)}${row("Dog", deal.dog_name || (lead ? leadDogLabel(lead) : ""))}${row("Program", deal.program)}${row("Date of sale", deal.sold_on)}<div class="wide"><span>Address</span><strong>${escapeHtml(lead?.address || "—")}</strong></div>${deal.notes ? `<div class="wide"><span>Notes for the office</span><strong>${escapeHtml(deal.notes)}</strong></div>` : ""}</div>
+    ${schedule}
+    <div class="deal-balance"><span>Balance due</span><strong>${fmtMoney(deal.balance_due)}</strong></div>
+    <p class="field-hint">Upsell idea: a client who finished one program may want the next one. Call them on a slow day.</p>
+  </section>`;
+}
+
+// The Dashboard's Clients part: the same tiles and rows as the Clients screen, without the form.
+function trainerClientsSummary(trainer) {
+  const figures = trainerDealFigures(trainer);
+  return `${trainerClientTiles(figures)}${trainerDealsTable(figures.deals)}`;
+}
+
+function trainerDealsView() {
+  const trainer = trainerById(currentTrainerId());
+  const figures = trainerDealFigures(trainer);
+  const { deals, dueNow } = figures;
   const reminders = dueNow.length ? `<section class="source-record-note"><span class="status draft">${dueNow.length} balance payment${dueNow.length === 1 ? "" : "s"} due now</span><p>${dueNow.slice(0, 5).map(p => { const d = deals.find(x => x.id === p.deal_id); return `${escapeHtml(d?.client_name || "Client")} &middot; ${fmtMoney(p.amount)} due ${escapeHtml(p.due_on)}`; }).join("<br>")}</p></section>` : "";
-  return `${metricGrid([
-    ["trophy", "Deals", figures.count, "Submitted by you", ""],
-    ["report", "Sold", fmtMoney(sold), "Total program value", ""],
-    ["lead", "Collected", fmtMoney(collected), `${figures.collectedPercent}% of sold`, collected ? "up" : ""],
-    ["calendar", "Due Now", dueNow.length, upcoming[0] ? `Next: ${upcoming[0].due_on}` : "Nothing scheduled", dueNow.length ? "down" : ""]
-  ])}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Deals", "", table, "pad")}`;
+  return `${trainerClientTiles(figures)}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Clients", "", trainerDealsTable(deals), "pad")}`;
+}
+
+// ---- Trainer working board (meeting 2026-09-12) ----------------------------
+// Same look as the office Sales board. Trainers cannot open the office lead panel, so each card carries
+// what they need: name, dog, market, phone, eval time, and the next step in plain words.
+function trainerPipelineBoard(leads) {
+  const board = METRICS.trainerPipeline(leads);
+  const tone = { inquiry: "marketing", scheduled: "marketing", completed: "sales", sold: "won", lost: "lost" };
+  const columns = METRICS.TRAINER_PIPELINE_STAGES.map(([id, label]) => {
+    const items = METRICS.newestFirst(board.get(id) || [], lead => lead.createdAt);
+    const cards = items.slice(0, 25).map(lead => {
+      const market = leadMarketLabel(lead);
+      const tel = String(lead.phone || "").replace(/[^0-9+]/g, "");
+      return `<article class="sales-card trainer-card">
+        <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
+        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}</small>
+        ${tel ? `<small><a href="tel:${escapeHtml(tel)}">${escapeHtml(lead.phone)}</a></small>` : ""}
+        ${trainerCardEvalLine(lead)}
+        ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
+        ${trainerCardNextStep(lead, id)}
+      </article>`;
+    }).join("");
+    const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more in My Leads</p>` : "";
+    return `<section class="sales-column ${tone[id]}">
+      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${items.length}</span></header>
+      <div class="sales-column-body">${cards || `<p class="sales-empty">No leads in this stage yet.</p>`}${more}</div>
+    </section>`;
+  }).join("");
+  return `<div class="sales-board trainer-board">${columns}</div>`;
+}
+
+function trainerCardEvalLine(lead) {
+  if (lead.status !== "Evaluation Scheduled") return "";
+  const label = leadEvalLabel(lead.evalScheduledAt);
+  return label
+    ? `<p class="lead-card-eval"><span>Eval</span> <strong>${escapeHtml(label)}</strong></p>`
+    : `<p class="lead-card-eval is-missing">Eval time not set yet. The office adds it.</p>`;
+}
+
+// New Inquiry: the office sees the same lead, whoever calls first. Lost: the bot's texts did not bring
+// them back, so a person calls. "Log a call" opens the Communications screen (off the menu since
+// 2026-09-12, still the place a trainer claims a lead and logs contact).
+function trainerCardNextStep(lead, stage) {
+  const pipeline = leadRawPayload(lead).pipeline || {};
+  const texted = pipeline.new_lead_text?.status === "sent";
+  if (stage === "inquiry") {
+    return `<p class="trainer-card-next">${texted ? "We texted the booking link. No booking yet: call to introduce yourself." : "No booking text went out. Call to introduce yourself."}</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
+  }
+  if (stage === "lost") {
+    return `<p class="trainer-card-next is-lost">${texted ? "Our texts did not bring them back. A call from you is next." : "Call to find out what happened."}</p>`;
+  }
+  return "";
+}
+
+// One-page Dashboard: light up the menu item for the part on screen. Visual only: it never changes
+// state.activeView, so it never redraws. Re-wired after every draw.
+let trainerSpyObserver = null;
+function wireTrainerScrollSpy() {
+  if (trainerSpyObserver) { trainerSpyObserver.disconnect(); trainerSpyObserver = null; }
+  if (session.role === "admin" || state.activeView !== "dashboard" || typeof IntersectionObserver !== "function") return;
+  const sections = [...document.querySelectorAll("#workspaceView [data-spy-view]")];
+  if (!sections.length) return;
+  const mark = view => document.querySelectorAll("#sidebar .nav-btn[data-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+  trainerSpyObserver = new IntersectionObserver(entries => {
+    const hit = entries.filter(entry => entry.isIntersecting).pop();
+    if (hit) mark(hit.target.dataset.spyView);
+  }, { rootMargin: "-40% 0px -55% 0px" });
+  sections.forEach(section => trainerSpyObserver.observe(section));
 }
 
 // Client record: first payment + every scheduled payment.
 function clientPaymentsSection(client) {
   const deals = (state.deals || []).filter(d => d.client_id === client.remoteId || (client.leadId && d.lead_id === client.leadId));
-  if (!deals.length) return `<section class="detail-note-block client-payments"><h3>Payments</h3><p class="panel-copy">No deal recorded yet. The trainer submits it from My Deals.</p></section>`;
+  if (!deals.length) return `<section class="detail-note-block client-payments"><h3>Payments</h3><p class="panel-copy">No deal recorded yet. The trainer submits it from Clients.</p></section>`;
   const today = new Date().toISOString().slice(0, 10);
   return `<section class="detail-note-block client-payments"><h3>Payments</h3>${deals.map(d => {
     const dp = paymentsForDeal(d.id);
@@ -9204,7 +9345,7 @@ function syncRow(trainer, pair) {
   return `<article class="profile-sync-row ${publicMatches && landingMatches ? "matches" : "mismatch"}">
     <label><span>${escapeHtml(pair.label)}</span>${control}</label>
     ${pair.public ? `<div class="sync-meta"><span class="sync-state ${publicMatches ? "match" : "mismatch"}">${publicMatches ? publicWords[0] : publicWords[1]}</span><button class="btn btn-outline btn-small" type="button" data-sync-public-field="${pair.profile}">${publicWords[2]}</button></div>` : ""}
-    ${pair.baseZip ? `<p class="field-hint">Clients within 50 miles of this ZIP see this trainer on the booking page (/book), nearest first. Leave it empty to keep this trainer off the booking page.</p>` : ""}
+    ${pair.baseZip ? `<p class="field-hint">Clients within 30 miles of this ZIP see this trainer on the booking page (/book), nearest first. Leave it empty to keep this trainer off the booking page.</p>` : ""}
     ${pair.landing ? `<div class="sync-meta"><span class="sync-state ${landingMatches ? "match" : "mismatch"}">${landingMatches ? "✓ Matches landing page" : "Needs landing page update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-profile-field="${pair.profile}" data-landing-field="${pair.landing}" data-sync-list="${pair.list ? "true" : "false"}">Update landing page</button></div>` : ""}
   </article>`;
 }
@@ -9321,7 +9462,7 @@ function showTrainerInviteDialog(trainer) {
 }
 
 function trainerAllowedList() {
-  return `<div class="permission-grid"><div><h3>Trainer can</h3><ul><li>View locked page</li><li>See assigned leads</li><li>Read office notes and outcomes</li><li>See basic performance numbers</li><li>Submit photos/reviews for approval</li></ul></div><div><h3>Trainer cannot</h3><ul><li>Edit website pages</li><li>Pick random themes</li><li>Publish pages</li><li>Manage DNS/domains</li><li>Control calendar builder</li><li>Mass message imported clients</li></ul></div></div>`;
+  return `<div class="permission-grid"><div><h3>Trainer can</h3><ul><li>View locked page</li><li>See assigned leads</li><li>Read office notes and outcomes</li><li>See their pipeline, clients and Track 500 countdown</li><li>Submit photos/reviews for approval</li></ul></div><div><h3>Trainer cannot</h3><ul><li>Edit website pages</li><li>Pick random themes</li><li>Publish pages</li><li>Manage DNS/domains</li><li>Control calendar builder</li><li>Mass message imported clients</li></ul></div></div>`;
 }
 
 function trainerSubmissions(id = currentTrainerId()) {
@@ -9925,7 +10066,7 @@ function leadPipelineNotices(lead) {
     const t = last.texts || {};
     // rule 74: a "request this trainer" / no-trainer callback notice sends no texts by design; say what it is instead.
     if (last.kind === "trainer_request") lines.push("Trainer requested online: no time booked, no texts. The office schedules this client.");
-    else if (last.kind === "no_trainer") lines.push("No trainer within 50 miles: the client asked for a callback. No texts.");
+    else if (last.kind === "no_trainer") lines.push("No trainer within 30 miles: the client asked for a callback. No texts.");
     else lines.push(`Confirmation + trainer alert texts: ${say(t)}${t.customer_last4 ? ` (customer ...${t.customer_last4})` : ""}${t.trainer_last4 ? ` (trainer alert ...${t.trainer_last4})` : ""}${t.status === "sent" && t.notes ? `. ${t.notes}` : ""}`);
     const mail = last.office_email;
     if (mail && typeof mail === "object") {
@@ -9981,7 +10122,7 @@ function leadBookingBlock(lead) {
   const dogRows = dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Sex", dog.sex)}${row("Spayed/Neutered?", dog.fixed)}${row("Vaccinations up to date?", dog.vaccinated)}${row("Age", dog.age)}${row("Breed", dog.breed)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog.behavior || "—")}</strong></div></div></div>`).join("");
   // rule 74: "Request this trainer" (no calendar yet) and the no-trainer-nearby callback.
   const callback = booking.callback && typeof booking.callback === "object" ? booking.callback : null;
-  const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 50 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
+  const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 30 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
   if (!booking.slot_start && booking.requested) {
     return `<section class="detail-note-block lead-booking-block"><span>Trainer requested online</span><p>The client asked for <strong>${escapeHtml(booking.trainer_name || booking.trainer_slug || "a trainer")}</strong> · ${escapeHtml(booking.location_label || "In-home")}. No time was booked: this trainer has no online calendar yet.</p><p class="field-hint">Call the client to pick a day and time, then set this lead to Evaluation Scheduled with the eval date + time.</p>${callbackNote}${leadPipelineNotices(lead)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
   }
@@ -9989,7 +10130,7 @@ function leadBookingBlock(lead) {
     const slug = intake.trainer_slug || "";
     const pipelineLink = String(leadRawPayload(lead).pipeline?.book_url || "").replace(/^https?:\/\/[^/]+/, "");
     const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : (/^\/book\//.test(pipelineLink) ? pipelineLink : "");
-    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 50 miles." : "No trainer within 50 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
+    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 30 miles." : "No trainer within 30 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
   }
   return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
@@ -12181,6 +12322,8 @@ document.addEventListener("click", async event => {
     return;
   }
   const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
+  const dealRow = event.target.closest("[data-deal-row]");
+  if (dealRow && !event.target.closest("a")) { const id = dealRow.dataset.dealRow; state.openDealRow = state.openDealRow === id ? "" : id; render(); return; }
   if (dealCustomAdd) { const f = dealForm(); state.dealForm = { ...f, custom_dates: [...f.custom_dates, ""] }; render(); return; }
   const dealCustomRemove = event.target.closest("[data-deal-custom-remove]");
   if (dealCustomRemove) { const f = dealForm(); const i = Number(dealCustomRemove.dataset.dealCustomRemove); state.dealForm = { ...f, custom_dates: f.custom_dates.filter((_, k) => k !== i) }; render(); return; }
@@ -15005,6 +15148,19 @@ document.addEventListener("input", event => {
     const key = field.dataset.dealField; const f = dealForm();
     const value = field.type === "number" ? field.value : field.value;
     state.dealForm = { ...f, [key]: value, error: "", ok: "" };
+    // Meeting 2026-09-12: picking the lead fills the client and dog from it (and locks them); picking a
+    // program fills Program, or opens the "type it" box for Other. Both are selects, so a redraw is safe.
+    if (key === "lead_id") {
+      const lead = value ? trainerLeads(currentTrainerId()).find(l => (l.remoteId || l.id) === value) : null;
+      state.dealForm = { ...state.dealForm, client_name: lead ? lead.owner || "" : "", dog_name: lead ? leadDogLabel(lead) : "" };
+      render();
+      return;
+    }
+    if (key === "program_choice") {
+      state.dealForm = { ...state.dealForm, program: value === "__other" ? "" : value };
+      render();
+      return;
+    }
     // Amount/plan changes redraw ONLY the balance + preview block. The inputs are
     // never re-rendered while typing, so the caret stays where the trainer left it.
     if (["sold_amount", "collected_amount", "plan_type", "installments", "sold_on"].includes(key)) refreshDealDerived();

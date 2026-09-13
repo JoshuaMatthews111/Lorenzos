@@ -150,7 +150,7 @@ test("step 1: ZIP 44105 lists Cleveland-area trainers nearest first with miles; 
   const brady = list.find(t => t.slug === "brady-deremer");
   assert.deepEqual(brady.locations, ["in_home"], "Streetsboro is in-home only");
   assert.equal(brady.photo, "", "an unsafe photo address is dropped");
-  assert.equal(res.payload.radius, 50);
+  assert.equal(res.payload.radius, 30);
   assert.equal(calls.filter(c => c.host.includes("google")).length, 0, "step 1 never asks Google");
   assert.ok(calls.filter(c => c.host === "supabase.test").every(c => c.headers["Accept-Profile"] === "practice"), "rule 20: practice schema only");
 });
@@ -241,7 +241,7 @@ test("no trainer within 50 miles: the callback tells the office (queued email) a
   const lead = db.leads.find(l => l.id === res.payload.lead_id);
   assert.equal(lead.zip, "59101");
   assert.equal(lead.status, "new_inquiry");
-  assert.match(lead.raw_payload.booking.callback.reason, /No trainer within 50 miles of ZIP 59101/);
+  assert.match(lead.raw_payload.booking.callback.reason, /No trainer within 30 miles of ZIP 59101/);
   const notice = lead.raw_payload.pipeline.booking_notices[0];
   assert.equal(notice.kind, "no_trainer");
   assert.equal(notice.office_email.status, "queued");
@@ -297,7 +297,7 @@ test("office emails: request + callback wording; the booked-time email is unchan
   assert.match(req.text, /schedule the free evaluation with Eric Beck/);
   assert.match(req.text, /Breed: Lab/);
   const cb = M.buildBookingEmail({ lead, booking: { callback: { zip: "59101", phone: "4065550100" } }, kind: "no_trainer" });
-  assert.match(cb.subject, /^Callback needed: Pat Tester, no trainer within 50 miles of ZIP 59101/);
+  assert.match(cb.subject, /^Callback needed: Pat Tester, no trainer within 30 miles of ZIP 59101/);
   const booked = M.buildBookingEmail({ lead, booking: { when_label: "Mon, Sep 14, 8:00 AM EDT", trainer_name: "Lorenzo Miller" } });
   assert.match(booked.subject, /^Eval booked: Pat Tester with Lorenzo Miller, Mon, Sep 14, 8:00 AM EDT/);
   assert.match(booked.text, /Log this client into Alpha/);

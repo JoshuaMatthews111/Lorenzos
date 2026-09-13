@@ -5626,3 +5626,25 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .media-layout-controls label span { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .media-layout-controls input[type="range"] { width: 100%; min-height: 28px; }
 .media-layout-controls .btn { justify-self: start; }
+
+/* ---- Trainer portal, meeting 2026-09-12 (Tim + Angela) ---- */
+/* Five tiles in one row on wide screens (Dashboard + Clients). */
+@media (min-width: 1100px) {
+  .five-up > .metrics-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+}
+@media (max-width: 1099px) {
+  .five-up > .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+/* One-page Dashboard: each part leaves room under the sticky top so a menu jump does not hide its heading. */
+.trainer-spy-section { scroll-margin-top: 90px; }
+/* Working board: the office Sales board look, five columns. */
+.trainer-board .trainer-card a { color: inherit; font-weight: 700; }
+.trainer-card-next { margin: 6px 0 4px; font-size: 12px; line-height: 1.35; color: #334155; }
+.trainer-card-next.is-lost { color: #9b3a2e; font-weight: 700; }
+.trainer-card .btn-small { margin-top: 2px; }
+/* Clients table: a row opens "View more" underneath. */
+.trainer-deals-table .deal-row { cursor: pointer; }
+.trainer-deals-table .deal-row.is-open td { background: #f1f6fc; }
+.trainer-deals-table .deal-detail-row td { background: #f8fafc; padding: 12px 14px; }
+.trainer-deal-detail .deal-schedule { margin: 10px 0; }
+.trainer-media-guide { margin-bottom: 14px; }

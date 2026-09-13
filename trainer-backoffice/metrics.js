@@ -80,7 +80,9 @@
   const SALES_STAGES = [
     ["captured",  "Captured & Responded",   "marketing", ["new_inquiry", "office_contacted", "engaged_no_outcome"]],
     ["booked",    "Booked",                 "marketing", ["evaluation_scheduled"]],
-    ["confirmed", "Confirmed",              "marketing", ["site_visit"]],
+    // Label only (meeting 2026-09-12, Tim + Angela): a lead is fully confirmed only when it is booked, has a trainer
+    // AND the client answered the pre-evaluation questions. Key and statuses unchanged (rule 10).
+    ["confirmed", "Eval Questions Completed", "marketing", ["site_visit"]],
     // Label only (meeting 2026-09-11): renamed from the old trainer-hands wording. Key and statuses unchanged (rule 10).
     ["evaluated", "Eval Completed",         "sales",     ["evaluation_complete"]],
     ["won",       "Won",                    "won",       ["became_client"]],
@@ -389,7 +391,17 @@
     const collected = sumMoney(deals, "collected_amount");
     const dueNow = pays.filter(p => p.status === "scheduled" && p.due_on <= today);
     const upcoming = pays.filter(p => p.status === "scheduled" && p.due_on > today).sort((a, b) => a.due_on.localeCompare(b.due_on));
-    return { deals, count: deals.length, sold, collected, collectedPercent: percent(collected, sold), dueNow, upcoming };
+    // Meeting 2026-09-12: the trainer's tiles read Clients / Revenue / Collected / Balance due / Contracted
+    // revenue. A client is counted once even with two deals (same client record, else same lead, else same name).
+    const clientKeys = new Set(deals.map(d => String(d.client_id || (d.lead_id ? `lead:${d.lead_id}` : `name:${String(d.client_name || "").trim().toLowerCase()}`))));
+    const clients = clientKeys.size;
+    const balanceDue = sumMoney(deals, "balance_due");
+    return {
+      deals, count: deals.length, sold, collected, collectedPercent: percent(collected, sold), dueNow, upcoming,
+      clients, revenue: sold, balanceDue,
+      clientGoal: TRACK500_CLIENT_GOAL, clientsToGo: Math.max(0, TRACK500_CLIENT_GOAL - clients),
+      revenueGoal: TRACK500_REVENUE_GOAL, revenueToGo: Math.max(0, TRACK500_REVENUE_GOAL - sold)
+    };
   }
   const paymentsDueNow = (payments, today) => list(payments).filter(p => p.status === "scheduled" && p.due_on <= today).length;
 
@@ -425,11 +437,41 @@
   // Trainer role.
   // -------------------------------------------------------------------------
   const wonCount = rows => list(rows).filter(lead => CONVERSION_STATUSES.includes(lead.status)).length;
+
+  // Track 500 (meeting 2026-09-12, Tim + Angela): every trainer signs for 500 clients at about $2,500
+  // each = $1,250,000. The trainer portal counts both down.
+  const TRACK500_CLIENT_GOAL = 500;
+  const TRACK500_REVENUE_GOAL = 1250000;
+
+  // The trainer's working board (meeting 2026-09-12): New Inquiry -> Eval Scheduled -> Eval Completed
+  // -> Sold -> Lost. A lead sits in exactly one column. Cancelled evaluations need a person to call, so
+  // they sit with Lost. A status that is not listed is not drawn.
+  const TRAINER_PIPELINE_STAGES = [
+    ["inquiry",   "New Inquiry",    ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome"]],
+    ["scheduled", "Eval Scheduled", ["Evaluation Scheduled"]],
+    ["completed", "Eval Completed", ["Evaluation Complete"]],
+    ["sold",      "Sold",           ["Became a Client"]],
+    ["lost",      "Lost",           ["Lost", "Evaluation Cancelled"]]
+  ];
+  function trainerStageFor(lead) {
+    const status = boardStatus((lead && lead.status) || "New Inquiry");
+    const found = TRAINER_PIPELINE_STAGES.find(([, , statuses]) => statuses.includes(status));
+    return found ? found[0] : null;
+  }
+  function trainerPipeline(leads) {
+    const buckets = new Map(TRAINER_PIPELINE_STAGES.map(([id]) => [id, []]));
+    list(leads).forEach(lead => { const id = trainerStageFor(lead); if (id) buckets.get(id).push(lead); });
+    return buckets;
+  }
+
   function trainerDashboard(leads, submissions) {
+    const board = trainerPipeline(leads);
     return {
       assigned: count(leads),
       evalScheduled: countByStatus(leads, "Evaluation Scheduled"),
+      evalCompleted: countByStatus(leads, "Evaluation Complete"),
       won: wonCount(leads),
+      lost: board.get("lost").length,
       pendingSubmissions: list(submissions).filter(s => s.status === "Pending").length
     };
   }
@@ -485,6 +527,7 @@
     trainerDeals, paymentsDueNow,
     applicationRows, applicationNeedsAction, applicationTiles, applicationColumns, applicationColumnCounts,
     clientCounts, wonCount, trainerDashboard, trainerPerformance, trainerStats, navBadgeCounts,
+    TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_PIPELINE_STAGES, trainerStageFor, trainerPipeline,
     escapeCsv, csvDocument, csvRowCount
   };
 });
