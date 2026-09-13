@@ -4829,7 +4829,7 @@ function renderTopbar() {
     portalAccess: ["Portal Access", "Super Admin controls for staff, office admin, and trainer login access."],
     settings: ["Settings", "Portal access, database status, and account controls."]
   } : {
-    dashboard: ["Dashboard", "Assigned leads, office notes, locked page access, and pending submissions."],
+    dashboard: ["Dashboard", "Your numbers, your pipeline and your clients on one page. Scroll down to work."],
     leads: ["My Leads", "See office notes and outcomes for leads assigned to you."],
     deals: ["Clients", "Record each client you sold and how the balance is arranged. Your clients, your revenue, your Track 500 countdown."],
     myPage: ["My Trainer Page", "This page is controlled, published, and locked by Lorenzo's office."],
@@ -6394,8 +6394,8 @@ const trainerScreens = {
     ])}${panel("Lead Performance By Date Range", "", leadPipelineTable(false), "pad")}${panel("Performance Notes", "", `<p class="panel-copy">These numbers are read-only for trainers. Lorenzo's office owns lead statuses and conversion rules, while this tab lets the trainer review lead activity by last 7 days, last 30 days, last 60 days, or a custom date range.</p>`, "pad")}`;
   },
   submitMedia() {
-    // Meeting 2026-09-12: tell trainers what to send. Bill and Arrison edit it; the office approves.
-    const guide = `<section class="source-record-note trainer-media-guide"><span class="status live">What to send</span><p><strong>Before-and-after videos:</strong> the same dog before training and after. <strong>Client testimonials:</strong> a short video of a happy client talking about their dog (ask them first). <strong>Training photos:</strong> clear, bright, dog and client in the picture.</p><p>Just upload it. Bill and Arrison edit it, the office approves it, and then it goes on your page.</p></section>`;
+    // Meeting 2026-09-12: tell trainers what to send. The media team edits it; the office approves.
+    const guide = `<section class="source-record-note trainer-media-guide"><span class="status live">What to send</span><p><strong>Before-and-after videos:</strong> the same dog before training and after. <strong>Client testimonials:</strong> a short video of a happy client talking about their dog (ask them first). <strong>Training photos:</strong> clear, bright, dog and client in the picture.</p><p>Just upload it. Our media team edits it, the office approves it, and then it goes on your page.</p></section>`;
     return `${guide}<div class="dashboard-grid">${panel("Submit Photos / Videos", `<button class="btn btn-red" id="submitDemoContent" data-submit-kind="media">Submit For Approval</button>`, submissionForm("media"), "pad")}${panel("My Photo / Video Status", "", submissionsTable(false, "media"), "pad")}</div>`;
   },
   submitReviews() {
@@ -8295,7 +8295,7 @@ function dealForm() {
     lead_id: f.lead_id || "", client_name: f.client_name || "", dog_name: f.dog_name || "",
     program: f.program || "", program_choice: f.program_choice || "", sold_amount: f.sold_amount ?? "", collected_amount: f.collected_amount ?? "",
     plan_type: f.plan_type || "paid_in_full", installments: f.installments || 4,
-    sold_on: f.sold_on || new Date().toISOString().slice(0, 10),
+    sold_on: f.sold_on || localTodayIso(),
     custom_dates: Array.isArray(f.custom_dates) && f.custom_dates.length ? f.custom_dates : [""],
     notes: f.notes || "", error: f.error || "", ok: f.ok || "", busy: !!f.busy
   };
@@ -8347,13 +8347,13 @@ function dealFormMarkup() {
       <label>Date of sale<input type="date" data-deal-field="sold_on" value="${escapeHtml(f.sold_on)}" required></label>
     </div>
     <div class="grid-3">
-      <label>Client name ${f.lead_id ? `<span class="hint">from the lead</span>` : ""}<input type="text" data-deal-field="client_name" value="${escapeHtml(f.client_name)}" required placeholder="Kathy Robinson" ${f.lead_id ? "readonly" : ""}></label>
+      <label>Client name ${f.lead_id ? `<span class="hint">from the lead</span>` : ""}<input type="text" data-deal-field="client_name" value="${escapeHtml(f.client_name)}" required placeholder="e.g. Kathy Robinson" ${f.lead_id ? "readonly" : ""}></label>
       <label>Dog name <span class="hint">${f.lead_id ? "from the lead" : "optional"}</span><input type="text" data-deal-field="dog_name" value="${escapeHtml(f.dog_name)}" ${f.lead_id ? "readonly" : ""}></label>
       ${dealProgramField(f)}
     </div>
     <div class="grid-2">
-      <label>Sold for<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="sold_amount" value="${escapeHtml(String(f.sold_amount))}" required placeholder="2500.00"></label>
-      <label>Collected today<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="collected_amount" value="${escapeHtml(String(f.collected_amount))}" placeholder="1250.00"></label>
+      <label>Sold for<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="sold_amount" value="${escapeHtml(String(f.sold_amount))}" required placeholder="e.g. 2500.00"></label>
+      <label>Collected today<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="collected_amount" value="${escapeHtml(String(f.collected_amount))}" placeholder="e.g. 1250.00"></label>
     </div>
     <div data-deal-derived>${dealFormDerived(f)}</div>
     <label>Notes for the office <span class="hint">optional</span><textarea data-deal-field="notes">${escapeHtml(f.notes)}</textarea></label>
@@ -8395,8 +8395,14 @@ function refreshDealDerived() {
 // ---- Trainer Clients (meeting 2026-09-12, Tim + Angela) --------------------
 // "My Deals" became "Clients". The tiles read Clients (Track 500 countdown from 500) / Revenue / Collected /
 // Balance due / Contracted revenue ($1,250,000 counting down as revenue goes up). Numbers: metrics.js only.
+// The trainer's own calendar day (a deal typed at 9 PM Eastern is today, not tomorrow in UTC).
+function localTodayIso() {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
 function trainerDealFigures(trainer) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localTodayIso();
   return METRICS.trainerDeals((state.deals || []).filter(d => d.trainer_id === trainer?.remoteId), state.dealPayments || [], today);
 }
 
@@ -8405,7 +8411,8 @@ function trainerClientTiles(figures) {
     ? `${figures.dueNow.length} payment${figures.dueNow.length === 1 ? "" : "s"} due now`
     : figures.upcoming[0] ? `Next: ${figures.upcoming[0].due_on}` : "Nothing scheduled";
   return `<div class="five-up">${metricGrid([
-    ["trophy", "Clients", figures.clients, `${figures.clientsToGo} to go of ${figures.clientGoal} (Track 500)`, figures.clients ? "up" : ""],
+    // Tim: "we start with 500 and then we go down, 499, 498" — the big number counts down.
+    ["trophy", "Clients To Go", figures.clientsToGo, `Track 500 · ${figures.clients} client${figures.clients === 1 ? "" : "s"} signed`, figures.clients ? "up" : ""],
     ["report", "Revenue", fmtMoney(figures.revenue), "Total sold", ""],
     ["lead", "Collected", fmtMoney(figures.collected), `${figures.collectedPercent}% of revenue`, figures.collected ? "up" : ""],
     ["calendar", "Balance Due", fmtMoney(figures.balanceDue), due, figures.dueNow.length ? "down" : ""],
@@ -8429,7 +8436,7 @@ function trainerDealDetail(deal, payments) {
   const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
   const phone = lead?.phone ? `<div><span>Phone</span><strong><a href="tel:${escapeHtml(String(lead.phone).replace(/[^0-9+]/g, ""))}">${escapeHtml(lead.phone)}</a></strong></div>` : row("Phone", "");
   const today = new Date().toISOString().slice(0, 10);
-  const schedule = payments.length ? `<div class="deal-schedule">${payments.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${p.sequence}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(p.due_on)}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>` : "";
+  const schedule = payments.length ? `<div class="deal-schedule">${payments.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${escapeHtml(String(p.sequence))}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(p.due_on)}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>` : "";
   return `<section class="detail-note-block trainer-deal-detail">
     <div class="lead-contact-grid">${row("Client", deal.client_name)}${phone}${row("Email", lead?.email)}${row("Dog", deal.dog_name || (lead ? leadDogLabel(lead) : ""))}${row("Program", deal.program)}${row("Date of sale", deal.sold_on)}<div class="wide"><span>Address</span><strong>${escapeHtml(lead?.address || "—")}</strong></div>${deal.notes ? `<div class="wide"><span>Notes for the office</span><strong>${escapeHtml(deal.notes)}</strong></div>` : ""}</div>
     ${schedule}
@@ -8498,8 +8505,9 @@ function trainerCardNextStep(lead, stage) {
   if (stage === "inquiry") {
     return `<p class="trainer-card-next">${texted ? "We texted the booking link. No booking yet: call to introduce yourself." : "No booking text went out. Call to introduce yourself."}</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
   }
+  // Only what we know: the booking-link text is recorded; win-back texts are not (yet), so never claim them.
   if (stage === "lost") {
-    return `<p class="trainer-card-next is-lost">${texted ? "Our texts did not bring them back. A call from you is next." : "Call to find out what happened."}</p>`;
+    return `<p class="trainer-card-next is-lost">${texted ? "They got our booking text but did not book. Call to find out what happened." : "Call to find out what happened."}</p>`;
   }
   return "";
 }
@@ -15152,7 +15160,11 @@ document.addEventListener("input", event => {
     // program fills Program, or opens the "type it" box for Other. Both are selects, so a redraw is safe.
     if (key === "lead_id") {
       const lead = value ? trainerLeads(currentTrainerId()).find(l => (l.remoteId || l.id) === value) : null;
-      state.dealForm = { ...state.dealForm, client_name: lead ? lead.owner || "" : "", dog_name: lead ? leadDogLabel(lead) : "" };
+      const dog = lead && lead.dog && lead.dog !== "Pending" ? lead.dog : "";
+      state.dealForm = { ...state.dealForm, client_name: lead ? lead.owner || "" : "", dog_name: dog };
+      // Put the new words in the boxes BEFORE the redraw, so the typing safety net (rule 14) never
+      // brings back a name typed earlier into a box that is now locked.
+      document.querySelectorAll('[data-deal-field="client_name"], [data-deal-field="dog_name"]').forEach(box => { box.value = box.dataset.dealField === "dog_name" ? dog : (lead ? lead.owner || "" : ""); });
       render();
       return;
     }

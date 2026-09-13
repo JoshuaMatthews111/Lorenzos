@@ -444,8 +444,9 @@
   const TRACK500_REVENUE_GOAL = 1250000;
 
   // The trainer's working board (meeting 2026-09-12): New Inquiry -> Eval Scheduled -> Eval Completed
-  // -> Sold -> Lost. A lead sits in exactly one column. Cancelled evaluations need a person to call, so
-  // they sit with Lost. A status that is not listed is not drawn.
+  // -> Sold -> Lost. A lead sits in at most one column. Cancelled evaluations need a person to call, so
+  // they sit with Lost. Bad Lead, Do Not Contact and Archived are NOT drawn: the trainer must never be
+  // told to call them. A status that is not listed is not drawn.
   const TRAINER_PIPELINE_STAGES = [
     ["inquiry",   "New Inquiry",    ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome"]],
     ["scheduled", "Eval Scheduled", ["Evaluation Scheduled"]],
@@ -454,7 +455,8 @@
     ["lost",      "Lost",           ["Lost", "Evaluation Cancelled"]]
   ];
   function trainerStageFor(lead) {
-    const status = boardStatus((lead && lead.status) || "New Inquiry");
+    const raw = String((lead && lead.status) || "New Inquiry");
+    const status = /^Lost/.test(raw) ? "Lost" : raw;
     const found = TRAINER_PIPELINE_STAGES.find(([, , statuses]) => statuses.includes(status));
     return found ? found[0] : null;
   }

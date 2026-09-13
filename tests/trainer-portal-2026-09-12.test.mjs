@@ -21,11 +21,12 @@ const app = read("trainer-backoffice/app.js");
 
 const lead = (id, status, extra = {}) => ({ id, status, createdAt: `2026-09-${String(10 + id.length).padStart(2, "0")}T12:00:00Z`, ...extra });
 
-test("trainer board: every listed status lands in exactly one column; cancelled sits with Lost; unknown is not drawn", () => {
+test("trainer board: every listed status lands in exactly one column; cancelled sits with Lost; never-call statuses and unknown are not drawn", () => {
   const leads = [
     lead("a", "New Inquiry"), lead("b", "Office Contacted"), lead("c", "Engaged Lead: No Outcome"),
     lead("d", "Evaluation Scheduled"), lead("e", "Evaluation Complete"), lead("f", "Became a Client"),
-    lead("g", "Lost - Price Concern"), lead("h", "Evaluation Cancelled"), lead("i", "Archived"), lead("j", "Something Else")
+    lead("g", "Lost - Price Concern"), lead("h", "Evaluation Cancelled"), lead("i", "Archived"), lead("j", "Something Else"),
+    lead("k", "Do Not Contact"), lead("l", "Bad Lead")
   ];
   const board = metrics.trainerPipeline(leads);
   assert.deepEqual([...board.keys()], ["inquiry", "scheduled", "completed", "sold", "lost"]);
@@ -33,8 +34,8 @@ test("trainer board: every listed status lands in exactly one column; cancelled 
   assert.deepEqual(board.get("scheduled").map(l => l.id), ["d"]);
   assert.deepEqual(board.get("completed").map(l => l.id), ["e"]);
   assert.deepEqual(board.get("sold").map(l => l.id), ["f"]);
-  assert.deepEqual(board.get("lost").map(l => l.id), ["g", "h", "i"]);
-  assert.equal([...board.values()].flat().length, leads.length - 1, "only the unknown status is left out");
+  assert.deepEqual(board.get("lost").map(l => l.id), ["g", "h"], "a trainer is never told to call Do Not Contact, Bad Lead or Archived");
+  assert.equal([...board.values()].flat().length, leads.length - 4);
   assert.deepEqual(metrics.TRAINER_PIPELINE_STAGES.map(s => s[1]), ["New Inquiry", "Eval Scheduled", "Eval Completed", "Sold", "Lost"]);
 });
 
@@ -110,7 +111,7 @@ test("Submit a Deal: Program dropdown keeps any program; picking a lead fills an
   const xss = ctx.dealProgramField({ program: '<img src=x onerror=alert(1)>', program_choice: "" });
   assert.doesNotMatch(xss, /<img/);
   assert.match(app, /if \(key === "lead_id"\) \{\n      const lead = value \? trainerLeads\(currentTrainerId\(\)\)\.find/);
-  assert.match(app, /data-deal-field="client_name" value="\$\{escapeHtml\(f\.client_name\)\}" required placeholder="Kathy Robinson" \$\{f\.lead_id \? "readonly" : ""\}/);
+  assert.match(app, /data-deal-field="client_name" value="\$\{escapeHtml\(f\.client_name\)\}" required placeholder="e\.g\. Kathy Robinson" \$\{f\.lead_id \? "readonly" : ""\}/);
   assert.match(app, /body: JSON\.stringify\(\{ lead_id: f\.lead_id, client_name: f\.client_name, dog_name: f\.dog_name, program: f\.program,/, "the server still gets the same fields");
 });
 

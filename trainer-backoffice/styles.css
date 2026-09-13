@@ -5648,3 +5648,8 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .trainer-deals-table .deal-detail-row td { background: #f8fafc; padding: 12px 14px; }
 .trainer-deal-detail .deal-schedule { margin: 10px 0; }
 .trainer-media-guide { margin-bottom: 14px; }
+/* Vetting 2026-09-13: the five board columns share the width (Lost is never cut off on a laptop),
+   big money fits its tile, and the Clients date stays on one line. */
+.sales-board.trainer-board .sales-column { flex: 1 1 0; min-width: 180px; }
+.five-up .metric-card strong { font-size: clamp(20px, 1.9vw, 30px); overflow-wrap: anywhere; }
+.trainer-deals-table td:first-child { white-space: nowrap; }

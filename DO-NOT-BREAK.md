@@ -1212,3 +1212,40 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     through Make scenario 6254549 (env LDTT_MAKE_HOOK_OPS, Preview only; tester filter on every route),
     only to an active tester phone, practice copy only. Recorded on the lead as pipeline.ops_new_lead and
     booking_notices[].ops_alert. Online bookings move to Eval Scheduled by themselves (verified).
+
+## Trainer portal from the 2026-09-12 meeting (added 2026-09-13, Claude, branch feat/meeting-2026-09-12)
+
+80. **The trainer portal is one page, its numbers come from metrics.js, and nothing that worked was taken away.**
+    Source: Zoom 2026-09-12 (Joshua, Tim, Angela); decisions + transcript in
+    `/Volumes/mindfulssd/LDTT Meeting 2026-09-12 - Working Files/`. Practice copy only until a live release.
+    - **Record before the change:** trainer menu was Dashboard, My Leads, My Deals, My Trainer Page, Performance,
+      Submit Photos/Videos, Submit Reviews, Communications, Settings; dashboard tiles Assigned Leads / Evaluations
+      Scheduled / Became Client-Paid / Pending Submissions; deal tiles Deals / Sold / Collected / Due Now; Sales column
+      "Confirmed"; booking radius 50 miles; 208 tests + audit green at adefcd6. Video frames of the old screens:
+      `~/Desktop/LDTT Meeting Changes 2026-09-13/before/`.
+    - **Menu:** the view key `deals` is labelled "Clients"; `performance` is off the menu and a saved screen pointing at
+      it opens the Dashboard (`TRAINER_RETIRED_VIEWS`); `communications` is off the menu but its screen is KEPT and
+      opens from every New Inquiry card ("Log a call"), because it is still where a trainer claims a lead and logs
+      contact (`communications_mark_contacted` only accepts the trainer who claimed the lead). Never delete that screen
+      without a replacement. The Page Editor's portal preview list matches the menu.
+    - **Dashboard = one page:** tiles (Assigned / Evaluations Scheduled / Evaluations Completed / Sold / Lost from
+      `METRICS.trainerDashboard(trainerLeads(trainer.id), trainerSubmissions())` — the audit pins that exact call), then
+      "My Pipeline" (`METRICS.trainerPipeline`: New Inquiry, Eval Scheduled, Eval Completed, Sold, Lost), then "My
+      Clients". `wireTrainerScrollSpy()` only toggles the sidebar `.active` class; it never sets `state.activeView` and
+      never calls `render()` (that would redraw while scrolling). It disconnects before every rewire.
+    - **The trainer's Lost column holds only "Lost…" statuses and Evaluation Cancelled.** Bad Lead, Do Not Contact and
+      Archived are NOT drawn: a trainer must never be told to call them. Cards only claim what is recorded (the
+      booking-link text); win-back texts are not recorded, so no card may say they were sent.
+    - **Clients tiles:** Clients To Go (Track 500, counts DOWN from 500; a client with two deals counts once) /
+      Revenue / Collected / Balance Due / Contracted Revenue ($1,250,000 minus revenue, never below 0), all from
+      `METRICS.trainerDeals`. Rows open "View more" (`state.openDealRow`).
+    - **Submit a Deal:** picking the lead fills Client name + Dog name (the lead's dog only, never the breed) and locks
+      them; the boxes are set BEFORE the redraw so the rule-14 net cannot bring back an old typed name. Program is a
+      dropdown (`DEAL_PROGRAM_CHOICES` = PLACEHOLDER until Rachel/Missy send the list) + "Other (type it)"; an older
+      deal's program is kept as Other. The POST body to `api/submit-deal.js` is unchanged. "Today" is the trainer's
+      local day (`localTodayIso`), not UTC.
+    - **Sales column `confirmed`** is labelled "Eval Questions Completed" (label only; key + `site_visit` unchanged).
+    - **Booking radius is 30 miles** (`RADIUS_MILES`, Tim). Every client/office wording says 30.
+    - Texts are NOT changed here: trainer "Track 500 - Schedule Eval", Tim's "Track 500" and "closed" texts live in Make
+      (rule 73: needs Joshua's OK).
+    Tests: `tests/trainer-portal-2026-09-12.test.mjs` (8). Audit rule 74 check now pins 30.
