@@ -1351,3 +1351,36 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     - The portal shows it in the lead details panel ("Update this lead"); the reason and note sit in `state.trainerLost`
       so a background redraw never loses them; Eval completed and Mark lost ask "Are you sure?" first.
     Tests: `tests/trainer-lead-action.test.mjs` (5).
+
+## Decision sheet answers + Text messages editor (added 2026-09-14, Claude)
+
+Joshua's saved answers (claude.ai artifact "LDTT Decision Sheet", 2026-09-14 05:55 UTC): Make texts = yes, but editable
+in the portal by role with Send test and a "currently being used" label; two trainer texts; follow-up = Tim's text
+then the booking link; booklet leads NO; no-consent email later; live after office tests; the ~95 leads not yet;
+program list placeholder kept; questions page kept ("Tim made a better choice as CEO"); Contracted Revenue by
+COLLECTED; service-dog gold tag YES; milestones later.
+
+84. **The office edits every text in the portal; the finished words ride along with every Make send.**
+    - One catalog: `lib/pipeline-texts.js` `TEXTS` (booking link, booking confirmation, trainer new evaluation,
+      pre-evaluation answers, Ops new lead, Ops eval booked, Ops closed, follow-up 1 + 2-4). The STARTING words of the
+      five texts Make sends today are Make's own words on 2026-09-14, copied exactly (`{{1.x}}` -> `{x}`); a test pins
+      them, so switching Make to the portal changes no text. The meeting's "Track 500" wording is offered as a DRAFT.
+    - Stored in `site_settings` key `pipeline_texts` (practice schema via `B.sbOrThrow`): per text `published`,
+      `published_by` ("<Full Name> (<login>)"), `published_at`, `previous`, `draft`, plus a 200-entry `log`.
+      `check()` refuses empty words, > 640 characters and any `{field}` the text does not offer; control bytes removed.
+    - `api/pipeline.js`: GET `op=texts`, POST `text_save|text_publish|text_discard|text_reset` — office admin +
+      super admin only (`authorizeRequest require:"admin"`); publish and reset need a two-word full name (rule 19
+      pattern). Trainers never see the panel (`pipelineTextsPanel` returns "" unless admin + practice copy).
+    - `lib/pipeline.js` `postHook()` calls `withTextMessages()`: pathway 1 gets `message`, pathway 2 gets
+      `customer_message` + `trainer_message` (dog name falls back to "your dog" like Make), Ops gets `message`. If the
+      editor cannot be read, the starting words are used: a send never fails on it. The customer-care text keeps its
+      own `message`.
+    - Make still uses its OWN words until Joshua OKs the switch (each Twilio body becomes
+      `{{if(1.message; 1.message; <today's words>)}}` or the customer/trainer variant). Then set
+      `LDTT_TEXTS_FROM_PORTAL=1` on the Preview target: the panel says "Make reads these texts" and Send test turns on.
+      Send test (`sendTextTest`) goes ONLY to the locked phone (rule 82), prefixed "[TEST]", filled with example values.
+    - Also on 2026-09-14: Contracted Revenue = $1,250,000 minus COLLECTED (`metrics.trainerDeals`); service-dog leads
+      (`isServiceDogLead`: "service dog" in what they asked for) wear a gold "★ Service dog" tag on office, Sales and
+      trainer cards and in the trainer's lead details (read-only); the follow-up plan is Tim's text at 15 min, then the
+      booking link at 40 min, 24 h and 48 h (`lib/reengage.js` `STEPS[].kind`), still NOT sending; booklet leads stay out.
+    Tests: `tests/pipeline-texts.test.mjs` (6).

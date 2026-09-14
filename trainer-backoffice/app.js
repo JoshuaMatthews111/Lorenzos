@@ -6350,7 +6350,7 @@ const adminScreens = {
     return portalAccessScreen();
   },
     settings() {
-    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + pipelineSettingsPanel() + followUpTextsPanel() + practiceResetPanel();
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + pipelineSettingsPanel() + pipelineTextsPanel() + followUpTextsPanel() + practiceResetPanel();
   }
 };
 
@@ -6813,6 +6813,102 @@ async function savePipelineSettings() {
   render();
 }
 
+// Rule 84: Text messages editor (Joshua 2026-09-14). Office admins and Super Admins edit; trainers never see it.
+// Each text: "In use now" / "Not sending yet", the words currently used (who + when), a draft with its fields and
+// a live example, Save draft / Publish (full name) / Discard / Back to starting words, and Send test (locked phone).
+let pipelineTextsState = { loaded: false, loading: false, data: null, error: "", open: "" };
+
+async function pipelineTextsRequest(method, body) {
+  const token = await window.LDTT_PORTAL?.accessToken?.();
+  const response = await fetch(method === "GET" ? "/api/pipeline?op=texts" : "/api/pipeline", {
+    method, cache: "no-store",
+    headers: { ...(method === "GET" ? {} : { "Content-Type": "application/json" }), Authorization: `Bearer ${token || ""}` },
+    ...(method === "GET" ? {} : { body: JSON.stringify(body) })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not done (${response.status}).`);
+  return payload;
+}
+
+async function loadPipelineTexts() {
+  if (pipelineTextsState.loading) return;
+  pipelineTextsState.loading = true;
+  try {
+    const payload = await pipelineTextsRequest("GET");
+    pipelineTextsState = { ...pipelineTextsState, loaded: true, loading: false, data: payload, error: "" };
+  } catch (error) {
+    pipelineTextsState = { ...pipelineTextsState, loaded: true, loading: false, data: null, error: error.message || String(error) };
+  }
+  render();
+}
+
+function pipelineTextFill(words) {
+  const sample = { first_name: "Sam", last_name: "Carter", problem: "pulling on the leash", booking_link: "https://…/book/example", trainer_first_name: "Jordan", trainer_name: "Jordan Reed", appointment_day: "Tuesday", appointment_date: "Sep 15", appointment_time: "10:00 AM ET", service_address: "1234 Example St, Cleveland, OH 44105", dog_name: "Max", pre_eval_link: "https://…/questions", safety_flag: "", trainer_portal_link: "https://…/staff", answers_summary: "#1: pulling on the leash. Kids at home: yes.", client_name: "Sam Carter", zip: "44105", source: "Contact Us", next_step: "Booking link texted.", link: "https://…/staff", program: "Basic Obedience", sold: "$2,500.00", collected: "$1,000.00" };
+  return String(words || "").replace(/\{([a-z_]+)\}/g, (_, name) => sample[name] ?? "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function pipelineTextsPanel() {
+  if (!window.LDTT_IS_SANDBOX || session.role !== "admin") return "";
+  const title = "Text messages";
+  if (!pipelineTextsState.loaded) {
+    if (!pipelineTextsState.loading) setTimeout(loadPipelineTexts, 0);
+    return panel(title, "", `<p class="panel-copy">Loading the texts…</p>`, "pad");
+  }
+  const d = pipelineTextsState.data;
+  if (!d) return panel(title, "", `<p class="panel-copy">The texts did not load: ${escapeHtml(pipelineTextsState.error)}. Reload the page to try again.</p>`, "pad");
+  const live = d.make_uses_portal === true;
+  const items = (d.texts || []).map(t => {
+    const open = pipelineTextsState.open === t.key;
+    const draft = typeof t.draft === "string" && t.draft ? t.draft : "";
+    const status = t.status === "in_use" ? `<span class="status live">In use now</span>` : `<span class="status draft">Not sending yet</span>`;
+    const by = t.starting_words ? "Starting words (the same as Make today)" : `Published by ${escapeHtml(t.in_use_by)} on ${escapeHtml(t.in_use_at ? new Date(t.in_use_at).toLocaleString() : "")}`;
+    const body = !open ? "" : `<div class="ptext-edit">
+      <label>Draft <span class="hint">${draft ? `saved${t.draft_by ? ` by ${escapeHtml(t.draft_by)}` : ""}` : "not saved yet"} · fields: ${t.fields.map(f => `<code>{${escapeHtml(f)}}</code>`).join(" ")}</span>
+        <textarea data-ptext-draft="${escapeHtml(t.key)}" maxlength="${Number(d.max_chars) || 640}" rows="7">${escapeHtml(draft || t.in_use)}</textarea></label>
+      <p class="field-hint" data-ptext-count="${escapeHtml(t.key)}">${(draft || t.in_use).length} of ${Number(d.max_chars) || 640} characters</p>
+      <div class="ptext-preview"><span>Example</span><pre data-ptext-preview="${escapeHtml(t.key)}">${escapeHtml(pipelineTextFill(draft || t.in_use))}</pre></div>
+      <label class="ptext-name">Your full name <span class="hint">needed to publish or go back to the starting words</span><input type="text" data-ptext-name="${escapeHtml(t.key)}" autocomplete="name" placeholder="First Last" maxlength="120"></label>
+      <div class="row-actions">
+        <button type="button" class="btn btn-outline btn-small" data-ptext-op="save" data-ptext-key="${escapeHtml(t.key)}">Save draft</button>
+        <button type="button" class="btn btn-red btn-small" data-ptext-op="publish" data-ptext-key="${escapeHtml(t.key)}">Publish (use this text)</button>
+        ${draft ? `<button type="button" class="btn btn-outline btn-small" data-ptext-op="discard" data-ptext-key="${escapeHtml(t.key)}">Discard draft</button>` : ""}
+        ${t.starting_words ? "" : `<button type="button" class="btn btn-outline btn-small" data-ptext-op="reset" data-ptext-key="${escapeHtml(t.key)}">Back to starting words</button>`}
+        <button type="button" class="btn btn-outline btn-small" data-ptext-op="test" data-ptext-key="${escapeHtml(t.key)}" ${live ? "" : "disabled"}>Send test to ...${escapeHtml(d.test_phone_last4 || "")}</button>
+      </div>
+      ${live ? "" : `<p class="field-hint">Send test turns on when the Make texts are switched to the portal. Until then Make sends its own copy of the same starting words.</p>`}
+    </div>`;
+    return `<article class="ptext${open ? " is-open" : ""}">
+      <header><div><strong>${escapeHtml(t.label)}</strong><small>To: ${escapeHtml(t.to)} · When: ${escapeHtml(t.when)}</small></div><div class="ptext-head-right">${status}<button type="button" class="btn btn-outline btn-small" data-ptext-toggle="${escapeHtml(t.key)}">${open ? "Close" : "Edit"}</button></div></header>
+      <div class="ptext-inuse"><span>Currently being used</span><pre>${escapeHtml(t.in_use)}</pre><small>${by}</small></div>
+      ${draft && !open ? `<p class="field-hint">A draft is waiting to be published.</p>` : ""}
+      ${body}
+    </article>`;
+  }).join("");
+  const note = live
+    ? `<strong>Make reads these texts.</strong> Publishing changes the real text right away (sandbox texts still go only to the test phone).`
+    : `<strong>Make still sends its own copy of the starting words.</strong> You can edit and publish here now; the real texts follow once Make is switched to the portal.`;
+  return panel(title, "", `<p class="panel-copy">Office admins and Super Admins can change these. Trainers cannot. Words in <code>{curly}</code> fill in for each client.</p><p class="field-hint">${note}</p><div class="ptext-list">${items}</div>`, "pad");
+}
+
+async function pipelineTextAction(button) {
+  const key = button.dataset.ptextKey;
+  const op = button.dataset.ptextOp;
+  const words = document.querySelector(`[data-ptext-draft="${CSS.escape(key)}"]`)?.value;
+  const name = document.querySelector(`[data-ptext-name="${CSS.escape(key)}"]`)?.value || "";
+  if ((op === "publish" || op === "reset") && name.trim().split(/\s+/).length < 2) { showToast("Type your full name (first and last) first."); return; }
+  if (op === "publish" && !window.confirm("Use this text from now on?")) return;
+  button.disabled = true;
+  try {
+    const payload = await pipelineTextsRequest("POST", { op: `text_${op}`, key, words, name });
+    showToast(payload.message || "Done.");
+    if (payload.texts) pipelineTextsState = { ...pipelineTextsState, data: { ...pipelineTextsState.data, texts: payload.texts } };
+    render();
+  } catch (error) {
+    button.disabled = false;
+    showToast(error.message || "Not done.");
+  }
+}
+
 // Rule 81: the saved follow-up texts (Tim's wording; 15 min, 40 min, 24 h, 48 h). READ ONLY: nothing sends,
 // nothing is written. The plan and every count come from lib/reengage.js through GET /api/pipeline?op=followup.
 let followUpState = { loaded: false, loading: false, data: null, error: "" };
@@ -6842,10 +6938,10 @@ function followUpTextsPanel() {
   const d = followUpState.data;
   if (!d) return panel(title, "", `<p class="panel-copy">The follow-up plan did not load: ${escapeHtml(followUpState.error)}. Reload the page to try again.</p>`, "pad");
   const c = d.counts || {};
-  const when = r => r.group === "new" && r.next?.at ? `Text ${r.next.step} (${r.next.label}) on ${new Date(r.next.at).toLocaleString()}` : "Backlog: one text when sending is switched on";
+  const when = r => r.group === "new" && r.next?.at ? `Text ${r.next.step} (${r.next.kind === "link" ? "booking link" : "Tim's text"}, ${r.next.label}) on ${new Date(r.next.at).toLocaleString()}` : "Backlog: Tim's text once, when sending is switched on";
   const rows = (d.sample || []).map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(METRICS.LEAD_STATUS_FROM_DB?.[r.status] || r.status)}</td><td>${escapeHtml(r.received ? new Date(r.received).toLocaleString() : "")}</td><td>${escapeHtml(when(r))}</td></tr>`).join("");
   return panel(title, "", `<p class="panel-copy"><strong>Sending is OFF. Nothing here is sent to anybody.</strong> This is the saved plan, so it is ready when you switch it on.</p>
-    <div class="followup-text"><span>The text, from ${escapeHtml(d.sender || "Tim")}</span><pre>${escapeHtml(d.text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre><small>{{first_name}} becomes the lead's first name.</small></div>
+    <div class="followup-text"><span>Text 1 (15 min), from ${escapeHtml(d.sender || "Tim")}</span><pre>${escapeHtml(d.text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre></div><div class="followup-text"><span>Texts 2-4 (40 min, 24 h, 48 h): the booking link again</span><pre>${escapeHtml(d.link_text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre><small>{{first_name}} becomes the lead's first name; {{booking_link}} their own booking link.</small></div>
     <p class="field-hint"><strong>When:</strong> ${escapeHtml((d.steps || []).join(", "))} after the lead comes in, only while they have not booked. Quiet hours ${escapeHtml(d.quiet_hours || "")}: a text waits until 8 AM. <strong>Who:</strong> SMS consent, a phone number, still New Inquiry / Office Contacted / Engaged, not booked, not the recruiting or office-call lane.</p>
     <p class="field-hint"><strong>On the practice copy right now:</strong> ${escapeHtml(String(c.new || 0))} in their first 48 hours · ${escapeHtml(String(c.backlog || 0))} older (the backlog; ${escapeHtml(String(c.backlog_contacted || 0))} of them in Office Contacted) · ${escapeHtml(String(c.not_eligible || 0))} with consent but not eligible. The practice copy's leads can be behind live.</p>
     <div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Received</th><th>Would get</th></tr></thead><tbody>${rows || `<tr><td colspan="4">No leads would get these texts right now.</td></tr>`}</tbody></table></div>`, "pad");
@@ -7478,6 +7574,18 @@ function deriveLeadMarket(fields = {}) {
     pageLabel: page?.label || "",
     pageSlug: page?.slug || ""
   };
+}
+
+// Joshua 2026-09-14 (decision sheet; Angela at the meeting [0:44:08]): a service-dog lead is high value and
+// wears a gold tag on every card and in the lead details. Read-only: it never changes the lead.
+function isServiceDogLead(lead = {}) {
+  const raw = leadRawPayload(lead);
+  const words = [lead.service, lead.i_want_to, raw.i_want_to, raw.problem, raw.training_interest, raw.training_type, raw.program, raw.category, raw.intake?.problem, raw.booking?.intake?.problem]
+    .map(value => String(value ?? "")).join(" ");
+  return /service[\s-]*dog/i.test(words);
+}
+function serviceDogTag(lead) {
+  return isServiceDogLead(lead) ? ` <span class="lead-tag-service-dog" title="Service-dog lead: high value">★ Service dog</span>` : "";
 }
 
 function leadMarketLabel(lead = {}) {
@@ -8466,7 +8574,7 @@ function trainerClientTiles(figures) {
     ["lead", "Collected", fmtMoney(figures.collected), `${figures.collectedPercent}% of revenue`, figures.collected ? "up" : ""],
     ["calendar", "Balance Due", fmtMoney(figures.balanceDue), due, figures.dueNow.length ? "down" : ""],
     // Whole dollars: "$1,244,500" fits the tile; cents on a $1.25M countdown only wrapped the number.
-    ["dashboard", "Contracted Revenue", `$${Math.round(figures.revenueToGo).toLocaleString("en-US")}`, `Left of $${Math.round(figures.revenueGoal).toLocaleString("en-US")}`, ""]
+    ["dashboard", "Contracted Revenue", `$${Math.round(figures.revenueToGo).toLocaleString("en-US")}`, `Left of $${Math.round(figures.revenueGoal).toLocaleString("en-US")} · by collected`, ""]
   ])}</div>`;
 }
 
@@ -8580,7 +8688,7 @@ function trainerPipelineBoard(leads) {
       // 2026-09-14: tapping a card opens the lead's full details (trainerLeadDetailPanel).
       return `<article class="sales-card trainer-card" data-open-lead="${escapeHtml(lead.id)}" title="Open ${escapeHtml(lead.owner)}'s details">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
-        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}</small>
+        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}</small>
         ${tel ? `<small><a href="tel:${escapeHtml(tel)}">${escapeHtml(lead.phone)}</a></small>` : ""}
         ${trainerCardEvalLine(lead)}
         ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
@@ -8679,7 +8787,7 @@ function trainerLeadDetailPanel() {
   const canDeal = lead.status !== "Became a Client";
   return `<aside class="lead-detail-panel trainer-lead-panel" aria-label="Lead details"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button>
     <span class="portal-tag">Lead details</span><h2>${escapeHtml(lead.owner)}</h2>
-    <p class="trainer-lead-status"><span class="status live">${escapeHtml(lead.status || "New Inquiry")}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}</p>
+    <p class="trainer-lead-status"><span class="status live">${escapeHtml(lead.status || "New Inquiry")}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}</p>
     <div class="row-actions trainer-lead-actions">${tel ? `<a class="btn btn-red btn-small" href="tel:${escapeHtml(tel)}">Call</a>` : ""}${email ? `<a class="btn btn-outline btn-small" href="mailto:${escapeHtml(email)}">Email</a>` : ""}<button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>${canDeal ? `<button type="button" class="btn btn-outline btn-small" data-deal-from-lead="${escapeHtml(lead.remoteId || lead.id)}">Submit a deal for this client</button>` : ""}</div>
     ${trainerLeadActionsBox(lead)}
     <section class="detail-note-block"><span>Contact</span><div class="lead-contact-grid">${row("Phone", phone)}${row("Email", email)}<div class="wide"><span>Address</span><strong>${escapeHtml(client.address || lead.address || "—")}</strong></div></div></section>
@@ -8903,7 +9011,7 @@ function salesPipelineView() {
     const cards = dealCards + items.slice(0, 25).map(lead => `
       <article class="sales-card" data-open-lead="${escapeHtml(lead.id)}">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
-        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}</small>
+        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}${serviceDogTag(lead)}</small>
         <small class="sales-card-trainer">${salesTrainerLine(lead)}</small>
         ${leadCardEvalLine(lead)}
         ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
@@ -10324,7 +10432,7 @@ function leadCardDetailLines(lead) {
   // Meeting 2026-09-11: the market name is bold on the card.
   const market = leadMarketLabel(lead);
   const rest = [formatPhoneNumber(lead.phone) || lead.email || "", `SMS ${lead.smsConsent}`].filter(Boolean).join(" · ");
-  const line2 = `${market ? `<strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${market && rest ? " · " : ""}${escapeHtml(rest)}`;
+  const line2 = `${market ? `<strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${market && rest ? " · " : ""}${escapeHtml(rest)}${serviceDogTag(lead)}`;
   return `${leadCardEvalLine(lead)}${line1 ? `<p>${escapeHtml(line1)}</p>` : ""}<small>${line2}</small>`;
 }
 
@@ -12624,6 +12732,10 @@ document.addEventListener("click", async event => {
     return;
   }
   const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
+  const ptextToggle = event.target.closest("[data-ptext-toggle]");
+  if (ptextToggle) { const key = ptextToggle.dataset.ptextToggle; pipelineTextsState = { ...pipelineTextsState, open: pipelineTextsState.open === key ? "" : key }; render(); return; }
+  const ptextOp = event.target.closest("[data-ptext-op]");
+  if (ptextOp) { pipelineTextAction(ptextOp); return; }
   const trainerAction = event.target.closest("[data-trainer-lead-action]");
   if (trainerAction) { trainerLeadAction(trainerAction); return; }
   const dealEdit = event.target.closest("[data-deal-edit]");
@@ -15460,6 +15572,17 @@ async function applyEnvironmentBadge() {
 document.addEventListener("DOMContentLoaded", () => enhancePasswordFields(document));
 enhancePasswordFields(document);
 applyEnvironmentBadge().finally(() => bootstrapApplication());
+
+// ---- Rule 84: live example + character count while someone edits a text (no redraw while typing) ----
+document.addEventListener("input", event => {
+  const box = event.target.closest("[data-ptext-draft]");
+  if (!box) return;
+  const key = box.dataset.ptextDraft;
+  const preview = document.querySelector(`[data-ptext-preview="${CSS.escape(key)}"]`);
+  if (preview) preview.textContent = pipelineTextFill(box.value);
+  const count = document.querySelector(`[data-ptext-count="${CSS.escape(key)}"]`);
+  if (count) count.textContent = `${box.value.length} of ${box.maxLength > 0 ? box.maxLength : 640} characters`;
+});
 
 // ---- Trainer "Lost? Why" + note (rule 83): kept in state so a background redraw never loses them ----
 document.addEventListener("input", event => {

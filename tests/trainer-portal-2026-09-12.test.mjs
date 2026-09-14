@@ -65,8 +65,8 @@ test("Clients tiles: a client counts once, revenue = sold, Track 500 counts down
   assert.equal(td.revenue, 7600); assert.equal(td.sold, 7600);
   assert.equal(td.collected, 2400); assert.equal(td.balanceDue, 5200);
   assert.equal(td.clientGoal, 500); assert.equal(td.clientsToGo, 498);
-  assert.equal(td.revenueGoal, 1250000); assert.equal(td.revenueToGo, 1250000 - 7600);
-  const done = metrics.trainerDeals([{ id: "x", client_name: "Big", sold_amount: 2000000, collected_amount: 0, balance_due: 0, status: "paid" }], [], "2026-09-13");
+  assert.equal(td.revenueGoal, 1250000); assert.equal(td.revenueToGo, 1250000 - 2400, "counts down by COLLECTED (Joshua 2026-09-14)");
+  const done = metrics.trainerDeals([{ id: "x", client_name: "Big", sold_amount: 2000000, collected_amount: 2000000, balance_due: 0, status: "paid" }], [], "2026-09-13");
   assert.equal(done.revenueToGo, 0, "never below zero");
 });
 

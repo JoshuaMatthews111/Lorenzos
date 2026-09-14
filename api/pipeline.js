@@ -17,6 +17,7 @@ const B = require("../lib/booking");
 const P = require("../lib/pipeline");
 const M = require("../lib/office-email");
 const R = require("../lib/reengage");
+const X = require("../lib/pipeline-texts"); // rule 84: the Text messages editor
 
 function actorLabel(access) {
   const actor = access?.actor || {};
@@ -43,6 +44,11 @@ module.exports = async function handler(req, res) {
           email: { resend_ready: config.ready, from: config.from, queued: await P.queuedOfficeEmailCount() }
         });
       }
+      if (op === "texts") {
+        // Rule 84: the Text messages editor. Office staff (office admin + super admin) only; trainers never.
+        const { state } = await X.load(B.sbOrThrow);
+        return res.status(200).json({ ok: true, texts: X.view(state), make_uses_portal: process.env.LDTT_TEXTS_FROM_PORTAL === "1", test_phone_last4: "2915", max_chars: X.MAX_CHARS });
+      }
       if (op === "followup") {
         // Rule 81: the saved follow-up texts. READ ONLY: it plans and previews, it never sends or writes.
         const rows = await B.sbOrThrow("/rest/v1/leads?select=id,created_at,first_name,last_name,phone,sms_consent,status,raw_payload&sms_consent=is.true&order=created_at.desc&limit=3000");
@@ -66,6 +72,22 @@ module.exports = async function handler(req, res) {
       const result = await P.saveSettings(body, actorLabel(access));
       if (!result.ok) return res.status(400).json({ ok: false, message: result.errors.join(" "), errors: result.errors });
       return res.status(200).json(result);
+    }
+    if (["text_save", "text_publish", "text_discard", "text_reset"].includes(op)) {
+      // Rule 84: change a text. Publish and reset need the person's full name (logins are shared, rule 19 pattern).
+      const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
+      if (!access) return;
+      const result = await X.change(B.sbOrThrow, { op: op.slice(5), key: B.clean(body.key, 40), words: typeof body.words === "string" ? body.words : undefined, name: B.clean(body.name, 120) }, actorLabel(access));
+      return res.status(result.status).json(result.body);
+    }
+    if (op === "text_test") {
+      // Rule 84: a test text goes ONLY to the locked phone (rule 82), and only once Make reads the portal's words;
+      // before that switch Make would send its old words, which would only confuse people.
+      const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
+      if (!access) return;
+      if (process.env.LDTT_TEXTS_FROM_PORTAL !== "1") return res.status(409).json({ ok: false, message: "Send test turns on when the Make texts are switched to the portal. That switch is waiting for Joshua's OK." });
+      const result = await P.sendTextTest(B.clean(body.key, 40), typeof body.words === "string" ? body.words : undefined);
+      return res.status(result.ok ? 200 : 400).json(result);
     }
     if (op === "send_queued") {
       // Rule 73: "send queued" retry. Resend only; with no key it sends nothing and says so.

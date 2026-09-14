@@ -404,7 +404,8 @@
       deals, count: deals.length, sold, collected, collectedPercent: percent(collected, sold), dueNow, upcoming,
       clients, revenue: sold, balanceDue,
       clientGoal: TRACK500_CLIENT_GOAL, clientsToGo: Math.max(0, TRACK500_CLIENT_GOAL - clients),
-      revenueGoal: TRACK500_REVENUE_GOAL, revenueToGo: Math.max(0, TRACK500_REVENUE_GOAL - sold)
+      // Joshua 2026-09-14 (decision sheet): Contracted Revenue counts down by money COLLECTED, not sold.
+      revenueGoal: TRACK500_REVENUE_GOAL, revenueToGo: Math.max(0, TRACK500_REVENUE_GOAL - collected)
     };
   }
   const paymentsDueNow = (payments, today) => list(payments).filter(p => p.status === "scheduled" && p.due_on <= today).length;
