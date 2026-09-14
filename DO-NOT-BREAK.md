@@ -1206,7 +1206,8 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     `RESEND_API_KEY` when set, otherwise the Communications Settings key (`resend_api_key` secret +
     `resend_from_address` = marketing@lorenzosdogtrainingteam.com) read through `supabaseRequest` (the
     schema switch) and `rpc communications_read_setting_secret` — the same key password reset uses. Still
-    Resend only, never FormSubmit (rule 73). Practice copy office emails go to marketing@ for now.
+    Resend only, never FormSubmit (rule 73). Practice copy office emails go to marketing@ for now. 2026-09-14 (Joshua): the saved practice address is now
+    production@lorenzosdogtrainingteam.com (Settings box; the code default stays marketing@ when nothing is saved).
     Operations alert: `sendOpsAlert()` texts the Settings "Operations phone" (default Tim +12168168026)
     when a lead starts its journey (`enterPipeline`) and when an evaluation is booked (`afterBooking`),
     through Make scenario 6254549 (env LDTT_MAKE_HOOK_OPS, Preview only; tester filter on every route),
