@@ -1249,6 +1249,23 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     - **Both upload forms share field names on the one page.** The `submitDemoContent` handler reads ONLY its own
       `.panel` (`const scope = event.target.closest(".panel")`), never `document.querySelector('[name="submission-…`,
       so a Reviews submit can never send the Photos form. Keep it scoped.
+    - **Opens on Dashboard (2026-09-14).** The one page always OPENS at the top with Dashboard lit (sign-in, reload,
+      a saved tab); only a tab tap from another screen (`trainerOnePageJump`) lands on that tab. At `scrollY < 8` the
+      lit tab is always Dashboard.
+    - **Lead details for trainers (2026-09-14).** A tapped card (`.trainer-card[data-open-lead]`) or lead-table row
+      opens `trainerLeadDetailPanel()` inside the one page: contact (Call / Email links), what they asked for, every
+      booked dog, the evaluation, **the pre-evaluation questions (`leadPreEvalBlock`, answered or "not answered yet")**,
+      office notes with NAME bylines (`portalActorName`, rule 70), plus "Log a call" and "Submit a deal for this
+      client". READ ONLY: no status select, no note box, no mutation (rule 7). Only the trainer's own leads open.
+    - **Deal form fills from the lead.** `dealPrefillFromLead()`: the booking's client name and EVERY dog, else the
+      lead's name/dog; `dealLeadSummary()` shows phone, email, address, dogs, wanted, evaluation under the picker.
+    - **Logged deals can be edited.** "Edit this deal" (View more) loads the deal into Submit a Deal (edit mode, "Save
+      changes"); the lead link is shown, never changed. `api/submit-deal.js` `op:"update"`: only the trainer's OWN
+      deal (403 otherwise; office any), not a cancelled one (409). Names / dog / program / notes always; money
+      (sold, collected, date, plan) only when sent AND no installment is marked paid (409 "already marked paid");
+      a money change rebuilds `deal_payments` (DELETE then INSERT because of `unique (deal_id, sequence)`; on a failed
+      INSERT the old rows are put back). Never touches the lead. Every edit appends `raw_payload.edits` (who, when,
+      before). The browser locks the money boxes when a payment is paid. Tests: `tests/trainer-leads-deals-2026-09-14.test.mjs`.
     - **The trainer's Lost column holds only "Lost…" statuses and Evaluation Cancelled.** Bad Lead, Do Not Contact and
       Archived are NOT drawn: a trainer must never be told to call them. Cards only claim what is recorded (the
       booking-link text); win-back texts are not recorded, so no card may say they were sent.

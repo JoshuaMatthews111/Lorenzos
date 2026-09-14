@@ -4901,9 +4901,15 @@ function renderView() {
   restoreTypedInput(target, typed);
   restoreScrollState(target, scrolled);
   wireTrainerScrollSpy();
-  // Opening the one page from elsewhere (sign-in, a saved tab, back from Log a call): land on that tab's section.
+  // Joshua 2026-09-14: the one page always OPENS at the top on Dashboard (sign-in, reload, a saved tab).
+  // Only a tab tap from another screen (e.g. back from Log a call) jumps to that tab's section.
   // A background redraw of the one page keeps the reader where they are (restoreScrollState above).
-  if (onePage && !wasOnePage && state.activeView !== "dashboard") requestAnimationFrame(() => scrollToTrainerSection(state.activeView, false));
+  if (onePage && !wasOnePage) {
+    const jump = trainerOnePageJump;
+    trainerOnePageJump = "";
+    if (jump && jump !== "dashboard") requestAnimationFrame(() => scrollToTrainerSection(jump, false));
+    else { state.activeView = "dashboard"; window.scrollTo(0, 0); markTrainerTab("dashboard"); }
+  }
 }
 
 // A redraw must not throw someone back to the top of a lead they are reading.
@@ -8326,6 +8332,7 @@ function salesStageFor(lead) {
 function dealForm() {
   const f = state.dealForm || {};
   return {
+    deal_id: f.deal_id || "", money_locked: !!f.money_locked, // 2026-09-14: editing a logged deal
     lead_id: f.lead_id || "", client_name: f.client_name || "", dog_name: f.dog_name || "",
     program: f.program || "", program_choice: f.program_choice || "", sold_amount: f.sold_amount ?? "", collected_amount: f.collected_amount ?? "",
     plan_type: f.plan_type || "paid_in_full", installments: f.installments || 4,
@@ -8375,24 +8382,32 @@ function dealFormMarkup() {
   const schedule = previewSchedule(f);
   const myLeads = trainerLeads(currentTrainerId()).filter(l => !["Archived", "Became a Client"].includes(l.status));
   const leadOptions = `<option value="">Not from a lead in my list</option>` + myLeads.map(l => `<option value="${escapeHtml(l.remoteId || l.id)}" ${f.lead_id === (l.remoteId || l.id) ? "selected" : ""}>${escapeHtml(l.owner)}${l.dog && l.dog !== "Pending" ? ` (${escapeHtml(l.dog)})` : ""}</option>`).join("");
+  const editing = Boolean(f.deal_id);
+  const lockMoney = editing && f.money_locked ? "readonly" : "";
+  // Editing a logged deal: the lead link stays as it was (a closed lead is no longer in the open list).
+  const leadField = editing
+    ? `<label>Lead this deal closes<input type="text" value="${escapeHtml(f.lead_id ? (dealLeadFor(f.lead_id)?.owner || "Linked lead") : "Not from a lead")}" readonly></label>`
+    : `<label>Lead this deal closes <span class="hint">optional &mdash; marks them Became a Client</span><select data-deal-field="lead_id">${leadOptions}</select></label>`;
   return `<form class="deal-form" data-deal-form>
+    ${editing ? `<p class="deal-editing">Editing the deal for <strong>${escapeHtml(f.client_name || "this client")}</strong>. ${f.money_locked ? "A payment is already marked paid, so the amounts and plan are locked; you can change the names, program and notes." : "Change anything, then Save changes. The payment plan is rebuilt from the new amounts."} <button type="button" class="btn btn-outline btn-small" data-deal-cancel-edit>Cancel editing</button></p>` : ""}
     <div class="grid-2">
-      <label>Lead this deal closes <span class="hint">optional &mdash; marks them Became a Client</span><select data-deal-field="lead_id">${leadOptions}</select></label>
-      <label>Date of sale<input type="date" data-deal-field="sold_on" value="${escapeHtml(f.sold_on)}" required></label>
+      ${leadField}
+      <label>Date of sale<input type="date" data-deal-field="sold_on" value="${escapeHtml(f.sold_on)}" required ${lockMoney}></label>
     </div>
+    ${dealLeadSummary(f.lead_id)}
     <div class="grid-3">
       <label>Client name ${f.lead_id ? `<span class="hint">from the lead</span>` : ""}<input type="text" data-deal-field="client_name" value="${escapeHtml(f.client_name)}" required placeholder="e.g. Kathy Robinson" ${f.lead_id ? "readonly" : ""}></label>
       <label>Dog name <span class="hint">${f.lead_id ? "from the lead" : "optional"}</span><input type="text" data-deal-field="dog_name" value="${escapeHtml(f.dog_name)}" ${f.lead_id ? "readonly" : ""}></label>
       ${dealProgramField(f)}
     </div>
     <div class="grid-2">
-      <label>Sold for<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="sold_amount" value="${escapeHtml(String(f.sold_amount))}" required placeholder="e.g. 2500.00"></label>
-      <label>Collected today<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="collected_amount" value="${escapeHtml(String(f.collected_amount))}" placeholder="e.g. 1250.00"></label>
+      <label>Sold for<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="sold_amount" value="${escapeHtml(String(f.sold_amount))}" required placeholder="e.g. 2500.00" ${lockMoney}></label>
+      <label>Collected today<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="collected_amount" value="${escapeHtml(String(f.collected_amount))}" placeholder="e.g. 1250.00" ${lockMoney}></label>
     </div>
     <div data-deal-derived>${dealFormDerived(f)}</div>
     <label>Notes for the office <span class="hint">optional</span><textarea data-deal-field="notes">${escapeHtml(f.notes)}</textarea></label>
     ${f.error ? `<p class="deal-error">${escapeHtml(f.error)}</p>` : ""}${f.ok ? `<p class="deal-ok">${escapeHtml(f.ok)}</p>` : ""}
-    <div class="row-actions"><button class="btn btn-red" type="submit" data-deal-submit ${f.busy || over ? "disabled" : ""}>${f.busy ? "Saving\u2026" : "Submit deal"}</button></div>
+    <div class="row-actions"><button class="btn btn-red" type="submit" data-deal-submit ${f.busy || over ? "disabled" : ""}>${f.busy ? "Saving\u2026" : editing ? "Save changes" : "Submit deal"}</button></div>
   </form>`;
 }
 
@@ -8477,7 +8492,64 @@ function trainerDealDetail(deal, payments) {
     ${schedule}
     <div class="deal-balance"><span>Balance due</span><strong>${fmtMoney(deal.balance_due)}</strong></div>
     <p class="field-hint">Upsell idea: a client who finished one program may want the next one. Call them on a slow day.</p>
+    ${deal.status === "cancelled" ? "" : `<button type="button" class="btn btn-outline btn-small" data-deal-edit="${escapeHtml(deal.id)}">Edit this deal</button>`}
   </section>`;
+}
+
+// ---- 2026-09-14: deal form fills from the lead; logged deals can be edited ----
+function dealLeadFor(leadId) {
+  if (!leadId) return null;
+  return (state.leads || []).find(l => (l.remoteId || l.id) === leadId) || null;
+}
+
+// "Details should be auto-filled if the lead gave all the details": the booking's name and EVERY dog, else
+// the lead's own name and dog.
+function dealPrefillFromLead(lead) {
+  const booking = leadRawPayload(lead).booking || {};
+  const client = booking.client || {};
+  const name = [client.first_name, client.last_name].filter(Boolean).join(" ").trim() || lead.owner || "";
+  const dogs = (Array.isArray(booking.dogs) ? booking.dogs : []).map(dog => String(dog?.name || "").trim()).filter(Boolean);
+  const dog = dogs.length ? dogs.join(", ") : (lead.dog && lead.dog !== "Pending" ? lead.dog : "");
+  return { client_name: name, dog_name: dog };
+}
+
+// Everything the lead already told us, shown under the lead picker so nobody retypes it.
+function dealLeadSummary(leadId) {
+  const lead = dealLeadFor(leadId);
+  if (!lead) return "";
+  const booking = leadRawPayload(lead).booking || {};
+  const client = booking.client || {};
+  const dogs = (Array.isArray(booking.dogs) ? booking.dogs : []).map(dog => [dog?.name, dog?.breed, dog?.age].filter(Boolean).join(" · ")).filter(Boolean);
+  const row = (label, value) => value ? `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>` : "";
+  return `<section class="deal-lead-summary"><em>From the lead</em><div class="lead-contact-grid">${row("Phone", client.phone || lead.phone)}${row("Email", client.email || lead.email)}${row("Address", client.address || lead.address)}${row(dogs.length > 1 ? "Dogs" : "Dog", dogs.join(" / ") || leadDogLabel(lead))}${row("Wanted", lead.service)}${row("Evaluation", booking.when_label || (lead.evalScheduledAt ? leadEvalLabel(lead.evalScheduledAt) : ""))}</div></section>`;
+}
+
+// Open a logged deal in the Submit a Deal form. Money is locked when the office already marked a payment paid.
+function startDealEdit(dealId) {
+  const deal = (state.deals || []).find(d => d.id === dealId);
+  if (!deal) return;
+  const payments = paymentsForDeal(deal.id);
+  const scheduled = payments.filter(p => Number(p.sequence) > 0);
+  state.dealForm = {
+    deal_id: deal.id, lead_id: deal.lead_id || "", client_name: deal.client_name || "", dog_name: deal.dog_name || "",
+    program: deal.program || "", program_choice: "", sold_amount: String(deal.sold_amount ?? ""), collected_amount: String(deal.collected_amount ?? ""),
+    plan_type: deal.plan_type || "paid_in_full", installments: Math.max(1, Number(deal.installments) || scheduled.length || 1), sold_on: deal.sold_on || localTodayIso(),
+    custom_dates: deal.plan_type === "custom" && scheduled.length ? scheduled.map(p => p.due_on) : [""],
+    notes: deal.notes || "", money_locked: scheduled.some(p => p.status === "paid" || p.paid_on || Number(p.paid_amount) > 0)
+  };
+  state.openDealRow = "";
+  render();
+  requestAnimationFrame(() => document.querySelector("[data-deal-form]")?.closest(".panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
+// From a lead's details: start a deal for that client, already filled in.
+function startDealFromLead(leadRef) {
+  const lead = (state.leads || []).find(l => l.id === leadRef || l.remoteId === leadRef);
+  if (!lead) return;
+  state.dealForm = { lead_id: lead.remoteId || lead.id, ...dealPrefillFromLead(lead) };
+  state.selectedLeadId = "";
+  render();
+  requestAnimationFrame(() => document.querySelector("[data-deal-form]")?.closest(".panel")?.scrollIntoView({ behavior: "smooth", block: "start" }));
 }
 
 // The Dashboard's Clients part: the same tiles and rows as the Clients screen, without the form.
@@ -8505,7 +8577,8 @@ function trainerPipelineBoard(leads) {
     const cards = items.slice(0, 25).map(lead => {
       const market = leadMarketLabel(lead);
       const tel = String(lead.phone || "").replace(/[^0-9+]/g, "");
-      return `<article class="sales-card trainer-card">
+      // 2026-09-14: tapping a card opens the lead's full details (trainerLeadDetailPanel).
+      return `<article class="sales-card trainer-card" data-open-lead="${escapeHtml(lead.id)}" title="Open ${escapeHtml(lead.owner)}'s details">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
         <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}</small>
         ${tel ? `<small><a href="tel:${escapeHtml(tel)}">${escapeHtml(lead.phone)}</a></small>` : ""}
@@ -8542,11 +8615,11 @@ function trainerCardNextStep(lead, stage) {
   }
   // Rule 81: trainers cannot open the office lead panel, so the pre-evaluation answers sit on the card.
   if (stage === "scheduled") {
+    // Meeting [0:54:13]: no answers yet = a chance for the trainer to pre-call and go through them.
     const pre = leadRawPayload(lead).booking?.pre_eval;
-    if (!pre?.submitted_at) return `<p class="trainer-card-next">Pre-evaluation questions: not answered yet.</p>`;
+    if (!pre?.submitted_at) return `<p class="trainer-card-next">Pre-evaluation questions: not answered yet. Call to go through them.</p>`;
     const flags = (Array.isArray(pre.flags) ? pre.flags : []).map(flag => `<small class="sales-card-reason">⚠ ${escapeHtml(flag)}</small>`).join("");
-    const rows = (Array.isArray(pre.rows) ? pre.rows : []).map(row => `<li><span>${escapeHtml(row?.[0])}</span> <strong>${escapeHtml(row?.[1])}</strong></li>`).join("");
-    return `${flags}<details class="trainer-card-answers"><summary>Pre-eval answers ✓ Read them</summary><ul>${rows}</ul></details>`;
+    return `${flags}<p class="trainer-card-next is-done">Pre-evaluation questions answered ✓ Tap to read them.</p>`;
   }
   // Only what we know: the booking-link text is recorded; win-back texts are not (yet), so never claim them.
   if (stage === "lost") {
@@ -8561,6 +8634,9 @@ function trainerCardNextStep(lead, stage) {
 // A tab click scrolls there smoothly (no new screen, no reload); scrolling lights up the tab on screen.
 // Phones get a sticky tab strip (the sidebar scrolls away there). Communications (off the menu) still opens
 // on its own from "Log a call"; any tab brings the one page back.
+// A tab tapped on another screen (Communications): the one page opens on that tab's section.
+let trainerOnePageJump = "";
+
 function trainerOnePageViews() {
   return trainerNav().map(([view]) => view).filter(view => typeof trainerScreens[view] === "function");
 }
@@ -8574,7 +8650,44 @@ function trainerOnePage() {
   const nav = trainerNav();
   const strip = `<nav class="trainer-onepage-tabs" aria-label="Trainer portal sections">${nav.map(([view, label, , count]) => `<button type="button" class="nav-btn${state.activeView === view ? " active" : ""}" data-view="${view}">${escapeHtml(label)}${count ? `<span class="nav-count">${escapeHtml(String(count))}</span>` : ""}</button>`).join("")}</nav>`;
   const sections = nav.map(([view, label], i) => `<section class="trainer-spy-section trainer-page-section" id="trainer-sec-${view}" data-spy-view="${view}">${i ? `<h2 class="trainer-section-title">${escapeHtml(label)}</h2>` : ""}${trainerScreens[view]()}</section>`).join("");
-  return `<div id="trainerOnePage" class="trainer-onepage">${strip}${sections}</div>`;
+  return `<div id="trainerOnePage" class="trainer-onepage">${strip}${sections}${trainerLeadDetailPanel()}</div>`;
+}
+
+// 2026-09-14 (Joshua): "the leads need to be able to open more details… when the trainer sees the lead they
+// should also see a place where the eval questions were submitted." A tapped card or row opens this. READ ONLY
+// for trainers (rule 7: trainers never write leads here): contact, what they asked for, every dog, the
+// evaluation, the pre-evaluation answers (or "not answered yet"), office notes (name bylines, rule 70).
+function trainerLeadDetailPanel() {
+  if (session.role === "admin" || !state.selectedLeadId) return "";
+  const lead = trainerLeads(currentTrainerId()).find(l => l.id === state.selectedLeadId || (l.remoteId && l.remoteId === state.selectedLeadId));
+  if (!lead) return "";
+  const booking = leadRawPayload(lead).booking || {};
+  const client = booking.client || {};
+  const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
+  const phone = client.phone || lead.phone || "";
+  const tel = String(phone).replace(/[^0-9+]/g, "");
+  const email = client.email || lead.email || "";
+  const market = leadMarketLabel(lead);
+  const dogs = Array.isArray(booking.dogs) && booking.dogs.length
+    ? booking.dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog?.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Breed", dog?.breed)}${row("Age", dog?.age)}${row("Sex", dog?.sex)}${row("Spayed/Neutered?", dog?.fixed)}${row("Vaccinations up to date?", dog?.vaccinated)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog?.behavior || "—")}</strong></div></div></div>`).join("")
+    : `<div class="lead-contact-grid">${row("Dog", leadDogLabel(lead))}</div>`;
+  const evalLine = booking.slot_start
+    ? `${booking.when_label || leadEvalLabel(booking.slot_start)} · ${booking.location_label || "In-home"}`
+    : lead.evalScheduledAt ? leadEvalLabel(lead.evalScheduledAt)
+    : booking.requested ? "Requested online. The office schedules the time." : "Not booked yet.";
+  const notes = officeNotesFor("lead", lead.remoteId).map(note => `<li><strong>${escapeHtml(portalActorName(note.created_by))}</strong> <small>${escapeHtml(note.created_at ? new Date(note.created_at).toLocaleString() : "")}</small><p>${escapeHtml(note.note || "")}</p></li>`).join("");
+  const canDeal = lead.status !== "Became a Client";
+  return `<aside class="lead-detail-panel trainer-lead-panel" aria-label="Lead details"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button>
+    <span class="portal-tag">Lead details</span><h2>${escapeHtml(lead.owner)}</h2>
+    <p class="trainer-lead-status"><span class="status live">${escapeHtml(lead.status || "New Inquiry")}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}</p>
+    <div class="row-actions trainer-lead-actions">${tel ? `<a class="btn btn-red btn-small" href="tel:${escapeHtml(tel)}">Call</a>` : ""}${email ? `<a class="btn btn-outline btn-small" href="mailto:${escapeHtml(email)}">Email</a>` : ""}<button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>${canDeal ? `<button type="button" class="btn btn-outline btn-small" data-deal-from-lead="${escapeHtml(lead.remoteId || lead.id)}">Submit a deal for this client</button>` : ""}</div>
+    <section class="detail-note-block"><span>Contact</span><div class="lead-contact-grid">${row("Phone", phone)}${row("Email", email)}<div class="wide"><span>Address</span><strong>${escapeHtml(client.address || lead.address || "—")}</strong></div></div></section>
+    <section class="detail-note-block"><span>What they asked for</span><div class="lead-contact-grid">${row("Wanted", lead.service)}${row("Came from", lead.originLabel || lead.source)}${row("Received", lead.createdAt ? new Date(lead.createdAt).toLocaleString() : "")}<div class="wide"><span>In their words</span><strong>${escapeHtml(lead.clientNote || "—")}</strong></div></div></section>
+    <section class="detail-note-block"><span>${Array.isArray(booking.dogs) && booking.dogs.length > 1 ? "Dogs" : "Dog"}</span>${dogs}</section>
+    <section class="detail-note-block"><span>Evaluation</span><p><strong>${escapeHtml(evalLine)}</strong></p></section>
+    <section class="detail-note-block trainer-pre-eval"><span>Pre-evaluation questions</span>${leadPreEvalBlock(booking)}</section>
+    <section class="detail-note-block"><span>Office notes</span>${notes ? `<ul class="trainer-office-notes">${notes}</ul>` : `<p class="field-hint">No office notes yet.</p>`}${lead.next ? `<p class="field-hint">Office outcome: ${escapeHtml(lead.next)}</p>` : ""}</section>
+  </aside>`;
 }
 
 // Light up one tab in the sidebar AND the phone strip; keep the strip's lit tab in view (sideways only,
@@ -8622,6 +8735,8 @@ function trainerSpyUpdate() {
   let current = sections[0];
   for (const section of sections) if (section.getBoundingClientRect().top <= line) current = section;
   if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = sections[sections.length - 1];
+  // At the very top it is always Dashboard (the tiles row is short, so My Leads already crosses the line).
+  if (window.scrollY < 8) current = sections[0];
   markTrainerTab(current.dataset.spyView);
 }
 function trainerSpyOnScroll() {
@@ -8660,14 +8775,16 @@ async function submitDealFromForm() {
   try {
     const token = await window.LDTT_PORTAL?.accessToken?.();
     if (!token) throw new Error("Sign in again to submit a deal.");
+    // 2026-09-14: a logged deal is edited through the same door (op "update"); the lead link is never sent.
+    const editBody = f.deal_id ? { op: "update", deal_id: f.deal_id, client_name: f.client_name, dog_name: f.dog_name, program: f.program, notes: f.notes, ...(f.money_locked ? {} : { sold_amount: f.sold_amount, collected_amount: f.collected_amount || 0, plan_type: f.plan_type, installments: f.installments, sold_on: f.sold_on, custom_dates: f.custom_dates }) } : null;
     const response = await fetch("/api/submit-deal", {
       method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ lead_id: f.lead_id, client_name: f.client_name, dog_name: f.dog_name, program: f.program, sold_amount: f.sold_amount, collected_amount: f.collected_amount || 0, plan_type: f.plan_type, installments: f.installments, sold_on: f.sold_on, custom_dates: f.custom_dates, notes: f.notes })
+      body: editBody ? JSON.stringify(editBody) : JSON.stringify({ lead_id: f.lead_id, client_name: f.client_name, dog_name: f.dog_name, program: f.program, sold_amount: f.sold_amount, collected_amount: f.collected_amount || 0, plan_type: f.plan_type, installments: f.installments, sold_on: f.sold_on, custom_dates: f.custom_dates, notes: f.notes })
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok) throw new Error(result.message || `The deal could not be saved (${response.status}).`);
-    state.dealForm = { ok: `${result.sandbox ? "Saved on the practice copy" : "Saved"}. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
-    showToast(result.sandbox ? "Deal submitted (practice copy)" : "Deal submitted");
+    state.dealForm = { ok: `${result.edited ? "Changes saved" : result.sandbox ? "Saved on the practice copy" : "Saved"}. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
+    showToast(result.edited ? "Deal updated" : result.sandbox ? "Deal submitted (practice copy)" : "Deal submitted");
     await reloadRemoteData();
   } catch (error) {
     state.dealForm = { ...f, busy: false, error: error.message || String(error) };
@@ -12452,6 +12569,11 @@ document.addEventListener("click", async event => {
     return;
   }
   const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
+  const dealEdit = event.target.closest("[data-deal-edit]");
+  if (dealEdit) { startDealEdit(dealEdit.dataset.dealEdit); return; }
+  if (event.target.closest("[data-deal-cancel-edit]")) { state.dealForm = {}; render(); return; }
+  const dealFromLead = event.target.closest("[data-deal-from-lead]");
+  if (dealFromLead) { startDealFromLead(dealFromLead.dataset.dealFromLead); return; }
   const dealRow = event.target.closest("[data-deal-row]");
   if (dealRow && !event.target.closest("a")) { const id = dealRow.dataset.dealRow; state.openDealRow = state.openDealRow === id ? "" : id; render(); return; }
   if (dealCustomAdd) { const f = dealForm(); state.dealForm = { ...f, custom_dates: [...f.custom_dates, ""] }; render(); return; }
@@ -12554,6 +12676,7 @@ document.addEventListener("click", async event => {
       scrollToTrainerSection(view.dataset.view);
       return;
     }
+    if (session.role !== "admin" && trainerOnePageViews().includes(view.dataset.view)) trainerOnePageJump = view.dataset.view;
     state.activeView = view.dataset.view;
     persistStateSnapshot();
     render();
@@ -15292,11 +15415,11 @@ document.addEventListener("input", event => {
     // program fills Program, or opens the "type it" box for Other. Both are selects, so a redraw is safe.
     if (key === "lead_id") {
       const lead = value ? trainerLeads(currentTrainerId()).find(l => (l.remoteId || l.id) === value) : null;
-      const dog = lead && lead.dog && lead.dog !== "Pending" ? lead.dog : "";
-      state.dealForm = { ...state.dealForm, client_name: lead ? lead.owner || "" : "", dog_name: dog };
+      const fill = lead ? dealPrefillFromLead(lead) : { client_name: "", dog_name: "" };
+      state.dealForm = { ...state.dealForm, ...fill };
       // Put the new words in the boxes BEFORE the redraw, so the typing safety net (rule 14) never
       // brings back a name typed earlier into a box that is now locked.
-      document.querySelectorAll('[data-deal-field="client_name"], [data-deal-field="dog_name"]').forEach(box => { box.value = box.dataset.dealField === "dog_name" ? dog : (lead ? lead.owner || "" : ""); });
+      document.querySelectorAll('[data-deal-field="client_name"], [data-deal-field="dog_name"]').forEach(box => { box.value = fill[box.dataset.dealField] || ""; });
       render();
       return;
     }

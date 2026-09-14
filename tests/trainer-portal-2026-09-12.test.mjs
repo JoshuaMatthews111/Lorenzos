@@ -132,7 +132,7 @@ test("Submit a Deal: Program dropdown keeps any program; picking a lead fills an
   assert.doesNotMatch(xss, /<img/);
   assert.match(app, /if \(key === "lead_id"\) \{\n      const lead = value \? trainerLeads\(currentTrainerId\(\)\)\.find/);
   assert.match(app, /data-deal-field="client_name" value="\$\{escapeHtml\(f\.client_name\)\}" required placeholder="e\.g\. Kathy Robinson" \$\{f\.lead_id \? "readonly" : ""\}/);
-  assert.match(app, /body: JSON\.stringify\(\{ lead_id: f\.lead_id, client_name: f\.client_name, dog_name: f\.dog_name, program: f\.program,/, "the server still gets the same fields");
+  assert.match(app, /: JSON\.stringify\(\{ lead_id: f\.lead_id, client_name: f\.client_name, dog_name: f\.dog_name, program: f\.program,/, "a new deal still sends the same fields (edits use op update)");
 });
 
 test("booking radius is 30 miles everywhere the client or the office reads it", () => {
