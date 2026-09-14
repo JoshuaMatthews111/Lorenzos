@@ -6923,7 +6923,7 @@ function ptextTemplates(t, d, live) {
     const saved = tp.builtin ? "Always kept. The safe fallback." : `Saved by ${escapeHtml(tp.by || "")}${tp.at ? ` · ${escapeHtml(new Date(tp.at).toLocaleDateString())}` : ""}`;
     const snip = tp.preview.length > 150 ? `${tp.preview.slice(0, 150)}…` : tp.preview;
     const buttons = [
-      inUse ? "" : `<button type="button" class="btn btn-red btn-small" data-ptx-activate="${id}" data-ptx-key="${k}">Use this</button>`,
+      inUse ? "" : `<button type="button" class="btn btn-red btn-small" data-ptx-activate="${id}" data-ptx-key="${k}"${edit?.id === tp.id ? ` disabled title="Save or cancel the edit first"` : ""}>Use this</button>`,
       tp.builtin ? "" : `<button type="button" class="btn btn-outline btn-small" data-ptx-edit="${id}" data-ptx-key="${k}">Edit</button>`,
       `<button type="button" class="btn btn-outline btn-small" data-ptx-copy="${id}" data-ptx-key="${k}">Copy</button>`,
       tp.builtin || inUse ? "" : `<button type="button" class="btn btn-outline btn-small btn-danger" data-ptx-delete="${id}" data-ptx-key="${k}">Delete</button>`
@@ -6982,13 +6982,31 @@ async function ptextPost(body, { closeEditor = false } = {}) {
   }
 }
 
+// An edit with unsaved changes is only thrown away after a yes.
+function ptextCanLeaveEdit() {
+  const e = pipelineTextsState.edit;
+  if (!e || (e.words === e.startWords && e.name === e.startName)) return true;
+  return window.confirm("You have an unsaved template. Throw it away?");
+}
+
+function ptextStartEdit(edit) {
+  if (!ptextCanLeaveEdit()) return;
+  pipelineTextsState.edit = { ...edit, startWords: edit.words, startName: edit.name };
+  render();
+}
+
 // Every click on the Text messages page. Returns true when it handled the click.
 function pipelineTextClick(event) {
   const hit = name => event.target.closest(`[data-ptx-${name}]`);
   const s = pipelineTextsState;
   let el;
   if ((el = hit("role"))) { s.role = el.dataset.ptxRole; render(); return true; }
-  if ((el = hit("open"))) { const key = el.dataset.ptxOpen; s.open = s.open === key ? "" : key; if (s.edit && s.edit.key !== s.open) s.edit = null; render(); return true; }
+  if ((el = hit("open"))) {
+    const key = el.dataset.ptxOpen;
+    const next = s.open === key ? "" : key;
+    if (s.edit && s.edit.key !== next) { if (!ptextCanLeaveEdit()) return true; s.edit = null; }
+    s.open = next; render(); return true;
+  }
   if ((el = hit("field"))) {
     const box = document.querySelector(`[data-ptx-words="${CSS.escape(el.dataset.ptxKey)}"]`);
     if (box) {
@@ -6999,12 +7017,12 @@ function pipelineTextClick(event) {
     }
     return true;
   }
-  if ((el = hit("new"))) { const t = ptextFind(el.dataset.ptxNew); if (t) { s.edit = { key: t.key, id: "new", name: "", words: t.in_use }; render(); } return true; }
-  if ((el = hit("offered"))) { const t = ptextFind(el.dataset.ptxOffered); if (t?.offered) { s.edit = { key: t.key, id: "new", name: t.offered.name, words: t.offered.words }; render(); } return true; }
+  if ((el = hit("new"))) { const t = ptextFind(el.dataset.ptxNew); if (t) ptextStartEdit({ key: t.key, id: "new", name: "", words: t.in_use }); return true; }
+  if ((el = hit("offered"))) { const t = ptextFind(el.dataset.ptxOffered); if (t?.offered) ptextStartEdit({ key: t.key, id: "new", name: t.offered.name, words: t.offered.words }); return true; }
   if ((el = hit("copy")) || (el = hit("edit"))) {
     const t = ptextFind(el.dataset.ptxKey);
     const tp = t?.templates.find(x => x.id === (el.dataset.ptxCopy || el.dataset.ptxEdit));
-    if (tp) { s.edit = el.dataset.ptxCopy ? { key: t.key, id: "new", name: `${tp.name} (copy)`.slice(0, 60), words: tp.words } : { key: t.key, id: tp.id, name: tp.name, words: tp.words }; render(); }
+    if (tp) ptextStartEdit(el.dataset.ptxCopy ? { key: t.key, id: "new", name: `${tp.name} (copy)`.slice(0, 60), words: tp.words } : { key: t.key, id: tp.id, name: tp.name, words: tp.words });
     return true;
   }
   if (hit("cancel")) { s.edit = null; render(); return true; }

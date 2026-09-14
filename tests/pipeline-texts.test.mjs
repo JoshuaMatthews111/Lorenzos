@@ -54,11 +54,12 @@ test("every text sits at a known stage and goes to a known role", () => {
 });
 
 test("check: unknown fields, empty words and long texts are refused with the reason", () => {
-  assert.match(X.check("booking_link", "Hi {first_name}, {bogus}").error, /Unknown field \{bogus\}/);
+  assert.match(X.check("booking_link", "Hello {first_name}, {bogus}").error, /Unknown field \{bogus\}/);
   assert.match(X.check("booking_link", "   ").error, /empty/);
   assert.match(X.check("booking_link", "x".repeat(700)).error, /Keep it under 640/);
-  assert.equal(X.check("booking_link", "Hi {first_name}\u0000!").value, "Hi {first_name}!", "control characters removed");
+  assert.equal(X.check("booking_link", "Hello {first_name}\u0000!").value, "Hello {first_name}!", "control characters removed");
   assert.equal(X.check("nope", "x").error, "Unknown text.");
+  assert.match(X.check("ops_new_lead", "{next_step} {link}").error, /words of your own/, "a text made only of fields can come out empty");
   assert.equal(X.render("Hi {first_name}.\n{safety_flag}\n\n\nBye {nobody}", { first_name: "Sam" }), "Hi Sam.\n\nBye");
 });
 
@@ -78,11 +79,11 @@ test("templates: add several, edit, put one in use (full name), never delete the
   assert.equal((await X.change(f.sb, { op: "template_delete", key: "booking_link", id: idTwo }, who)).status, 409, "the template in use cannot be deleted");
   assert.equal((await X.change(f.sb, { op: "template_delete", key: "booking_link", id: "starting" }, who)).status, 400, "the starting words stay");
   assert.equal((await X.change(f.sb, { op: "template_save", key: "booking_link", id: "starting", name: "x", words: "Hi" }, who)).status, 400, "the starting words cannot be edited");
-  await X.change(f.sb, { op: "template_save", key: "booking_link", id: idTwo, name: "Friendly", words: "Hey {first_name}! {booking_link}" }, who);
-  assert.equal(X.wordsFor(f.row.value, "booking_link"), "Hey {first_name}! {booking_link}", "editing the template in use changes the words in use");
+  await X.change(f.sb, { op: "template_save", key: "booking_link", id: idTwo, name: "Friendly", words: "Hey there {first_name}! {booking_link}" }, who);
+  assert.equal(X.wordsFor(f.row.value, "booking_link"), "Hey there {first_name}! {booking_link}", "editing the template in use changes the words in use");
   const view = X.view(f.row.value).texts.find(t => t.key === "booking_link");
   assert.equal(view.templates.length, 3); assert.equal(view.active_name, "Friendly");
-  assert.equal(view.preview, "Hey Sam! https://ldtt-sandbox.vercel.app/book/example");
+  assert.equal(view.preview, "Hey there Sam! https://ldtt-sandbox.vercel.app/book/example");
   assert.equal((await X.change(f.sb, { op: "template_delete", key: "booking_link", id: idOne }, who)).status, 200);
   assert.equal((await X.change(f.sb, { op: "activate", key: "booking_link", id: "starting", fullName: "Angela Simonton" }, who)).status, 200);
   assert.equal(X.wordsFor(f.row.value, "booking_link"), MAKE_WORDS.booking_link, "back to the starting words");
@@ -105,6 +106,8 @@ test("every Make send carries the portal's finished words; the test text goes on
   assert.match(src, /if \(payload\.pathway === "new_lead"\) return \{ \.\.\.payload, message: T\.render\(words\("booking_link"\), payload\) \};/);
   assert.match(src, /customer_message: T\.render\(words\("booking_confirmation"\), \{ \.\.\.payload, dog_name: payload\.dog_name \|\| "your dog" \}\), trainer_message: T\.render\(words\("trainer_new_eval"\), payload\)/);
   assert.match(src, /catch \{ state = null; \}/, "an unreadable editor never fails a send (starting words are used)");
+  assert.match(src, /const words = key => \{ const saved = T\.wordsFor\(state, key\); return T\.check\(key, saved\)\.error \? T\.wordsFor\(null, key\) : saved; \};/, "words that fail the checks are never sent");
+  assert.match(read("supabase/migrations/20260914120000_practice_pipeline_texts_server_only.sql"), /as restrictive for all to authenticated, anon\n  using \(key <> 'pipeline_texts'\)\n  with check \(key <> 'pipeline_texts'\);/, "no browser login can read or write the texts row");
   const test = src.match(/async function sendTextTest\(key, draftWords\) \{[\s\S]*?\n\}\n/)[0];
   assert.match(test, /const phone = PRACTICE_TEXT_ONLY_TO && PRACTICE_TEXT_ONLY_TO\[0\];/, "rule 82: the locked phone only");
   assert.match(test, /message = `\[TEST\] \$\{T\.render\(ok\.value, T\.SAMPLE\)\}`/);

@@ -1398,3 +1398,9 @@ COLLECTED; service-dog gold tag YES; milestones later.
       trainer, operations). Each text: built-in "Starting words" + up to 10 templates; exactly ONE is in use
       (`active`, "starting" or a template id). Putting one in use needs a two-word full name; the template in use cannot
       be deleted; words saved by the first editor (published/draft) carry over as templates. Every change is logged.
+    - **The texts row is SERVER ONLY (2026-09-14, found by the review agent).** Restrictive policy
+      `pipeline_texts_server_only` on `practice.site_settings` hides key `pipeline_texts` from every browser login
+      (office admins could otherwise read/write it through the `admin_all` policy and skip the Super Admin check).
+      Migration `20260914120000_practice_pipeline_texts_server_only.sql`. Never drop it, and never read the texts
+      from the browser: the page uses `/api/pipeline` only. `withTextMessages()` re-checks the saved words before
+      every send and uses the starting words when they fail; `check()` refuses a text made only of `{fields}`.
