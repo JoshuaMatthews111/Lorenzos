@@ -25,7 +25,7 @@ async function publishedRows() {
 
 function merge(xml, rows) {
   const have = new Set([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]));
-  const extra = rows.map(r => `${ORIGIN}${r.page_type === "ad" || !r.page_type ? `/ads/${r.slug}` : `/${r.slug}`}`).filter(loc => { if (have.has(loc)) return false; have.add(loc); return true; })
+  const extra = rows.map(r => `${ORIGIN}${r.page_type === "ad" || r.page_type === "ad2" || !r.page_type ? `/ads/${r.slug}` : `/${r.slug}`}`).filter(loc => { if (have.has(loc)) return false; have.add(loc); return true; })
     .map(loc => `  <url><loc>${loc}</loc></url>`);
   if (!extra.length) return xml;
   return xml.replace(/\s*<\/urlset>\s*$/, `\n${extra.join("\n")}\n</urlset>\n`);

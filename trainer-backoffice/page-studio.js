@@ -20,7 +20,7 @@
   "use strict";
   const VERSION = "20260912photos2"; // rule 76: photo + logo upload, size, move
   const API = "/api/pages"; // site-builder: one API for ad, site and landing pages (api/ad-pages.js is an alias)
-  const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
+  const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/ad2-usmap.js", "/lib/ad2-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
   const store = { pages: null, markets: [], starters: [], importable: [], sandbox: false, loading: false, error: "" };
   let template = null;
   let editor = null;
@@ -162,23 +162,23 @@
 
   // site-builder: the studio home. Every page type in one list; the Site
   // Builder itself is full screen (window.LDTT_SITE_BUILDER).
-  const TYPE_LABEL = { ad: "Ad landing page", site: "Site page", landing: "Landing page" };
+  const TYPE_LABEL = { ad: "Ad landing page", site: "Site page", landing: "Landing page", ad2: "Ad page 2.0" }; // ad2: rule 85
   function pageCard(page) {
     const type = page.page_type || "ad";
-    const path = page.public_path || (type === "ad" ? `/ads/${page.slug}` : `/${page.slug}`);
-    const coverSrc = page.cover ? (/^https?:\/\//i.test(page.cover) ? page.cover : `/${page.cover}`) : "";
+    const path = page.public_path || (type === "ad" || type === "ad2" ? `/ads/${page.slug}` : `/${page.slug}`);
+    const coverSrc = page.cover ? (/^https?:\/\//i.test(page.cover) || page.cover.startsWith("/") ? page.cover : `/${page.cover}`) : ""; // 2.0 photos already start with /
     return `<article class="ps-page-card" data-ps-type="${esc(type)}">
         ${coverSrc ? `<div class="ps-card-cover" style="background-image:url('${esc(coverSrc)}')" role="img" aria-label="Page cover"></div>` : ""}
         <div><span class="ps-pill ${page.status === "published" ? "published" : "draft"}">${page.status === "published" ? "Live" : "Draft"}</span> <span class="ps-pill static">${esc(TYPE_LABEL[type] || type)}</span></div>
-        <strong>${esc(page.title || page.market || page.slug)}</strong>
+        <strong>${esc(type === "ad2" ? (page.market || page.title || page.slug) : (page.title || page.market || page.slug))}</strong>
         <span class="ps-addr">${esc(path)}</span>
         <span class="ps-meta">Updated ${esc(dateLabel(page.updated_at))}${page.updated_by ? ` by ${esc(page.updated_by)}` : ""}${page.published_at ? ` · Published ${esc(dateLabel(page.published_at))}` : ""}</span>
         ${practiceTag(page)}${sentToLiveMeta(page)}
         <div class="ps-actions">
-          <button class="btn btn-red" type="button" ${type === "ad" ? `data-ps-open="${esc(page.id)}"` : `data-sb-open="${esc(page.id)}"`}>Edit full screen</button>
+          <button class="btn btn-red" type="button" ${type === "ad" ? `data-ps-open="${esc(page.id)}"` : type === "ad2" ? `data-a2-open="${esc(page.id)}"` : `data-sb-open="${esc(page.id)}"`}>Edit full screen</button>
           ${page.status === "published" ? `<a class="btn btn-outline" href="${esc(path)}" target="_blank" rel="noopener">Open live page</a>` : ""}
-          ${type === "ad" ? `<button class="btn btn-outline" type="button" data-ps-duplicate-page="${esc(page.id)}">Duplicate</button>` : `<button class="btn btn-outline" type="button" data-sb-duplicate="${esc(page.id)}">Duplicate</button>`}
-          ${sendToLiveButton(page)}
+          ${type === "ad" ? `<button class="btn btn-outline" type="button" data-ps-duplicate-page="${esc(page.id)}">Duplicate</button>` : type === "ad2" ? `<button class="btn btn-outline" type="button" data-a2-duplicate="${esc(page.id)}">Duplicate</button>` : `<button class="btn btn-outline" type="button" data-sb-duplicate="${esc(page.id)}">Duplicate</button>`}
+          ${type === "ad2" ? `<span class="ps-meta">Stays on the practice copy for now</span>` : sendToLiveButton(page)}
         </div>
       </article>`;
   }
@@ -187,6 +187,7 @@
     const sitePages = pages.filter(p => p.page_type === "site");
     const landingPages = pages.filter(p => p.page_type === "landing");
     const adPages = pages.filter(p => !p.page_type || p.page_type === "ad");
+    const ad2Pages = pages.filter(p => p.page_type === "ad2"); // rule 85
     const statics = (store.markets || []).map(market => `<article class="ps-page-card">
         <div><span class="ps-pill static">Built into the site</span></div>
         <strong>${esc(market.market)}</strong>
@@ -215,6 +216,10 @@
       <section class="panel pad"><div class="panel-head"><h2>Landing pages</h2></div>
         ${grid(landingPages, "No block-built landing pages yet. <b>+ New page</b> → Market landing or Recruiting landing.")}
       </section>
+      ${store.sandbox ? `<section class="panel pad" id="psAd2Section"><div class="panel-head"><h2>Ad landing pages 2.0</h2><button class="btn btn-red" type="button" data-a2-new>+ New 2.0 page</button></div>
+        <p class="ps-help">The new ad page designs from 11 Sep (Miramar Beach, Panama City Beach, Ann Arbor). Edit every word, photo, video title, review and state full screen. They stay on the practice copy until the office tests them.</p>
+        ${grid(ad2Pages, `No 2.0 pages here yet. <button class="btn btn-outline" type="button" data-a2-seed>Add the three 2.0 pages</button>`)}
+      </section>` : ""}
       <section class="panel pad"><div class="panel-head"><h2>Ad pages</h2></div>
         ${grid(adPages, "No Page Studio ad pages yet. Click <b>+ New ad page</b> to make the first one — it takes about a minute.")}
       </section>

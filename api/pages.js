@@ -25,6 +25,7 @@
 const { isSandbox, supabaseRequest, bucketName } = require("../lib/sandbox");
 const template = require("../lib/ad-page-template.js");
 const site = require("../lib/site-page-template.js");
+const ad2 = require("../lib/ad2-page-template.js"); // rule 85: Ad landing pages 2.0 (page_type "ad2", practice copy only)
 const importer = require("../lib/static-page-importer.js");
 const siteData = require("../lib/site-data.js");
 const imageAspects = require("../lib/ad-page-image-aspects.js");
@@ -34,7 +35,7 @@ const portalAuth = require("../lib/portal-auth.js");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const PAGE_COLUMNS = "id,slug,page_type,title,market,city,state,status,draft_revision,published_revision,published_at,created_by,updated_by,created_at,updated_at";
-const PAGE_TYPES = new Set(["ad", "site", "landing"]);
+const PAGE_TYPES = new Set(["ad", "site", "landing", "ad2"]); // ad2: rule 85 (the live table does not accept it yet)
 const UPLOAD_TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/svg+xml": "svg", "image/x-icon": "ico", "video/mp4": "mp4" };
 const UPLOAD_MAX = 4 * 1024 * 1024; // Vercel's request body limit is 4.5 MB
 
@@ -87,7 +88,8 @@ async function verifyOfficeUser(token) {
 const imageAspect = path => imageAspects[path] || null;
 const adRenderOptions = slug => ({ base: "/", publicPath: `/ads/${slug}`, imageAspect });
 const pageTypeOf = row => (PAGE_TYPES.has(row?.page_type) ? row.page_type : "ad");
-const publicPathFor = (type, slug) => (type === "ad" ? `/ads/${slug}` : `/${slug}`);
+const isAdFamily = type => type === "ad" || type === "ad2"; // both live at /ads/<slug>
+const publicPathFor = (type, slug) => (isAdFamily(type) ? `/ads/${slug}` : `/${slug}`);
 
 // ---------------------------------------------------------------------------
 // Site settings (theme + navigation)
@@ -109,6 +111,7 @@ async function siteNav() { const row = await getSetting("navigation").catch(() =
 // Render any page type through its template. Site pages get the live theme,
 // navigation and the data blocks pull in.
 async function renderAny(type, content, slug, { editor = false, data = null } = {}) {
+  if (type === "ad2") return ad2.renderPage(content, { practice: isSandbox() });
   if (type === "ad") return template.renderAdPage(content, { ...adRenderOptions(slug), editor });
   const [theme, nav] = await Promise.all([siteTheme(), siteNav()]);
   return site.renderSitePage(content, { base: "/", publicPath: `/${slug}`, editor, siteTheme: theme, navigation: nav, data: data || await loadData(content) });
@@ -119,8 +122,9 @@ async function loadData(content) {
   const [reviews, trainers] = await Promise.all([wantReviews ? siteData.loadReviews() : [], wantTrainers ? siteData.loadTrainers() : []]);
   return { reviews, trainers };
 }
-function normalizeFor(type, content) { return type === "ad" ? template.normalizeContent(content) : site.normalizeSitePage({ ...(content || {}), pageType: type }); }
+function normalizeFor(type, content) { if (type === "ad2") return ad2.normalizeContent(content); return type === "ad" ? template.normalizeContent(content) : site.normalizeSitePage({ ...(content || {}), pageType: type }); }
 async function checklistFor(type, content, slug) {
+  if (type === "ad2") return ad2.publishChecklist(content);
   if (type === "ad") return template.publishChecklist(content, adRenderOptions(slug));
   const html = await renderAny(type, content, slug);
   return site.sitePublishChecklist(content, { html });
@@ -146,13 +150,13 @@ async function listPages() {
   // cover_pick/hero_pick: two small JSON-path values instead of the whole page bodies,
   // so the card list can show a thumbnail without hauling every draft across the wire.
   const [rows, stamps] = await Promise.all([
-    supabaseFetch(`/rest/v1/ad_pages?select=${PAGE_COLUMNS},cover_pick:draft_content->>cover,hero_pick:draft_content->hero->>photo&status=neq.archived&order=updated_at.desc`),
+    supabaseFetch(`/rest/v1/ad_pages?select=${PAGE_COLUMNS},cover_pick:draft_content->>cover,hero_pick:draft_content->hero->>photo,hero2_pick:draft_content->photos->>hero&status=neq.archived&order=updated_at.desc`),
     sentToLiveStamps()
   ]);
   return rows.map(row => {
-    const { cover_pick, hero_pick, ...summary } = stampRow(row, stamps);
+    const { cover_pick, hero_pick, hero2_pick, ...summary } = stampRow(row, stamps);
     // The card list carries one thumbnail address: the chosen cover, else the hero photo.
-    const cover = cover_pick || hero_pick || "";
+    const cover = cover_pick || hero_pick || hero2_pick || "";
     return { ...summary, cover, page_type: pageTypeOf(summary), public_path: publicPathFor(pageTypeOf(summary), summary.slug) };
   });
 }
@@ -173,7 +177,7 @@ async function slugTaken(slug, exceptId, type) {
   const pages = await listPages();
   if (pages.some(page => page.slug === slug && String(page.id) !== String(exceptId))) return true;
   // Static market pages own their /ads-style slugs; an ad page must not shadow one.
-  if (type === "ad") return template.markets.some(market => market.slug === slug);
+  if (isAdFamily(type)) return template.markets.some(market => market.slug === slug);
   // Site pages may take over a static page on purpose (about, contact …) but never a reserved path.
   return site.RESERVED_SLUGS.has(slug);
 }
@@ -258,7 +262,7 @@ module.exports = async function handler(req, res) {
       case "list": {
         const pages = await listPages();
         const taken = new Set(pages.map(p => p.slug));
-        return res.status(200).json({ ok: true, sandbox, pages, markets: template.markets.map(m => ({ slug: m.slug, market: m.market, city: m.city, state: m.state, arch: m.arch })), starters: site.STARTERS, importable: importer.IMPORTABLE.map(p => ({ ...p, imported: taken.has(p.slug) })) });
+        return res.status(200).json({ ok: true, sandbox, pages, markets: template.markets.map(m => ({ slug: m.slug, market: m.market, city: m.city, state: m.state, arch: m.arch })), starters: site.STARTERS, importable: importer.IMPORTABLE.map(p => ({ ...p, imported: taken.has(p.slug) })), ad2_starters: ad2.STARTERS.map(x => ({ slug: x.slug, market: x.market, design: x.design, added: taken.has(x.slug) })) });
       }
       case "get": {
         if (!id) throw fail(400, "Which page?");
@@ -275,7 +279,7 @@ module.exports = async function handler(req, res) {
         const type = PAGE_TYPES.has(body.page_type) ? body.page_type : "ad";
         const content = normalizeFor(type, body.content);
         const html = await renderAny(type, content, content.slug || "preview");
-        const checklist = type === "ad" ? template.publishChecklist(content, { html }) : site.sitePublishChecklist(content, { html });
+        const checklist = type === "ad2" ? ad2.publishChecklist(content) : type === "ad" ? template.publishChecklist(content, { html }) : site.sitePublishChecklist(content, { html });
         return res.status(200).json({ ok: true, html, checklist });
       }
       case "starters":
@@ -335,12 +339,12 @@ module.exports = async function handler(req, res) {
         const url = publicPathFor(type, content.slug);
         // Publishing can add the page to the header menu in one click (body.add_to_nav).
         let navMessage = "";
-        if (body.add_to_nav === true && type !== "ad") {
+        if (body.add_to_nav === true && !isAdFamily(type)) {
           const current = await siteNav();
           const nav = current.header.links.length ? current : site.normalizeNav(site.STATIC_NAV);
           if (!nav.header.links.some(l => l.href === url)) { nav.header.links.push({ label: content.title || content.slug, href: url, children: [] }); await saveSetting("navigation", nav, auth); navMessage = " Added to the header menu."; }
         }
-        return res.status(200).json({ ok: true, sandbox, page: { ...row, draft_content: undefined, published_content: undefined, page_type: type, public_path: url }, url, alt_url: type === "ad" ? null : `/p/${content.slug}`, revision, checklist, verification: { ok: true, checks: verification.checks, images: media.images, copied: media.copied }, message: (sandbox ? `Published on the practice copy. Open ${url} here to see it. Use Send to live when it is ready for the real site.` : `Published. Live at ${url} within about a minute.`) + (media.copied ? ` ${media.copied} photo${media.copied === 1 ? "" : "s"} copied into the site's own storage.` : "") + navMessage });
+        return res.status(200).json({ ok: true, sandbox, page: { ...row, draft_content: undefined, published_content: undefined, page_type: type, public_path: url }, url, alt_url: isAdFamily(type) ? null : `/p/${content.slug}`, revision, checklist, verification: { ok: true, checks: verification.checks, images: media.images, copied: media.copied }, message: (sandbox ? `Published on the practice copy. Open ${url} here to see it. Use Send to live when it is ready for the real site.` : `Published. Live at ${url} within about a minute.`) + (media.copied ? ` ${media.copied} photo${media.copied === 1 ? "" : "s"} copied into the site's own storage.` : "") + navMessage });
       }
       case "durability": {
         // "Where this page lives" (durability): addresses, export file, who
@@ -355,7 +359,7 @@ module.exports = async function handler(req, res) {
         const healthPage = (health?.value?.pages || []).find(p => p.slug === page.slug) || null;
         const exportIndex = durability.readExportIndex();
         const exportEntry = exportIndex?.pages?.find(p => p.slug === page.slug) || null;
-        return res.status(200).json({ ok: true, sandbox, schema: isSandbox() ? "practice" : "public", bucket: bucketName("trainer-page-assets"), url: publicPathFor(type, page.slug), alt_url: type === "ad" ? null : `/p/${page.slug}`, export_html: `site/pages/${page.slug}.html`, export_json: `site/pages/${page.slug}.json`, export: exportEntry ? { revision: exportEntry.revision, exported_at: exportIndex.exported_at, matches: Number(exportEntry.revision) === Number(page.published_revision) } : null, status: page.status, revision: Number(page.published_revision || 0), published_at: page.published_at || null, published_by: published?.created_by || (page.status === "published" ? page.updated_by : null) || null, images, buckets, health: healthPage ? { ok: healthPage.ok, ran_at: health.value.ran_at, problems: healthPage.problems, warnings: healthPage.warnings } : (health?.value ? { ok: null, ran_at: health.value.ran_at, problems: [], warnings: ["not in the last health run (published since?)"] } : null) });
+        return res.status(200).json({ ok: true, sandbox, schema: isSandbox() ? "practice" : "public", bucket: bucketName("trainer-page-assets"), url: publicPathFor(type, page.slug), alt_url: isAdFamily(type) ? null : `/p/${page.slug}`, export_html: `site/pages/${page.slug}.html`, export_json: `site/pages/${page.slug}.json`, export: exportEntry ? { revision: exportEntry.revision, exported_at: exportIndex.exported_at, matches: Number(exportEntry.revision) === Number(page.published_revision) } : null, status: page.status, revision: Number(page.published_revision || 0), published_at: page.published_at || null, published_by: published?.created_by || (page.status === "published" ? page.updated_by : null) || null, images, buckets, health: healthPage ? { ok: healthPage.ok, ran_at: health.value.ran_at, problems: healthPage.problems, warnings: healthPage.warnings } : (health?.value ? { ok: null, ran_at: health.value.ran_at, problems: [], warnings: ["not in the last health run (published since?)"] } : null) });
       }
       case "restore": {
         if (!id) throw fail(400, "Which page?");
@@ -370,7 +374,7 @@ module.exports = async function handler(req, res) {
         if (!id) throw fail(400, "Which page?");
         const { page } = await loadPage(id);
         await updatePage(id, { status: "draft", published_content: null }, auth, null);
-        return res.status(200).json({ ok: true, message: page.page_type === "ad" ? "The page is offline. The draft is kept." : `The page is offline. ${importer.IMPORTABLE.some(p => p.slug === page.slug) ? `Visitors see the original ${page.slug}.html again.` : "Visitors get a not-found page at that address."} The draft is kept.` });
+        return res.status(200).json({ ok: true, message: isAdFamily(page.page_type) ? "The page is offline. The draft is kept." : `The page is offline. ${importer.IMPORTABLE.some(p => p.slug === page.slug) ? `Visitors see the original ${page.slug}.html again.` : "Visitors get a not-found page at that address."} The draft is kept.` });
       }
       case "archive": {
         if (!id) throw fail(400, "Which page?");
@@ -417,3 +421,4 @@ module.exports.siteTheme = siteTheme;
 module.exports.siteNav = siteNav;
 module.exports.loadData = loadData;
 module.exports.pageTypeOf = pageTypeOf;
+module.exports.isAdFamily = isAdFamily;

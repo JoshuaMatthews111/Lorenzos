@@ -254,3 +254,52 @@ body.sb-open{overflow:hidden}
   .sb-top .sb-title span{display:none}
 }
 @media (max-width:760px){.sb-block-grid{grid-template-columns:1fr}.sb-top{gap:6px}.sb-top button{padding:0 10px;font-size:.8rem;min-height:42px}}
+
+/* Rule 85: the Ad landing pages 2.0 editor (trainer-backoffice/ad2-studio.js). Full screen, fields left, page right. */
+body.a2-open { overflow: hidden; }
+.a2-overlay { position: fixed; inset: 0; z-index: 2147483000; display: grid; grid-template-rows: auto minmax(0, 1fr); background: #eef2f7; font-family: Inter, system-ui, sans-serif; color: #0b1a33; }
+.a2-top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding: 10px 16px; background: #071f46; color: #fff; }
+.a2-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.a2-title strong { font-size: 16px; }
+.a2-addr { font: 12px ui-monospace, Menlo, monospace; color: #c9d6ee; }
+.a2-save { font-size: 12px; color: #c9d6ee; }
+.a2-save[data-kind="bad"] { color: #ffb4b4; font-weight: 700; }
+.a2-save[data-kind="ok"] { color: #b9f3cf; }
+.a2-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.a2-seg { display: inline-flex; background: rgba(255, 255, 255, .12); border-radius: 10px; padding: 3px; }
+.a2-seg button { border: 0; background: transparent; color: #fff; font: 600 13px Inter, sans-serif; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+.a2-seg button.active { background: #fff; color: #071f46; }
+.a2-body { display: grid; grid-template-columns: minmax(300px, 400px) minmax(0, 1fr); min-height: 0; }
+.a2-rail { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; background: #fff; border-right: 1px solid #dbe5f1; }
+.a2-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; border-bottom: 1px solid #edf2f8; }
+.a2-tabs button { border: 1px solid #dbe5f1; background: #f4f8fd; color: #071f46; font: 600 12px Inter, sans-serif; padding: 6px 10px; border-radius: 999px; cursor: pointer; }
+.a2-tabs button.active { background: #071f46; border-color: #071f46; color: #fff; }
+.a2-tabs button:focus-visible, .a2-seg button:focus-visible { outline: 3px solid rgba(12, 86, 216, .4); outline-offset: 2px; }
+.a2-fields { overflow: auto; padding: 14px; display: grid; gap: 12px; align-content: start; }
+.a2-fields input[type="text"], .a2-fields textarea { width: 100%; box-sizing: border-box; font: 14px Inter, sans-serif; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; }
+.a2-fields input[aria-invalid="true"] { border-color: #d20f32; background: #fff5f6; }
+.a2-group { border: 1px solid #e3eaf4; border-radius: 12px; padding: 10px 12px 12px; display: grid; gap: 8px; margin: 0; min-width: 0; }
+.a2-group legend { font-weight: 700; font-size: 13px; padding: 0 4px; }
+.a2-pair, .a2-review { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 6px; align-items: start; }
+.a2-pair input + input, .a2-review textarea { grid-column: 2; }
+.a2-num { font: 700 12px Inter, sans-serif; color: #587098; padding-top: 9px; }
+.a2-states { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 10px; font-size: 13px; }
+.a2-photo { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; align-items: start; border: 1px solid #e3eaf4; border-radius: 12px; padding: 10px; }
+.a2-photo img { width: 96px; height: 72px; object-fit: cover; border-radius: 8px; background: #edf2f8; }
+.a2-photo strong { display: block; font-size: 13px; margin-bottom: 6px; }
+.a2-photo-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.a2-upload { cursor: pointer; }
+.a2-design { margin: 0; font-weight: 600; }
+.a2-canvas { overflow: auto; padding: 16px; display: grid; justify-items: center; align-content: start; }
+.a2-frame-wrap { width: 100%; max-width: 1280px; height: calc(100vh - 110px); background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 18px 42px rgba(7, 31, 70, .12); transition: max-width .2s; }
+.a2-frame-wrap.is-phone { max-width: 390px; }
+.a2-frame-wrap iframe { width: 100%; height: 100%; border: 0; display: block; }
+@media (max-width: 860px) {
+  .a2-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 55vh) minmax(0, 1fr); }
+  .a2-rail { border-right: 0; border-bottom: 1px solid #dbe5f1; }
+  .a2-frame-wrap { height: 70vh; }
+}
+@media (prefers-reduced-motion: reduce) { .a2-frame-wrap { transition: none; } }
+/* Rule 85: Page Studio buttons keep their own size inside the 2.0 editor bars (they are full width elsewhere). */
+.a2-actions .ps-btn, .a2-photo-actions .ps-btn { width: auto; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; margin: 0; }
+@media (max-width: 860px) { .a2-top { padding: 8px 10px; } .a2-actions { gap: 6px; } .a2-actions .ps-btn { padding: 7px 10px; font-size: 13px; } }

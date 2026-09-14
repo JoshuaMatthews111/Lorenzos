@@ -118,6 +118,7 @@
     const data = await api({ operation: "get", id: pageId });
     const page = data.page;
     if ((page.page_type || "ad") === "ad") { closeStudio(); return window.LDTT_PAGE_STUDIO.open(pageId); }
+    if (page.page_type === "ad2") { closeStudio(); return window.LDTT_AD2_STUDIO.open(pageId); } // rule 85
     const draft = T.normalizeSitePage({ ...(page.draft_content || {}), pageType: page.page_type });
     let local = null;
     try { local = JSON.parse(localStorage.getItem(`sb-draft-${page.id}`) || "null"); } catch { local = null; }
@@ -276,6 +277,7 @@
         ${group("Site pages", pages.filter(p => p.page_type === "site"), "None yet. Press + New page.")}
         ${group("Landing pages", pages.filter(p => p.page_type === "landing"), "None yet.")}
         ${group("Ad pages", pages.filter(p => !p.page_type || p.page_type === "ad"), "None yet. Ad pages open in the ad editor.")}
+        ${S().store.sandbox ? group("Ad pages 2.0", pages.filter(p => p.page_type === "ad2"), "None yet. Page Studio → Ad landing pages 2.0.") : ""}
         <p class="ps-help" style="margin-top:14px">Import the current website's pages (About, Facility, Contact, Dog Training…) from <b>+ New page → Import</b>. The original file stays live until you publish your copy.</p>`;
     } else if (sb.leftTab === "blocks") {
       const q = sb.blockSearch.toLowerCase();
@@ -333,7 +335,7 @@
     const { esc } = S();
     const n = sb.navDraft || (sb.navDraft = S().clone(siteCache.nav));
     const linkRows = (list, path) => list.map((l, i) => `<div class="sb-nav-row"><input data-sb-field="${path}.${i}.label" value="${esc(l.label)}" placeholder="Menu words"><input data-sb-field="${path}.${i}.href" value="${esc(l.href)}" placeholder="/page-address"><button type="button" class="ps-icon-btn" data-sb-act="nav-move" data-path="${path}" data-index="${i}" data-dir="-1" title="Up" ${i === 0 ? "disabled" : ""}>↑</button><button type="button" class="ps-icon-btn" data-sb-act="nav-move" data-path="${path}" data-index="${i}" data-dir="1" title="Down" ${i === list.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="ps-icon-btn danger" data-sb-act="nav-remove" data-path="${path}" data-index="${i}" title="Remove">✕</button></div>${l.children?.length ? `<p class="ps-help" style="margin:-4px 0 8px 8px">↳ keeps its ${l.children.length} drop-down links (${esc(l.children.map(c => c.label).join(", "))})</p>` : ""}`).join("");
-    const pageOptions = (S().store.pages || []).filter(p => p.page_type !== "ad").map(p => `<option value="${esc(p.public_path || `/${p.slug}`)}">${esc(p.title || p.slug)}${p.status !== "published" ? " (draft)" : ""}</option>`).join("");
+    const pageOptions = (S().store.pages || []).filter(p => p.page_type !== "ad" && p.page_type !== "ad2").map(p => `<option value="${esc(p.public_path || `/${p.slug}`)}">${esc(p.title || p.slug)}${p.status !== "published" ? " (draft)" : ""}</option>`).join("");
     const empty = !n.header.links.length;
     return `
       <h3>Menus</h3>
@@ -683,7 +685,7 @@
     const device = target.closest("[data-sb-device]"); if (device) { sb.device = device.dataset.sbDevice; paintTop(); paintCanvas(); return; }
     const tab = target.closest("[data-sb-tab]"); if (tab) { sb.leftTab = tab.dataset.sbTab; sb.left = true; if (sb.leftTab !== "blocks") sb.insertAt = null; paintTop(); paintLeft(); paintRails(); return; }
     const rtab = target.closest("[data-sb-rtab]"); if (rtab) { sb.rightTab = rtab.dataset.sbRtab; sb.right = true; paintTop(); paintRight(); paintRails(); return; }
-    const pageRow = target.closest("[data-sb-page]"); if (pageRow) { if (pageRow.dataset.type === "ad") { closeStudio(); window.LDTT_PAGE_STUDIO.open(pageRow.dataset.sbPage).catch(e => toast(e.message)); return; } sb.panel = null; try { await openPage(pageRow.dataset.sbPage); } catch (e) { toast(e.message, 5000); } return; }
+    const pageRow = target.closest("[data-sb-page]"); if (pageRow) { if (pageRow.dataset.type === "ad2") { closeStudio(); window.LDTT_AD2_STUDIO.open(pageRow.dataset.sbPage).catch(e => toast(e.message)); return; } if (pageRow.dataset.type === "ad") { closeStudio(); window.LDTT_PAGE_STUDIO.open(pageRow.dataset.sbPage).catch(e => toast(e.message)); return; } sb.panel = null; try { await openPage(pageRow.dataset.sbPage); } catch (e) { toast(e.message, 5000); } return; }
     const addBtn = target.closest("[data-sb-addblock]"); if (addBtn) { if (!sb.draft) { toast("Open a page first."); return; } addBlock(addBtn.dataset.sbAddblock); return; }
     const photo = target.closest("[data-sb-photo]"); if (photo) { const t = targetFor(photo.dataset.sbPhoto); if (t.kind === "page") pushHistory(); setPath(t.root, t.path, photo.dataset.src); if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); } return; }
     const richBtn = target.closest("[data-sb-rich]"); if (richBtn) { const ed = richBtn.closest(".ps-field")?.querySelector("[data-sb-richfield]"); if (ed) richCommand(richBtn.dataset.sbRich, ed); return; }
@@ -801,7 +803,7 @@
     const starters = T.STARTERS;
     const card = (id, label, help, extra = "") => `<button type="button" class="sb-start-card ${pick === id ? "active" : ""}" data-sb-starter="${esc(id)}"><strong>${esc(label)}</strong><small>${esc(help)}</small>${extra}</button>`;
     const needsCity = ["market", "recruiting"].includes(pick);
-    const dupPages = (store.pages || []).filter(p => p.page_type && p.page_type !== "ad");
+    const dupPages = (store.pages || []).filter(p => p.page_type && p.page_type !== "ad" && p.page_type !== "ad2");
     const importable = store.importable || [];
     const name = $("#sbNewName")?.value ?? "";
     const slug = $("#sbNewSlug")?.value ?? "";

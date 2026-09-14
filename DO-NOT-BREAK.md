@@ -236,7 +236,7 @@ Verification additions:
 
 ## Site Builder (added 2026-09-05, Claude, branch feat/site-builder)
 
-21. **One table, three page types.** `ad_pages` keeps its name and gains `page_type`
+21. **One table, three page types** (a fourth, `ad2`, on the practice copy only: rule 85). `ad_pages` keeps its name and gains `page_type`
     (`ad` | `site` | `landing`, default `ad`) + `title`; `site_settings` (key `theme`,
     key `navigation`) holds the site-wide look and menus. Both schemas (`public`,
     `practice`) carry the same structure (`20260905230000_site_builder.sql`, additive).
@@ -263,7 +263,7 @@ Verification additions:
 24. **The ten `trainer-opportunity-*` recruiting pages are untouchable**: not importable,
     not in any starter, never mentioned by the builder, middleware or the manifest. The
     audit checks the generator still lists 10 and regenerates with zero diff.
-25. **Entrances are strict**: `/ads/<slug>` serves only `page_type = ad`; `/p/<slug>` and
+25. **Entrances are strict**: `/ads/<slug>` serves only `page_type = ad` (and `ad2`, rule 85); `/p/<slug>` and
     clean paths serve only `site`/`landing`; anything not `status = published` with
     `published_content` answers 404; draft preview needs a staff bearer token.
 26. **Every served block page carries the shared head**: Meta pixel + Google Ads tag from
@@ -1404,3 +1404,27 @@ COLLECTED; service-dog gold tag YES; milestones later.
       Migration `20260914120000_practice_pipeline_texts_server_only.sql`. Never drop it, and never read the texts
       from the browser: the page uses `/api/pipeline` only. `withTextMessages()` re-checks the saved words before
       every send and uses the starting words when they fail; `check()` refuses a text made only of `{fields}`.
+
+## Ad landing pages 2.0 in Page Studio (added 2026-09-14, Claude; practice copy only)
+
+85. **The 2.0 pages are Page Studio pages of type `ad2`, practice copy only.** Joshua 2026-09-14: "make them
+    available in the sandbox, both in the drop down and in the page studio"; meeting 2026-09-11: "Add the 2.0 pages
+    into Page Studio so Arrison can edit them herself." (My 12 Sep report said this was still pending; it was.)
+    - `lib/ad2-page-template.js` is the 11 Sep build script (`~/Desktop/LDTT Ad Pages 2.0 2026-09-11/tools/build.py`)
+      in JavaScript. The three starters draw the same HTML as the 11 Sep files (checked 2026-09-14 after removing the
+      practice notes: identical except that apostrophes in two labels are now written safely as &#39;). Styles, photos and the page script are copied into `assets/v2/`; the map shapes into
+      `lib/ad2-usmap.js`. Never hand-edit the layout numbers; change words, photos, video titles, reviews and states.
+    - The office never stores HTML: `normalizeContent()` keeps only the fields the design draws, escapes every
+      string, and `photoUrl()` accepts only our own `/assets/v2/` files or an https address with no quotes,
+      brackets or spaces. Up to 12 states (the design has room for two columns of six).
+    - Rule 11 holds: the Meta pixel and Google Ads tag come only from `lib/ad-page-template.js`. On the practice copy
+      they are LEFT OUT so test leads never reach the ad accounts. The form posts to the same site's
+      `/api/booking-lead` (rule 71). The editor's preview form has no endpoint and sends nothing.
+    - `practice.ad_pages` accepts `page_type = 'ad2'` (`20260914140000_practice_ad2_page_type.sql`); `public.ad_pages`
+      does NOT, and `api/send-to-live.js` refuses an `ad2` page with a plain 409. Going live needs the office tests,
+      Joshua's OK, the same CHECK change on public, and a live form route.
+    - Where the office finds them: Page Studio → "Ad landing pages 2.0" (Edit full screen, Duplicate, + New 2.0 page,
+      "Add the three 2.0 pages"); the Site Builder page list ("Ad pages 2.0"); the Page Editor → Main Website Pages →
+      "Website Page" dropdown (group "Ad landing pages 2.0", with an "Edit this 2.0 page full screen" button).
+    - Served at `/ads/<slug>` (`api/ad-page.js` `adFamily`), publish verification, export, sitemap and health treat
+      `ad2` like `ad`. Tests: `tests/ad2-pages.test.mjs`.

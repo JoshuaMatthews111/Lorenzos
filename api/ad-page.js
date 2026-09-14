@@ -1,6 +1,6 @@
 // Serves a published Page Studio / Site Builder page from the database.
 //
-//   /ads/<slug>            ad landing pages (vercel.json rewrite)
+//   /ads/<slug>            ad landing pages: page_type ad and ad2 (the 2.0 pages, rule 85) (vercel.json rewrite)
 //   /p/<slug>              any page type (vercel.json rewrite)
 //   /<slug>                site + landing pages at their clean path: middleware.js
 //                          rewrites here ONLY when the slug is in the published
@@ -18,9 +18,10 @@
 
 const { existsSync, readFileSync } = require("node:fs");
 const { resolve } = require("node:path");
-const { supabaseRequest } = require("../lib/sandbox");
+const { supabaseRequest, isSandbox } = require("../lib/sandbox");
 const template = require("../lib/ad-page-template.js");
 const site = require("../lib/site-page-template.js");
+const ad2 = require("../lib/ad2-page-template.js"); // rule 85
 const imageAspects = require("../lib/ad-page-image-aspects.js");
 const pagesApi = require("./pages.js");
 const { verifyOfficeUser, deps: staffDeps } = pagesApi;
@@ -58,7 +59,7 @@ function exportedCopy(slug, entrance) {
     const meta = resolve(dir, `${slug}.json`);
     if (!existsSync(html) || !existsSync(meta)) return null;
     const info = JSON.parse(readFileSync(meta, "utf8"));
-    const type = info.page_type === "ad" ? "ad" : "site";
+    const type = ["ad", "ad2"].includes(info.page_type) ? "ad" : "site";
     if ((entrance === "ads") !== (type === "ad")) return null;
     return { html: readFileSync(html, "utf8"), type: info.page_type, revision: info.revision, published_at: info.published_at };
   } catch { return null; }
@@ -67,6 +68,8 @@ function exportedCopy(slug, entrance) {
 async function render(row, content, { editor = false } = {}) {
   const type = pagesApi.pageTypeOf(row);
   const imageAspect = path => imageAspects[path] || null;
+  // rule 85: the 2.0 pages. The practice copy draws them without the Meta pixel and Google Ads tag.
+  if (type === "ad2") return ad2.renderPage(content, { practice: isSandbox() });
   if (type === "ad") return template.renderAdPage(content, { base: "/", publicPath: `/ads/${row.slug}`, imageAspect, editor });
   const [theme, nav, data] = await Promise.all([pagesApi.siteTheme(), pagesApi.siteNav(), pagesApi.loadData(content)]);
   return site.renderSitePage(content, { base: "/", publicPath: `/${row.slug}`, siteTheme: theme, navigation: nav, data, editor });
@@ -95,7 +98,8 @@ module.exports = async function handler(req, res) {
     const row = await fetchRow(slug, "slug,page_type,status,published_content,published_at");
     if (!row || row.status !== "published" || !row.published_content) return notFound(res, "This page is not published.");
     const type = pagesApi.pageTypeOf(row);
-    if ((entrance === "ads") !== (type === "ad")) return notFound(res, "This page is not published.");
+    const adFamily = type === "ad" || type === "ad2"; // rule 25 + 85: /ads/ serves ad pages and 2.0 ad pages only
+    if ((entrance === "ads") !== adFamily) return notFound(res, "This page is not published.");
     const html = await render(row, row.published_content);
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     // Short public cache: a publish shows within a minute everywhere, and the

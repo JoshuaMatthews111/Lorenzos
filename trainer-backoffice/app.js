@@ -3735,6 +3735,28 @@ function builderSurfaces() {
   ];
 }
 
+// Rule 85: the Ad landing pages 2.0 in the Page Editor's page list (practice copy). They are edited full screen in
+// Page Studio (window.LDTT_AD2_STUDIO); the list is Page Studio's own page list, loaded once.
+let adTwoPagesAsked = false;
+function adTwoEditorPages() {
+  const shared = window.LDTT_PAGE_STUDIO?.shared;
+  if (!shared || !window.LDTT_IS_SANDBOX || session.role !== "admin") return [];
+  if (!shared.store.pages && !shared.store.loading && !adTwoPagesAsked) {
+    adTwoPagesAsked = true;
+    shared.loadPages().then(() => { if (state.activeView === "pageEditor") render(); }).catch(() => {});
+  }
+  return (shared.store.pages || []).filter(page => page.page_type === "ad2").map(page => ({ id: `/ads/${page.slug}`, pageId: page.id, status: page.status, label: `${page.market || page.title || page.slug}${page.status === "published" ? "" : " (draft)"}` }));
+}
+
+function adTwoEditorOptions() {
+  const pages = adTwoEditorPages();
+  return pages.length ? `<optgroup label="Ad landing pages 2.0">${pages.map(page => `<option value="${escapeHtml(page.id)}" ${page.id === state.builderMainPage ? "selected" : ""}>${escapeHtml(page.label)}</option>`).join("")}</optgroup>` : "";
+}
+
+function adTwoEditorNotice(page) {
+  return `<div class="editor-control-section"><h3>Ad landing page 2.0</h3><p class="builder-help">This is a 2.0 ad page. Change its words, photos, video titles, reviews and states in its own full-screen editor.${page.status === "published" ? "" : " It is still a draft, so this preview says \"not published\" until you publish it there."}</p><button class="btn btn-red" type="button" data-a2-open="${escapeHtml(page.pageId)}">Edit this 2.0 page full screen</button></div>`;
+}
+
 function mainWebsitePages() {
   return [
     { id: "/index.html", label: "Home" },
@@ -9633,7 +9655,7 @@ function portalEditorPreviewDocument() {
 function builderPreviewConfig(trainer) {
   if (state.builderSurface === "site") {
     const src = `${state.builderMainPage || "/index.html"}${(state.builderMainPage || "").includes("?") ? "&" : "?"}builderPreview=1`;
-    return { kind: "src", value: src, label: mainWebsitePages().find(page => page.id === state.builderMainPage)?.label || "Main Website" };
+    return { kind: "src", value: src, label: [...mainWebsitePages(), ...adTwoEditorPages()].find(page => page.id === state.builderMainPage)?.label || "Main Website" };
   }
   if (state.builderSurface === "portal") {
     return { kind: "srcdoc", value: portalEditorPreviewDocument(), label: portalPreviewViews().find(page => page.id === state.builderPortalView)?.label || "Trainer Portal" };
@@ -9704,16 +9726,17 @@ function trainerPageEditor() {
     : `<div class="editor-control-section"><h3>Section Flow</h3><p class="builder-help">Reorder or hide approved sections. Header, form routing, and Lorenzo trust elements stay protected.</p><div class="builder-section-list">${sectionOrder.map((section, index) => `<article><strong>${escapeHtml(section)}</strong><label><input type="checkbox" data-section-visible="${escapeHtml(section)}" ${hiddenSections.includes(section) ? "" : "checked"}> Visible</label><div><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="-1" ${index === 0 ? "disabled" : ""}>Up</button><button class="btn btn-outline btn-small" type="button" data-section-move="${escapeHtml(section)}" data-direction="1" ${index === sectionOrder.length - 1 ? "disabled" : ""}>Down</button></div></article>`).join("")}</div></div>`;
   const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3>${trainerPageStateNotice(trainer)}<label><span>Trainer</span><select data-editor-trainer>${state.trainers.filter(item => !item.archived || item.id === trainer.id).map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio (becomes the public profile bio when you Publish)", "bio", trainer.bio, { area: true })}</div>${trainerPageDangerZone(trainer)}`;
   const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
+  const adTwoPage = state.builderSurface === "site" ? adTwoEditorPages().find(page => page.id === state.builderMainPage) : null; // rule 85
   const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
   const controls = {
-    page: `${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${state.builderSurface === "site" ? siteTextControls() : ""}${selectedElementControls}`,
+    page: `${adTwoPage ? adTwoEditorNotice(adTwoPage) : ""}${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${state.builderSurface === "site" ? siteTextControls() : ""}${selectedElementControls}`,
     sections: sectionControls,
     media: `<div class="editor-control-section"><h3>Media Library</h3><p class="builder-help">Upload photos, logos, or long-form videos. Large images are compressed before upload. Large videos use browser compression where supported, or an external video URL when needed.</p><label class="editor-upload media-drop"><span>Upload Photo / Logo / Video</span><input type="file" accept="image/*,video/*" data-editor-upload="mediaLibrary"></label>${renderMediaLibrary(trainer)}</div><div class="editor-control-section"><h3>Core Images & Video</h3><p class="builder-help">Simple rule: Headshot is for Find a Trainer cards. Bio Photo is for View Bio and the landing-page bio section.</p><div class="editor-image-grid">${editorImageCard("profilePhoto", "Headshot (cards only)", "Find a Trainer cards only", { frameKey: "profilePhotoFrame", positionKey: "profilePhotoPosition", fitKey: "profilePhotoFit", scaleKey: "profilePhotoScale", fallbackFit: "contain", fallbackFrame: "portrait" }) }${editorImageCard("heroTrainerPhoto", "Top Landing Photo", "First trainer photo on the landing page", { frameKey: "heroPhotoFrame", positionKey: "heroPhotoPosition", fitKey: "heroPhotoFit", scaleKey: "heroPhotoScale", mediaPart: "hero" }) }${editorImageCard("landingBioPhoto", "Bio Photo (View Bio)", "View Bio page and landing-page bio section", { frameKey: "bioPhotoFrame", positionKey: "bioPhotoPosition", fitKey: "bioPhotoFit", scaleKey: "bioPhotoScale", fallbackFit: "cover", fallbackFrame: "tight", mediaPart: "bio" }) }${editorImageCard("image", "Hero Background", "Wide background behind the hero") }${editorImageCard("companyLogo", "Company Logo", "Upload a new logo, then size it and move it", { mediaPart: "logo" }) }${editorVideoCard()}</div></div>`,
     style: `<div class="editor-control-section"><h3>Typography & Color</h3><label><span>Font</span><select data-editor-style="fontFamily">${["Inter","Arial","Georgia","Trebuchet MS","Impact"].map(font => `<option ${font === (style.fontFamily || "Inter") ? "selected" : ""}>${font}</option>`).join("")}</select></label><label><span>Type Scale</span><input type="range" min="0.85" max="1.25" step="0.01" data-editor-style="fontScale" value="${Number(style.fontScale || 1)}"></label><label><span>Primary Color</span><input type="color" data-editor-style="brandPrimary" value="${escapeHtml(style.brandPrimary || "#071f44")}"></label><label><span>Accent Color</span><input type="color" data-editor-style="brandAccent" value="${escapeHtml(style.brandAccent || "#d80f35")}"></label></div><div class="editor-control-section"><h3>Approved Reviews</h3>${trainerApprovedReviewManagerMarkup(trainer, { compact: true })}${field("Review 1 Client", "review1Author", trainer.review1Author)}${field("Review 1", "review1Copy", trainer.review1Copy, { area: true })}${field("Review 2 Client", "review2Author", trainer.review2Author)}${field("Review 2", "review2Copy", trainer.review2Copy, { area: true })}${field("Review 3 Client", "review3Author", trainer.review3Author)}${field("Review 3", "review3Copy", trainer.review3Copy, { area: true })}</div>`,
     history: `<div class="editor-control-section"><h3>Live Edits</h3>${renderLiveEditList(trainer)}<button class="btn btn-outline" type="button" data-reset-live-edits>Reset All Live Edits</button></div>`
   };
   const pagePicker = state.builderSurface === "site"
-    ? `<label><span>Website Page</span><select data-builder-main-page>${mainWebsitePages().map(page => `<option value="${page.id}" ${page.id === state.builderMainPage ? "selected" : ""}>${page.label}</option>`).join("")}</select></label>`
+    ? `<label><span>Website Page</span><select data-builder-main-page>${mainWebsitePages().map(page => `<option value="${page.id}" ${page.id === state.builderMainPage ? "selected" : ""}>${page.label}</option>`).join("")}${adTwoEditorOptions()}</select></label>`
     : state.builderSurface === "portal"
       ? `<label><span>Portal Screen</span><select data-builder-portal-view>${portalPreviewViews().map(page => `<option value="${page.id}" ${page.id === state.builderPortalView ? "selected" : ""}>${page.label}</option>`).join("")}</select></label>`
       : `<label><span>Page Area</span><select data-builder-page>${builderPages().map(page => `<option value="${page.id}" ${page.id === state.builderPage ? "selected" : ""}>${page.label}</option>`).join("")}</select></label>`;
