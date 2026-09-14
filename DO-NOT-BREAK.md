@@ -888,6 +888,12 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
 
 ## One pipeline + texts (added 2026-09-12, Claude, portal chain step 3)
 
+    - **Changed 2026-09-14 (office, during the presentation): the calendar shows the trainer's Google free times
+      EXACTLY** (only the next hour is left out). A pick no longer hides a time and is not exclusive: it is recorded
+      in booking_holds, moves the lead to Eval Scheduled, and is SENT (texts + office email) so the office or the
+      trainer books it in Google / Alpha. `openSlots()` ignores holds; `practice.booking_holds_one_per_slot` dropped
+      (`20260914190000_practice_booking_picks_not_exclusive.sql`); the done screen says "Your time is sent to <trainer>".
+      Still never writes to Google.
 72. **Every lead source enters ONE pipeline; texts only with SMS consent and only to tester phones;
     FormSubmit is never touched.** Joshua's hard rule: "Do not break the form submit. FormSubmit is for the
     current Contact page. Resend is for the sales pipeline."

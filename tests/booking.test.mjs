@@ -67,7 +67,7 @@ function fakeWorld() {
     if (method === "POST") {
       const out = [];
       for (const r of Array.isArray(body) ? body : [body]) {
-        if (table === "booking_holds" && rows.some(h => h.status === "held" && h.trainer_slug === r.trainer_slug && h.slot_start === r.slot_start)) return res(409, { code: "23505", message: "duplicate key value violates unique constraint" });
+        if (false && table === "booking_holds") return res(409, { code: "23505", message: "duplicate key value violates unique constraint" });
         const row = { id: uuid(), created_at: new Date().toISOString(), ...(table === "leads" ? { version: 1 } : {}), ...(table === "booking_holds" ? { status: "held" } : {}), ...r };
         rows.push(row);
         out.push(row);
@@ -182,13 +182,13 @@ test("booking-lead: Cleveland and Crestview ZIPs get their trainer's booking lin
   assert.equal(bad.statusCode, 400);
 });
 
-test("availability: Google's free times minus held times and the next hour; the key never leaves the server", async () => {
+test("availability: exactly Google's free times minus the next hour (a pick never hides a time); the key never leaves the server", async () => {
   const { bookingApi } = load(true);
   const { db, calls } = fakeWorld();
   db.booking_holds.push({ id: "h1", trainer_slug: "lorenzo-miller", slot_start: iso(SLOT_B), status: "held", lead_id: "x" });
   const res = await call(bookingApi, { method: "GET", query: { trainer: "lorenzo-miller" } });
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.payload.slots.map(s => s.start), [SLOT_A]);
+  assert.deepEqual(res.payload.slots.map(s => s.start), [SLOT_A, SLOT_B], "office 2026-09-14: the calendar matches Google");
   assert.equal(res.payload.trainer.name, "Lorenzo Miller");
   assert.equal(res.payload.trainer.market, "Cleveland, OH");
   assert.deepEqual(res.payload.locations, ["in_home", "training_center"]);
@@ -206,7 +206,7 @@ test("availability: Google's free times minus held times and the next hour; the 
   assert.equal((await call(bookingApi, { method: "GET", query: { trainer: "nobody" } })).statusCode, 404);
 });
 
-test("booking: holds the slot, moves the lead to Eval Scheduled with the time, 409 on the same slot, rebook releases", async () => {
+test("booking: records the pick, moves the lead to Eval Scheduled with the time, the same time stays open to others, rebook releases", async () => {
   const { leadApi, bookingApi } = load(true);
   const { db } = fakeWorld();
   const created = await call(leadApi, { body: intake() });
@@ -229,23 +229,21 @@ test("booking: holds the slot, moves the lead to Eval Scheduled with the time, 4
   assert.ok(db.lifecycle_events.some(e => e.event_type === "evaluation_scheduled" && e.entity_id === leadId));
   assert.ok(db.lead_events.some(e => e.event_type === "status_changed" && e.new_status === "evaluation_scheduled"));
 
-  // The same time again (another customer): 409, no lead moves.
+  // The same time again (another customer): allowed; the office books it in Google / Alpha (office 2026-09-14).
   const other = await call(leadApi, { body: intake({ email: "sam@example.test", phone: "440-555-0199" }) });
-  const before = JSON.stringify(db.leads.find(l => l.id === other.payload.lead_id));
-  const clash = await call(bookingApi, { body: evalBody({ lead_id: other.payload.lead_id }) });
-  assert.equal(clash.statusCode, 409);
-  assert.equal(clash.payload.taken, true);
-  assert.equal(JSON.stringify(db.leads.find(l => l.id === other.payload.lead_id)), before);
+  const again = await call(bookingApi, { body: evalBody({ lead_id: other.payload.lead_id }) });
+  assert.equal(again.statusCode, 200, JSON.stringify(again.payload));
+  assert.equal(db.leads.find(l => l.id === other.payload.lead_id).eval_scheduled_at, iso(SLOT_A));
 
-  // The held slot is gone from the calendar.
+  // The picked time is still offered: the calendar keeps matching Google.
   const open = await call(bookingApi, { method: "GET", query: { trainer: "lorenzo-miller", lead: leadId } });
-  assert.ok(!open.payload.slots.some(s => s.start === SLOT_A));
+  assert.ok(open.payload.slots.some(s => s.start === SLOT_A));
   assert.equal(open.payload.booked.slot_start, iso(SLOT_A));
 
   // Rebooking the same lead releases its first time.
   const rebook = await call(bookingApi, { body: evalBody({ lead_id: leadId, slot_start: iso(SLOT_B) }) });
   assert.equal(rebook.statusCode, 200);
-  assert.deepEqual(db.booking_holds.filter(h => h.status === "held").map(h => h.slot_start), [iso(SLOT_B)]);
+  assert.deepEqual(db.booking_holds.filter(h => h.status === "held" && h.lead_id === leadId).map(h => h.slot_start), [iso(SLOT_B)]);
   assert.equal(db.leads.find(l => l.id === leadId).eval_scheduled_at, iso(SLOT_B));
 });
 
