@@ -44,6 +44,7 @@ test("trainer dashboard tiles agree with the board (rule 34: one source)", () =>
   const dash = metrics.trainerDashboard(leads, [{ status: "Pending" }]);
   const board = metrics.trainerPipeline(leads);
   assert.equal(dash.assigned, 6);
+  assert.equal(dash.newInquiries, board.get("inquiry").length, "New Inquiries tile (2026-09-14) = the board's first column");
   assert.equal(dash.evalScheduled, board.get("scheduled").length);
   assert.equal(dash.evalCompleted, board.get("completed").length);
   assert.equal(dash.won, board.get("sold").length);
@@ -90,7 +91,11 @@ test("trainer menu: Clients replaces My Deals, Performance and Communications ar
 test("one-page Dashboard: three parts, the scroll highlight is visual only and wired after every draw", () => {
   const dash = app.match(/const trainerScreens = \{\n  dashboard\(\) \{[\s\S]*?\n  \},\n  deals\(\)/)[0];
   for (const view of ["dashboard", "leads", "deals"]) assert.match(dash, new RegExp(`data-spy-view="${view}"`));
-  assert.ok(dash.indexOf('data-spy-view="leads"') > dash.indexOf("Assigned Leads & Office Notes"), "the board sits right under the overview");
+  // Joshua 2026-09-14: tiles New Inquiries ... Clients, and the office-notes table is off the Dashboard.
+  const tiles = [...dash.matchAll(/\["[a-z]+", "([^"]+)", /g)].map(m => m[1]);
+  assert.deepEqual(tiles, ["New Inquiries", "Assigned Leads", "Evaluations Scheduled", "Evaluations Completed", "Sold", "Lost", "Clients"]);
+  assert.doesNotMatch(dash, /Assigned Leads & Office Notes/, "nothing sits between the tiles and the board");
+  assert.ok(dash.indexOf('data-spy-view="leads"') > dash.indexOf('data-spy-view="dashboard"') && dash.indexOf('data-spy-view="leads"') < dash.indexOf("My Locked Trainer Page"), "tiles -> pipeline -> clients, the locked page below");
   const spy = app.match(/function wireTrainerScrollSpy\(\) \{[\s\S]*?\n\}\n/)[0];
   assert.doesNotMatch(spy, /state\.activeView =|render\(/, "never changes the screen, never redraws");
   assert.match(app, /restoreScrollState\(target, scrolled\);\n  wireTrainerScrollSpy\(\);\n\}/);

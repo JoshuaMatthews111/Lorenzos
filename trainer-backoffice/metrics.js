@@ -342,6 +342,10 @@
   const activeDeals = deals => list(deals).filter(deal => deal.status !== "cancelled");
   function salesStageFor(lead, stages = SALES_STAGES) {
     const db = String((lead && lead.dbStatus) || "").trim();
+    // Rule 81 (meeting 2026-09-12): a booked lead whose client answered the pre-evaluation questions is
+    // "Eval Questions Completed". Its status stays evaluation_scheduled, so the Leads tab never moves (rule 1),
+    // and Sales "booked" still counts it (salesTotals adds booked + confirmed + evaluated).
+    if (db === "evaluation_scheduled" && rawOf(lead).booking?.pre_eval?.submitted_at && stages.some(([id]) => id === "confirmed")) return "confirmed";
     const found = stages.find(([, , , statuses]) => statuses.includes(db));
     return found ? found[0] : "captured";
   }
@@ -469,6 +473,7 @@
   function trainerDashboard(leads, submissions) {
     const board = trainerPipeline(leads);
     return {
+      newInquiries: board.get("inquiry").length,
       assigned: count(leads),
       evalScheduled: countByStatus(leads, "Evaluation Scheduled"),
       evalCompleted: countByStatus(leads, "Evaluation Complete"),

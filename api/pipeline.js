@@ -16,6 +16,7 @@ const { authorizeRequest } = require("../lib/portal-auth");
 const B = require("../lib/booking");
 const P = require("../lib/pipeline");
 const M = require("../lib/office-email");
+const R = require("../lib/reengage");
 
 function actorLabel(access) {
   const actor = access?.actor || {};
@@ -41,6 +42,11 @@ module.exports = async function handler(req, res) {
           ok: true, settings: await P.loadSettings(), defaults: P.defaultSettings(),
           email: { resend_ready: config.ready, from: config.from, queued: await P.queuedOfficeEmailCount() }
         });
+      }
+      if (op === "followup") {
+        // Rule 81: the saved follow-up texts. READ ONLY: it plans and previews, it never sends or writes.
+        const rows = await B.sbOrThrow("/rest/v1/leads?select=id,created_at,first_name,last_name,phone,sms_consent,status,raw_payload&sms_consent=is.true&order=created_at.desc&limit=3000");
+        return res.status(200).json({ ok: true, ...R.preview(Array.isArray(rows) ? rows : []) });
       }
       return res.status(400).json({ ok: false, message: "Unknown request." });
     }

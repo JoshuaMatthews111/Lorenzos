@@ -40,6 +40,7 @@ function answeredContact(client, dogs) {
   };
 }
 
+const PE = require("../lib/pre-eval");
 const OFFICE_PHONE = "(866) 436-4959";
 const LEAD_SELECT = "id,first_name,last_name,email,phone,zip,dog_name,status,version,raw_payload,trainer_slug,eval_scheduled_at,source_page,trainer_market,address_line_1";
 
@@ -83,7 +84,12 @@ async function leadOutcome(row) {
     trainer_market: trainer ? marketLabel(trainer) : "",
     location: booking.location || "",
     location_label: booking.location_label || "",
-    address: booking.client?.address || row.address_line_1 || ""
+    address: booking.client?.address || row.address_line_1 || "",
+    // Rule 81: the pre-evaluation questions. The link holder already sees this lead's booking, so the
+    // saved answers come back for editing.
+    dogs: (Array.isArray(booking.dogs) ? booking.dogs : []).slice(0, PE.MAX_DOGS).map(dog => ({ name: B.clean(dog?.name, 80) })),
+    pre_eval_done: Boolean(booking.pre_eval?.submitted_at),
+    pre_eval_answers: booking.pre_eval?.answers || null
   };
   if (booking.slot_start) {
     const holds = await B.activeHolds(booking.trainer_slug).catch(() => []);
@@ -410,6 +416,45 @@ async function callback(req, res, body) {
   return res.status(200).json({ ok: true, callback: true, lead_id: record.id });
 }
 
+// Rule 81: the pre-evaluation questions, answered after booking from the confirmation text's link.
+// Only a lead that booked or requested may answer. Answers live in raw_payload.booking.pre_eval; the lead's
+// STATUS is never changed (the Sales tab reads the answers to show "Eval Questions Completed").
+async function preEval(req, res, body) {
+  const leadId = B.clean(body.lead_id, 60);
+  if (!B.UUID.test(leadId)) return res.status(400).json({ ok: false, message: "That link is not complete. Please call us." });
+  const lead = await getLead(leadId);
+  if (!lead) return res.status(404).json({ ok: false, message: `We could not find your booking. Please call ${OFFICE_PHONE}.` });
+  const booking = rawOf(lead).booking || {};
+  if (!(booking.slot_start || booking.requested_at)) return res.status(409).json({ ok: false, message: "Please book your free evaluation first." });
+  const dogNames = row => (Array.isArray(rawOf(row).booking?.dogs) ? rawOf(row).booking.dogs : []).map(dog => B.clean(dog?.name, 80));
+  const { answers, errors } = PE.cleanAnswers(body.answers, dogNames(lead));
+  if (errors.length) return res.status(400).json({ ok: false, message: errors[0], errors });
+  const now = new Date().toISOString();
+  const record = await patchLeadWithRetry(lead, current => {
+    const raw = rawOf(current);
+    const b = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+    const before = b.pre_eval && typeof b.pre_eval === "object" ? b.pre_eval : {};
+    return {
+      raw_payload: {
+        ...raw,
+        booking: {
+          ...b,
+          pre_eval: {
+            answers,
+            rows: PE.answerRows(answers, dogNames(current)),
+            flags: PE.safetyFlags(answers),
+            submitted_at: now,
+            first_submitted_at: before.first_submitted_at || now,
+            updates: (Number(before.updates) || 0) + 1
+          }
+        }
+      }
+    };
+  });
+  const name = String(booking.trainer_name || "");
+  return res.status(200).json({ ok: true, lead_id: record.id, booked: Boolean(booking.slot_start), trainer_name: name, trainer_first_name: name.split(" ")[0] });
+}
+
 module.exports = async function handler(req, res) {
   if (!isSandbox()) return res.status(404).json({ ok: false, message: "Not found." });
   B.applyCors(req, res, "GET, POST, OPTIONS");
@@ -422,6 +467,7 @@ module.exports = async function handler(req, res) {
       try { body = B.readBody(req); } catch { return res.status(400).json({ ok: false, message: "The form could not be read. Please try again." }); }
       if (body.op === "request") return await requestTrainer(req, res, body);
       if (body.op === "callback") return await callback(req, res, body);
+      if (body.op === "pre_eval") return await preEval(req, res, body);
       return await book(req, res, body);
     }
     return res.status(405).json({ ok: false, message: "Use GET or POST." });

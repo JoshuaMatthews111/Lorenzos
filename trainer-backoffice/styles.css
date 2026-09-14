@@ -5653,3 +5653,23 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .sales-board.trainer-board .sales-column { flex: 1 1 0; min-width: 180px; }
 .five-up .metric-card strong { font-size: clamp(20px, 1.9vw, 30px); overflow-wrap: anywhere; }
 .trainer-deals-table td:first-child { white-space: nowrap; }
+/* 2026-09-14: seven Dashboard tiles (New Inquiries ... Clients) in one row on wide screens. */
+@media (min-width: 1300px) {
+  .seven-up > .metrics-grid { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+}
+@media (max-width: 1299px) {
+  .seven-up > .metrics-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+}
+.seven-up .metric-card strong { font-size: clamp(20px, 1.8vw, 30px); overflow-wrap: anywhere; }
+/* Rule 81: the saved follow-up text and the pre-evaluation answers. */
+.followup-text { border: 1px solid rgba(148, 163, 184, .4); border-radius: 10px; padding: 10px 12px; margin: 10px 0; background: #f8fafc; }
+.followup-text span { display: block; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #475569; }
+.followup-text pre { white-space: pre-wrap; font: inherit; margin: 6px 0; }
+.followup-text small { color: #64748b; }
+.lead-pre-eval { margin-top: 10px; }
+.lead-pre-eval em { display: block; font-style: normal; font-weight: 700; margin-bottom: 6px; }
+.trainer-card-answers { margin-top: 6px; font-size: 12px; }
+.trainer-card-answers summary { cursor: pointer; font-weight: 700; color: #1d7a46; }
+.trainer-card-answers ul { list-style: none; padding: 0; margin: 6px 0 0; max-height: 220px; overflow-y: auto; }
+.trainer-card-answers li { margin-bottom: 6px; line-height: 1.3; }
+.trainer-card-answers li span { display: block; color: #64748b; }

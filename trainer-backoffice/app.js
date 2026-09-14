@@ -6336,7 +6336,7 @@ const adminScreens = {
     return portalAccessScreen();
   },
     settings() {
-    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + pipelineSettingsPanel() + practiceResetPanel();
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + pipelineSettingsPanel() + followUpTextsPanel() + practiceResetPanel();
   }
 };
 
@@ -6345,22 +6345,23 @@ const trainerScreens = {
     const trainer = trainerById(currentTrainerId());
     const figures = METRICS.trainerDashboard(trainerLeads(trainer.id), trainerSubmissions());
     const myLeads = trainerLeads(trainer.id);
+    const clientFigures = trainerDealFigures(trainer);
     // Meeting 2026-09-12 (Tim + Angela): one page. The overview on top, the working board right under it,
     // then Clients. The menu stays; scrolling lights up the menu item for the part on screen
     // (wireTrainerScrollSpy). Every number still comes from metrics.js (rule 34).
     return `
       <section class="trainer-spy-section" data-spy-view="dashboard">
-      <div class="five-up">${metricGrid([
-        ["lead", "Assigned Leads", figures.assigned, "Yours to work", ""],
+      <div class="seven-up">${metricGrid([
+        // Joshua 2026-09-14: New Inquiries first, Clients last; the office-notes table above the board is gone
+        // (it broke the page flow: tiles -> pipeline -> clients). My Leads still has the full table.
+        ["lead", "New Inquiries", figures.newInquiries, figures.newInquiries ? "Call to introduce yourself" : "None waiting", figures.newInquiries ? "up" : ""],
+        ["dashboard", "Assigned Leads", figures.assigned, "Yours to work", ""],
         ["calendar", "Evaluations Scheduled", figures.evalScheduled, "Booked for you", figures.evalScheduled ? "up" : ""],
         ["report", "Evaluations Completed", figures.evalCompleted, "Done by you", figures.evalCompleted ? "up" : ""],
         ["trophy", "Sold", figures.won, "Became a client", figures.won ? "up" : ""],
-        ["message", "Lost", figures.lost, figures.lost ? "Call these back" : "None right now", figures.lost ? "down" : ""]
+        ["message", "Lost", figures.lost, figures.lost ? "Call these back" : "None right now", figures.lost ? "down" : ""],
+        ["star", "Clients", clientFigures.clients, `Track 500 · ${clientFigures.clientsToGo} to go`, clientFigures.clients ? "up" : ""]
       ])}</div>
-      <div class="dashboard-grid">
-        ${panel("My Locked Trainer Page", `<a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Page</a>`, lockedPageCard(trainer), "pad")}
-        ${panel("Assigned Leads & Office Notes", `<button class="btn btn-outline" data-view="leads">View All</button>`, leadPipelineTable(false), "pad")}
-      </div>
       </section>
       <section class="trainer-spy-section" data-spy-view="leads" id="trainerPipelineSection">
         ${panel("My Pipeline", `<button class="btn btn-outline" data-view="leads">Open My Leads</button>`, trainerPipelineBoard(myLeads), "pad")}
@@ -6369,9 +6370,10 @@ const trainerScreens = {
         ${panel("My Clients", `<button class="btn btn-red" data-view="deals">Submit a Deal</button>`, trainerClientsSummary(trainer), "pad")}
       </section>
       <div class="dashboard-grid">
-        ${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}
+        ${panel("My Locked Trainer Page", `<a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Page</a>`, lockedPageCard(trainer), "pad")}
         ${panel("Submit Content For Approval", `<button class="btn btn-red" data-view="submitMedia">Submit Media</button><button class="btn btn-outline" data-view="submitReviews">Submit Reviews</button>`, `<p class="panel-copy">Photos, videos, reviews, screenshots, and testimonials go to Lorenzo's office before anything appears publicly.</p>`, "pad")}
-      </div>`;
+      </div>
+      ${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}`;
   },
   deals() {
     return trainerDealsView();
@@ -6809,6 +6811,44 @@ async function savePipelineSettings() {
   const count = (payload.settings.recipients || []).filter(r => r.email).length;
   showToast(`Saved. Booking emails will go to ${count} address${count === 1 ? "" : "es"}.`);
   render();
+}
+
+// Rule 81: the saved follow-up texts (Tim's wording; 15 min, 40 min, 24 h, 48 h). READ ONLY: nothing sends,
+// nothing is written. The plan and every count come from lib/reengage.js through GET /api/pipeline?op=followup.
+let followUpState = { loaded: false, loading: false, data: null, error: "" };
+
+async function loadFollowUpPreview() {
+  if (followUpState.loading) return;
+  followUpState.loading = true;
+  try {
+    const token = await window.LDTT_PORTAL?.accessToken?.();
+    const response = await fetch("/api/pipeline?op=followup", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load (${response.status}).`);
+    followUpState = { loaded: true, loading: false, data: payload, error: "" };
+  } catch (error) {
+    followUpState = { loaded: true, loading: false, data: null, error: error.message || String(error) };
+  }
+  render();
+}
+
+function followUpTextsPanel() {
+  if (!window.LDTT_IS_SANDBOX || session.role !== "admin") return "";
+  const title = "Follow-up texts to leads that did not book (saved, NOT sending)";
+  if (!followUpState.loaded) {
+    if (!followUpState.loading) setTimeout(loadFollowUpPreview, 0);
+    return panel(title, "", `<p class="panel-copy">Loading the follow-up plan…</p>`, "pad");
+  }
+  const d = followUpState.data;
+  if (!d) return panel(title, "", `<p class="panel-copy">The follow-up plan did not load: ${escapeHtml(followUpState.error)}. Reload the page to try again.</p>`, "pad");
+  const c = d.counts || {};
+  const when = r => r.group === "new" && r.next?.at ? `Text ${r.next.step} (${r.next.label}) on ${new Date(r.next.at).toLocaleString()}` : "Backlog: one text when sending is switched on";
+  const rows = (d.sample || []).map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(METRICS.LEAD_STATUS_FROM_DB?.[r.status] || r.status)}</td><td>${escapeHtml(r.received ? new Date(r.received).toLocaleString() : "")}</td><td>${escapeHtml(when(r))}</td></tr>`).join("");
+  return panel(title, "", `<p class="panel-copy"><strong>Sending is OFF. Nothing here is sent to anybody.</strong> This is the saved plan, so it is ready when you switch it on.</p>
+    <div class="followup-text"><span>The text, from ${escapeHtml(d.sender || "Tim")}</span><pre>${escapeHtml(d.text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre><small>{{first_name}} becomes the lead's first name.</small></div>
+    <p class="field-hint"><strong>When:</strong> ${escapeHtml((d.steps || []).join(", "))} after the lead comes in, only while they have not booked. Quiet hours ${escapeHtml(d.quiet_hours || "")}: a text waits until 8 AM. <strong>Who:</strong> SMS consent, a phone number, still New Inquiry / Office Contacted / Engaged, not booked, not the recruiting or office-call lane.</p>
+    <p class="field-hint"><strong>On the practice copy right now:</strong> ${escapeHtml(String(c.new || 0))} in their first 48 hours · ${escapeHtml(String(c.backlog || 0))} older (the backlog; ${escapeHtml(String(c.backlog_contacted || 0))} of them in Office Contacted) · ${escapeHtml(String(c.not_eligible || 0))} with consent but not eligible. The practice copy's leads can be behind live.</p>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Received</th><th>Would get</th></tr></thead><tbody>${rows || `<tr><td colspan="4">No leads would get these texts right now.</td></tr>`}</tbody></table></div>`, "pad");
 }
 
 // Practice copy only: "Reset practice copy to match live" (api/practice-reset.js).
@@ -8416,7 +8456,8 @@ function trainerClientTiles(figures) {
     ["report", "Revenue", fmtMoney(figures.revenue), "Total sold", ""],
     ["lead", "Collected", fmtMoney(figures.collected), `${figures.collectedPercent}% of revenue`, figures.collected ? "up" : ""],
     ["calendar", "Balance Due", fmtMoney(figures.balanceDue), due, figures.dueNow.length ? "down" : ""],
-    ["dashboard", "Contracted Revenue", fmtMoney(figures.revenueToGo), `Left of ${fmtMoney(figures.revenueGoal)}`, ""]
+    // Whole dollars: "$1,244,500" fits the tile; cents on a $1.25M countdown only wrapped the number.
+    ["dashboard", "Contracted Revenue", `$${Math.round(figures.revenueToGo).toLocaleString("en-US")}`, `Left of $${Math.round(figures.revenueGoal).toLocaleString("en-US")}`, ""]
   ])}</div>`;
 }
 
@@ -8504,6 +8545,14 @@ function trainerCardNextStep(lead, stage) {
   const texted = pipeline.new_lead_text?.status === "sent";
   if (stage === "inquiry") {
     return `<p class="trainer-card-next">${texted ? "We texted the booking link. No booking yet: call to introduce yourself." : "No booking text went out. Call to introduce yourself."}</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
+  }
+  // Rule 81: trainers cannot open the office lead panel, so the pre-evaluation answers sit on the card.
+  if (stage === "scheduled") {
+    const pre = leadRawPayload(lead).booking?.pre_eval;
+    if (!pre?.submitted_at) return `<p class="trainer-card-next">Pre-evaluation questions: not answered yet.</p>`;
+    const flags = (Array.isArray(pre.flags) ? pre.flags : []).map(flag => `<small class="sales-card-reason">⚠ ${escapeHtml(flag)}</small>`).join("");
+    const rows = (Array.isArray(pre.rows) ? pre.rows : []).map(row => `<li><span>${escapeHtml(row?.[0])}</span> <strong>${escapeHtml(row?.[1])}</strong></li>`).join("");
+    return `${flags}<details class="trainer-card-answers"><summary>Pre-eval answers ✓ Read them</summary><ul>${rows}</ul></details>`;
   }
   // Only what we know: the booking-link text is recorded; win-back texts are not (yet), so never claim them.
   if (stage === "lost") {
@@ -10120,6 +10169,15 @@ function leadExtraAnswersBlock(lead) {
   return `<section class="detail-note-block lead-extra-answers"><span>Extra questions (added in Lead forms)</span><div class="lead-contact-grid">${rows.map(([label, value]) => `<div class="wide"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join("")}</div></section>`;
 }
 
+// Rule 81: the client's pre-evaluation answers (saved as [question, answer] rows by api/booking.js).
+function leadPreEvalBlock(booking) {
+  const pre = booking?.pre_eval;
+  if (!pre?.submitted_at) return `<p class="field-hint">Pre-evaluation questions: not answered yet. The confirmation text links to them.</p>`;
+  const flags = (Array.isArray(pre.flags) ? pre.flags : []).map(flag => `<p class="deal-error">⚠ ${escapeHtml(flag)}</p>`).join("");
+  const rows = (Array.isArray(pre.rows) ? pre.rows : []).map(row => `<div class="wide"><span>${escapeHtml(row?.[0])}</span><strong>${escapeHtml(row?.[1])}</strong></div>`).join("");
+  return `<div class="lead-pre-eval"><em>Pre-evaluation answers · ${escapeHtml(new Date(pre.submitted_at).toLocaleString())}</em>${flags}<div class="lead-contact-grid">${rows}</div></div>`;
+}
+
 function leadBookingBlock(lead) {
   const booking = leadRawPayload(lead).booking;
   if (!booking || typeof booking !== "object") return "";
@@ -10132,7 +10190,7 @@ function leadBookingBlock(lead) {
   const callback = booking.callback && typeof booking.callback === "object" ? booking.callback : null;
   const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 30 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
   if (!booking.slot_start && booking.requested) {
-    return `<section class="detail-note-block lead-booking-block"><span>Trainer requested online</span><p>The client asked for <strong>${escapeHtml(booking.trainer_name || booking.trainer_slug || "a trainer")}</strong> · ${escapeHtml(booking.location_label || "In-home")}. No time was booked: this trainer has no online calendar yet.</p><p class="field-hint">Call the client to pick a day and time, then set this lead to Evaluation Scheduled with the eval date + time.</p>${callbackNote}${leadPipelineNotices(lead)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
+    return `<section class="detail-note-block lead-booking-block"><span>Trainer requested online</span><p>The client asked for <strong>${escapeHtml(booking.trainer_name || booking.trainer_slug || "a trainer")}</strong> · ${escapeHtml(booking.location_label || "In-home")}. No time was booked: this trainer has no online calendar yet.</p><p class="field-hint">Call the client to pick a day and time, then set this lead to Evaluation Scheduled with the eval date + time.</p>${callbackNote}${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
   }
   if (!booking.slot_start) {
     const slug = intake.trainer_slug || "";
@@ -10140,7 +10198,7 @@ function leadBookingBlock(lead) {
     const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : (/^\/book\//.test(pipelineLink) ? pipelineLink : "");
     return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 30 miles." : "No trainer within 30 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
   }
-  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
+  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
 
 function leadCardEvalLine(lead) {

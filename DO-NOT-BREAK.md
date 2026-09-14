@@ -1228,7 +1228,10 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       opens from every New Inquiry card ("Log a call"), because it is still where a trainer claims a lead and logs
       contact (`communications_mark_contacted` only accepts the trainer who claimed the lead). Never delete that screen
       without a replacement. The Page Editor's portal preview list matches the menu.
-    - **Dashboard = one page:** tiles (Assigned / Evaluations Scheduled / Evaluations Completed / Sold / Lost from
+    - **Dashboard = one page (tiles updated 2026-09-14, Joshua):** tiles New Inquiries / Assigned / Evaluations Scheduled /
+      Evaluations Completed / Sold / Lost / Clients (Clients from `METRICS.trainerDeals`). The "Assigned Leads & Office
+      Notes" table is NOT on the Dashboard any more (it broke the flow tiles -> pipeline -> clients); My Leads keeps it,
+      and My Locked Trainer Page moved below the clients. Earlier tile list: (Assigned / Evaluations Scheduled / Evaluations Completed / Sold / Lost from
       `METRICS.trainerDashboard(trainerLeads(trainer.id), trainerSubmissions())` — the audit pins that exact call), then
       "My Pipeline" (`METRICS.trainerPipeline`: New Inquiry, Eval Scheduled, Eval Completed, Sold, Lost), then "My
       Clients". `wireTrainerScrollSpy()` only toggles the sidebar `.active` class; it never sets `state.activeView` and
@@ -1249,3 +1252,54 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     - Texts are NOT changed here: trainer "Track 500 - Schedule Eval", Tim's "Track 500" and "closed" texts live in Make
       (rule 73: needs Joshua's OK).
     Tests: `tests/trainer-portal-2026-09-12.test.mjs` (8). Audit rule 74 check now pins 30.
+
+## Pre-evaluation questions + saved follow-up texts (added 2026-09-14, Claude, branch feat/meeting-2026-09-12)
+
+81. **The client answers the pre-evaluation questions after booking; the follow-up texts are SAVED and never sent.**
+    Joshua 2026-09-14: "these are the evaluation questions attached, make it fit our design uniformed" and, for the
+    follow-up text, "don't send to anybody now because we are building in sandbox, but save this."
+    Source files: `/Volumes/mindfulssd/LDTT Meeting 2026-09-12 - Working Files/eval-questions/` (the .pages + text export).
+    - **Record before the change:** the confirmation text's `pre_eval_link` was `/book/<trainer>?lead=<id>` and reopened
+      the congratulations screen (Angela's bug, meeting [0:47:30]); 216 tests + audit green at c3bbc70.
+    - **Questions** live in ONE list, `lib/pre-eval.js` `SECTIONS` (7 parts, Joshua's document). Part 1 only asks what
+      booking did not (how long in the family, where from, per booked dog). Required: #1 behavior, bite history,
+      children, other animals. `cleanAnswers()` keeps only listed questions and listed choices, caps text (300 / 2000),
+      strips control bytes and drops a follow-up box whose trigger is not met (400 on a missing required answer).
+    - **Page:** the booking page's `stepPre` + `stepThanks`, same cards, fonts and red as steps 1-4. It opens from
+      `?lead=<id>&step=questions` (the text's link, `lib/pipeline.js` `pre_eval_link`; same Make key, so Make is
+      unchanged) and from the button on the congratulations screen. Answered already = thank-you + "Change my answers".
+      The thank-you lists: dog on a leash when the trainer arrives, everyone who cares for the dog and decides at the
+      evaluation, questions ready.
+    - **Save:** `POST /api/booking {op:"pre_eval"}` (404 on live like every booking route, rule 71). Only a lead that
+      booked or requested (409 otherwise). Writes ONLY `raw_payload.booking.pre_eval` = {answers, rows [question,
+      answer], flags, submitted_at, first_submitted_at, updates} through the version-guarded patch. It NEVER changes
+      the status, the eval time or a hold.
+    - **Sales:** `metrics.salesStageFor()` puts an `evaluation_scheduled` lead WITH answers in "Eval Questions
+      Completed" (stage `confirmed`). The status is unchanged, so the Leads tab never moves (rule 1), and
+      `salesTotals().booked` adds booked + confirmed + evaluated, so the nightly cross-check figures do not move.
+    - **Who reads the answers:** the office lead panel (`leadPreEvalBlock`, safety flags first) and the trainer's Eval
+      Scheduled card ("Pre-eval answers ✓ Read them"; trainers cannot open the office panel). The trainer TEXT does not
+      carry them yet (Make; needs Joshua's OK, rule 73).
+    - **Follow-up texts:** `lib/reengage.js`. Tim's wording (+ "Reply STOP to opt out."), steps 15 min, 40 min, 24 h,
+      48 h after the lead came in, only while not booked; quiet hours 9 PM-8 AM Eastern push a text to 8 AM. Who: SMS
+      consent, a phone, status new_inquiry / office_contacted / engaged_no_outcome, no booking or request, not the
+      recruiting / office-call lane, not a booklet request, not QA. Older than 48 h = the backlog ("the 95"), one text
+      when switched on. `SENDING_ENABLED = false` and the file has NO fetch / hook / Make / Twilio code: the test
+      refuses it. Settings shows the plan read-only (`GET /api/pipeline?op=followup`, office login, practice only).
+      Switching it on needs Joshua's go, its own Make route with the tester filter (rules 72-73) and a plan for "Reply YES".
+    Tests: `tests/pre-eval-and-follow-up.test.mjs` (8). Cache stamp 20260914preeval1.
+
+## Text lock: only Joshua's phone (added 2026-09-14, Claude)
+
+82. **Every practice-copy text goes ONLY to +14402142915 (Joshua) until Joshua says otherwise.**
+    Joshua 2026-09-14: "don't send any text until I tell you; for now send only to me 4402142915."
+    - `lib/pipeline.js` `PRACTICE_TEXT_ONLY_TO = ["+14402142915"]`. `activeTesterPhones()` (the ONE place every text
+      path asks: booking link, customer care, confirmation, trainer alert, Operations) returns only tester phones on
+      that list, and an empty set on any error (fail closed). There is one tester lookup; never add a second.
+    - The Operations and trainer-alert phones are forced to the locked number when the saved Settings phone is another
+      one (the row saved 2026-09-12 names Tim for Operations). `DEFAULT_PRACTICE_OPS_PHONE` is Joshua (was Tim).
+    - A phone that fails the lock reaches Make as "" (the Make tester filters stay too, rules 72-73).
+    - Live sends no pipeline texts at all (rule 72); the follow-up texts have no send code (rule 81);
+      `api/lead-journey.js` (off the menu, rule 63) keeps its own tester check and is not used.
+    - Widening the lock (Tim, Angela, real customers) needs Joshua's words in the chat.
+    Test: `tests/pre-eval-and-follow-up.test.mjs` "text lock".
