@@ -88,17 +88,32 @@ test("trainer menu: Clients replaces My Deals, Performance and Communications ar
   assert.doesNotMatch(preview, /performance/);
 });
 
-test("one-page Dashboard: three parts, the scroll highlight is visual only and wired after every draw", () => {
+test("one page (Joshua 2026-09-14): every tab is a section in menu order, a tab click scrolls with no redraw, the highlight follows the scroll", () => {
   const dash = app.match(/const trainerScreens = \{\n  dashboard\(\) \{[\s\S]*?\n  \},\n  deals\(\)/)[0];
-  for (const view of ["dashboard", "leads", "deals"]) assert.match(dash, new RegExp(`data-spy-view="${view}"`));
-  // Joshua 2026-09-14: tiles New Inquiries ... Clients, and the office-notes table is off the Dashboard.
+  // Tiles New Inquiries ... Clients; the Dashboard section is the tiles only, so no part is drawn twice.
   const tiles = [...dash.matchAll(/\["[a-z]+", "([^"]+)", /g)].map(m => m[1]);
   assert.deepEqual(tiles, ["New Inquiries", "Assigned Leads", "Evaluations Scheduled", "Evaluations Completed", "Sold", "Lost", "Clients"]);
-  assert.doesNotMatch(dash, /Assigned Leads & Office Notes/, "nothing sits between the tiles and the board");
-  assert.ok(dash.indexOf('data-spy-view="leads"') > dash.indexOf('data-spy-view="dashboard"') && dash.indexOf('data-spy-view="leads"') < dash.indexOf("My Locked Trainer Page"), "tiles -> pipeline -> clients, the locked page below");
-  const spy = app.match(/function wireTrainerScrollSpy\(\) \{[\s\S]*?\n\}\n/)[0];
-  assert.doesNotMatch(spy, /state\.activeView =|render\(/, "never changes the screen, never redraws");
-  assert.match(app, /restoreScrollState\(target, scrolled\);\n  wireTrainerScrollSpy\(\);\n\}/);
+  assert.doesNotMatch(dash, /Assigned Leads & Office Notes|My Locked Trainer Page|trainerPipelineBoard|trainerClientsSummary/);
+  assert.match(app, /  leads\(\) \{\n[^\n]*\n    return `\$\{panel\("My Pipeline", "", trainerPipelineBoard\(trainerLeads\(currentTrainerId\(\)\)\), "pad"\)\}\$\{panel\("All My Leads & Office Notes"/);
+  const onePage = app.match(/function trainerOnePage\(\) \{[\s\S]*?\n\}\n/)[0];
+  assert.match(onePage, /const nav = trainerNav\(\);/, "sections follow the menu order");
+  assert.match(onePage, /id="trainer-sec-\$\{view\}" data-spy-view="\$\{view\}"/);
+  assert.match(onePage, /trainer-onepage-tabs/, "phones get the sticky tab strip");
+  assert.match(app, /target\.innerHTML = onePage \? trainerOnePage\(\) : \(screens\[state\.activeView\]\?\.\(\) \|\| screens\.dashboard\(\)\);/);
+  const click = app.match(/on the trainer's one page a tab is a jump[\s\S]*?return;\n    \}/)[0];
+  assert.doesNotMatch(click, /render\(|reloadRemoteData/, "a tab click never redraws or reloads");
+  assert.match(click, /scrollToTrainerSection\(view\.dataset\.view\);/);
+  const spy = app.match(/let trainerSpyFrame = 0;[\s\S]*?\nfunction wireTrainerScrollSpy\(\) \{[\s\S]*?\n\}\n/)[0];
+  assert.doesNotMatch(spy, /state\.activeView =|render\(|reloadRemoteData/, "never changes the screen, never redraws");
+  assert.match(spy, /window\.addEventListener\("scroll", trainerSpyOnScroll, \{ passive: true \}\);/, "one light scroll listener, added once");
+  assert.match(spy, /requestAnimationFrame\(trainerSpyUpdate\)/, "measured once per frame");
+  assert.match(spy, /if \(window\.innerHeight \+ window\.scrollY >= document\.documentElement\.scrollHeight - 4\) current = sections\[sections\.length - 1\];/, "the last section lights at the bottom");
+  assert.match(app, /  pinTrainerTab\(view\);\n  section\.scrollIntoView\(\{ behavior: smooth \? "smooth" : "auto", block: "start" \}\);/, "a tapped tab stays lit");
+  assert.match(app, /restoreScrollState\(target, scrolled\);\n  wireTrainerScrollSpy\(\);/);
+  // Both upload forms are on the one page with the same field names: a submit reads only its own panel.
+  const submit = app.match(/if \(event\.target\.id === "submitDemoContent"\) \{[\s\S]*?const reviewVideoUrl[^\n]*\n/)[0];
+  assert.match(submit, /const scope = event\.target\.closest\("\.panel"\) \|\| document;/);
+  assert.doesNotMatch(submit, /document\.querySelector\('\[name="submission-/);
 });
 
 test("Submit a Deal: Program dropdown keeps any program; picking a lead fills and locks client + dog", () => {

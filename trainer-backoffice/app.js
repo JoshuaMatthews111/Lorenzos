@@ -4843,6 +4843,8 @@ function renderTopbar() {
     ? ["Secure Your Account", "Enter your name and replace the temporary password before using the portal."]
     : profileSetupRequired
       ? ["Complete Your Portal Profile", "Enter and save your first and last name so reports, site edits, leads, and application notes show the right staff identity."]
+    : !isAdmin && trainerOnePageActive()
+      ? ["Trainer Portal", "Your numbers, leads, clients, page and uploads on one page. Scroll, or tap a tab to jump to it."]
     : titles[state.activeView] || titles.dashboard;
   document.getElementById("topbar").innerHTML = `
     <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
@@ -4892,10 +4894,16 @@ function renderView() {
   // and the cursor back exactly where they were instead of clearing the form.
   const typed = captureTypedInput(target);
   const scrolled = captureScrollState(target);
-  target.innerHTML = screens[state.activeView]?.() || screens.dashboard();
+  const onePage = trainerOnePageActive();
+  const wasOnePage = Boolean(document.getElementById("trainerOnePage"));
+  document.body.classList.toggle("is-trainer-onepage", onePage);
+  target.innerHTML = onePage ? trainerOnePage() : (screens[state.activeView]?.() || screens.dashboard());
   restoreTypedInput(target, typed);
   restoreScrollState(target, scrolled);
   wireTrainerScrollSpy();
+  // Opening the one page from elsewhere (sign-in, a saved tab, back from Log a call): land on that tab's section.
+  // A background redraw of the one page keeps the reader where they are (restoreScrollState above).
+  if (onePage && !wasOnePage && state.activeView !== "dashboard") requestAnimationFrame(() => scrollToTrainerSection(state.activeView, false));
 }
 
 // A redraw must not throw someone back to the top of a lead they are reading.
@@ -6344,13 +6352,10 @@ const trainerScreens = {
   dashboard() {
     const trainer = trainerById(currentTrainerId());
     const figures = METRICS.trainerDashboard(trainerLeads(trainer.id), trainerSubmissions());
-    const myLeads = trainerLeads(trainer.id);
     const clientFigures = trainerDealFigures(trainer);
-    // Meeting 2026-09-12 (Tim + Angela): one page. The overview on top, the working board right under it,
-    // then Clients. The menu stays; scrolling lights up the menu item for the part on screen
-    // (wireTrainerScrollSpy). Every number still comes from metrics.js (rule 34).
+    // Joshua 2026-09-14: the trainer portal is ONE page (trainerOnePage). This section is the tiles only;
+    // the board is in My Leads and the clients in Clients, so nothing is drawn twice. Numbers: metrics.js (rule 34).
     return `
-      <section class="trainer-spy-section" data-spy-view="dashboard">
       <div class="seven-up">${metricGrid([
         // Joshua 2026-09-14: New Inquiries first, Clients last; the office-notes table above the board is gone
         // (it broke the page flow: tiles -> pipeline -> clients). My Leads still has the full table.
@@ -6361,29 +6366,18 @@ const trainerScreens = {
         ["trophy", "Sold", figures.won, "Became a client", figures.won ? "up" : ""],
         ["message", "Lost", figures.lost, figures.lost ? "Call these back" : "None right now", figures.lost ? "down" : ""],
         ["star", "Clients", clientFigures.clients, `Track 500 · ${clientFigures.clientsToGo} to go`, clientFigures.clients ? "up" : ""]
-      ])}</div>
-      </section>
-      <section class="trainer-spy-section" data-spy-view="leads" id="trainerPipelineSection">
-        ${panel("My Pipeline", `<button class="btn btn-outline" data-view="leads">Open My Leads</button>`, trainerPipelineBoard(myLeads), "pad")}
-      </section>
-      <section class="trainer-spy-section" data-spy-view="deals" id="trainerClientsSection">
-        ${panel("My Clients", `<button class="btn btn-red" data-view="deals">Submit a Deal</button>`, trainerClientsSummary(trainer), "pad")}
-      </section>
-      <div class="dashboard-grid">
-        ${panel("My Locked Trainer Page", `<a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">View Page</a>`, lockedPageCard(trainer), "pad")}
-        ${panel("Submit Content For Approval", `<button class="btn btn-red" data-view="submitMedia">Submit Media</button><button class="btn btn-outline" data-view="submitReviews">Submit Reviews</button>`, `<p class="panel-copy">Photos, videos, reviews, screenshots, and testimonials go to Lorenzo's office before anything appears publicly.</p>`, "pad")}
-      </div>
-      ${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}`;
+      ])}</div>`;
   },
   deals() {
     return trainerDealsView();
   },
   myPage() {
     const trainer = trainerById(currentTrainerId());
-    return `<div class="dashboard-grid">${panel("My Locked Trainer Landing Page", `<a class="btn btn-red" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">Open Full Page</a>`, lockedPageCard(trainer), "pad")}${panel("Locked Page Details", "", lockedPageDetails(trainer), "pad")}</div>`;
+    return `<div class="dashboard-grid">${panel("My Locked Trainer Landing Page", `<a class="btn btn-red" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">Open Full Page</a>`, lockedPageCard(trainer), "pad")}${panel("Locked Page Details", "", lockedPageDetails(trainer), "pad")}</div>${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}`;
   },
   leads() {
-    return panel("Assigned Leads", "", leadPipelineTable(false), "pad");
+    // The working board first (New Inquiry -> Lost), then every assigned lead with office notes.
+    return `${panel("My Pipeline", "", trainerPipelineBoard(trainerLeads(currentTrainerId())), "pad")}${panel("All My Leads & Office Notes", "", leadPipelineTable(false), "pad")}`;
   },
   performance() {
     const trainer = trainerById(currentTrainerId());
@@ -8561,20 +8555,90 @@ function trainerCardNextStep(lead, stage) {
   return "";
 }
 
-// One-page Dashboard: light up the menu item for the part on screen. Visual only: it never changes
-// state.activeView, so it never redraws. Re-wired after every draw.
-let trainerSpyObserver = null;
-function wireTrainerScrollSpy() {
-  if (trainerSpyObserver) { trainerSpyObserver.disconnect(); trainerSpyObserver = null; }
-  if (session.role === "admin" || state.activeView !== "dashboard" || typeof IntersectionObserver !== "function") return;
-  const sections = [...document.querySelectorAll("#workspaceView [data-spy-view]")];
+// ---- Trainer portal = ONE page (Joshua 2026-09-14) -------------------------
+// "Laid out like a one-page scroll, selecting each tab automatically as we progress down the page… no loading
+// windows, just a smooth scroll… even on mobile." Every menu tab is a section, in menu order, drawn once.
+// A tab click scrolls there smoothly (no new screen, no reload); scrolling lights up the tab on screen.
+// Phones get a sticky tab strip (the sidebar scrolls away there). Communications (off the menu) still opens
+// on its own from "Log a call"; any tab brings the one page back.
+function trainerOnePageViews() {
+  return trainerNav().map(([view]) => view).filter(view => typeof trainerScreens[view] === "function");
+}
+
+function trainerOnePageActive() {
+  return session.role !== "admin" && !portalUser?.must_change_password && !portalProfileNeedsCompletion()
+    && trainerOnePageViews().includes(state.activeView);
+}
+
+function trainerOnePage() {
+  const nav = trainerNav();
+  const strip = `<nav class="trainer-onepage-tabs" aria-label="Trainer portal sections">${nav.map(([view, label, , count]) => `<button type="button" class="nav-btn${state.activeView === view ? " active" : ""}" data-view="${view}">${escapeHtml(label)}${count ? `<span class="nav-count">${escapeHtml(String(count))}</span>` : ""}</button>`).join("")}</nav>`;
+  const sections = nav.map(([view, label], i) => `<section class="trainer-spy-section trainer-page-section" id="trainer-sec-${view}" data-spy-view="${view}">${i ? `<h2 class="trainer-section-title">${escapeHtml(label)}</h2>` : ""}${trainerScreens[view]()}</section>`).join("");
+  return `<div id="trainerOnePage" class="trainer-onepage">${strip}${sections}</div>`;
+}
+
+// Light up one tab in the sidebar AND the phone strip; keep the strip's lit tab in view (sideways only,
+// so a smooth page scroll is never interrupted).
+function markTrainerTab(view) {
+  document.querySelectorAll("#sidebar .nav-btn[data-view], .trainer-onepage-tabs .nav-btn[data-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
+  const strip = document.querySelector(".trainer-onepage-tabs");
+  const lit = strip?.querySelector(".nav-btn.active");
+  if (strip && lit && strip.clientWidth) strip.scrollLeft = lit.offsetLeft - (strip.clientWidth - lit.clientWidth) / 2;
+}
+
+function scrollToTrainerSection(view, smooth = true) {
+  const section = document.getElementById(`trainer-sec-${view}`);
+  if (!section) return false;
+  pinTrainerTab(view);
+  section.scrollIntoView({ behavior: smooth ? "smooth" : "auto", block: "start" });
+  markTrainerTab(view);
+  return true;
+}
+
+// The lit tab = the last section whose top has passed a line 35% down the screen (first section at the top,
+// last section at the very bottom). Measured on every scroll (one frame at a time), so no section is ever
+// missed. A tapped tab stays lit through its smooth scroll and until the reader scrolls away by hand (a short
+// section near the bottom can never reach the line). Visual only: never changes state.activeView, never redraws.
+let trainerSpyFrame = 0;
+let trainerSpyPin = null;
+let trainerSpySettle = 0;
+let trainerSpyWired = false;
+function pinTrainerTab(view) {
+  trainerSpyPin = { view, y: null };
+  clearTimeout(trainerSpySettle);
+  trainerSpySettle = setTimeout(() => { if (trainerSpyPin) trainerSpyPin.y = window.scrollY; }, 400);
+}
+function trainerSpyUpdate() {
+  trainerSpyFrame = 0;
+  const page = document.getElementById("trainerOnePage");
+  if (!page) return;
+  if (trainerSpyPin) {
+    if (trainerSpyPin.y === null || Math.abs(window.scrollY - trainerSpyPin.y) < 40) { markTrainerTab(trainerSpyPin.view); return; }
+    trainerSpyPin = null; // the reader scrolled away by hand: follow the scroll again
+  }
+  const sections = [...page.querySelectorAll("[data-spy-view]")];
   if (!sections.length) return;
-  const mark = view => document.querySelectorAll("#sidebar .nav-btn[data-view]").forEach(btn => btn.classList.toggle("active", btn.dataset.view === view));
-  trainerSpyObserver = new IntersectionObserver(entries => {
-    const hit = entries.filter(entry => entry.isIntersecting).pop();
-    if (hit) mark(hit.target.dataset.spyView);
-  }, { rootMargin: "-40% 0px -55% 0px" });
-  sections.forEach(section => trainerSpyObserver.observe(section));
+  const line = window.innerHeight * 0.35;
+  let current = sections[0];
+  for (const section of sections) if (section.getBoundingClientRect().top <= line) current = section;
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = sections[sections.length - 1];
+  markTrainerTab(current.dataset.spyView);
+}
+function trainerSpyOnScroll() {
+  if (trainerSpyPin && trainerSpyPin.y === null) {
+    clearTimeout(trainerSpySettle); // the tapped tab's smooth scroll is still moving: settle when it stops
+    trainerSpySettle = setTimeout(() => { if (trainerSpyPin) trainerSpyPin.y = window.scrollY; }, 180);
+  }
+  if (!trainerSpyFrame) trainerSpyFrame = requestAnimationFrame(trainerSpyUpdate);
+}
+function wireTrainerScrollSpy() {
+  if (!document.getElementById("trainerOnePage")) return;
+  if (!trainerSpyWired) {
+    window.addEventListener("scroll", trainerSpyOnScroll, { passive: true });
+    window.addEventListener("resize", trainerSpyOnScroll, { passive: true });
+    trainerSpyWired = true;
+  }
+  trainerSpyOnScroll();
 }
 
 // Client record: first payment + every scheduled payment.
@@ -12483,6 +12547,13 @@ document.addEventListener("click", async event => {
       showToast("This section requires Super Admin access.");
       return;
     }
+    // Joshua 2026-09-14: on the trainer's one page a tab is a jump, not a new screen: smooth scroll, no redraw.
+    if (session.role !== "admin" && document.getElementById("trainerOnePage") && trainerOnePageViews().includes(view.dataset.view)) {
+      state.activeView = view.dataset.view;
+      persistStateSnapshot();
+      scrollToTrainerSection(view.dataset.view);
+      return;
+    }
     state.activeView = view.dataset.view;
     persistStateSnapshot();
     render();
@@ -13290,12 +13361,15 @@ document.addEventListener("click", async event => {
     return;
   }
   if (event.target.id === "submitDemoContent") {
-    const type = document.querySelector('[name="submission-type"]')?.value || "Photo";
-    const title = document.querySelector('[name="submission-title"]')?.value.trim();
-    const note = document.querySelector('[name="submission-note"]')?.value || "Submitted by trainer for office approval.";
-    const reviewText = document.querySelector('[name="submission-review-text"]')?.value.trim() || "";
-    const file = document.querySelector('[name="submission-file"]')?.files?.[0];
-    const reviewVideoUrl = normalizeVideoUrl(document.querySelector('[name="submission-video-url"]')?.value || "");
+    // 2026-09-14: the trainer's one page holds BOTH upload forms (same field names). Read only this button's
+    // own panel, so "Submit" under Reviews can never send the Photos form (or the other way round).
+    const scope = event.target.closest(".panel") || document;
+    const type = scope.querySelector('[name="submission-type"]')?.value || "Photo";
+    const title = scope.querySelector('[name="submission-title"]')?.value.trim();
+    const note = scope.querySelector('[name="submission-note"]')?.value || "Submitted by trainer for office approval.";
+    const reviewText = scope.querySelector('[name="submission-review-text"]')?.value.trim() || "";
+    const file = scope.querySelector('[name="submission-file"]')?.files?.[0];
+    const reviewVideoUrl = normalizeVideoUrl(scope.querySelector('[name="submission-video-url"]')?.value || "");
     if (!title) {
       showToast("Add a title before submitting");
       return;

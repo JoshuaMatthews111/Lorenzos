@@ -5673,3 +5673,32 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .trainer-card-answers ul { list-style: none; padding: 0; margin: 6px 0 0; max-height: 220px; overflow-y: auto; }
 .trainer-card-answers li { margin-bottom: 6px; line-height: 1.3; }
 .trainer-card-answers li span { display: block; color: #64748b; }
+/* 2026-09-14 (Joshua): the trainer portal is ONE page. Sections sit in menu order with even spacing;
+   a tab jump lands the heading under the practice banner. Phones get a sticky tab strip. */
+.trainer-page-section { scroll-margin-top: calc(var(--ldtt-banner-h, 0px) + 16px); }
+.trainer-page-section + .trainer-page-section { border-top: 1px solid rgba(148, 163, 184, .28); margin-top: 26px; padding-top: 24px; }
+.trainer-section-title { font-size: 1.4rem; line-height: 1.2; margin: 0 0 14px; color: #082754; letter-spacing: -.01em; }
+.trainer-onepage-tabs { display: none; }
+@media (max-width: 900px) {
+  body.is-trainer-onepage #sidebar .side-nav { display: none; }
+  .trainer-onepage-tabs {
+    display: flex; gap: 6px; overflow-x: auto; position: sticky; top: var(--ldtt-banner-h, 0px); z-index: 60;
+    margin: 0 0 12px; padding: 8px 2px; background: #eef4fb; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  }
+  .trainer-onepage-tabs::-webkit-scrollbar { display: none; }
+  .trainer-onepage-tabs .nav-btn {
+    flex: none; width: auto; min-height: 40px; padding: 8px 14px; border-radius: 999px; white-space: nowrap;
+    background: #fff; color: #0b2447; border: 1px solid #cbd5e1; font-weight: 700; font-size: .9rem;
+  }
+  .trainer-onepage-tabs .nav-btn.active { background: #c8102e; border-color: #c8102e; color: #fff; }
+  .trainer-onepage-tabs .nav-count { margin-left: 6px; }
+  .trainer-page-section { scroll-margin-top: calc(var(--ldtt-banner-h, 0px) + 66px); }
+}
+/* 2026-09-14 phone check: counts sit beside the tab words; the phone header is compact and says the name once. */
+.trainer-onepage-tabs .nav-count { position: static; display: inline-flex; margin: 0 0 0 6px; transform: none; }
+@media (max-width: 900px) {
+  body.is-trainer-onepage #sidebar .side-user { display: none; }
+  body.is-trainer-onepage .top-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  body.is-trainer-onepage .top-actions .btn { width: auto; flex: 1 1 auto; min-height: 42px; }
+  body.is-trainer-onepage .top-actions .profile-chip { display: none; }
+}

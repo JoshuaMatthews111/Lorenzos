@@ -1236,6 +1236,19 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       "My Pipeline" (`METRICS.trainerPipeline`: New Inquiry, Eval Scheduled, Eval Completed, Sold, Lost), then "My
       Clients". `wireTrainerScrollSpy()` only toggles the sidebar `.active` class; it never sets `state.activeView` and
       never calls `render()` (that would redraw while scrolling). It disconnects before every rewire.
+    - **One page (2026-09-14, Joshua: "a one-page scroll, selecting each tab automatically as we progress down the
+      page… no loading windows, just a smooth scroll… even on mobile").** For a trainer (no password/profile gate)
+      `renderView()` draws `trainerOnePage()`: one `<section id="trainer-sec-<view>" data-spy-view="<view>">` per
+      `trainerNav()` tab, in menu order, each screen drawn ONCE (Dashboard = the 7 tiles only; My Leads = My Pipeline +
+      All My Leads & Office Notes; Clients; My Trainer Page + What Trainers Can Do; Photos/Videos; Reviews; Settings).
+      A tab click on the one page only scrolls (`scrollToTrainerSection`, smooth) — it never calls `render()` or
+      `reloadRemoteData()`. `wireTrainerScrollSpy()` lights the tab on screen (sidebar AND the phone strip) and never
+      changes `state.activeView`; the last section is lit at the very bottom. Phones (<= 900px) hide the sidebar menu
+      and show the sticky `.trainer-onepage-tabs` strip under the banner. Opening the page on a saved tab lands on its
+      section. Communications (off the menu) still opens alone from "Log a call"; any tab brings the one page back.
+    - **Both upload forms share field names on the one page.** The `submitDemoContent` handler reads ONLY its own
+      `.panel` (`const scope = event.target.closest(".panel")`), never `document.querySelector('[name="submission-…`,
+      so a Reviews submit can never send the Photos form. Keep it scoped.
     - **The trainer's Lost column holds only "Lost…" statuses and Evaluation Cancelled.** Bad Lead, Do Not Contact and
       Archived are NOT drawn: a trainer must never be told to call them. Cards only claim what is recorded (the
       booking-link text); win-back texts are not recorded, so no card may say they were sent.
