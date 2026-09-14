@@ -5702,3 +5702,5 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
   body.is-trainer-onepage .top-actions .btn { width: auto; flex: 1 1 auto; min-height: 42px; }
   body.is-trainer-onepage .top-actions .profile-chip { display: none; }
 }
+/* The sidebar button is a 3-column grid (icon, words, count); strip buttons have no icon, so lay them out as a row. */
+.trainer-onepage-tabs .nav-btn { display: inline-flex; align-items: center; gap: 0; grid-template-columns: none; }
