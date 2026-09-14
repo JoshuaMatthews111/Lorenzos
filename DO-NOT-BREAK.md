@@ -1384,3 +1384,17 @@ COLLECTED; service-dog gold tag YES; milestones later.
       trainer cards and in the trainer's lead details (read-only); the follow-up plan is Tim's text at 15 min, then the
       booking link at 40 min, 24 h and 48 h (`lib/reengage.js` `STEPS[].kind`), still NOT sending; booklet leads stay out.
     Tests: `tests/pipeline-texts.test.mjs` (6).
+    - **2026-09-14 06:57 UTC — Make switched to the portal's words (Joshua: "A, make the switch, but make sure no texts
+      are sent").** The Twilio body of 6237328 is now `{{1.message}}`, 6237333 customer `{{1.customer_message}}` + trainer
+      `{{1.trainer_message}}`, 6254549 both routes `{{1.message}}`. Tester filters unchanged. The earlier words are
+      recorded in `/Volumes/mindfulssd/LDTT Meeting 2026-09-12 - Working Files/baseline/MAKE-TEXTS-BEFORE-2026-09-14.md`
+      (restore = put those bodies back). Proof nothing was sent: each scenario's history shows the "modify" entry at
+      06:57 and no run after it. `LDTT_TEXTS_FROM_PORTAL=1` set on the Vercel Preview target. Because Make now sends
+      exactly `message`, the pipeline must ALWAYS fill it: `withTextMessages()` renders the words in use, and the starting
+      words when the editor cannot be read. Never remove that fallback while Make reads `{{1.message}}`.
+    - **Super Admin only (2026-09-14).** GET `op=texts` answers 403 to office admins; every change
+      (`text_template_save`, `text_template_delete`, `text_activate`) and `text_test` need `require:"super"`.
+    - **Stages x roles, several templates.** `STAGES` (new lead, not booked, booked, answered, closed) x `ROLES` (client,
+      trainer, operations). Each text: built-in "Starting words" + up to 10 templates; exactly ONE is in use
+      (`active`, "starting" or a template id). Putting one in use needs a two-word full name; the template in use cannot
+      be deleted; words saved by the first editor (published/draft) carry over as templates. Every change is logged.

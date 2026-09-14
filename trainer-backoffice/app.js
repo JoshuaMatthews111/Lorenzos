@@ -6813,10 +6813,13 @@ async function savePipelineSettings() {
   render();
 }
 
-// Rule 84: Text messages editor (Joshua 2026-09-14). Office admins and Super Admins edit; trainers never see it.
-// Each text: "In use now" / "Not sending yet", the words currently used (who + when), a draft with its fields and
-// a live example, Save draft / Publish (full name) / Discard / Back to starting words, and Send test (locked phone).
-let pipelineTextsState = { loaded: false, loading: false, data: null, error: "", open: "" };
+// Rule 84: Text messages (Joshua 2026-09-14). SUPER ADMIN ONLY: office admins and trainers never see it, and the API
+// answers 403 to them too. Pick who the text goes to (role chips), read the texts in the order a client meets them
+// (stage timeline), see each one as a phone bubble, keep several templates per text and put ONE in use (full name).
+// Send test goes only to the locked phone (rule 82).
+let pipelineTextsState = { loaded: false, loading: false, data: null, error: "", role: "all", open: "", edit: null, fullName: "", busy: false };
+const PTEXT_ROLE_CLASS = { all: "all", client: "client", trainer: "trainer", operations: "ops" };
+const PTEXT_READER = { client: "What the client sees", trainer: "What the trainer sees", operations: "What Tim sees" };
 
 async function pipelineTextsRequest(method, body) {
   const token = await window.LDTT_PORTAL?.accessToken?.();
@@ -6844,11 +6847,19 @@ async function loadPipelineTexts() {
 
 function pipelineTextFill(words) {
   const sample = { first_name: "Sam", last_name: "Carter", problem: "pulling on the leash", booking_link: "https://…/book/example", trainer_first_name: "Jordan", trainer_name: "Jordan Reed", appointment_day: "Tuesday", appointment_date: "Sep 15", appointment_time: "10:00 AM ET", service_address: "1234 Example St, Cleveland, OH 44105", dog_name: "Max", pre_eval_link: "https://…/questions", safety_flag: "", trainer_portal_link: "https://…/staff", answers_summary: "#1: pulling on the leash. Kids at home: yes.", client_name: "Sam Carter", zip: "44105", source: "Contact Us", next_step: "Booking link texted.", link: "https://…/staff", program: "Basic Obedience", sold: "$2,500.00", collected: "$1,000.00" };
-  return String(words || "").replace(/\{([a-z_]+)\}/g, (_, name) => sample[name] ?? "").replace(/\n{3,}/g, "\n\n").trim();
+  return String(words || "").replace(/\{([a-z_]+)\}/g, (_, name) => sample[name] ?? "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function ptextFind(key) {
+  return (pipelineTextsState.data?.texts || []).find(t => t.key === key) || null;
+}
+
+function ptextBubble(words, attrs = "") {
+  return `<div class="ptx-phone"><div class="ptx-bubble" ${attrs}>${escapeHtml(pipelineTextFill(words))}</div></div>`;
 }
 
 function pipelineTextsPanel() {
-  if (!window.LDTT_IS_SANDBOX || session.role !== "admin") return "";
+  if (!window.LDTT_IS_SANDBOX || !isSuperAdmin()) return "";
   const title = "Text messages";
   if (!pipelineTextsState.loaded) {
     if (!pipelineTextsState.loading) setTimeout(loadPipelineTexts, 0);
@@ -6857,56 +6868,176 @@ function pipelineTextsPanel() {
   const d = pipelineTextsState.data;
   if (!d) return panel(title, "", `<p class="panel-copy">The texts did not load: ${escapeHtml(pipelineTextsState.error)}. Reload the page to try again.</p>`, "pad");
   const live = d.make_uses_portal === true;
-  const items = (d.texts || []).map(t => {
-    const open = pipelineTextsState.open === t.key;
-    const draft = typeof t.draft === "string" && t.draft ? t.draft : "";
-    const status = t.status === "in_use" ? `<span class="status live">In use now</span>` : `<span class="status draft">Not sending yet</span>`;
-    const by = t.starting_words ? "Starting words (the same as Make today)" : `Published by ${escapeHtml(t.in_use_by)} on ${escapeHtml(t.in_use_at ? new Date(t.in_use_at).toLocaleString() : "")}`;
-    const body = !open ? "" : `<div class="ptext-edit">
-      <label>Draft <span class="hint">${draft ? `saved${t.draft_by ? ` by ${escapeHtml(t.draft_by)}` : ""}` : "not saved yet"} · fields: ${t.fields.map(f => `<code>{${escapeHtml(f)}}</code>`).join(" ")}</span>
-        <textarea data-ptext-draft="${escapeHtml(t.key)}" maxlength="${Number(d.max_chars) || 640}" rows="7">${escapeHtml(draft || t.in_use)}</textarea></label>
-      <p class="field-hint" data-ptext-count="${escapeHtml(t.key)}">${(draft || t.in_use).length} of ${Number(d.max_chars) || 640} characters</p>
-      <div class="ptext-preview"><span>Example</span><pre data-ptext-preview="${escapeHtml(t.key)}">${escapeHtml(pipelineTextFill(draft || t.in_use))}</pre></div>
-      <label class="ptext-name">Your full name <span class="hint">needed to publish or go back to the starting words</span><input type="text" data-ptext-name="${escapeHtml(t.key)}" autocomplete="name" placeholder="First Last" maxlength="120"></label>
-      <div class="row-actions">
-        <button type="button" class="btn btn-outline btn-small" data-ptext-op="save" data-ptext-key="${escapeHtml(t.key)}">Save draft</button>
-        <button type="button" class="btn btn-red btn-small" data-ptext-op="publish" data-ptext-key="${escapeHtml(t.key)}">Publish (use this text)</button>
-        ${draft ? `<button type="button" class="btn btn-outline btn-small" data-ptext-op="discard" data-ptext-key="${escapeHtml(t.key)}">Discard draft</button>` : ""}
-        ${t.starting_words ? "" : `<button type="button" class="btn btn-outline btn-small" data-ptext-op="reset" data-ptext-key="${escapeHtml(t.key)}">Back to starting words</button>`}
-        <button type="button" class="btn btn-outline btn-small" data-ptext-op="test" data-ptext-key="${escapeHtml(t.key)}" ${live ? "" : "disabled"}>Send test to ...${escapeHtml(d.test_phone_last4 || "")}</button>
-      </div>
-      ${live ? "" : `<p class="field-hint">Send test turns on when the Make texts are switched to the portal. Until then Make sends its own copy of the same starting words.</p>`}
-    </div>`;
-    return `<article class="ptext${open ? " is-open" : ""}">
-      <header><div><strong>${escapeHtml(t.label)}</strong><small>To: ${escapeHtml(t.to)} · When: ${escapeHtml(t.when)}</small></div><div class="ptext-head-right">${status}<button type="button" class="btn btn-outline btn-small" data-ptext-toggle="${escapeHtml(t.key)}">${open ? "Close" : "Edit"}</button></div></header>
-      <div class="ptext-inuse"><span>Currently being used</span><pre>${escapeHtml(t.in_use)}</pre><small>${by}</small></div>
-      ${draft && !open ? `<p class="field-hint">A draft is waiting to be published.</p>` : ""}
-      ${body}
-    </article>`;
+  const texts = d.texts || [];
+  const role = pipelineTextsState.role;
+  const roles = [{ key: "all", label: "Everyone" }, ...(d.roles || [])];
+  const chips = roles.map(r => {
+    const n = r.key === "all" ? texts.length : texts.filter(t => t.role === r.key).length;
+    return `<button type="button" class="ptx-chip ptx-role-${PTEXT_ROLE_CLASS[r.key] || "all"}${role === r.key ? " is-on" : ""}" data-ptx-role="${escapeHtml(r.key)}" aria-pressed="${role === r.key}"><i></i>${escapeHtml(r.label)}<b>${n}</b></button>`;
   }).join("");
-  const note = live
-    ? `<strong>Make reads these texts.</strong> Publishing changes the real text right away (sandbox texts still go only to the test phone).`
-    : `<strong>Make still sends its own copy of the starting words.</strong> You can edit and publish here now; the real texts follow once Make is switched to the portal.`;
-  return panel(title, "", `<p class="panel-copy">Office admins and Super Admins can change these. Trainers cannot. Words in <code>{curly}</code> fill in for each client.</p><p class="field-hint">${note}</p><div class="ptext-list">${items}</div>`, "pad");
+  const roleName = roles.find(r => r.key === role)?.label || "";
+  const stages = (d.stages || []).map((s, i) => {
+    const here = texts.filter(t => t.stage === s.key && (role === "all" || t.role === role));
+    const cards = here.length ? here.map(t => ptextCard(t, d, live)).join("") : `<p class="ptx-none">No text goes to ${escapeHtml(roleName)} at this stage.</p>`;
+    return `<li class="ptx-stage${here.length ? "" : " is-empty"}"><div class="ptx-stage-head"><span class="ptx-dot">${i + 1}</span><div><strong>${escapeHtml(s.label)}</strong><small>${escapeHtml(s.hint)}</small></div></div><div class="ptx-cards">${cards}</div></li>`;
+  }).join("");
+  const status = live
+    ? `<span class="ptx-flag is-ok">Make sends the words in use here</span>`
+    : `<span class="ptx-flag">Make still sends its own copy of the starting words</span>`;
+  return panel(title, "", `<div class="ptx">
+    <p class="panel-copy">Who gets which text, and when. Only the Super Admin can see or change this page. Words in <code>{curly}</code> fill in for each client.</p>
+    <div class="ptx-flags">${status}<span class="ptx-flag">Practice copy: every text goes only to the test phone ...${escapeHtml(d.test_phone_last4 || "")}</span><span class="ptx-flag">The office gets the booking email, not a text</span></div>
+    <div class="ptx-chips" role="group" aria-label="Show texts for">${chips}</div>
+    <ol class="ptx-timeline">${stages}</ol>
+  </div>`, "pad");
 }
 
-async function pipelineTextAction(button) {
-  const key = button.dataset.ptextKey;
-  const op = button.dataset.ptextOp;
-  const words = document.querySelector(`[data-ptext-draft="${CSS.escape(key)}"]`)?.value;
-  const name = document.querySelector(`[data-ptext-name="${CSS.escape(key)}"]`)?.value || "";
-  if ((op === "publish" || op === "reset") && name.trim().split(/\s+/).length < 2) { showToast("Type your full name (first and last) first."); return; }
-  if (op === "publish" && !window.confirm("Use this text from now on?")) return;
-  button.disabled = true;
+function ptextCard(t, d, live) {
+  const cls = PTEXT_ROLE_CLASS[t.role] || "all";
+  const k = escapeHtml(t.key);
+  const open = pipelineTextsState.open === t.key;
+  const roleName = (d.roles || []).find(r => r.key === t.role)?.label || t.role;
+  const pill = t.status === "in_use" ? `<span class="ptx-pill is-live">Sending now</span>` : `<span class="ptx-pill">Not sending yet</span>`;
+  const who = t.active_id === "starting" ? "Starting words (Make's words before the switch)" : `Put in use by ${escapeHtml(t.active_by)}${t.active_at ? ` · ${escapeHtml(new Date(t.active_at).toLocaleString())}` : ""}`;
+  return `<article class="ptx-card${open ? " is-open" : ""}" data-ptx-card="${k}">
+    <header class="ptx-card-head">
+      <div><span class="ptx-tag ptx-role-${cls}">To ${escapeHtml(roleName)}</span><strong>${escapeHtml(t.label)}</strong><small>When: ${escapeHtml(t.when)}</small></div>
+      ${pill}
+    </header>
+    <div class="ptx-inuse"><span class="ptx-label">Currently being used · ${escapeHtml(t.active_name)}</span>${ptextBubble(t.in_use)}<small>${who}</small></div>
+    <div class="ptx-card-actions">
+      <button type="button" class="btn ${open ? "btn-outline" : "btn-navy"} btn-small" data-ptx-open="${k}" aria-expanded="${open}">${open ? "Close templates" : `Templates (${t.templates.length})`}</button>
+      <button type="button" class="btn btn-outline btn-small" data-ptx-test="${k}" ${live ? "" : "disabled"}>Send test to ...${escapeHtml(d.test_phone_last4 || "")}</button>
+    </div>
+    ${open ? ptextTemplates(t, d, live) : ""}
+  </article>`;
+}
+
+function ptextTemplates(t, d, live) {
+  const k = escapeHtml(t.key);
+  const edit = pipelineTextsState.edit && pipelineTextsState.edit.key === t.key ? pipelineTextsState.edit : null;
+  const max = Number(d.max_templates) || 10;
+  const rows = t.templates.map(tp => {
+    const inUse = tp.id === t.active_id;
+    const id = escapeHtml(tp.id);
+    const saved = tp.builtin ? "Always kept. The safe fallback." : `Saved by ${escapeHtml(tp.by || "")}${tp.at ? ` · ${escapeHtml(new Date(tp.at).toLocaleDateString())}` : ""}`;
+    const snip = tp.preview.length > 150 ? `${tp.preview.slice(0, 150)}…` : tp.preview;
+    const buttons = [
+      inUse ? "" : `<button type="button" class="btn btn-red btn-small" data-ptx-activate="${id}" data-ptx-key="${k}">Use this</button>`,
+      tp.builtin ? "" : `<button type="button" class="btn btn-outline btn-small" data-ptx-edit="${id}" data-ptx-key="${k}">Edit</button>`,
+      `<button type="button" class="btn btn-outline btn-small" data-ptx-copy="${id}" data-ptx-key="${k}">Copy</button>`,
+      tp.builtin || inUse ? "" : `<button type="button" class="btn btn-outline btn-small btn-danger" data-ptx-delete="${id}" data-ptx-key="${k}">Delete</button>`
+    ].join("");
+    return `<li class="ptx-tpl${inUse ? " is-inuse" : ""}${edit?.id === tp.id ? " is-editing" : ""}">
+      <div class="ptx-tpl-main"><div class="ptx-tpl-name"><strong>${escapeHtml(tp.name)}</strong>${inUse ? `<span class="ptx-pill is-inuse">In use</span>` : ""}${tp.builtin ? `<span class="ptx-pill">Built in</span>` : ""}</div><small>${saved}</small><p class="ptx-tpl-snip">${escapeHtml(snip)}</p></div>
+      <div class="ptx-tpl-actions">${buttons}</div>
+    </li>`;
+  }).join("");
+  const own = t.templates.length - 1;
+  const add = own < max
+    ? `<button type="button" class="btn btn-outline btn-small" data-ptx-new="${k}">+ New template</button>${t.offered ? `<button type="button" class="btn btn-outline btn-small" data-ptx-offered="${k}">+ Add "${escapeHtml(t.offered.name)}"</button>` : ""}`
+    : `<p class="field-hint">This text has ${max} templates. Delete one to add another.</p>`;
+  return `<div class="ptx-templates">
+    <ul class="ptx-tpl-list">${rows}</ul>
+    <div class="ptx-add">${add}</div>
+    ${edit ? ptextEditor(t, d, edit, live) : ""}
+    <label class="ptx-fullname">Your full name <span class="hint">needed for "Use this"</span><input type="text" data-ptx-fullname="1" autocomplete="name" placeholder="First Last" maxlength="120" value="${escapeHtml(pipelineTextsState.fullName)}"></label>
+  </div>`;
+}
+
+function ptextEditor(t, d, edit, live) {
+  const k = escapeHtml(t.key);
+  const max = Number(d.max_chars) || 640;
+  const fields = t.fields.map(f => `<button type="button" class="ptx-field" data-ptx-field="${escapeHtml(f)}" data-ptx-key="${k}">{${escapeHtml(f)}}</button>`).join("");
+  return `<div class="ptx-editor">
+    <div class="ptx-editor-form">
+      <strong class="ptx-editor-title">${edit.id === "new" ? "New template" : "Edit template"}</strong>
+      <label>Template name<input type="text" data-ptx-name="${k}" maxlength="60" placeholder="e.g. Short and friendly" value="${escapeHtml(edit.name)}"></label>
+      <label>Words<textarea data-ptx-words="${k}" maxlength="${max}" rows="8">${escapeHtml(edit.words)}</textarea></label>
+      <p class="field-hint" data-ptx-count="${k}">${edit.words.length} of ${max} characters</p>
+      <div class="ptx-fields"><span>Tap to add a detail that fills in for each client:</span>${fields}</div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-red btn-small" data-ptx-save="${k}">${edit.id === "new" ? "Save new template" : "Save template"}</button>
+        <button type="button" class="btn btn-outline btn-small" data-ptx-cancel="${k}">Cancel</button>
+        <button type="button" class="btn btn-outline btn-small" data-ptx-test="${k}" data-ptx-test-edit="1" ${live ? "" : "disabled"}>Send these words as a test</button>
+      </div>
+    </div>
+    <div class="ptx-editor-preview"><span class="ptx-label">${escapeHtml(PTEXT_READER[t.role] || "Example")}</span>${ptextBubble(edit.words, `data-ptx-preview="${k}"`)}<small>Example details. Real texts use each client's own.</small></div>
+  </div>`;
+}
+
+async function ptextPost(body, { closeEditor = false } = {}) {
+  if (pipelineTextsState.busy) return;
+  pipelineTextsState.busy = true;
   try {
-    const payload = await pipelineTextsRequest("POST", { op: `text_${op}`, key, words, name });
+    const payload = await pipelineTextsRequest("POST", body);
     showToast(payload.message || "Done.");
-    if (payload.texts) pipelineTextsState = { ...pipelineTextsState, data: { ...pipelineTextsState.data, texts: payload.texts } };
+    if (payload.texts) pipelineTextsState.data = { ...pipelineTextsState.data, texts: payload.texts };
+    if (closeEditor) pipelineTextsState.edit = null;
     render();
   } catch (error) {
-    button.disabled = false;
     showToast(error.message || "Not done.");
+  } finally {
+    pipelineTextsState.busy = false;
   }
+}
+
+// Every click on the Text messages page. Returns true when it handled the click.
+function pipelineTextClick(event) {
+  const hit = name => event.target.closest(`[data-ptx-${name}]`);
+  const s = pipelineTextsState;
+  let el;
+  if ((el = hit("role"))) { s.role = el.dataset.ptxRole; render(); return true; }
+  if ((el = hit("open"))) { const key = el.dataset.ptxOpen; s.open = s.open === key ? "" : key; if (s.edit && s.edit.key !== s.open) s.edit = null; render(); return true; }
+  if ((el = hit("field"))) {
+    const box = document.querySelector(`[data-ptx-words="${CSS.escape(el.dataset.ptxKey)}"]`);
+    if (box) {
+      const start = box.selectionStart ?? box.value.length;
+      box.setRangeText(`{${el.dataset.ptxField}}`, start, box.selectionEnd ?? start, "end");
+      box.focus();
+      box.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    return true;
+  }
+  if ((el = hit("new"))) { const t = ptextFind(el.dataset.ptxNew); if (t) { s.edit = { key: t.key, id: "new", name: "", words: t.in_use }; render(); } return true; }
+  if ((el = hit("offered"))) { const t = ptextFind(el.dataset.ptxOffered); if (t?.offered) { s.edit = { key: t.key, id: "new", name: t.offered.name, words: t.offered.words }; render(); } return true; }
+  if ((el = hit("copy")) || (el = hit("edit"))) {
+    const t = ptextFind(el.dataset.ptxKey);
+    const tp = t?.templates.find(x => x.id === (el.dataset.ptxCopy || el.dataset.ptxEdit));
+    if (tp) { s.edit = el.dataset.ptxCopy ? { key: t.key, id: "new", name: `${tp.name} (copy)`.slice(0, 60), words: tp.words } : { key: t.key, id: tp.id, name: tp.name, words: tp.words }; render(); }
+    return true;
+  }
+  if (hit("cancel")) { s.edit = null; render(); return true; }
+  if ((el = hit("save"))) {
+    const e = s.edit;
+    if (!e || e.key !== el.dataset.ptxSave) return true;
+    ptextPost({ op: "text_template_save", key: e.key, id: e.id === "new" ? undefined : e.id, name: e.name, words: e.words }, { closeEditor: true });
+    return true;
+  }
+  if ((el = hit("delete"))) {
+    const t = ptextFind(el.dataset.ptxKey);
+    const tp = t?.templates.find(x => x.id === el.dataset.ptxDelete);
+    if (tp && window.confirm(`Delete the template "${tp.name}"?`)) {
+      if (s.edit?.id === tp.id) s.edit = null;
+      ptextPost({ op: "text_template_delete", key: t.key, id: tp.id });
+    }
+    return true;
+  }
+  if ((el = hit("activate"))) {
+    const t = ptextFind(el.dataset.ptxKey);
+    const tp = t?.templates.find(x => x.id === el.dataset.ptxActivate);
+    if (!tp) return true;
+    if (s.fullName.trim().split(/\s+/).length < 2) { showToast("Type your full name (first and last) first."); document.querySelector("[data-ptx-fullname]")?.focus(); return true; }
+    if (window.confirm(`Use "${tp.name}" for the "${t.label}" text from now on?`)) ptextPost({ op: "text_activate", key: t.key, id: tp.id, full_name: s.fullName });
+    return true;
+  }
+  if ((el = hit("test"))) {
+    const key = el.dataset.ptxTest;
+    const words = el.dataset.ptxTestEdit && s.edit?.key === key ? s.edit.words : undefined;
+    ptextPost({ op: "text_test", key, words });
+    return true;
+  }
+  return false;
 }
 
 // Rule 81: the saved follow-up texts (Tim's wording; 15 min, 40 min, 24 h, 48 h). READ ONLY: nothing sends,
@@ -12732,10 +12863,7 @@ document.addEventListener("click", async event => {
     return;
   }
   const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
-  const ptextToggle = event.target.closest("[data-ptext-toggle]");
-  if (ptextToggle) { const key = ptextToggle.dataset.ptextToggle; pipelineTextsState = { ...pipelineTextsState, open: pipelineTextsState.open === key ? "" : key }; render(); return; }
-  const ptextOp = event.target.closest("[data-ptext-op]");
-  if (ptextOp) { pipelineTextAction(ptextOp); return; }
+  if (event.target.closest("[data-ptx-role], [data-ptx-open], [data-ptx-field], [data-ptx-new], [data-ptx-offered], [data-ptx-copy], [data-ptx-edit], [data-ptx-cancel], [data-ptx-save], [data-ptx-delete], [data-ptx-activate], [data-ptx-test]") && pipelineTextClick(event)) return;
   const trainerAction = event.target.closest("[data-trainer-lead-action]");
   if (trainerAction) { trainerLeadAction(trainerAction); return; }
   const dealEdit = event.target.closest("[data-deal-edit]");
@@ -15573,15 +15701,20 @@ document.addEventListener("DOMContentLoaded", () => enhancePasswordFields(docume
 enhancePasswordFields(document);
 applyEnvironmentBadge().finally(() => bootstrapApplication());
 
-// ---- Rule 84: live example + character count while someone edits a text (no redraw while typing) ----
+// ---- Rule 84: typing on the Text messages page. Kept in state (a redraw never loses it); live bubble + count ----
 document.addEventListener("input", event => {
-  const box = event.target.closest("[data-ptext-draft]");
-  if (!box) return;
-  const key = box.dataset.ptextDraft;
-  const preview = document.querySelector(`[data-ptext-preview="${CSS.escape(key)}"]`);
-  if (preview) preview.textContent = pipelineTextFill(box.value);
-  const count = document.querySelector(`[data-ptext-count="${CSS.escape(key)}"]`);
-  if (count) count.textContent = `${box.value.length} of ${box.maxLength > 0 ? box.maxLength : 640} characters`;
+  const field = event.target.closest("[data-ptx-words], [data-ptx-name], [data-ptx-fullname]");
+  if (!field) return;
+  if (field.dataset.ptxFullname) { pipelineTextsState.fullName = field.value; return; }
+  const edit = pipelineTextsState.edit;
+  if (!edit) return;
+  if (field.dataset.ptxName !== undefined) { edit.name = field.value; return; }
+  edit.words = field.value;
+  const key = field.dataset.ptxWords;
+  const preview = document.querySelector(`[data-ptx-preview="${CSS.escape(key)}"]`);
+  if (preview) preview.textContent = pipelineTextFill(field.value);
+  const count = document.querySelector(`[data-ptx-count="${CSS.escape(key)}"]`);
+  if (count) count.textContent = `${field.value.length} of ${field.maxLength > 0 ? field.maxLength : 640} characters`;
 });
 
 // ---- Trainer "Lost? Why" + note (rule 83): kept in state so a background redraw never loses them ----

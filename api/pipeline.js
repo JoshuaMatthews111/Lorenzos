@@ -45,9 +45,11 @@ module.exports = async function handler(req, res) {
         });
       }
       if (op === "texts") {
-        // Rule 84: the Text messages editor. Office staff (office admin + super admin) only; trainers never.
+        // Rule 84: the Text messages editor is the SUPER ADMIN's (Joshua 2026-09-14). Office admins and trainers
+        // are refused here, so they cannot even read the templates.
+        if (!access.isSuperAdmin) return res.status(403).json({ ok: false, message: "Only the Super Admin can see and change the texts." });
         const { state } = await X.load(B.sbOrThrow);
-        return res.status(200).json({ ok: true, texts: X.view(state), make_uses_portal: process.env.LDTT_TEXTS_FROM_PORTAL === "1", test_phone_last4: "2915", max_chars: X.MAX_CHARS });
+        return res.status(200).json({ ok: true, ...X.view(state), make_uses_portal: process.env.LDTT_TEXTS_FROM_PORTAL === "1", test_phone_last4: "2915" });
       }
       if (op === "followup") {
         // Rule 81: the saved follow-up texts. READ ONLY: it plans and previews, it never sends or writes.
@@ -73,17 +75,19 @@ module.exports = async function handler(req, res) {
       if (!result.ok) return res.status(400).json({ ok: false, message: result.errors.join(" "), errors: result.errors });
       return res.status(200).json(result);
     }
-    if (["text_save", "text_publish", "text_discard", "text_reset"].includes(op)) {
-      // Rule 84: change a text. Publish and reset need the person's full name (logins are shared, rule 19 pattern).
-      const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
+    if (["text_template_save", "text_template_delete", "text_activate"].includes(op)) {
+      // Rule 84: SUPER ADMIN only. Putting a template in use needs the person's full name (rule 19 pattern).
+      const access = await authorizeRequest(req, res, { require: "super", message: "Only the Super Admin can change the texts." });
       if (!access) return;
-      const result = await X.change(B.sbOrThrow, { op: op.slice(5), key: B.clean(body.key, 40), words: typeof body.words === "string" ? body.words : undefined, name: B.clean(body.name, 120) }, actorLabel(access));
+      const result = await X.change(B.sbOrThrow, {
+        op: op.slice(5), key: B.clean(body.key, 40), id: B.clean(body.id, 40) || undefined, name: typeof body.name === "string" ? body.name : "",
+        words: typeof body.words === "string" ? body.words : undefined, fullName: B.clean(body.full_name, 120)
+      }, actorLabel(access));
       return res.status(result.status).json(result.body);
     }
     if (op === "text_test") {
-      // Rule 84: a test text goes ONLY to the locked phone (rule 82), and only once Make reads the portal's words;
-      // before that switch Make would send its old words, which would only confuse people.
-      const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
+      // Rule 84: a test text goes ONLY to the locked phone (rule 82), and only once Make reads the portal's words.
+      const access = await authorizeRequest(req, res, { require: "super", message: "Only the Super Admin can send a test text." });
       if (!access) return;
       if (process.env.LDTT_TEXTS_FROM_PORTAL !== "1") return res.status(409).json({ ok: false, message: "Send test turns on when the Make texts are switched to the portal. That switch is waiting for Joshua's OK." });
       const result = await P.sendTextTest(B.clean(body.key, 40), typeof body.words === "string" ? body.words : undefined);
