@@ -109,7 +109,7 @@ test("every Make send carries the portal's finished words; the test text goes on
   assert.match(src, /const words = key => \{ const saved = T\.wordsFor\(state, key\); return T\.check\(key, saved\)\.error \? T\.wordsFor\(null, key\) : saved; \};/, "words that fail the checks are never sent");
   assert.match(read("supabase/migrations/20260914120000_practice_pipeline_texts_server_only.sql"), /as restrictive for all to authenticated, anon\n  using \(key <> 'pipeline_texts'\)\n  with check \(key <> 'pipeline_texts'\);/, "no browser login can read or write the texts row");
   const test = src.match(/async function sendTextTest\(key, draftWords\) \{[\s\S]*?\n\}\n/)[0];
-  assert.match(test, /const phone = PRACTICE_TEXT_ONLY_TO && PRACTICE_TEXT_ONLY_TO\[0\];/, "rule 82: the locked phone only");
+  assert.match(test, /const phone = SEND_TEST_PHONE;/, "rule 84: Send test goes only to Joshua");
   assert.match(test, /message = `\[TEST\] \$\{T\.render\(ok\.value, T\.SAMPLE\)\}`/);
   const api = read("api/pipeline.js");
   assert.match(api, /if \(process\.env\.LDTT_TEXTS_FROM_PORTAL !== "1"\) return res\.status\(409\)/, "Send test waits for the Make switch");

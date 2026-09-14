@@ -1332,7 +1332,14 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     - Live sends no pipeline texts at all (rule 72); the follow-up texts have no send code (rule 81);
       `api/lead-journey.js` (off the menu, rule 63) keeps its own tester check and is not used.
     - Widening the lock (Tim, Angela, real customers) needs Joshua's words in the chat.
-    Test: `tests/pre-eval-and-follow-up.test.mjs` "text lock".
+    - **WIDENED 2026-09-14 afternoon (Joshua, before the presentation): "test the full message flow from landing page
+      2.0, me, Tim and Angela all different roles, and change or add numbers in the portal".** `PRACTICE_TEXT_ONLY_TO =
+      null`: a practice text goes to a phone only when it is an ACTIVE tester (portal: Communications -> Testers) AND
+      passes the Make tester filters (+14402142915 Joshua, +12168168026 Tim, +14408217077 Angela). Roles: Client = the
+      phone typed on the form; Trainer + Operations = Settings -> "Booking emails to the office" boxes (saved: trainer =
+      Angela, operations = Tim). `SEND_TEST_PHONE` keeps the Text messages Send test with Joshua. Real customers still
+      never get a practice text (not testers); live sends no pipeline texts (rule 72). To lock again: set the list.
+    Test: `tests/text-roles.test.mjs`.
 
 ## Trainers update their own leads (added 2026-09-14, Claude, option A)
 

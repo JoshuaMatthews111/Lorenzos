@@ -124,17 +124,3 @@ test("follow-up texts: the next step, quiet hours, and the backlog", () => {
   assert.equal(p.sending, false);
 });
 
-test("text lock (Joshua 2026-09-14): every practice text goes only to +14402142915 until Joshua says so", () => {
-  const src = read("lib/pipeline.js");
-  assert.match(src, /const PRACTICE_TEXT_ONLY_TO = \["\+14402142915"\];/);
-  const fn = src.match(/async function activeTesterPhones\(\) \{[\s\S]*?\n\}\n/)[0];
-  assert.match(fn, /PRACTICE_TEXT_ONLY_TO \? testers\.filter\(phone => PRACTICE_TEXT_ONLY_TO\.includes\(phone\)\) : testers/);
-  assert.match(fn, /return new Set\(\); \/\/ fail closed/);
-  assert.match(src, /const DEFAULT_PRACTICE_OPS_PHONE = "\+14402142915";/, "Operations no longer defaults to Tim");
-  assert.match(src, /const phone = PRACTICE_TEXT_ONLY_TO && !PRACTICE_TEXT_ONLY_TO\.includes\(saved\) \? PRACTICE_TEXT_ONLY_TO\[0\] : saved;/);
-  assert.match(src, /const trainerPhone = PRACTICE_TEXT_ONLY_TO && savedTrainerPhone && !PRACTICE_TEXT_ONLY_TO\.includes\(savedTrainerPhone\) \? PRACTICE_TEXT_ONLY_TO\[0\] : savedTrainerPhone;/);
-  assert.match(src, /customer_phone: customerOk \? customer : "",/, "a phone that fails the lock reaches Make empty");
-  // every text decision goes through the lock
-  for (const call of ["newLeadTextPlan({ lead, bookUrl, testers: await activeTesterPhones()", "careTextPlan({ lead, testers: await activeTesterPhones() })"]) assert.ok(src.includes(call), call);
-  assert.equal((src.match(/communications_testers\?active=eq\.true/g) || []).length, 1, "no second tester lookup that skips the lock");
-});
