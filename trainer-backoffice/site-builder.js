@@ -79,6 +79,7 @@
         <button type="button" data-sb-act="close" title="Back to the portal">← Close</button>
         <button type="button" data-sb-act="toggle-left" title="Show or hide the left rail (pages, blocks, theme, menus)">☰ Pages &amp; blocks</button>
         <div class="sb-title"><strong id="sbTitle">Site Builder</strong><span id="sbAddr"></span></div>
+        <label class="sb-jump"><span>Landing page</span><select id="sbJump" data-sb-jump aria-label="Open a landing page"></select></label>
         <span class="ps-status saved" id="sbStatus">Saved</span>
         <div class="ps-seg" id="sbDevices"><button type="button" data-sb-device="desktop" class="active">Desktop</button><button type="button" data-sb-device="tablet">Tablet</button><button type="button" data-sb-device="mobile">Mobile</button></div>
         <button type="button" data-sb-act="undo" id="sbUndo" title="Undo (Cmd/Ctrl+Z)">↶</button>
@@ -220,6 +221,7 @@
     const d = sb.draft;
     $("#sbTitle").textContent = d ? (d.title || "Untitled page") : "Site Builder";
     $("#sbAddr").textContent = d ? `/${d.slug || "…"}${d.pageType === "landing" ? " · landing page" : ""}` : "Pick a page on the left, or make a new one";
+    paintJump();
     $$("[data-sb-device]").forEach(b => b.classList.toggle("active", b.dataset.sbDevice === sb.device));
     $$("[data-sb-tab]").forEach(b => b.classList.toggle("active", b.dataset.sbTab === sb.leftTab));
     $$("[data-sb-rtab]").forEach(b => b.classList.toggle("active", b.dataset.sbRtab === sb.rightTab));
@@ -232,6 +234,31 @@
       slot.innerHTML = window.LDTT_IS_SANDBOX ? `${sendToLiveButton(sb.page, "ps-send-live")}${sb.page.sent_to_live_at ? `<small class="ps-sent-live">${esc(sentToLiveLabel(sb.page.sent_to_live_at, sb.page.sent_to_live_by_name))}</small>` : ""}` : practiceTag(sb.page);
     } else $("#sbSendLive").innerHTML = "";
     paintStatus();
+  }
+  // Office 2026-09-14: "a dropdown on the site editor for landing pages so they can get to them easier". Every
+  // landing page (block-built, ad, and 2.0 on the practice copy) in one list; picking one opens it in its own editor.
+  function paintJump() {
+    const select = $("#sbJump"); if (!select || !sb) return;
+    const { esc, store } = S();
+    const pages = store.pages || [];
+    const opt = p => `<option value="${esc(p.id)}" ${p.id === sb.pageId ? "selected" : ""}>${esc(p.page_type === "ad2" ? (p.market || p.title || p.slug) : (p.title || p.market || p.slug))}${p.status === "published" ? "" : " (draft)"}</option>`;
+    const group = (label, list) => (list.length ? `<optgroup label="${esc(label)}">${list.map(opt).join("")}</optgroup>` : "");
+    const html = `<option value="">${sb.pageId ? "Open another landing page…" : "Pick a landing page…"}</option>`
+      + group("Landing pages", pages.filter(p => p.page_type === "landing"))
+      + group("Ad pages", pages.filter(p => !p.page_type || p.page_type === "ad"))
+      + (store.sandbox ? group("Ad pages 2.0", pages.filter(p => p.page_type === "ad2")) : "");
+    if (select.dataset.html !== html) { select.innerHTML = html; select.dataset.html = html; }
+    if (!pages.some(p => p.id === sb.pageId && p.page_type !== "site")) select.value = "";
+  }
+  async function jumpTo(id) {
+    const { store, toast } = S();
+    const page = (store.pages || []).find(p => p.id === id);
+    if (!page) return;
+    try {
+      if ((page.page_type || "ad") === "ad") { await flushSave(); closeStudio(); await window.LDTT_PAGE_STUDIO.open(id); return; }
+      if (page.page_type === "ad2") { await flushSave(); closeStudio(); await window.LDTT_AD2_STUDIO.open(id); return; }
+      sb.panel = null; await openPage(id); paintAll();
+    } catch (e) { toast(e.message, 5000); }
   }
   function paintStatus() {
     const el = $("#sbStatus"); if (!el || !sb) return;
@@ -571,6 +598,7 @@
   function onInput(event) {
     if (!sb) return;
     const el = event.target;
+    if (el.matches("[data-sb-jump]")) { if (event.type === "change" && el.value) jumpTo(el.value); return; }
     if (el.matches("[data-sb-search]")) { if (el.dataset.sbSearch === "blocks") sb.blockSearch = el.value; else sb.pageSearch = el.value; if (event.type === "input") { const pos = el.selectionStart; paintLeft(); const again = $("#sbLeft .sb-search"); again?.focus(); try { again.setSelectionRange(pos, pos); } catch { /* ignore */ } } return; }
     if (el.matches("[data-sb-theme=pair]")) { const pair = T.FONT_PAIRS.find(p => p.id === el.value); if (pair) { const t = sb.themeDraft || (sb.themeDraft = S().clone(siteCache.theme)); t.fontHead = pair.head; t.fontBody = pair.body; paintLeft(); repaintCanvas(); } return; }
     if (el.matches("[data-sb-nav-pick]") && el.value) { const page = (S().store.pages || []).find(p => (p.public_path || `/${p.slug}`) === el.value); const list = getPath(sb.navDraft || (sb.navDraft = S().clone(siteCache.nav)), el.dataset.sbNavPick.slice(4)); if (Array.isArray(list)) list.push({ label: page?.title || el.value.slice(1), href: el.value, children: [] }); paintLeft(); repaintCanvas(); return; }

@@ -1428,3 +1428,6 @@ COLLECTED; service-dog gold tag YES; milestones later.
       "Website Page" dropdown (group "Ad landing pages 2.0", with an "Edit this 2.0 page full screen" button).
     - Served at `/ads/<slug>` (`api/ad-page.js` `adFamily`), publish verification, export, sitemap and health treat
       `ad2` like `ad`. Tests: `tests/ad2-pages.test.mjs`.
+    - **Site Builder "Landing page" dropdown (office, 2026-09-14).** The Site Builder top bar lists every landing page
+      (Landing pages, Ad pages, Ad pages 2.0 on the practice copy); picking one saves the open page, then opens the
+      pick in its own editor (block editor, ad editor or the 2.0 editor). `paintJump()` / `jumpTo()` in site-builder.js.

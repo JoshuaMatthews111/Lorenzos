@@ -303,3 +303,8 @@ body.a2-open { overflow: hidden; }
 /* Rule 85: Page Studio buttons keep their own size inside the 2.0 editor bars (they are full width elsewhere). */
 .a2-actions .ps-btn, .a2-photo-actions .ps-btn { width: auto; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; margin: 0; }
 @media (max-width: 860px) { .a2-top { padding: 8px 10px; } .a2-actions { gap: 6px; } .a2-actions .ps-btn { padding: 7px 10px; font-size: 13px; } }
+/* Office 2026-09-14: the Site Builder's "Landing page" dropdown in the top bar. */
+.sb-top .sb-jump{display:flex;align-items:center;gap:6px;font-size:.72rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#9fb1d6}
+.sb-top .sb-jump select{min-height:42px;max-width:280px;border-radius:12px;border:1px solid rgba(255,255,255,.28);background:#0b2a55;color:#fff;font:700 .9rem/1.2 inherit;letter-spacing:0;text-transform:none;padding:0 10px;cursor:pointer}
+.sb-top .sb-jump select:focus-visible{outline:3px solid rgba(255,209,102,.7);outline-offset:2px}
+@media (max-width: 860px){.sb-top .sb-jump{order:10;width:100%}.sb-top .sb-jump select{flex:1;max-width:none}}

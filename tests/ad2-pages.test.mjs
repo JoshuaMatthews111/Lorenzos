@@ -88,3 +88,13 @@ test("wiring: Page Studio, Site Builder, Page Editor list, /ads route, send to l
   assert.match(read("api/sitemap.js"), /r\.page_type === "ad2"/);
   assert.match(read("lib/page-durability.js"), /const adFamily = type => type === "ad" \|\| type === "ad2";/);
 });
+
+test("the Site Builder top bar has a Landing page dropdown that opens each page in its own editor", () => {
+  const builder = read("trainer-backoffice/site-builder.js");
+  assert.match(builder, /<label class="sb-jump"><span>Landing page<\/span><select id="sbJump" data-sb-jump aria-label="Open a landing page"><\/select><\/label>/);
+  assert.match(builder, /group\("Landing pages", pages\.filter\(p => p\.page_type === "landing"\)\)/);
+  assert.match(builder, /group\("Ad pages", pages\.filter\(p => !p\.page_type \|\| p\.page_type === "ad"\)\)/);
+  assert.match(builder, /group\("Ad pages 2\.0", pages\.filter\(p => p\.page_type === "ad2"\)\)/);
+  assert.match(builder, /if \(el\.matches\("\[data-sb-jump\]"\)\) \{ if \(event\.type === "change" && el\.value\) jumpTo\(el\.value\); return; \}/);
+  assert.match(builder, /if \(page\.page_type === "ad2"\) \{ await flushSave\(\); closeStudio\(\); await window\.LDTT_AD2_STUDIO\.open\(id\); return; \}/);
+});
