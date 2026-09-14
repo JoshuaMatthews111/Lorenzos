@@ -5717,3 +5717,12 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .deal-lead-summary em { display: block; font-style: normal; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #475569; margin-bottom: 6px; }
 .deal-editing { background: #fff7e6; border: 1px solid #f5d38a; border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; }
 .deal-editing .btn { margin-left: 6px; }
+/* 2026-09-14 (Joshua): the phone tab badge was cut off. In the flex row it lost its centring and shrank below
+   its circle. It never shrinks now, stays a full circle, centres its number, and the tab never clips it. */
+.trainer-onepage-tabs .nav-btn { overflow: visible; gap: 6px; padding-right: 10px; }
+.trainer-onepage-tabs .nav-count {
+  flex: 0 0 auto; box-sizing: border-box; min-width: 20px; height: 20px; padding: 0 6px; margin: 0;
+  display: inline-grid; place-items: center; line-height: 1; font-size: .72rem; font-weight: 800;
+}
+/* On the lit (red) tab the red badge disappeared into the tab: make it white with a red number. */
+.trainer-onepage-tabs .nav-btn.active .nav-count { background: #fff; color: #c8102e; }
