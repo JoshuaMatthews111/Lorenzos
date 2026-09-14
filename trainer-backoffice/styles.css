@@ -5726,3 +5726,15 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 }
 /* On the lit (red) tab the red badge disappeared into the tab: make it white with a red number. */
 .trainer-onepage-tabs .nav-btn.active .nav-count { background: #fff; color: #c8102e; }
+/* Rule 83: the trainer's "Update this lead" box. */
+.trainer-lead-update .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+.trainer-lost-box { display: grid; grid-template-columns: 1fr; gap: 8px; border-top: 1px dashed rgba(148, 163, 184, .5); padding-top: 10px; }
+@media (min-width: 700px) { .trainer-lost-box { grid-template-columns: 1fr 1.4fr auto; align-items: end; } }
+.trainer-lost-box label { font-size: .85rem; font-weight: 700; }
+.trainer-lost-box select, .trainer-lost-box input { display: block; width: 100%; margin-top: 4px; }
+/* Rule 83: the reason list and note box match the portal's other inputs. */
+.trainer-lost-box select, .trainer-lost-box input {
+  min-height: 40px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font: inherit; font-weight: 500; color: #0f172a;
+}
+.trainer-lost-box select:focus, .trainer-lost-box input:focus { outline: 2px solid #fecdd3; border-color: #c8102e; }
+.trainer-lost-box .btn { min-height: 40px; }

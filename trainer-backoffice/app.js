@@ -8681,6 +8681,7 @@ function trainerLeadDetailPanel() {
     <span class="portal-tag">Lead details</span><h2>${escapeHtml(lead.owner)}</h2>
     <p class="trainer-lead-status"><span class="status live">${escapeHtml(lead.status || "New Inquiry")}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}</p>
     <div class="row-actions trainer-lead-actions">${tel ? `<a class="btn btn-red btn-small" href="tel:${escapeHtml(tel)}">Call</a>` : ""}${email ? `<a class="btn btn-outline btn-small" href="mailto:${escapeHtml(email)}">Email</a>` : ""}<button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>${canDeal ? `<button type="button" class="btn btn-outline btn-small" data-deal-from-lead="${escapeHtml(lead.remoteId || lead.id)}">Submit a deal for this client</button>` : ""}</div>
+    ${trainerLeadActionsBox(lead)}
     <section class="detail-note-block"><span>Contact</span><div class="lead-contact-grid">${row("Phone", phone)}${row("Email", email)}<div class="wide"><span>Address</span><strong>${escapeHtml(client.address || lead.address || "—")}</strong></div></div></section>
     <section class="detail-note-block"><span>What they asked for</span><div class="lead-contact-grid">${row("Wanted", lead.service)}${row("Came from", lead.originLabel || lead.source)}${row("Received", lead.createdAt ? new Date(lead.createdAt).toLocaleString() : "")}<div class="wide"><span>In their words</span><strong>${escapeHtml(lead.clientNote || "—")}</strong></div></div></section>
     <section class="detail-note-block"><span>${Array.isArray(booking.dogs) && booking.dogs.length > 1 ? "Dogs" : "Dog"}</span>${dogs}</section>
@@ -8688,6 +8689,60 @@ function trainerLeadDetailPanel() {
     <section class="detail-note-block trainer-pre-eval"><span>Pre-evaluation questions</span>${leadPreEvalBlock(booking)}</section>
     <section class="detail-note-block"><span>Office notes</span>${notes ? `<ul class="trainer-office-notes">${notes}</ul>` : `<p class="field-hint">No office notes yet.</p>`}${lead.next ? `<p class="field-hint">Office outcome: ${escapeHtml(lead.next)}</p>` : ""}</section>
   </aside>`;
+}
+
+// ---- Trainer actions on their own leads (Joshua 2026-09-14, option A; rule 83) ----
+// Eval completed / Lost (with a reason) / Added to Alpha, through api/trainer-lead-action.js (the trainer's own
+// door, rule 7). The picked reason and note live in state.trainerLost so a background redraw never loses them.
+const TRAINER_LOST_REASONS = [["price", "Price concern"], ["not_ready", "Not ready yet"], ["other_provider", "Chose another trainer"], ["no_response", "No response"], ["complaint", "Complaint"]];
+
+function trainerLeadActionsBox(lead) {
+  if (!lead.remoteId) return "";
+  const closed = ["Became a Client", "Archived", "Do Not Contact", "Bad Lead"].includes(lead.status) || /^Lost/.test(String(lead.status || ""));
+  const alpha = lead.addedToAlpha === true;
+  const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
+  const reasons = TRAINER_LOST_REASONS.map(([value, label]) => `<option value="${value}" ${pick.reason === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  return `<section class="detail-note-block trainer-lead-update"><span>Update this lead</span>
+    <div class="row-actions">
+      ${lead.status === "Evaluation Scheduled" ? `<button type="button" class="btn btn-red btn-small" data-trainer-lead-action="eval_completed" data-lead-ref="${escapeHtml(lead.id)}">Eval completed</button>` : ""}
+      <button type="button" class="btn btn-outline btn-small lead-alpha-toggle${alpha ? " is-yes" : ""}" data-trainer-lead-action="alpha" data-value="${alpha ? "false" : "true"}" data-lead-ref="${escapeHtml(lead.id)}" aria-pressed="${alpha ? "true" : "false"}">${alpha ? `<span class="alpha-check" aria-hidden="true">✓</span>Added to Alpha` : "Added to Alpha? No"}</button>
+    </div>
+    ${closed ? `<p class="field-hint">This lead is closed (${escapeHtml(lead.status)}). Ask the office to reopen it.</p>` : `<div class="trainer-lost-box">
+      <label>Lost? Why<select data-trainer-lost-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${reasons}</select></label>
+      <label>Note for the office <span class="hint">optional</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
+      <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="lost" data-lead-ref="${escapeHtml(lead.id)}">Mark lost</button>
+    </div>`}
+  </section>`;
+}
+
+async function trainerLeadAction(button) {
+  const action = button.dataset.trainerLeadAction;
+  const lead = (state.leads || []).find(l => l.id === button.dataset.leadRef);
+  if (!lead?.remoteId) { showToast("This lead is not saved yet."); return; }
+  const body = { action, lead_id: lead.remoteId, ...(lead.version !== undefined && lead.version !== null ? { expected_version: lead.version } : {}) };
+  if (action === "alpha") body.value = button.dataset.value === "true";
+  if (action === "lost") {
+    const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
+    if (!pick.reason) { showToast("Pick why the client was lost."); return; }
+    if (!window.confirm(`Mark ${lead.owner} as lost?`)) return;
+    body.reason = pick.reason;
+    body.note = pick.note || "";
+  }
+  if (action === "eval_completed" && !window.confirm(`Mark ${lead.owner}'s evaluation as completed?`)) return;
+  button.disabled = true;
+  try {
+    const token = await window.LDTT_PORTAL?.accessToken?.();
+    const response = await fetch("/api/trainer-lead-action", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` }, body: JSON.stringify(body) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
+    state.trainerLost = null;
+    showToast(payload.message || "Saved.");
+    await reloadRemoteData().catch(() => {});
+    render();
+  } catch (error) {
+    button.disabled = false;
+    showToast(error.message || "Not saved. Please try again.");
+  }
 }
 
 // Light up one tab in the sidebar AND the phone strip; keep the strip's lit tab in view (sideways only,
@@ -12569,6 +12624,8 @@ document.addEventListener("click", async event => {
     return;
   }
   const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
+  const trainerAction = event.target.closest("[data-trainer-lead-action]");
+  if (trainerAction) { trainerLeadAction(trainerAction); return; }
   const dealEdit = event.target.closest("[data-deal-edit]");
   if (dealEdit) { startDealEdit(dealEdit.dataset.dealEdit); return; }
   if (event.target.closest("[data-deal-cancel-edit]")) { state.dealForm = {}; render(); return; }
@@ -15403,6 +15460,17 @@ async function applyEnvironmentBadge() {
 document.addEventListener("DOMContentLoaded", () => enhancePasswordFields(document));
 enhancePasswordFields(document);
 applyEnvironmentBadge().finally(() => bootstrapApplication());
+
+// ---- Trainer "Lost? Why" + note (rule 83): kept in state so a background redraw never loses them ----
+document.addEventListener("input", event => {
+  const reason = event.target.closest("[data-trainer-lost-reason]");
+  const note = event.target.closest("[data-trainer-lost-note]");
+  const field = reason || note;
+  if (!field) return;
+  const leadId = field.dataset.leadRef;
+  const keep = state.trainerLost?.leadId === leadId ? state.trainerLost : {};
+  state.trainerLost = { ...keep, leadId, ...(reason ? { reason: reason.value } : { note: note.value }) };
+});
 
 // ---- Submit Deal form: live field edits + submit ----
 document.addEventListener("input", event => {

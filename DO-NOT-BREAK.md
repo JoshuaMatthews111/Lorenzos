@@ -1333,3 +1333,21 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       `api/lead-journey.js` (off the menu, rule 63) keeps its own tester check and is not used.
     - Widening the lock (Tim, Angela, real customers) needs Joshua's words in the chat.
     Test: `tests/pre-eval-and-follow-up.test.mjs` "text lock".
+
+## Trainers update their own leads (added 2026-09-14, Claude, option A)
+
+83. **A trainer marks THEIR OWN lead Eval completed / Lost (with a reason) / Added to Alpha, and it is logged like an
+    office change.** Joshua picked option A on 2026-09-14 (meeting 2026-09-12 [0:09:36], [0:12:06]).
+    - One door: `api/trainer-lead-action.js` (rule 7: trainers write only through their own endpoints). Sign-in via
+      `lib/portal-auth` `authorizeRequest` (rule 37); every table call through `supabaseRequest` (rule 5).
+    - Only the trainer the lead is assigned to (`leads.trainer_id` = their `trainer_id`) or the office; 403 otherwise.
+      `expected_version` mismatch = 409; the PATCH is guarded by `version=eq.<v>`.
+    - `eval_completed`: ONLY from `evaluation_scheduled` -> `evaluation_complete`. `lost`: a reason is required
+      (price / not_ready / other_provider / no_response / complaint -> the matching `lost_*` status, rule 10); refused
+      on a closed lead (client, archived, do-not-contact, bad lead, already lost). `alpha`: `added_to_alpha` yes/no.
+    - The PATCH writes ONLY `status` or ONLY `added_to_alpha`. Then the same three logs the office writes: `audit_events`
+      (action `trainer_lead_<action>`, actor name + email, before/after, the note), `lifecycle_events` with the office's
+      funnel words (`evaluation_completed`, `lost_no_response`) and `lead_events` `status_changed` (with the note).
+    - The portal shows it in the lead details panel ("Update this lead"); the reason and note sit in `state.trainerLost`
+      so a background redraw never loses them; Eval completed and Mark lost ask "Are you sure?" first.
+    Tests: `tests/trainer-lead-action.test.mjs` (5).
