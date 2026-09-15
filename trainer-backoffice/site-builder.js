@@ -252,12 +252,15 @@
   function fitFrame() {
     const frame = $("#sbFrame"); const wrap = $("#sbFrameWrap");
     if (!frame || !wrap || !sb) return;
-    const reset = () => { frame.style.width = ""; frame.style.height = ""; frame.style.transform = ""; frame.style.justifySelf = ""; };
+    // The editor's own buttons (+ Add block, block tools) keep their real size while the page shrinks (--sbz = 1/scale).
+    const zoomBack = value => { try { frame.contentDocument?.documentElement?.style.setProperty("--sbz", value); } catch { /* not loaded yet */ } };
+    const reset = () => { frame.style.width = ""; frame.style.height = ""; frame.style.transform = ""; frame.style.justifySelf = ""; zoomBack("1"); };
     if (sb.device !== "desktop") { reset(); return; }
     const w = wrap.clientWidth; const h = wrap.clientHeight;
     if (!w || !h || w >= DESKTOP_W) { reset(); return; }
     const scale = w / DESKTOP_W;
     Object.assign(frame.style, { width: `${DESKTOP_W}px`, height: `${Math.ceil(h / scale)}px`, transform: `scale(${scale})`, transformOrigin: "0 0", justifySelf: "start" });
+    zoomBack((1 / scale).toFixed(3));
   }
   function paintTop() {
     if (!sb) return;
@@ -643,6 +646,7 @@
   function wireFrame(frame) {
     const doc = frame.contentDocument; if (!doc || !sb) return;
     if (sb.kind === "trainer") prepareTrainerCanvas(doc); // sections, blocks and click-to-edit on the trainer page
+    fitFrame(); // the new page gets the editor-button size back (--sbz)
     try { frame.contentWindow.scrollTo(0, sb.frameScroll || 0); } catch { /* ignore */ }
     doc.querySelectorAll("a, button, form").forEach(el => el.addEventListener("click", e => { if (!e.target.closest("[data-sb-tool],[data-sb-add-btn]")) e.preventDefault(); }, true));
     doc.querySelectorAll("form").forEach(f => f.addEventListener("submit", e => e.preventDefault()));
@@ -866,6 +870,7 @@
 .sb-hidden-sec{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;background:repeating-linear-gradient(45deg,#f4f7fb,#f4f7fb 10px,#e9eef5 10px,#e9eef5 20px);border:2px dashed #b8c6d8;color:#3b4d66;font:700 14px Inter,Arial,sans-serif}
 .sb-hidden-sec button{min-height:38px;border-radius:10px;border:0;background:#082754;color:#fff;font:800 13px Inter,Arial,sans-serif;padding:0 14px;cursor:pointer}
 .landing-brand img[data-sb-img]{cursor:pointer}
+.sb-sectools,[data-sb-sec]>.sb-label,.sb-hidden-sec,.sb-add button{zoom:var(--sbz,1)}
 </style>`;
   // The trainer page in the canvas: sections outlined with ↑ ↓ Hide, "+ Add block here" under each, blocks in place,
   // the headline and the line under it typeable, the photos and logo clickable.
