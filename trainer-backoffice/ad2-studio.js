@@ -24,7 +24,10 @@
   }
 
   // ───────────────────────── open / close ─────────────────────────
-  async function open(pageId) {
+  // Site Builder 2.0 (Joshua 2026-09-15: one editor): a 2.0 page opens in the Site Builder. This old editor stays
+  // reachable from the Site Builder's More menu (open(id, { classic: true })).
+  async function open(pageId, { classic = false } = {}) {
+    if (!classic && window.LDTT_SITE_BUILDER) return window.LDTT_SITE_BUILDER.open(pageId);
     const s = await ready();
     const data = await s.api({ operation: "get", id: pageId });
     const page = data.page;

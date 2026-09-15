@@ -111,7 +111,7 @@ async function siteNav() { const row = await getSetting("navigation").catch(() =
 // Render any page type through its template. Site pages get the live theme,
 // navigation and the data blocks pull in.
 async function renderAny(type, content, slug, { editor = false, data = null } = {}) {
-  if (type === "ad2") return ad2.renderPage(content, { practice: isSandbox() });
+  if (type === "ad2") return ad2.renderPage(content, { practice: isSandbox(), data: (content?.blocks || []).length ? (data || await loadData(content)) : {} }); // Site Builder 2.0 blocks
   if (type === "ad") return template.renderAdPage(content, { ...adRenderOptions(slug), editor });
   const [theme, nav] = await Promise.all([siteTheme(), siteNav()]);
   return site.renderSitePage(content, { base: "/", publicPath: `/${slug}`, editor, siteTheme: theme, navigation: nav, data: data || await loadData(content) });
@@ -238,6 +238,33 @@ async function uploadAsset(body, auth) {
   const response = await deps.fetch(`${SUPABASE_URL}${target.path}`, { method: "POST", headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": type, "x-upsert": "false", ...target.headers }, body: bytes });
   if (!response.ok) throw fail(502, `The upload failed (${response.status}). Try again.`);
   return { url: `${SUPABASE_URL}/storage/v1/object/public/${bucketName("trainer-page-assets")}/${key}`, key, by: auth.actor };
+}
+
+// Site Builder 2.0 (Joshua 2026-09-15: "make sure they can upload video"): big files go straight from the browser
+// to storage through a one-time signed address, so they skip the 4.5 MB request limit above. Videos up to 50 MB into
+// trainer-page-videos, photos up to 10 MB into trainer-page-assets (practice-* on the practice copy, lib/sandbox.js).
+// Same office login as every other operation; the address works once and only for that one new file.
+const BIG_UPLOADS = {
+  "video/mp4": ["trainer-page-videos", "mp4", 50], "video/webm": ["trainer-page-videos", "webm", 50], "video/quicktime": ["trainer-page-videos", "mov", 50],
+  "image/jpeg": ["trainer-page-assets", "jpg", 10], "image/png": ["trainer-page-assets", "png", 10], "image/webp": ["trainer-page-assets", "webp", 10], "image/gif": ["trainer-page-assets", "gif", 10]
+};
+async function signedUpload(body, auth) {
+  const type = clean(body.type, 60);
+  const spec = BIG_UPLOADS[type];
+  if (!spec) throw fail(400, "Upload an MP4, WebM or MOV video, or a JPG, PNG, WebP or GIF photo.");
+  const [bucket, ext, mb] = spec;
+  const size = Number(body.size || 0);
+  if (!(size > 0)) throw fail(400, "The file was empty.");
+  if (size > mb * 1024 * 1024) throw fail(413, bucket === "trainer-page-videos" ? `That video is bigger than ${mb} MB. Make it shorter or smaller (for example with the phone's "export" or "compress" option) and try again.` : `That photo is bigger than ${mb} MB. Make it smaller and try again.`);
+  const name = clean(body.name, 80).toLowerCase().replace(/\.[a-z0-9]+$/, "").replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "file";
+  const key = `site/${Date.now().toString(36)}-${name}.${ext}`;
+  const target = supabaseRequest(`/storage/v1/object/upload/sign/${bucket}/${key}`);
+  const response = await deps.fetch(`${SUPABASE_URL}${target.path}`, { method: "POST", headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, "Content-Type": "application/json", ...target.headers }, body: JSON.stringify({ upsert: false }) });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw fail(502, `The upload could not start (${response.status}). Try again.`);
+  const signedPath = String(data.url || data.signedURL || data.signedUrl || "");
+  if (!signedPath) throw fail(502, "The upload could not start. Try again.");
+  return { signedUrl: /^https?:/i.test(signedPath) ? signedPath : `${SUPABASE_URL}/storage/v1${signedPath}`, publicUrl: `${SUPABASE_URL}/storage/v1/object/public/${bucketName(bucket)}/${key}`, bucket: bucketName(bucket), key, max_mb: mb, by: auth.actor };
 }
 
 // ---------------------------------------------------------------------------
@@ -405,6 +432,10 @@ module.exports = async function handler(req, res) {
       case "upload": {
         const result = await uploadAsset(body, auth);
         return res.status(200).json({ ok: true, sandbox, ...result, message: sandbox ? "Uploaded to the practice copy." : "Uploaded." });
+      }
+      case "upload_url": {
+        const result = await signedUpload(body, auth);
+        return res.status(200).json({ ok: true, sandbox, ...result });
       }
       default:
         throw fail(400, `Unknown operation "${operation}".`);

@@ -65,18 +65,22 @@ test("publish checklist refuses a page with a missing headline or an unsafe phot
 test("wiring: Page Studio, Site Builder, Page Editor list, /ads route, send to live, practice-only table", () => {
   const pages = read("api/pages.js");
   assert.match(pages, /const PAGE_TYPES = new Set\(\["ad", "site", "landing", "ad2"\]\);/);
-  assert.match(pages, /if \(type === "ad2"\) return ad2\.renderPage\(content, \{ practice: isSandbox\(\) \}\);/);
+  assert.match(pages, /if \(type === "ad2"\) return ad2\.renderPage\(content, \{ practice: isSandbox\(\), data: /);
   assert.match(pages, /if \(type === "ad2"\) return ad2\.publishChecklist\(content\);/);
   const route = read("api/ad-page.js");
   assert.match(route, /const adFamily = type === "ad" \|\| type === "ad2";[^\n]*\n\s*if \(\(entrance === "ads"\) !== adFamily\) return notFound/);
-  assert.match(route, /if \(type === "ad2"\) return ad2\.renderPage\(content, \{ practice: isSandbox\(\) \}\);/);
+  assert.match(route, /if \(type === "ad2"\) return ad2\.renderPage\(content, \{ practice: isSandbox\(\), data: /);
   assert.match(read("api/send-to-live.js"), /if \(page\.page_type === "ad2"\) throw fail\(409, "2\.0 ad pages stay on the practice copy for now\./);
   const studio = read("trainer-backoffice/page-studio.js");
   assert.match(studio, /"\/lib\/ad-page-template\.js", "\/lib\/ad2-usmap\.js", "\/lib\/ad2-page-template\.js"/);
   assert.match(studio, /id="psAd2Section"/);
   assert.match(studio, /type === "ad2" \? `data-a2-open=/);
   const builder = read("trainer-backoffice/site-builder.js");
-  assert.match(builder, /if \(page\.page_type === "ad2"\) \{ closeStudio\(\); return window\.LDTT_AD2_STUDIO\.open\(pageId\); \}/);
+  // Site Builder 2.0 (Joshua 2026-09-15: one editor): a 2.0 page opens IN the Site Builder; the old 2.0 editor stays under More.
+  assert.match(builder, /const kindOf = page => \(page\?\.page_type === "ad2" \? "ad2" : "blocks"\);/);
+  assert.match(builder, /const draft = kind === "ad2" \? A2\(\)\.normalizeContent\(page\.draft_content \|\| \{\}\)/);
+  assert.match(builder, /window\.LDTT_AD2_STUDIO\?\.open\(id, \{ classic: true \}\)/);
+  assert.match(read("trainer-backoffice/ad2-studio.js"), /if \(!classic && window\.LDTT_SITE_BUILDER\) return window\.LDTT_SITE_BUILDER\.open\(pageId\);/);
   assert.match(builder, /group\("Ad pages 2\.0"/);
   const app = read("trainer-backoffice/app.js");
   assert.match(app, /\$\{adTwoEditorOptions\(\)\}<\/select><\/label>`/, "the Page Editor's Website Page dropdown lists the 2.0 pages");
@@ -96,5 +100,5 @@ test("the Site Builder top bar has a Landing page dropdown that opens each page 
   assert.match(builder, /group\("Ad pages", pages\.filter\(p => !p\.page_type \|\| p\.page_type === "ad"\)\)/);
   assert.match(builder, /group\("Ad pages 2\.0", pages\.filter\(p => p\.page_type === "ad2"\)\)/);
   assert.match(builder, /if \(el\.matches\("\[data-sb-jump\]"\)\) \{ if \(event\.type === "change" && el\.value\) jumpTo\(el\.value\); return; \}/);
-  assert.match(builder, /if \(page\.page_type === "ad2"\) \{ await flushSave\(\); closeStudio\(\); await window\.LDTT_AD2_STUDIO\.open\(id\); return; \}/);
+  assert.match(builder, /sb\.panel = null; await openPage\(id\); paintAll\(\); \/\/ block pages and 2\.0 ad pages open right here/);
 });

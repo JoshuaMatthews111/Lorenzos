@@ -1026,6 +1026,8 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
 	    liveEdits: Array.isArray(content.live_edits) ? content.live_edits : (existing.liveEdits || []),
 	    mediaLibrary: Array.isArray(content.media_library) ? content.media_library : (existing.mediaLibrary || []),
 	    hiddenSections: Array.isArray(content.hidden_sections) ? content.hidden_sections : (existing.hiddenSections || []),
+    customBlocks: objectHas(content, "custom_blocks") ? (Array.isArray(content.custom_blocks) ? content.custom_blocks : []) : (existing.customBlocks || []), // Site Builder 2.0
+    customOrder: objectHas(content, "custom_order") ? (Array.isArray(content.custom_order) ? content.custom_order : []) : (existing.customOrder || []),
 	    styleSettings: {
       fontFamily: styleSettings.font_family || "Inter",
       fontScale: Number(styleSettings.font_scale || 1),
@@ -1952,7 +1954,9 @@ function trainerDraftContent(trainer) {
 	    approved_reviews: Array.isArray(trainer.approvedReviews) ? trainer.approvedReviews : [],
 	    live_edits: Array.isArray(trainer.liveEdits) ? trainer.liveEdits : [],
 	    media_library: Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [],
-	    hidden_sections: Array.isArray(trainer.hiddenSections) ? trainer.hiddenSections : []
+	    hidden_sections: Array.isArray(trainer.hiddenSections) ? trainer.hiddenSections : [],
+    custom_blocks: Array.isArray(trainer.customBlocks) ? trainer.customBlocks : [], // Site Builder 2.0: blocks between the sections
+    custom_order: Array.isArray(trainer.customOrder) ? trainer.customOrder : [] // Site Builder 2.0: section order ([] = the design's own)
 	  };
 	}
 
@@ -3865,6 +3869,81 @@ function applyLiveEditsToDocument(doc, edits = []) {
     }
     if (edit.t === "style" && edit.prop) target.style[edit.prop] = edit.v || "";
   });
+}
+
+// Site Builder 2.0 (Joshua 2026-09-15: "trainer bios page ... everything should be easy to edit"). The office can put
+// Site Builder blocks (reviews, video, photo gallery, words, buttons …) between a trainer page's sections and change the
+// section order in the Site Builder. Saved in draft_content.custom_blocks / custom_order and published with the page
+// (the public page reads only published_content, rule 56). A page with neither renders exactly as before, and the
+// public page loads the block library (lib/site-page-template.js, public files) ONLY when the page has blocks; if it
+// cannot load, the page simply shows without them (rule 43: fails open). Function declarations only (rule 76).
+function trainerSectionSelectors() {
+  return { hero: ".lp5-hero,.lp6-hero,.lp3-hero", stats: ".lp-stats,.lp5-trust", services: ".lp-services", trainerVideo: ".lp-trainer-video", trainer: ".lp5-trainer,.lp6-trainer,.lp3-trainer", reviewSubmission: ".lp-review-submission", reviews: ".lp-reviews", process: ".lp-process", consultation: ".lp-final,.lp5-final,.lp6-cta,.lp3-contact", footer: ".trainer-landing-footer" };
+}
+function trainerPageSectionEl(doc, key) {
+  const page = doc?.querySelector(".lp-page");
+  const selector = trainerSectionSelectors()[key];
+  if (!page || !selector) return null;
+  return [...page.querySelectorAll(selector)].filter(el => el.parentElement === page).pop() || null;
+}
+// The Site Builder's section order: the listed sections one after another right after the hero; the footer stays last.
+function applyTrainerCustomOrder(doc, trainer) {
+  const page = doc?.querySelector(".lp-page");
+  const order = (Array.isArray(trainer?.customOrder) ? trainer.customOrder : []).filter(key => trainerSectionSelectors()[key] && key !== "hero" && key !== "footer");
+  if (!page || !order.length) return;
+  let cursor = trainerPageSectionEl(doc, "hero");
+  order.forEach(key => { const el = trainerPageSectionEl(doc, key); if (!el) return; if (cursor) cursor.after(el); else page.prepend(el); cursor = el; });
+  const footer = trainerPageSectionEl(doc, "footer");
+  if (footer) page.appendChild(footer);
+}
+// Self-contained on purpose (the Page Editor preview runs it inside its own frame through Function.toString).
+// items = [{ after, html }] puts the blocks in; items = null only moves the blocks already there back under their
+// section (after a redraw moved the sections).
+function applyTrainerBlocksToDocument(doc, items, style) {
+  const page = doc && doc.querySelector(".lp-page");
+  if (!page) return;
+  const sel = { hero: ".lp5-hero,.lp6-hero,.lp3-hero", stats: ".lp-stats,.lp5-trust", services: ".lp-services", trainerVideo: ".lp-trainer-video", trainer: ".lp5-trainer,.lp6-trainer,.lp3-trainer", reviewSubmission: ".lp-review-submission", reviews: ".lp-reviews", process: ".lp-process", consultation: ".lp-final,.lp5-final,.lp6-cta,.lp3-contact", footer: ".trainer-landing-footer" };
+  if (style && !doc.querySelector("style[data-ldtt-kit]")) doc.head.insertAdjacentHTML("beforeend", style);
+  if (Array.isArray(items)) {
+    page.querySelectorAll(":scope > [data-ldtt-after]").forEach(el => el.remove());
+    items.forEach(item => { const slot = doc.createElement("div"); slot.setAttribute("data-ldtt-after", sel[item.after] ? item.after : "end"); slot.innerHTML = item.html; page.appendChild(slot); });
+  }
+  const lastOf = key => [...page.querySelectorAll(sel[key] || "x-none")].filter(el => el.parentElement === page).pop() || null;
+  const groups = new Map();
+  page.querySelectorAll(":scope > [data-ldtt-after]").forEach(slot => { const key = slot.getAttribute("data-ldtt-after"); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(slot); });
+  const footer = lastOf("footer");
+  groups.forEach((list, key) => {
+    let anchor = key === "end" ? null : lastOf(key);
+    list.forEach(slot => { if (anchor) { anchor.after(slot); anchor = slot; } else if (footer) footer.before(slot); else page.appendChild(slot); });
+  });
+}
+// The blocks as HTML + the one <style> they need. An "approved reviews" block shows this trainer's approved reviews.
+function trainerKit(trainer, kit, editor = false) {
+  const blocks = kit.normalizeKitBlocks(trainer?.customBlocks || [], Object.keys(trainerSectionSelectors()));
+  const reviews = (trainer?.approvedReviews || []).filter(review => review.copy).map(review => ({ review_text: review.copy, reviewer: review.author || "Verified Client", location: review.location || "", rating: review.rating || 5 }));
+  const s = trainer?.styleSettings || {};
+  return {
+    blocks,
+    items: blocks.map((block, index) => ({ after: block.after, html: kit.renderKitBlocks([{ block, index }], { base: "/", data: { reviews }, editor }) })),
+    style: kit.kitStyle(blocks, { colors: { primary: s.brandPrimary, accent: s.brandAccent }, editor })
+  };
+}
+function loadTrainerBlockKit() {
+  if (window.LDTT_SITE_PAGE_TEMPLATE?.renderKitBlocks) return Promise.resolve(window.LDTT_SITE_PAGE_TEMPLATE);
+  if (window.__ldttKitLoading) return window.__ldttKitLoading;
+  const stamp = ((document.querySelector('script[src*="trainer-backoffice/app.js"]')?.getAttribute("src") || "").match(/[?&]v=([\w-]+)/) || [])[1] || "";
+  const load = src => new Promise((resolve, reject) => { const tag = document.createElement("script"); tag.src = `${src}${stamp ? `?v=${stamp}` : ""}`; tag.onload = resolve; tag.onerror = () => reject(new Error(`${src} did not load`)); document.head.appendChild(tag); });
+  window.__ldttKitLoading = (window.LDTT_HTML_SANITIZE ? Promise.resolve() : load("/lib/html-sanitize.js"))
+    .then(() => load("/lib/site-page-template.js"))
+    .then(() => window.LDTT_SITE_PAGE_TEMPLATE)
+    .catch(error => { window.__ldttKitLoading = null; throw error; });
+  return window.__ldttKitLoading;
+}
+function applyTrainerCustomBlocksPublic(trainer) {
+  if (!Array.isArray(trainer?.customBlocks) || !trainer.customBlocks.length) return;
+  loadTrainerBlockKit()
+    .then(kit => { if (!kit?.renderKitBlocks) return; const out = trainerKit(trainer, kit); applyTrainerBlocksToDocument(document, out.items, out.style); })
+    .catch(error => console.warn("trainer page blocks did not load; the page shows without them", error));
 }
 
 function applySectionBuilderSettings(doc, trainer) {
@@ -9698,7 +9777,11 @@ function trainerAdminForm() {
 
 function pageEditorPreviewDocument(trainer) {
   const edits = JSON.stringify(trainer.liveEdits || []).replace(/</g, "\\u003c");
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/"><link rel="stylesheet" href="/trainer-backoffice/styles.css"><style>html,body{margin:0;background:#fff}.office-lead-form{pointer-events:none}</style></head><body>${publicSiteMarkup(trainer)}<script>window.__LDTT_LIVE_EDITS__=${edits};(${applyLiveEditsToDocument.toString()})(document, window.__LDTT_LIVE_EDITS__);<\/script></body></html>`;
+  // Site Builder 2.0: the page's blocks show in this preview too, once the block library is in the portal. No blocks = the old markup.
+  const kit = window.LDTT_SITE_PAGE_TEMPLATE?.renderKitBlocks ? window.LDTT_SITE_PAGE_TEMPLATE : null;
+  const blocks = kit && Array.isArray(trainer.customBlocks) && trainer.customBlocks.length ? trainerKit(trainer, kit) : null;
+  const blocksScript = blocks?.items.length ? `<script>(${applyTrainerBlocksToDocument.toString()})(document, ${JSON.stringify(blocks.items).replace(/</g, "\\u003c")}, ${JSON.stringify(blocks.style).replace(/</g, "\\u003c")});<\/script>` : "";
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><base href="/"><link rel="stylesheet" href="/trainer-backoffice/styles.css"><style>html,body{margin:0;background:#fff}.office-lead-form{pointer-events:none}</style></head><body>${publicSiteMarkup(trainer)}<script>window.__LDTT_LIVE_EDITS__=${edits};(${applyLiveEditsToDocument.toString()})(document, window.__LDTT_LIVE_EDITS__);<\/script>${blocksScript}</body></html>`;
 }
 
 function portalEditorPreviewDocument() {
@@ -9848,6 +9931,7 @@ function injectLiveBuilder(frame) {
   // Rule 61: on the main website only real website text counts; old browser-only edits are not shown.
   if (state.builderSurface !== "site") applyLiveEditsToDocument(doc, activeBuilderEdits());
   if (state.builderSurface === "trainer") applySectionBuilderSettings(doc, trainerById());
+  if (state.builderSurface === "trainer") { applyTrainerCustomOrder(doc, trainerById()); applyTrainerBlocksToDocument(doc, null, ""); } // Site Builder 2.0: order + blocks back under their sections
   if (state.builderSurface === "trainer") wireTrainerMediaDrag(doc); // rule 76: drag to move, corner handle to resize (Browse and Edit Overlay)
   if (state.builderMode !== "edit") return;
   if (!doc.getElementById("ldtt-builder-style")) {
@@ -12025,6 +12109,8 @@ function renderPublicSite() {
   refreshPublicReviewMedia(trainer);
   applyLiveEditsToDocument(document, trainer.liveEdits || []);
   applySectionBuilderSettings(document, trainer);
+  applyTrainerCustomOrder(document, trainer); // Site Builder 2.0: nothing moves unless the office set an order
+  applyTrainerCustomBlocksPublic(trainer); // Site Builder 2.0: loads the block library only when the page has blocks
   recordTrainerPageView(trainer);
 }
 

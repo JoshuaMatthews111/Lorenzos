@@ -69,7 +69,7 @@ async function render(row, content, { editor = false } = {}) {
   const type = pagesApi.pageTypeOf(row);
   const imageAspect = path => imageAspects[path] || null;
   // rule 85: the 2.0 pages. The practice copy draws them without the Meta pixel and Google Ads tag.
-  if (type === "ad2") return ad2.renderPage(content, { practice: isSandbox() });
+  if (type === "ad2") return ad2.renderPage(content, { practice: isSandbox(), data: (content?.blocks || []).length ? await pagesApi.loadData(content) : {} }); // Site Builder 2.0: live reviews/trainers for its blocks
   if (type === "ad") return template.renderAdPage(content, { base: "/", publicPath: `/ads/${row.slug}`, imageAspect, editor });
   const [theme, nav, data] = await Promise.all([pagesApi.siteTheme(), pagesApi.siteNav(), pagesApi.loadData(content)]);
   return site.renderSitePage(content, { base: "/", publicPath: `/${row.slug}`, siteTheme: theme, navigation: nav, data, editor });
