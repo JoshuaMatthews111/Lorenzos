@@ -15,13 +15,16 @@ const X = require("../lib/pipeline-texts.js");
 const R = require("../lib/reengage.js");
 const read = path => readFileSync(resolve(import.meta.dirname, "..", path), "utf8");
 
-// Make's own words on 2026-09-14 ({{1.x}} -> {x}). Switching Make to the portal must change no text.
+// Make's own words on 2026-09-14 ({{1.x}} -> {x}), plus the 2026-09-15 changes Joshua asked for:
+// trainer_new_eval gains {appointment_date} ("day of week, date and time"), and pre_eval_answers is now
+// in use (the trainer's "eval questions completed" text with a portal prompt).
 const MAKE_WORDS = {
   booking_link: "Hi {first_name}, this is Lorenzo’s Dog Training Team. We received your request for help with {problem}.\n\nYou can schedule your complimentary evaluation here:\n{booking_link}\n\nIf you have a question first, just reply to this message. Reply STOP to opt out.",
   booking_confirmation: "Hi {first_name} — you’re confirmed with {trainer_first_name} from Lorenzo’s Dog Training Team.\n\n📅 {appointment_day}, {appointment_date} at {appointment_time}\n📍 {service_address}\n\nBefore your trainer arrives, please complete these quick questions about {dog_name} so we can make the most of your evaluation:\n{pre_eval_link}\n\nWe look forward to meeting you.",
-  trainer_new_eval: "🔔 NEW LDTT EVALUATION\n{first_name} {last_name}\n{appointment_day} at {appointment_time}\n{service_address}\n\nDog: {dog_name}\nPrimary concern: {problem}\n{safety_flag}\nPlease call the client today to introduce yourself, then mark CONTACTED: {trainer_portal_link}",
+  trainer_new_eval: "🔔 NEW LDTT EVALUATION\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\nDog: {dog_name}\nPrimary concern: {problem}\n{safety_flag}\nPlease call the client today to introduce yourself, then mark CONTACTED: {trainer_portal_link}",
   ops_new_lead: "New LDTT lead: {client_name}, ZIP {zip}, {problem}. From: {source}. {next_step} {link}",
-  ops_eval_booked: "Evaluation booked: {client_name} with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. It is now in Eval Scheduled. {link}"
+  ops_eval_booked: "Evaluation booked: {client_name} with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. It is now in Eval Scheduled. {link}",
+  pre_eval_answers: "📝 EVAL QUESTIONS COMPLETED\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\n{safety_flag}\n{answers_summary}\n\nLog in to the trainer portal to view the full answers and lead details: {trainer_portal_link}"
 };
 
 function fakeSb() {
@@ -34,7 +37,7 @@ function fakeSb() {
   return { sb, get row() { return row; } };
 }
 
-test("starting words are exactly Make's words today, so the Make switch changes no text", () => {
+test("starting words are exactly the agreed words, so the Make switch changes no text", () => {
   for (const [key, words] of Object.entries(MAKE_WORDS)) assert.equal(X.wordsFor(null, key), words, key);
   const inUse = X.TEXTS.filter(t => t.status === "in_use").map(t => t.key).sort();
   assert.deepEqual(inUse, Object.keys(MAKE_WORDS).sort(), "every text Make sends today is in the editor, and only those say Sending now");

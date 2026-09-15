@@ -441,6 +441,7 @@ async function preEval(req, res, body) {
   const dogNames = row => (Array.isArray(rawOf(row).booking?.dogs) ? rawOf(row).booking.dogs : []).map(dog => B.clean(dog?.name, 80));
   const { answers, errors } = PE.cleanAnswers(body.answers, dogNames(lead));
   if (errors.length) return res.status(400).json({ ok: false, message: errors[0], errors });
+  const firstTime = !booking.pre_eval?.first_submitted_at; // only the first submit texts the trainer
   const now = new Date().toISOString();
   const record = await patchLeadWithRetry(lead, current => {
     const raw = rawOf(current);
@@ -463,6 +464,11 @@ async function preEval(req, res, body) {
       }
     };
   });
+  // Joshua 2026-09-15: the trainer gets a text with the answers and a portal prompt (lib/pipeline sendPreEvalTexts).
+  if (firstTime) {
+    await P.afterPreEval({ lead: record })
+      .catch(error => console.error("pipeline_after_pre_eval_failed", String(error?.message || error)));
+  }
   const name = String(booking.trainer_name || "");
   return res.status(200).json({ ok: true, lead_id: record.id, booked: Boolean(booking.slot_start), trainer_name: name, trainer_first_name: name.split(" ")[0] });
 }

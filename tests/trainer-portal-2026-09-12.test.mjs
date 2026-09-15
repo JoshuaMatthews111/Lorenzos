@@ -92,7 +92,8 @@ test("one page (Joshua 2026-09-14): every tab is a section in menu order, a tab 
   const dash = app.match(/const trainerScreens = \{\n  dashboard\(\) \{[\s\S]*?\n  \},\n  deals\(\)/)[0];
   // Tiles New Inquiries ... Clients; the Dashboard section is the tiles only, so no part is drawn twice.
   const tiles = [...dash.matchAll(/\["[a-z]+", "([^"]+)", /g)].map(m => m[1]);
-  assert.deepEqual(tiles, ["New Inquiries", "Assigned Leads", "Evaluations Scheduled", "Evaluations Completed", "Sold", "Lost", "Clients"]);
+  // Joshua 2026-09-15: "we don't need the assigned lead card anymore" — six tiles.
+  assert.deepEqual(tiles, ["New Inquiries", "Evaluations Scheduled", "Evaluations Completed", "Sold", "Lost", "Clients"]);
   assert.doesNotMatch(dash, /Assigned Leads & Office Notes|My Locked Trainer Page|trainerPipelineBoard|trainerClientsSummary/);
   assert.match(app, /  leads\(\) \{\n[^\n]*\n    return `\$\{panel\("My Pipeline", "", trainerPipelineBoard\(trainerLeads\(currentTrainerId\(\)\)\), "pad"\)\}\$\{panel\("All My Leads & Office Notes"/);
   const onePage = app.match(/function trainerOnePage\(\) \{[\s\S]*?\n\}\n/)[0];

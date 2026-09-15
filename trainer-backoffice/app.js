@@ -5349,7 +5349,7 @@ function communicationsAlertLists() {
         <label class="check-row"><input type="checkbox" name="consented"> Written work-text consent received</label>
         <button class="btn btn-red" type="submit">Add Member</button>
       </form>
-      <div class="communications-member-list">${members.length ? members.map(member => `<article><strong>${escapeHtml(member.display_name)}</strong><span>${escapeHtml(member.phone)} · ${member.stopped_at ? "STOP requested" : member.consented_at ? "consented" : "consent needed"}</span></article>`).join("") : `<p class="panel-copy">Add the people who should receive each alert.</p>`}</div>
+      <div class="communications-member-list">${members.length ? members.map(member => `<article><strong>${escapeHtml(member.display_name)}</strong><span>${escapeHtml(formatPhoneNumber(member.phone))} · ${member.stopped_at ? "STOP requested" : member.consented_at ? "consented" : "consent needed"}</span></article>`).join("") : `<p class="panel-copy">Add the people who should receive each alert.</p>`}</div>
     </div>` : `<p class="panel-copy">Create a list first. Then this screen will let you add the staff who should receive those alerts.</p>`, "pad")}`;
 }
 
@@ -6479,8 +6479,8 @@ const trainerScreens = {
       <div class="seven-up">${metricGrid([
         // Joshua 2026-09-14: New Inquiries first, Clients last; the office-notes table above the board is gone
         // (it broke the page flow: tiles -> pipeline -> clients). My Leads still has the full table.
+        // Joshua 2026-09-15: "we don't need the assigned lead card anymore" — tile removed, numbers unchanged.
         ["lead", "New Inquiries", figures.newInquiries, figures.newInquiries ? "Call to introduce yourself" : "None waiting", figures.newInquiries ? "up" : ""],
-        ["dashboard", "Assigned Leads", figures.assigned, "Yours to work", ""],
         ["calendar", "Evaluations Scheduled", figures.evalScheduled, "Booked for you", figures.evalScheduled ? "up" : ""],
         ["report", "Evaluations Completed", figures.evalCompleted, "Done by you", figures.evalCompleted ? "up" : ""],
         ["trophy", "Sold", figures.won, "Became a client", figures.won ? "up" : ""],
@@ -6617,7 +6617,7 @@ function pathwayTestScreen() {
   if (!pathwayTest.loaded && !pathwayTest.error) { loadPathwayTest(); return panel("Lead Journey Test", "", `<p class="panel-copy">Loading…</p>`, "pad"); }
   const data = pathwayTest.data || {};
   const testers = data.testers || [];
-  const testerOptions = (selected) => `<option value="">— nobody (that role's texts are skipped) —</option>${testers.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === selected ? "selected" : ""}>${escapeHtml(t.name)} ${escapeHtml(t.phone)}</option>`).join("")}`;
+  const testerOptions = (selected) => `<option value="">— nobody (that role's texts are skipped) —</option>${testers.map(t => `<option value="${escapeHtml(t.id)}" ${t.id === selected ? "selected" : ""}>${escapeHtml(t.name)} ${escapeHtml(formatPhoneNumber(t.phone))}</option>`).join("")}`;
   const pick = (needle) => testers.find(t => new RegExp(needle, "i").test(t.name))?.id || "";
   const setup = `
     <p class="panel-copy">${escapeHtml(pathwayTest.notice || "")}</p>
@@ -8916,7 +8916,7 @@ function trainerDealsTable(deals) {
 function trainerDealDetail(deal, payments) {
   const lead = deal.lead_id ? state.leads.find(l => (l.remoteId || l.id) === deal.lead_id) : null;
   const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
-  const phone = lead?.phone ? `<div><span>Phone</span><strong><a href="tel:${escapeHtml(String(lead.phone).replace(/[^0-9+]/g, ""))}">${escapeHtml(lead.phone)}</a></strong></div>` : row("Phone", "");
+  const phone = lead?.phone ? `<div><span>Phone</span><strong><a href="tel:${escapeHtml(String(lead.phone).replace(/[^0-9+]/g, ""))}">${escapeHtml(formatPhoneNumber(lead.phone))}</a></strong></div>` : row("Phone", "");
   const today = new Date().toISOString().slice(0, 10);
   const schedule = payments.length ? `<div class="deal-schedule">${payments.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${escapeHtml(String(p.sequence))}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(p.due_on)}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>` : "";
   return `<section class="detail-note-block trainer-deal-detail">
@@ -8953,7 +8953,7 @@ function dealLeadSummary(leadId) {
   const client = booking.client || {};
   const dogs = (Array.isArray(booking.dogs) ? booking.dogs : []).map(dog => [dog?.name, dog?.breed, dog?.age].filter(Boolean).join(" · ")).filter(Boolean);
   const row = (label, value) => value ? `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>` : "";
-  return `<section class="deal-lead-summary"><em>From the lead</em><div class="lead-contact-grid">${row("Phone", client.phone || lead.phone)}${row("Email", client.email || lead.email)}${row("Address", client.address || lead.address)}${row(dogs.length > 1 ? "Dogs" : "Dog", dogs.join(" / ") || leadDogLabel(lead))}${row("Wanted", lead.service)}${row("Evaluation", booking.when_label || (lead.evalScheduledAt ? leadEvalLabel(lead.evalScheduledAt) : ""))}</div></section>`;
+  return `<section class="deal-lead-summary"><em>From the lead</em><div class="lead-contact-grid">${row("Phone", formatPhoneNumber(client.phone || lead.phone))}${row("Email", client.email || lead.email)}${row("Address", client.address || lead.address)}${row(dogs.length > 1 ? "Dogs" : "Dog", dogs.join(" / ") || leadDogLabel(lead))}${row("Wanted", lead.service)}${row("Evaluation", booking.when_label || (lead.evalScheduledAt ? leadEvalLabel(lead.evalScheduledAt) : ""))}</div></section>`;
 }
 
 // Open a logged deal in the Submit a Deal form. Money is locked when the office already marked a payment paid.
@@ -9013,7 +9013,7 @@ function trainerPipelineBoard(leads) {
       return `<article class="sales-card trainer-card" data-open-lead="${escapeHtml(lead.id)}" title="Open ${escapeHtml(lead.owner)}'s details">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
         <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}</small>
-        ${tel ? `<small><a href="tel:${escapeHtml(tel)}">${escapeHtml(lead.phone)}</a></small>` : ""}
+        ${tel ? `<small><a href="tel:${escapeHtml(tel)}">${escapeHtml(formatPhoneNumber(lead.phone))}</a></small>` : ""}
         ${trainerCardEvalLine(lead)}
         ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
         ${trainerCardNextStep(lead, id)}
@@ -10883,7 +10883,7 @@ function leadBookingBlock(lead) {
   const callback = booking.callback && typeof booking.callback === "object" ? booking.callback : null;
   const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 30 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
   if (!booking.slot_start && booking.requested) {
-    return `<section class="detail-note-block lead-booking-block"><span>Trainer requested online</span><p>The client asked for <strong>${escapeHtml(booking.trainer_name || booking.trainer_slug || "a trainer")}</strong> · ${escapeHtml(booking.location_label || "In-home")}. No time was booked: this trainer has no online calendar yet.</p><p class="field-hint">Call the client to pick a day and time, then set this lead to Evaluation Scheduled with the eval date + time.</p>${callbackNote}${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
+    return `<section class="detail-note-block lead-booking-block"><span>Trainer requested online</span><p>The client asked for <strong>${escapeHtml(booking.trainer_name || booking.trainer_slug || "a trainer")}</strong> · ${escapeHtml(booking.location_label || "In-home")}. No time was booked: this trainer has no online calendar yet.</p><p class="field-hint">Call the client to pick a day and time, then set this lead to Evaluation Scheduled with the eval date + time.</p>${callbackNote}${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", formatPhoneNumber(client.phone))}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
   }
   if (!booking.slot_start) {
     const slug = intake.trainer_slug || "";
@@ -10891,7 +10891,7 @@ function leadBookingBlock(lead) {
     const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : (/^\/book\//.test(pipelineLink) ? pipelineLink : "");
     return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 30 miles." : "No trainer within 30 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
   }
-  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead)))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
+  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead)))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", formatPhoneNumber(client.phone))}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
 
 function leadCardEvalLine(lead) {
@@ -11348,7 +11348,7 @@ function convertedLeadQueue() {
   const rows = allLeadRows().filter(lead => conversionStatuses().includes(lead.status));
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Paid / Won Lead</th><th>Trainer</th><th>Status</th><th>Contact</th><th>Client Record</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
     const client = findClientForLead(lead);
-    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.service)}</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td><span class="status won">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(lead.phone || "—")}<small>${escapeHtml(lead.email || "—")}</small></td><td>${client ? `<span class="status live">In Client Database</span><small>${escapeHtml(client.status)}</small>` : `<span class="status draft">Needs client record</span>`}</td><td><button class="btn ${client ? "btn-outline" : "btn-red"}" data-convert-lead="${escapeHtml(lead.id)}">${client ? "Update Client" : "Add To Clients"}</button></td></tr>`;
+    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.service)}</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td><span class="status won">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}<small>${escapeHtml(lead.email || "—")}</small></td><td>${client ? `<span class="status live">In Client Database</span><small>${escapeHtml(client.status)}</small>` : `<span class="status draft">Needs client record</span>`}</td><td><button class="btn ${client ? "btn-outline" : "btn-red"}" data-convert-lead="${escapeHtml(lead.id)}">${client ? "Update Client" : "Add To Clients"}</button></td></tr>`;
   }).join("") || `<tr><td colspan="6">No converted clients yet. When a lead moves to Became a Client, it appears here.</td></tr>`}</tbody></table></div><p class="panel-copy">This queue connects the office lead outcome to the Client Database. Conversion means a confirmed client event, not a click or form submit.</p>`;
 }
 
@@ -11372,7 +11372,7 @@ function recentlyDeletedClients() {
 
 function clientTable() {
   const rows = filteredClientRows();
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Trainer</th><th>Status</th><th>Consent</th><th>Imported Source</th><th>Campaign Eligibility</th><th>Notes</th></tr></thead><tbody>${rows.map(client => `<tr data-open-client="${escapeHtml(client.id)}"><td><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(client.phone)} · ${escapeHtml(client.email)}</small></td><td>${escapeHtml(client.dog)}<small>${escapeHtml(client.breed)}</small></td><td>${escapeHtml(trainerName(client.trainerId))}</td><td><span class="status ${clientStatusClass(client.status)}">${escapeHtml(client.status)}</span></td><td>SMS: ${consentBadge(client.smsConsent)}<br>Email: ${consentBadge(client.emailConsent)}</td><td>${escapeHtml(client.importedSource)}</td><td>${campaignEligibility(client)}</td><td>${escapeHtml(client.notes)}</td></tr>`).join("") || `<tr><td colspan="8">No client records match this filter yet.</td></tr>`}</tbody></table></div>${clientDetailPanel()}`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Client</th><th>Dog</th><th>Trainer</th><th>Status</th><th>Consent</th><th>Imported Source</th><th>Campaign Eligibility</th><th>Notes</th></tr></thead><tbody>${rows.map(client => `<tr data-open-client="${escapeHtml(client.id)}"><td><strong>${escapeHtml(client.name)}</strong><small>${escapeHtml(formatPhoneNumber(client.phone))} · ${escapeHtml(client.email)}</small></td><td>${escapeHtml(client.dog)}<small>${escapeHtml(client.breed)}</small></td><td>${escapeHtml(trainerName(client.trainerId))}</td><td><span class="status ${clientStatusClass(client.status)}">${escapeHtml(client.status)}</span></td><td>SMS: ${consentBadge(client.smsConsent)}<br>Email: ${consentBadge(client.emailConsent)}</td><td>${escapeHtml(client.importedSource)}</td><td>${campaignEligibility(client)}</td><td>${escapeHtml(client.notes)}</td></tr>`).join("") || `<tr><td colspan="8">No client records match this filter yet.</td></tr>`}</tbody></table></div>${clientDetailPanel()}`;
 }
 
 function clientStatusSelect(client) {
@@ -11397,7 +11397,7 @@ function importPreview() {
   if (!state.importedPreview.length) {
     return `<div class="empty-state"><strong>No preview yet.</strong><p>Paste data, then click Preview Import. Nothing is imported until admin confirms.</p></div>`;
   }
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Action</th><th>Client</th><th>Dog</th><th>Status</th><th>Consent</th><th>Warnings</th></tr></thead><tbody>${state.importedPreview.map((row, index) => `<tr><td><select class="select-pill" data-import-action="${index}"><option ${row.action === "Create" ? "selected" : ""}>Create</option><option ${row.action === "Update" ? "selected" : ""}>Update</option><option ${row.action === "Skip" ? "selected" : ""}>Skip</option><option ${row.action === "Merge" ? "selected" : ""}>Merge</option></select></td><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.phone)} · ${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.dog)}<small>${escapeHtml(row.breed)}</small></td><td><span class="status ${clientStatusClass(row.status)}">${escapeHtml(row.status)}</span></td><td>SMS: ${consentBadge(row.smsConsent)}<br>Email: ${consentBadge(row.emailConsent)}</td><td>${row.warnings.map(w => `<span class="warning-pill">${escapeHtml(w)}</span>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table></div><br><button class="btn btn-red" id="confirmImport">Confirm Import</button>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Action</th><th>Client</th><th>Dog</th><th>Status</th><th>Consent</th><th>Warnings</th></tr></thead><tbody>${state.importedPreview.map((row, index) => `<tr><td><select class="select-pill" data-import-action="${index}"><option ${row.action === "Create" ? "selected" : ""}>Create</option><option ${row.action === "Update" ? "selected" : ""}>Update</option><option ${row.action === "Skip" ? "selected" : ""}>Skip</option><option ${row.action === "Merge" ? "selected" : ""}>Merge</option></select></td><td><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(formatPhoneNumber(row.phone))} · ${escapeHtml(row.email)}</small></td><td>${escapeHtml(row.dog)}<small>${escapeHtml(row.breed)}</small></td><td><span class="status ${clientStatusClass(row.status)}">${escapeHtml(row.status)}</span></td><td>SMS: ${consentBadge(row.smsConsent)}<br>Email: ${consentBadge(row.emailConsent)}</td><td>${row.warnings.map(w => `<span class="warning-pill">${escapeHtml(w)}</span>`).join(" ") || "—"}</td></tr>`).join("")}</tbody></table></div><br><button class="btn btn-red" id="confirmImport">Confirm Import</button>`;
 }
 
 // perf/portal-speed: the Excel (880 kB) and PDF (320 kB) readers used to load on every
