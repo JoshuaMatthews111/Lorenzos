@@ -99,7 +99,7 @@ async function call(handler, { method = "POST", body, query = {}, headers = {} }
 const intake = over => ({ first_name: "Pat", last_name: "Tester", phone: "440-555-0100", email: "pat@example.test", zip: "44128", problem: "Pulling on the leash", dog_name: "Rex", sms_consent: true, source_page: "ldtt-ads-v2/cleveland", ...over });
 const evalBody = over => ({
   trainer_slug: "lorenzo-miller", slot_start: SLOT_A, location: "in_home",
-  client: { first_name: "Pat", last_name: "Tester", phone: "440-555-0100", email: "pat@example.test", address: "1 Main St, Cleveland, OH 44128" },
+  client: { first_name: "Pat", last_name: "Tester", phone: "440-555-0100", email: "pat@example.test", address: "1 Main St, Cleveland, OH 44128", city: "Cleveland", state: "OH", zip: "44128" },
   dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2 years", age_unit: "Years", breed: "Lab", behavior: "Pulls on the leash" }],
   ...over
 });
@@ -268,7 +268,7 @@ test("booking: a missing Alpha field or a location the trainer does not offer an
 test("booking: no lead id makes a practice lead from the eval form", async () => {
   const { bookingApi } = load(true);
   const { db } = fakeWorld();
-  const res = await call(bookingApi, { body: evalBody({ trainer_slug: "daniel-bainbridge", slot_start: SLOT_A, client: { ...evalBody().client, address: "9 Oak St, Crestview, FL 32536" } }) });
+  const res = await call(bookingApi, { body: evalBody({ trainer_slug: "daniel-bainbridge", slot_start: SLOT_A, client: { ...evalBody().client, address: "9 Oak St, Crestview, FL 32536", city: "Crestview", state: "FL", zip: "32536" } }) });
   assert.equal(res.statusCode, 200, JSON.stringify(res.payload));
   assert.equal(db.leads.length, 1);
   assert.equal(db.leads[0].status, "evaluation_scheduled");

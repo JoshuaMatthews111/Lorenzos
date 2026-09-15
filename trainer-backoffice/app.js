@@ -9324,7 +9324,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(your computer's time zone; shows on the Eval Scheduled card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt))}"></label><label class="check-row lead-alpha-check"><input type="checkbox" data-lead-alpha-check="${lead.id}" ${lead.addedToAlpha ? "checked" : ""}> Added to Alpha</label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="check-row lead-alpha-check"><input type="checkbox" data-lead-alpha-check="${lead.id}" ${lead.addedToAlpha ? "checked" : ""}> Added to Alpha</label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -10680,6 +10680,12 @@ function leadTimeZone(lead) {
   return window.LDTT_ZIP_TIMEZONE?.timeZoneForZip(zip) || undefined;
 }
 
+function leadZoneHint(lead) {
+  const zone = leadTimeZone(lead);
+  const abbr = zone ? window.LDTT_ZIP_TIMEZONE?.zoneAbbr(Date.now(), zone) : "";
+  return zone ? `the lead's time zone${abbr ? `: ${abbr}` : ""}` : "your computer's time zone";
+}
+
 function leadEvalLabel(value, timeZone) {
   const date = parseTimestamp(value);
   if (!date) return "";
@@ -10789,11 +10795,10 @@ function leadBookingBlock(lead) {
 }
 
 function leadCardEvalLine(lead) {
-  if (lead.status !== "Evaluation Scheduled") return "";
+  // Rule 88 (Rachel 2026-09-14): once set, the eval date + time stays on the card at every status.
   const label = leadEvalLabel(lead.evalScheduledAt, leadTimeZone(lead));
-  return label
-    ? `<p class="lead-card-eval"><span>Eval</span> <strong>${escapeHtml(label)}</strong></p>`
-    : `<p class="lead-card-eval is-missing">Eval date + time not set. Open the lead to add it.</p>`;
+  if (label) return `<p class="lead-card-eval"><span>Eval</span> <strong>${escapeHtml(label)}</strong></p>`;
+  return lead.status === "Evaluation Scheduled" ? `<p class="lead-card-eval is-missing">Eval date + time not set. Open the lead to add it.</p>` : "";
 }
 
 // Meeting 2026-09-11: "Added to Alpha?" yes/no, set from the card; yes = red check.
@@ -10802,9 +10807,11 @@ function leadAlphaToggle(lead) {
   return `<button type="button" class="lead-alpha-toggle${yes ? " is-yes" : ""}" data-lead-alpha="${escapeHtml(lead.id)}" aria-pressed="${yes ? "true" : "false"}" title="${yes ? "Added to Alpha. Click to mark it as not added." : "Not in Alpha yet. Click once this lead is added to Alpha."}">${yes ? `<span class="alpha-check" aria-hidden="true">✓</span>Added to Alpha` : "Added to Alpha? No"}</button>`;
 }
 
-function datetimeLocalValue(value) {
+function datetimeLocalValue(value, timeZone) {
   const date = parseTimestamp(value);
   if (!date) return "";
+  const zoned = timeZone ? window.LDTT_ZIP_TIMEZONE?.wallTimeOf(date.toISOString(), timeZone) : "";
+  if (zoned) return zoned; // rule 88: the lead's local wall time
   const pad = n => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
@@ -14911,11 +14918,13 @@ document.addEventListener("change", async event => {
   }
   const evalAt = event.target.closest("[data-lead-eval-at]");
   if (evalAt) {
-    const when = evalAt.value ? new Date(evalAt.value) : null;
-    const iso = when && !Number.isNaN(when.getTime()) ? when.toISOString() : "";
+    // Rule 88: the typed time is the LEAD's local time (from its ZIP), not this computer's.
+    const current = (state.leads || []).find(item => String(item.id) === String(evalAt.dataset.leadEvalAt));
+    const zone = current ? leadTimeZone(current) : undefined;
+    const iso = evalAt.value ? (window.LDTT_ZIP_TIMEZONE?.wallTimeToIso(evalAt.value, zone) || "") : "";
     const lead = updateLeadRecord(evalAt.dataset.leadEvalAt, { evalScheduledAt: iso });
     if (!lead) return;
-    const detail = `${lead.owner || "Lead"} eval date + time set to ${leadEvalLabel(iso) || "not set"}.`;
+    const detail = `${lead.owner || "Lead"} eval date + time set to ${leadEvalLabel(iso, zone) || "not set"}.`;
     if (remoteReady) runRemoteMutation("Eval date + time saved", () => persistLeadFields(lead, { eval_scheduled_at: iso || null }, detail), { type: "Lead", detail });
     else saveState("Eval date + time saved");
     return;
@@ -14937,7 +14946,14 @@ document.addEventListener("change", async event => {
   }
   const dnc = event.target.closest("[data-lead-dnc]");
   if (dnc) {
-    const lead = updateLeadRecord(dnc.dataset.leadDnc, { doNotContact: dnc.checked, status: dnc.checked ? "Do Not Contact" : "Office Contacted" });
+    // Rule 88 (Rachel 2026-09-14): unticking puts the lead back in the status it had before, not "Office Contacted".
+    const current = (state.leads || []).find(item => String(item.id) === String(dnc.dataset.leadDnc));
+    const rawPayload = { ...(current?.rawPayload || {}) };
+    const before = rawPayload.status_before_dnc;
+    const restore = before && before !== "Do Not Contact" && leadStatusToDb[before] ? before : "Office Contacted";
+    if (dnc.checked) rawPayload.status_before_dnc = current?.status && current.status !== "Do Not Contact" ? current.status : (before || "");
+    else delete rawPayload.status_before_dnc;
+    const lead = updateLeadRecord(dnc.dataset.leadDnc, { doNotContact: dnc.checked, status: dnc.checked ? "Do Not Contact" : restore, rawPayload });
     if (remoteReady) runRemoteMutation("Contact protection updated", () => persistLeadRecord(lead), {
       type: "Lead",
       detail: `${lead?.owner || "Lead"} contact protection ${dnc.checked ? "enabled" : "removed"}.`

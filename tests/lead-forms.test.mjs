@@ -286,8 +286,8 @@ test("Send to live helper: the live draft gets the practice draft + the sender's
 test("booking questions: removed = not required; optional may be blank; added questions are checked and kept; no config = the original 11 required", () => {
   const body = { client: { first_name: "Ann", last_name: "Lee", phone: "", email: "ann@example.com", address: "" }, dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2", age_unit: "Years", breed: "", behavior: "Pulls", custom: { x_walks01: "Daily" } }], client_custom: { x_vet00001: "" }, location: "in_home" };
   const strict = B.validateEvalForm(body, null);
-  assert.ok(strict.errors.includes("Phone is required.") && strict.errors.includes("Physical address is required.") && strict.errors.includes("Dog 1: Breed is required."), "without a config nothing changed");
-  const spec = LF.defaultFields("booking_eval").map(f => ({ ...f, removed: ["phone", "address"].includes(f.key) ? true : f.removed, required: f.key === "breed" ? false : f.required }));
+  assert.ok(strict.errors.includes("Phone is required.") && strict.errors.includes("Street address is required.") && strict.errors.includes("Dog 1: Breed is required."), "without a config nothing changed");
+  const spec = LF.defaultFields("booking_eval").map(f => ({ ...f, removed: ["phone", "address", "city", "state", "zip"].includes(f.key) ? true : f.removed, required: f.key === "breed" ? false : f.required }));
   spec.push({ key: "x_vet00001", label: "Vet's name", type: "text", required: true, builtin: false, removed: false, group: "client" });
   spec.push({ key: "x_walks01", label: "How often walked?", type: "select", choices: ["Daily", "Weekly"], required: true, builtin: false, removed: false, group: "dog" });
   let result = B.validateEvalForm(body, null, spec);
@@ -303,7 +303,7 @@ test("booking questions: removed = not required; optional may be blank; added qu
 test("booking page: questions come from the published form; removed ones are not drawn; without a config it asks the original 11", () => {
   const plain = renderBookingPage("lorenzo-miller", { practice: true });
   const spec = JSON.parse(plain.match(/var FORM = (\{.*?\});\n/)[1]);
-  assert.deepEqual(spec.client.map(f => f.key), ["first_name", "last_name", "phone", "email", "address"]);
+  assert.deepEqual(spec.client.map(f => f.key), ["first_name", "last_name", "phone", "email", "address", "city", "state", "zip"]);
   assert.deepEqual(spec.dog.map(f => f.key), ["name", "sex", "fixed", "vaccinated", "age", "age_unit", "breed", "behavior"]);
   assert.ok([...spec.client, ...spec.dog].every(f => f.required));
   const fields = LF.defaultFields("booking_eval").map(f => (f.key === "age" ? { ...f, removed: true } : f));

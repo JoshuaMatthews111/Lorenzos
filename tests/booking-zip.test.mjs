@@ -107,7 +107,7 @@ async function call(handler, { method = "POST", body, query = {}, headers = {} }
 }
 
 const formBody = over => ({
-  client: { first_name: "Pat", last_name: "Tester", phone: "440-555-0100", email: "pat@example.test", address: "1 Main St, Cleveland, OH 44105" },
+  client: { first_name: "Pat", last_name: "Tester", phone: "440-555-0100", email: "pat@example.test", address: "1 Main St, Cleveland, OH 44105", city: "Cleveland", state: "OH", zip: "44105" },
   dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2 years", age_unit: "Years", breed: "Lab", behavior: "Pulls on the leash" }],
   zip: "44105",
   ...over

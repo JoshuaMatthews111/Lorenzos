@@ -236,7 +236,7 @@ test("a booking sends pathway 2 once (customer + the practice trainer-alert test
   const lead = formLead(db);
   const res = await call(bookingApi, { body: {
     trainer_slug: "lorenzo-miller", slot_start: SLOT_A, lead_id: lead.id, location: "training_center",
-    client: { first_name: "Joshua", last_name: "Proof", phone: "440-214-2915", email: "proof@example.test", address: "1 Main St, Cleveland, OH 44128" },
+    client: { first_name: "Joshua", last_name: "Proof", phone: "440-214-2915", email: "proof@example.test", address: "1 Main St, Cleveland, OH 44128", city: "Cleveland", state: "OH", zip: "44128" },
     dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2", age_unit: "Years", breed: "Lab", behavior: "Growls at visitors" }]
   } });
   assert.equal(res.statusCode, 200);

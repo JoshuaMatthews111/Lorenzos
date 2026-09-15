@@ -135,7 +135,7 @@ function contactLead(db, answer, over = {}) {
 
 const bookingBody = (leadId, slot = SLOT_A) => ({
   trainer_slug: "lorenzo-miller", slot_start: slot, lead_id: leadId, location: "training_center",
-  client: { first_name: "Joshua", last_name: "Proof", phone: "440-214-2915", email: "proof@example.test", address: "1 Main St, Cleveland, OH 44128" },
+  client: { first_name: "Joshua", last_name: "Proof", phone: "440-214-2915", email: "proof@example.test", address: "1 Main St, Cleveland, OH 44128", city: "Cleveland", state: "OH", zip: "44128" },
   dogs: [
     { name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2", age_unit: "Years", breed: "Labrador", behavior: "Growls at visitors" },
     { name: "Bella", sex: "Female", fixed: "No", vaccinated: "Yes", age: "6 months", age_unit: "Months", breed: "Beagle", behavior: "Jumps on guests" }

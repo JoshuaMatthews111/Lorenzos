@@ -1482,3 +1482,23 @@ COLLECTED; service-dog gold tag YES; milestones later.
       "Joshua Matthews (Track 500 wording from Tim & Angela)"): trainer "Track 500 - Schedule Eval ...", Tim "Track 500 -
       New lead: ..." and "Track 500 - Eval booked: ...". Client texts never say Track 500. Starting words unchanged.
     Tests: `tests/journey-track500.test.mjs`.
+
+## Process audit 2026-09-15: client time zones, full address, eval time, Do Not Contact (Claude; practice copy)
+
+88. **Times follow where the client is; the address is complete; the eval time stays; Do Not Contact undoes.**
+    Office 2026-09-15: "it should show the proper time zone based on where the person is booking; audit this process
+    for any gaps; make sure the mail list is complete; the Do Not Contact glitch Rachel found."
+    - Booking calendar: GET /api/booking?trainer=…&zip=…&location=… answers `display_time_zone` (client ZIP zone
+      in-home, trainer zone at the training center) and `display_is_client`; the page draws every time in it
+      (`calZone()`) and says "your time zone". Booked time, texts and email already use the same zone (rule 86).
+    - Typed eval time (lead details): read and shown in the LEAD's zone (`wallTimeToIso` / `wallTimeOf` in
+      lib/zip-timezone.js); the box says which zone. It used to use the office computer's zone.
+    - Full address: booking questions Street address + City + State (select) + ZIP code, all required (meeting
+      12:00-13:00). `client.address` = the full line for everyone downstream; `client.street` keeps the street;
+      the lead's city / state / zip columns are filled. The ZIP box fills from step 1.
+    - Office email: "Time zone: Central Daylight Time", "Request received" in the lead's zone (never raw UTC),
+      "Track 500: Yes" for pipeline leads, full address.
+    - Lead card: the eval date + time shows at EVERY status once set (Rachel).
+    - Do Not Contact: ticking saves `raw_payload.status_before_dnc`; unticking restores it (was always "Office
+      Contacted").
+    Tests: `tests/audit-2026-09-15.test.mjs`.

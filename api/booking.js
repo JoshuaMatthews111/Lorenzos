@@ -35,6 +35,7 @@ function answeredContact(client, dogs) {
     ...(client.phone ? { phone: client.phone } : {}),
     ...(client.email ? { email: client.email } : {}),
     ...(client.address ? { address_line_1: client.address } : {}),
+    ...(client.city ? { city: client.city } : {}), ...(client.state ? { state: client.state } : {}), ...(client.zip ? { zip: client.zip } : {}), // rule 88
     ...(names ? { dog_name: names } : {}),
     ...(breeds ? { dog_breed: breeds } : {})
   };
@@ -42,7 +43,7 @@ function answeredContact(client, dogs) {
 
 const PE = require("../lib/pre-eval");
 const OFFICE_PHONE = "(866) 436-4959";
-const LEAD_SELECT = "id,first_name,last_name,email,phone,zip,dog_name,status,version,raw_payload,trainer_slug,eval_scheduled_at,source_page,trainer_market,address_line_1";
+const LEAD_SELECT = "id,first_name,last_name,email,phone,zip,city,state,dog_name,status,version,raw_payload,trainer_slug,eval_scheduled_at,source_page,trainer_market,address_line_1";
 
 const slotForClient = slot => ({ start: slot.start, minutes: slot.minutes });
 const marketLabel = B.marketLabel;
@@ -65,7 +66,7 @@ function prefillOf(row) {
   return {
     first_name: row.first_name || "", last_name: row.last_name || "", phone: row.phone || "", email: row.email || "",
     address: row.address_line_1 || "", dog_name: Array.isArray(dogs) ? "" : (row.dog_name || ""),
-    zip: B.digits(row.zip).slice(0, 5)
+    city: row.city || "", state: row.state || "", zip: B.digits(row.zip).slice(0, 5)
   };
 }
 
@@ -144,10 +145,18 @@ async function availability(req, res) {
     }
   }
 
+  // Rule 88: in-home = the client's ZIP zone; training center = the trainer's zone. Unknown ZIP = the trainer's zone.
+  const askedZip = B.digits(req.query?.zip).slice(0, 5) || lead?.zip || "";
+  const askedLocation = B.clean(req.query?.location, 40);
+  const displayZone = B.localTimeZone({ location: askedLocation, zip: askedZip, setting });
+  const displayIsClient = askedLocation !== "training_center" && Boolean(B.zipTimeZone(askedZip));
+
   return res.status(200).json({
     ok: true,
     trainer: { slug, name: trainer.full_name, first_name: trainer.full_name.split(" ")[0], market: marketLabel(trainer), photo: trainer.headshot_url || "" },
     time_zone: setting.time_zone,
+    display_time_zone: displayZone, // rule 88: the calendar shows the times where the client is
+    display_is_client: displayIsClient,
     slot_minutes: setting.slot_minutes,
     locations: B.allowedLocations(setting),
     training_center_address: setting.training_center_address,
@@ -223,7 +232,7 @@ async function book(req, res, body) {
   const holdRow = hold.data?.[0] || {};
   const now = new Date().toISOString();
   // Rule 86: the time is written in the eval's local zone (client ZIP in-home, trainer zone at the training center).
-  const localTimeZone = B.localTimeZone({ location, zip: lead.zip || body.zip || rawOf(lead).booking?.intake?.zip || "", address: client.address, setting });
+  const localTimeZone = B.localTimeZone({ location, zip: client.zip || lead.zip || body.zip || rawOf(lead).booking?.intake?.zip || "", address: client.address, setting });
   const whenLabel = B.formatWhen(slotIso, localTimeZone);
   const locationLabel = B.locationLabel(location, setting);
 
