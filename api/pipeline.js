@@ -7,7 +7,7 @@
 //                                    Only for a lead made in the last 30 minutes; a second call sends nothing.
 //   GET  ?op=settings                office login. Who gets the office booking email (step 3b sends it) +
 //                                    the practice trainer-alert tester phone.
-//   POST {op:"save_settings", recipients:[{label,email}], practice_trainer_phone, practice_email_to}   office login.
+//   POST {op:"save_settings", recipients:[{label,email}], alpha_email, practice_trainer_phone, practice_email_to}   office login.
 //   POST {op:"send_queued"}          office login. Sends every QUEUED office booking email through Resend
 //                                    (rule 73); with no RESEND_API_KEY it sends nothing and says so.
 // Nothing here calls FormSubmit or /api/form-delivery. The only email path is Resend (lib/office-email.js).

@@ -279,7 +279,8 @@ test("settings: defaults, bad input refused, save needs an office login", async 
   const { P, pipelineApi } = load(true);
   const { db } = fakeWorld();
   const d = P.defaultSettings();
-  assert.deepEqual(d.recipients.map(r => r.email), ["production@lorenzosdogtrainingteam.com", "melissazuk@lorenzosdogtrainingteam.com", "rachelleggett@lorenzosdogtrainingteam.com", "tmillerk999@gmail.com", ""]);
+  assert.deepEqual(d.recipients.map(r => r.email), ["marketing@lorenzosdogtrainingteam.com", "melissazuk@lorenzosdogtrainingteam.com", "rachelleggett@lorenzosdogtrainingteam.com", "tmillerk999@gmail.com", ""]);
+  assert.equal(d.alpha_email, "production@lorenzosdogtrainingteam.com", "Production is its own Alpha intake box, not a team line");
   assert.deepEqual(d.recipients.at(-1), { label: "Angela", email: "" }, "Angela's slot is there, empty");
   assert.equal(P.normalizeSettings({ recipients: [{ label: "X", email: "not-an-email" }] }).errors.length, 1);
   assert.equal(P.normalizeSettings({ recipients: [], practice_trainer_phone: "12" }).errors.length, 1);

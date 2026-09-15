@@ -1215,7 +1215,7 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     Resend only, never FormSubmit (rule 73). Practice copy office emails go to marketing@ for now. 2026-09-14 (Joshua): the saved practice address is now
     production@lorenzosdogtrainingteam.com (Settings box). 2026-09-15 (Joshua): "change the marketing email to production, they will
     get all the details for the booking": the office list's Marketing line is now Production (code default + practice
-    row), and the practice fallback is production@ too. The sender address is unchanged.
+    row), and the practice fallback is production@ too. The sender address is unchanged. 2026-09-15 later (Joshua): "production is not used for team emails ... production get the leads as well so they can log it into Alpha, not a part of my every day teams." So the team list is back to Marketing, Melissa, Rachel, Tim, Angela, and Production is its OWN Settings box `alpha_email` (default production@, `DEFAULT_ALPHA_EMAIL`): it gets a "Track 500 · New lead" email (`queueNewLeadEmail` in `enterPipeline`, notice hold_id "new_lead", Resend only, one per lead) for every pipeline lead EXCEPT Contact Us (the Contact page FormSubmit already emails production@; never doubled), plus a copy of every booking/request email (`emailRecipients(settings, practice, kind)`). Practice copy: all of it goes to `practice_email_to`. Tests: `tests/alpha-intake.test.mjs`.
     Operations alert: `sendOpsAlert()` texts the Settings "Operations phone" (default Tim +12168168026)
     when a lead starts its journey (`enterPipeline`) and when an evaluation is booked (`afterBooking`),
     through Make scenario 6254549 (env LDTT_MAKE_HOOK_OPS, Preview only; tester filter on every route),
