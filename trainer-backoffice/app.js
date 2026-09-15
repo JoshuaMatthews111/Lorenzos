@@ -3742,23 +3742,36 @@ function builderSurfaces() {
 // Rule 85: the Ad landing pages 2.0 in the Page Editor's page list (practice copy). They are edited full screen in
 // Page Studio (window.LDTT_AD2_STUDIO); the list is Page Studio's own page list, loaded once.
 let adTwoPagesAsked = false;
+let adTwoPagesRetry = null;
+// Site Builder 2.0 audit fix (office 2026-09-15: "no ad landing pages in the drop down"): the list also shows the
+// Page Studio ad pages, and it redraws when the page list arrives even if Page Studio started the load (it used to
+// stay empty), and asks again after a failed load.
 function adTwoEditorPages() {
   const shared = window.LDTT_PAGE_STUDIO?.shared;
-  if (!shared || !window.LDTT_IS_SANDBOX || session.role !== "admin") return [];
-  if (!shared.store.pages && !shared.store.loading && !adTwoPagesAsked) {
-    adTwoPagesAsked = true;
-    shared.loadPages().then(() => { if (state.activeView === "pageEditor") render(); }).catch(() => {});
+  if (!shared || session.role !== "admin") return [];
+  if (!shared.store.pages) {
+    if (!shared.store.loading && !adTwoPagesAsked) {
+      adTwoPagesAsked = true;
+      shared.loadPages().then(() => { if (state.activeView === "pageEditor") render(); }).catch(() => { setTimeout(() => { adTwoPagesAsked = false; }, 5000); });
+    } else if (!adTwoPagesRetry) {
+      adTwoPagesRetry = setTimeout(() => { adTwoPagesRetry = null; if (state.activeView === "pageEditor" && shared.store.pages) render(); }, 1500);
+    }
   }
-  return (shared.store.pages || []).filter(page => page.page_type === "ad2").map(page => ({ id: `/ads/${page.slug}`, pageId: page.id, status: page.status, label: `${page.market || page.title || page.slug}${page.status === "published" ? "" : " (draft)"}` }));
+  const pages = shared.store.pages || [];
+  const ad2 = window.LDTT_IS_SANDBOX ? pages.filter(page => page.page_type === "ad2") : []; // rule 85: 2.0 pages on the practice copy only
+  const ads = pages.filter(page => !page.page_type || page.page_type === "ad");
+  return [...ad2, ...ads].map(page => ({ id: `/ads/${page.slug}`, pageId: page.id, status: page.status, type: page.page_type === "ad2" ? "ad2" : "ad", label: `${page.market || page.title || page.slug}${page.status === "published" ? "" : " (draft)"}` }));
 }
 
 function adTwoEditorOptions() {
   const pages = adTwoEditorPages();
-  return pages.length ? `<optgroup label="Ad landing pages 2.0">${pages.map(page => `<option value="${escapeHtml(page.id)}" ${page.id === state.builderMainPage ? "selected" : ""}>${escapeHtml(page.label)}</option>`).join("")}</optgroup>` : "";
+  const group = (label, list) => (list.length ? `<optgroup label="${escapeHtml(label)}">${list.map(page => `<option value="${escapeHtml(page.id)}" ${page.id === state.builderMainPage ? "selected" : ""}>${escapeHtml(page.label)}</option>`).join("")}</optgroup>` : "");
+  return group("Ad landing pages 2.0", pages.filter(page => page.type === "ad2")) + group("Ad landing pages", pages.filter(page => page.type === "ad"));
 }
 
 function adTwoEditorNotice(page) {
-  return `<div class="editor-control-section"><h3>Ad landing page 2.0</h3><p class="builder-help">This is a 2.0 ad page. Change its words, photos, video titles, reviews and states in its own full-screen editor.${page.status === "published" ? "" : " It is still a draft, so this preview says \"not published\" until you publish it there."}</p><button class="btn btn-red" type="button" data-a2-open="${escapeHtml(page.pageId)}">Edit this 2.0 page full screen</button></div>`;
+  const two = page.type !== "ad";
+  return `<div class="editor-control-section"><h3>${two ? "Ad landing page 2.0" : "Ad landing page"}</h3><p class="builder-help">This is ${two ? "a 2.0 ad page" : "an ad page"}. Change its words, photos, logo, sections and blocks in the Site Builder.${page.status === "published" ? "" : " It is still a draft, so this preview says \"not published\" until you publish it there."}</p><button class="btn btn-red" type="button" data-sb-open="${escapeHtml(page.pageId)}">Edit this page in the Site Builder</button></div>`;
 }
 
 function mainWebsitePages() {
@@ -9871,7 +9884,9 @@ function trainerPageEditor() {
   const trainerPageControls = `<div class="editor-control-section"><h3>Page Content</h3>${trainerPageStateNotice(trainer)}<label><span>Trainer</span><select data-editor-trainer>${state.trainers.filter(item => !item.archived || item.id === trainer.id).map(item => `<option value="${item.id}" ${item.id === trainer.id ? "selected" : ""}>${escapeHtml(item.name)} · ${escapeHtml(item.market)}</option>`).join("")}</select></label><label><span>Approved Design</span><select data-editor-field="layout">${approvedLayouts.map(item => `<option value="${item.id}" ${item.id === trainer.layout ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("")}</select></label>${field("Hero Headline", "heroHeadline", trainer.heroHeadline, { area: true })}${field("Subheadline", "tagline", trainer.tagline, { area: true })}${field("Trainer Bio (becomes the public profile bio when you Publish)", "bio", trainer.bio, { area: true })}</div>${trainerPageDangerZone(trainer)}`;
   const workspacePageControls = `<div class="editor-control-section"><h3>${state.builderSurface === "site" ? "Main Website Page" : "Trainer Portal Screen"}</h3><p class="builder-help">Browse normally with Edit Overlay off. Turn Edit Overlay on, click an area in the preview, then use Selected Element tools to change copy, images, colors, or spacing.</p><p class="builder-selection">${escapeHtml(selectedLabel)}</p></div>`;
   const adTwoPage = state.builderSurface === "site" ? adTwoEditorPages().find(page => page.id === state.builderMainPage) : null; // rule 85
-  const selectedElementControls = `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
+  // Site Builder 2.0 audit fix: on a main website page (rule 61: words only) a replaced photo was kept in this
+  // browser only, never shown, and it turned the selected trainer's page into a draft. That control is gone there.
+  const selectedElementControls = state.builderSurface === "site" ? `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><p class="builder-help">On the main website pages you change the words here: click them in the preview. To change photos, add blocks or move sections, open the page in the Site Builder (Page Studio → Open the Site Builder → + New page → Import).</p><button class="btn btn-red" type="button" data-sb-open="">Open the Site Builder</button></div>` : `<div class="editor-control-section"><h3>Selected Element</h3><p class="builder-selection">${escapeHtml(selectedLabel)}</p><label class="editor-upload"><span>Replace selected image/video</span><input type="file" accept="image/*,video/*" data-editor-upload="selectedMedia"></label><label><span>Paste external video URL</span><input data-builder-embed-url placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct video URL"></label><button class="btn btn-outline" type="button" data-apply-embed-video>Use Video URL On Selected Element</button></div>`;
   const controls = {
     page: `${adTwoPage ? adTwoEditorNotice(adTwoPage) : ""}${state.builderSurface === "trainer" ? trainerPageControls : workspacePageControls}${state.builderSurface === "site" ? siteTextControls() : ""}${selectedElementControls}`,
     sections: sectionControls,
@@ -9903,7 +9918,7 @@ function trainerPageEditor() {
       </aside>
       <main class="page-editor-canvas ${state.builderDevice === "mobile" ? "mobile-device" : ""}">
         <div class="page-editor-device-bar"><span>${state.builderMode === "edit" ? "Live Overlay Editor" : "Browse Preview"} · ${escapeHtml(preview.label)}</span><strong>${state.builderSurface === "trainer" ? `${escapeHtml(trainer.pageStatus)}${trainer.locked ? " · Locked" : ""}` : "Workspace Draft"}</strong></div>
-        <iframe id="pageEditorPreview" title="${escapeHtml(preview.label)} live preview" ${preview.kind === "src" ? `src="${escapeHtml(preview.value)}"` : `srcdoc="${escapeHtml(preview.value)}"`}></iframe>
+        <iframe id="pageEditorPreview" title="${escapeHtml(preview.label)} live preview" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals" ${preview.kind === "src" ? `src="${escapeHtml(preview.value)}"` : `srcdoc="${escapeHtml(preview.value)}"`}></iframe>
       </main>
     </div>
   </section>`;

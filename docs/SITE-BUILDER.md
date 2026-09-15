@@ -203,3 +203,34 @@ Verification before calling any change done: `node --check` on every touched fil
 `node --test tests/*.test.mjs`, `node scripts/audit-office-requirements.mjs`, regenerate the ten
 recruiting pages with zero diff, and on a preview: publish a page with a photo, open `/p/<slug>`
 and `/<slug>`, run `scripts/site-health.mjs --from-export`, run `export-pages.mjs --check`.
+
+## Site Builder 2.0 — one editor for every page (2026-09-15)
+
+DO-NOT-BREAK rule 89. The Site Builder (`trainer-backoffice/site-builder.js`) now opens four kinds of page, kept in
+`sb.kind`:
+
+| kind | page | drawn by | saved by |
+|---|---|---|---|
+| `blocks` | site + landing pages | `lib/site-page-template.js` `renderSitePage` | `api/pages.js` `save_draft` / `publish` |
+| `ad2` | 2.0 ad pages (practice copy) | `lib/ad2-page-template.js` `renderPage(…, { editor: true })` | same API |
+| `trainer` | every trainer's landing page | `app.js` `pageEditorPreviewDocument` + `prepareTrainerCanvas` | `app.js` `persistTrainerRecord` / `publishTrainerPageWorkflow` |
+| (ad) | Page Studio ad pages | still open in Page Studio (one click from the list) | same API |
+
+What the office can do everywhere: click words on the page to type (`data-sb-edit` / `data-sb-richedit` hooks, editor
+render only), click a photo to change it (`data-sb-img` → `openPhotoPicker`), add any block between sections
+(`+ Add block here` → `content.blocks[i].after = <section key>` on 2.0 and trainer pages), move / hide sections,
+pick a block layout (`LAYOUTS`), a colour fade, a background photo or video, a text colour, a heading size and fonts,
+one-click colour schemes (`COLOR_SCHEMES`), copy any page (`duplicatePage`), undo / redo, and read "? How to use"
+(plus a six-step tour).
+
+Big files: the browser asks `api/pages.js` `{operation:"upload_url", name, type, size}` for a one-time signed address
+and uploads straight to storage (videos ≤ 50 MB → `trainer-page-videos`, photos ≤ 10 MB → `trainer-page-assets`).
+Photos ≤ 3.5 MB keep using `{operation:"upload"}`.
+
+Blocks on pages that are not block pages go through the block kit (`renderKitBlocks`, `kitStyle`,
+`normalizeKitBlocks`): each block in its own `<div class="ldtt-bk">`, base CSS scoped to `.ldtt-bk`, no lead-form
+block, never an H1. A public trainer page loads the kit (`/lib/html-sanitize.js`, `/lib/site-page-template.js`) only
+when it has blocks.
+
+Byte-for-byte rule: a page that uses none of the 2.0 options renders exactly as before. Before changing a template,
+hash the renders (market ad pages, 2.0 starters, Site Builder starters) and compare after.

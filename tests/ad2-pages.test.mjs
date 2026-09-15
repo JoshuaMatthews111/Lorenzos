@@ -84,7 +84,7 @@ test("wiring: Page Studio, Site Builder, Page Editor list, /ads route, send to l
   assert.match(builder, /group\("Ad pages 2\.0"/);
   const app = read("trainer-backoffice/app.js");
   assert.match(app, /\$\{adTwoEditorOptions\(\)\}<\/select><\/label>`/, "the Page Editor's Website Page dropdown lists the 2.0 pages");
-  assert.match(app, /data-a2-open="\$\{escapeHtml\(page\.pageId\)\}">Edit this 2\.0 page full screen/);
+  assert.match(app, /data-sb-open="\$\{escapeHtml\(page\.pageId\)\}">Edit this page in the Site Builder/); // Site Builder 2.0: one editor
   for (const shell of ["staff.html", "trainer-backoffice/index.html"]) assert.match(read(shell), /ad2-studio\.js\?v=/, shell);
   const migration = read("supabase/migrations/20260914140000_practice_ad2_page_type.sql");
   assert.match(migration, /alter table practice\.ad_pages add constraint ad_pages_page_type_check check \(page_type = any \(array\['ad'::text, 'site'::text, 'landing'::text, 'ad2'::text\]\)\);/);

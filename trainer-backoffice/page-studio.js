@@ -202,7 +202,7 @@
     return `
       <section class="ps-launcher-hero">
         <div><p class="portal-tag" style="color:#ffd166">Page Studio · Site Builder</p><h2>Your whole website, edited full screen. Publish goes live in a minute, no code deploy.</h2>
-        <p>Site pages (About, Services, Contact, anything), landing pages and ad pages. Pick fonts and colours for the whole site, build pages from blocks, set the menus, and publish. Every publish keeps a version you can put back.${store.sandbox ? " <b>Practice copy:</b> everything here is practice; use Send to live when a page is ready." : ""}</p></div>
+        <p>One editor for every page: site pages (About, Services, Contact, anything), landing pages, ${store.sandbox ? "2.0 ad pages, " : ""}and every trainer's page. Click words to type, click photos to change them, add blocks (reviews, video, photo gallery …), move and hide sections, pick colours and fonts, and publish. Every publish keeps a version you can put back. New to it? Open it and press <b>? How to use</b>.${store.sandbox ? " <b>Practice copy:</b> everything here is practice; use Send to live when a page is ready." : ""}</p></div>
         <div style="display:grid;gap:10px">
           <button class="ps-big-btn" type="button" data-sb-studio>⛶ Open the Site Builder</button>
           <button class="ps-big-btn ghost on-dark" type="button" data-sb-new>+ New page</button>
@@ -257,6 +257,11 @@
       door.textContent = label;
       actions.prepend(door);
     });
+    // Site Builder 2.0 (Joshua 2026-09-15: one editor): the page on screen opens in the Site Builder (a trainer page as itself).
+    const sbDoor = document.createElement("button");
+    sbDoor.type = "button"; sbDoor.className = "btn btn-red ps-door-btn"; sbDoor.dataset.sbOpen = "current"; sbDoor.dataset.psBuilderDoor = "siteBuilder";
+    sbDoor.textContent = "✦ Edit in the Site Builder";
+    actions.prepend(sbDoor);
   }
 
   function setBuilderFullscreen(on) {

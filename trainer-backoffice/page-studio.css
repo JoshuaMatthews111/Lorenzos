@@ -349,3 +349,17 @@ body.a2-open { overflow: hidden; }
 .sb-right .a2-photo strong{display:block;font-size:.84rem;margin-bottom:6px;color:#082754}
 .sb-right .a2-photo-actions{display:flex;flex-wrap:wrap;gap:6px}.sb-right .a2-photo-actions .ps-btn{width:auto;min-height:36px;padding:0 10px;margin:0}
 .sb-help .ps-btn{white-space:nowrap}
+/* Site Builder 2.0: laptops. A one-row top bar and narrower rails, so the page keeps the room. */
+@media (max-width:1500px){
+  .sb-top{gap:6px;padding:6px 10px}
+  .sb-top button{min-height:40px;padding:0 10px;font-size:.82rem;border-radius:10px}
+  .sb-top .sb-jump span{display:none}
+  .sb-top .sb-jump select{max-width:190px;min-height:40px}
+  .sb-top .sb-title{min-width:110px}
+  .sb-top .ps-seg button{min-height:36px!important;padding:0 9px!important}
+}
+@media (max-width:1440px) and (min-width:1101px){
+  .sb-body{grid-template-columns:290px minmax(0,1fr) 330px}
+  .sb-overlay.sb-left-hidden .sb-body{grid-template-columns:0 minmax(0,1fr) 330px}
+  .sb-overlay.sb-right-hidden .sb-body{grid-template-columns:290px minmax(0,1fr) 0}
+}

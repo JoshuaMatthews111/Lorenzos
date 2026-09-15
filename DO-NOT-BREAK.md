@@ -1441,7 +1441,7 @@ COLLECTED; service-dog gold tag YES; milestones later.
       Joshua's OK, the same CHECK change on public, and a live form route.
     - Where the office finds them: Page Studio → "Ad landing pages 2.0" (Edit full screen, Duplicate, + New 2.0 page,
       "Add the three 2.0 pages"); the Site Builder page list ("Ad pages 2.0"); the Page Editor → Main Website Pages →
-      "Website Page" dropdown (group "Ad landing pages 2.0", with an "Edit this 2.0 page full screen" button).
+      "Website Page" dropdown (group "Ad landing pages 2.0"). 2026-09-15 (rule 89): a 2.0 page now opens IN the Site Builder (its old editor stays under the Site Builder's More menu), and the Page Editor button reads "Edit this page in the Site Builder".
     - Served at `/ads/<slug>` (`api/ad-page.js` `adFamily`), publish verification, export, sitemap and health treat
       `ad2` like `ad`. Tests: `tests/ad2-pages.test.mjs`.
     - **Site Builder "Landing page" dropdown (office, 2026-09-14).** The Site Builder top bar lists every landing page
@@ -1504,3 +1504,54 @@ COLLECTED; service-dog gold tag YES; milestones later.
     - Do Not Contact: ticking saves `raw_payload.status_before_dnc`; unticking restores it (was always "Office
       Contacted").
     Tests: `tests/audit-2026-09-15.test.mjs`.
+
+## Site Builder 2.0: one editor for every page (added 2026-09-15, Claude; practice copy)
+
+89. **The Site Builder is the one editor: site, landing, 2.0 ad and trainer pages all open in it; a page that uses
+    none of the new options renders byte-for-byte as before.** Joshua 2026-09-15 (option B): "complete and functional
+    ... save changes, add block, change text, font, background, rearrange sections and elements, layout selections,
+    colour schemes, upload video, duplicate ad landing pages and all pages, trainer bios page, full screen editor with
+    instructions on how to use it."
+    - **Record before the change:** 37 template renders (12 market ad pages, their editor renders, the three 2.0
+      starters practice + live, 7 Site Builder starters) were hashed before any edit and are identical after
+      (`baseline.cjs` in the session scratchpad). New keys are stored ONLY when used (2.0 pages: `blocks`, `logo`,
+      `hidden`, `order`), the 2.0 CSS (`EXTRA_STYLE`) ships only on a page that uses a 2.0 look, and the editor hooks
+      (`data-sb-edit`, `data-sb-richedit`, `data-sb-img`, `data-sb-sec`) exist only in the editor render.
+    - **Block pages (`lib/site-page-template.js`):** per-block `layout` (whitelist `LAYOUTS`, first value = the old
+      look), design extras (`gradFrom/gradTo/gradAngle`, `bgVideo`, `overlay`, `textColor`, `headSize`, `font`,
+      `headFont`; "" = unused), theme `logoWidth` / `headScale`, one-click `COLOR_SCHEMES` (all pass `themeWarnings`),
+      Video block `provider: "file"` (MP4/WebM/MOV). A block background photo address is now written with `&quot;`
+      (it used raw quotes inside `style="…"` before, which broke the attribute).
+    - **Big uploads:** `api/pages.js` operation `upload_url` (office login) signs a one-time upload address: videos up
+      to 50 MB into `trainer-page-videos`, photos up to 10 MB into `trainer-page-assets` (practice-* on the practice
+      copy). Photos of 3.5 MB or less still use the proven `upload` operation. `lib/page-durability.js` counts the video
+      bucket as the deployment's own storage (checked, never copied into the photo bucket, which refuses video) and
+      copies a practice video reaching live into the VIDEO bucket; `bgVideo` is a media key.
+    - **Block kit (`renderKitBlocks`, `kitStyle`, `normalizeKitBlocks`):** Site Builder blocks on pages that are not
+      block pages. Each sits in `<div class="ldtt-bk">` with base CSS scoped to `.ldtt-bk`; the lead-form block is
+      refused there (`KIT_EXCLUDED`); a kit block never makes an H1.
+    - **2.0 ad pages (`lib/ad2-page-template.js`, rule 85):** `renderPage` returns the 11 Sep bytes unless the page
+      uses `blocks`/`logo`/`hidden`/`order` (or the editor asks); `arrange()` splits the page at its sections
+      (`ANCHORS`), keeps the header and footer fixed, reorders, hides, places kit blocks after their section and swaps
+      the logo in header + footer. `api/ad-page.js` and `api/pages.js` pass live review/trainer data to those blocks.
+      Still practice copy only (Send to live still refuses `ad2`).
+    - **Trainer pages (`app.js`):** `draft_content.custom_blocks` / `custom_order`, read back by `remoteTrainerToUi`
+      (draft for the editor, published for the public page, rule 56). The public page runs
+      `applyTrainerCustomOrder` (nothing moves when the order is empty) and `applyTrainerCustomBlocksPublic`, which
+      loads `/lib/html-sanitize.js` + `/lib/site-page-template.js` ONLY when the page has blocks and fails open
+      (rule 43). The Site Builder saves a trainer page with the Page Editor's own `persistTrainerRecord` (what
+      `markBuilderDraftDirty` does) and publishes with `runRemoteMutation(… publishTrainerPageWorkflow(t, true))`; it
+      only ever edits the trainer it opened (id/remoteId checked, rule 31). Photo size/place, the photo library and
+      socials stay in the classic Page Editor (More → Open this page in the classic Page Editor).
+    - **Site Builder (`site-builder.js`):** click words on the canvas to type (plain text; rich text through the
+      same sanitiser), click a photo to change it, layout buttons, "? How to use" (shown once per browser) + a tour,
+      "⧉ Copy" on every page row (site, landing, ad, 2.0; the copy is a draft), a Trainer pages group and trainer
+      pages in the Landing page dropdown. The old 2.0 editor opens only from More (`open(id, { classic: true })`).
+    - **Page Editor audit fixes:** its preview iframe is sandboxed (no top navigation, so a page in it can no longer
+      send the portal away); its page dropdown also lists the Page Studio ad pages and redraws when the list arrives;
+      on a main website page the "Replace selected image" control is gone (the photo was kept in the browser only and
+      it turned the selected trainer's page into a draft); "✦ Edit in the Site Builder" sits in its top bar.
+    Tests: `tests/site-builder-2.test.mjs` (9). Browser proofs (local in-memory server, no login): 13 Site Builder
+    checks, 15 for a 2.0 page (open, fields, block under a section, type on it, move it, hide/move sections, logo,
+    publish, public page), 13 for a trainer page (open, type headline, block under the bio, hide/move, save carries
+    custom_blocks/custom_order, public page draws the block, a page without blocks is unchanged).

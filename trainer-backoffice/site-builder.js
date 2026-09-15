@@ -244,6 +244,20 @@
   function paintRails() {
     const o = $("#sbOverlay"); if (!o) return;
     o.classList.toggle("sb-left-hidden", !sb.left); o.classList.toggle("sb-right-hidden", !sb.right);
+    requestAnimationFrame(fitFrame);
+  }
+  // Site Builder 2.0: on a laptop the canvas is narrower than a computer screen, so "Desktop" draws the page at 1280 px
+  // and shrinks it to fit. The page then looks exactly as it does on a computer, and a click still lands where you click.
+  const DESKTOP_W = 1280;
+  function fitFrame() {
+    const frame = $("#sbFrame"); const wrap = $("#sbFrameWrap");
+    if (!frame || !wrap || !sb) return;
+    const reset = () => { frame.style.width = ""; frame.style.height = ""; frame.style.transform = ""; frame.style.justifySelf = ""; };
+    if (sb.device !== "desktop") { reset(); return; }
+    const w = wrap.clientWidth; const h = wrap.clientHeight;
+    if (!w || !h || w >= DESKTOP_W) { reset(); return; }
+    const scale = w / DESKTOP_W;
+    Object.assign(frame.style, { width: `${DESKTOP_W}px`, height: `${Math.ceil(h / scale)}px`, transform: `scale(${scale})`, transformOrigin: "0 0", justifySelf: "start" });
   }
   function paintTop() {
     if (!sb) return;
@@ -610,7 +624,7 @@
     canvas.className = `sb-canvas ${sb.device}`;
     $("#sbCanvasLabel").textContent = { desktop: "Desktop", tablet: "Tablet (820px)", mobile: "Mobile (430px)" }[sb.device];
     if (sb.panel) { $("#sbPanel").hidden = false; frame.style.display = "none"; return; }
-    $("#sbPanel").hidden = true; frame.style.display = "";
+    $("#sbPanel").hidden = true; frame.style.display = ""; fitFrame();
     if (!sb.draft) { frame.srcdoc = `<body style="font-family:Inter,Arial,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;color:#53677f;background:#fff"><div style="text-align:center;max-width:520px;padding:20px"><h1 style="color:#082754">Welcome to the Site Builder</h1><p style="font-size:17px;line-height:1.6">1. Pick a page on the left, or press <b>+ New page</b>.<br>2. Click any block on the page to change it on the right.<br>3. Press <b>Publish</b> when it looks right.</p></div></body>`; return; }
     let html = "";
     try {
@@ -664,6 +678,7 @@
   function selectBlock(id, { scroll = true } = {}) {
     if (!sb) return;
     sb.selectedId = id; sb.selectedSec = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
+    if (window.innerWidth < 1400) sb.left = false; // small screen: the page and its settings get the room; Blocks / ☰ brings the list back
     paintTop(); paintRight(); paintRails();
     const doc = $("#sbFrame")?.contentDocument;
     if (doc) { doc.querySelectorAll("[data-sb-sec].sb-selected").forEach(el => el.classList.remove("sb-selected")); doc.querySelectorAll("[data-sb-block]").forEach(el => el.classList.toggle("sb-selected", el.dataset.sbBlock === id)); if (scroll) doc.querySelector(`[data-sb-block="${CSS.escape(id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" }); }
@@ -676,6 +691,7 @@
   function selectSection(key) {
     if (!sb) return;
     sb.selectedSec = key; sb.selectedId = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
+    if (window.innerWidth < 1400) sb.left = false;
     paintTop(); paintRight(); paintRails();
     const doc = $("#sbFrame")?.contentDocument;
     if (doc) { doc.querySelectorAll("[data-sb-block].sb-selected").forEach(el => el.classList.remove("sb-selected")); doc.querySelectorAll("[data-sb-sec]").forEach(el => el.classList.toggle("sb-selected", el.dataset.sbSec === key)); }
@@ -1554,7 +1570,14 @@
   // ───────────────────────── wiring into the portal ─────────────────────────
   document.addEventListener("click", async event => {
     const t = event.target;
-    const open = t.closest("[data-sb-open]"); if (open) { openStudio(open.dataset.sbOpen); return; }
+    const open = t.closest("[data-sb-open]");
+    if (open) {
+      // "current" = the page on the Page Editor's screen: a trainer page opens as itself, anything else opens the page list.
+      let what = open.dataset.sbOpen || "";
+      if (what === "current") { try { what = typeof state !== "undefined" && state.builderSurface === "trainer" && state.selectedTrainerId ? `trainer:${state.selectedTrainerId}` : ""; } catch { what = ""; } }
+      openStudio(what);
+      return;
+    }
     const studio = t.closest("[data-sb-studio]"); if (studio) { openStudio(studio.dataset.sbStudio || ""); return; }
     if (t.closest("[data-sb-new]")) { openStudio("new"); return; }
     const dup = t.closest("[data-sb-duplicate]"); if (dup) { await openStudio(""); if (sb) { sb.newPick = `dup:${dup.dataset.sbDuplicate}`; openNewPanel(); } return; }
@@ -1568,7 +1591,7 @@
     if (big && sb && big.files?.[0]) { uploadBig(big.files[0], big.dataset.sbBigupload, big.dataset.kind || "photo").catch(e => S().toast(e.message, 6000)); big.value = ""; }
   });
   window.addEventListener("beforeunload", event => { if (sb && (sb.status === "dirty" || sb.status === "saving" || sb.status === "error")) { event.preventDefault(); event.returnValue = ""; } });
-  window.addEventListener("resize", () => { if (sb && window.innerWidth < 900 && sb.left && sb.right) { sb.right = false; paintRails(); } });
+  window.addEventListener("resize", () => { if (!sb) return; if (window.innerWidth < 900 && sb.left && sb.right) { sb.right = false; paintRails(); } else fitFrame(); });
 
   window.LDTT_SITE_BUILDER = { open: openStudio, close: closeStudio, state: () => sb };
 })();
