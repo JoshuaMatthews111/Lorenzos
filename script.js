@@ -1466,3 +1466,14 @@ publicEnvironment.then(env=>{
     .catch(()=>{});
 });
 })();
+
+// Joshua 2026-09-15: phone digits format themselves as (216) 816-8026 while the visitor types,
+// and extra digits are dropped instead of the field silently cutting the number off.
+document.addEventListener("input", function (event) {
+  var el = event.target;
+  if (!el || el.tagName !== "INPUT" || el.name !== "phone") return;
+  var d = String(el.value).replace(/[^0-9]/g, "");
+  if (d.length === 11 && d.charAt(0) === "1") d = d.slice(1);
+  d = d.slice(0, 10);
+  el.value = d.length > 6 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : d.length > 3 ? "(" + d.slice(0, 3) + ") " + d.slice(3) : d;
+}, true);
