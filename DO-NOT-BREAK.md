@@ -1213,7 +1213,9 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
     `resend_from_address` = marketing@lorenzosdogtrainingteam.com) read through `supabaseRequest` (the
     schema switch) and `rpc communications_read_setting_secret` — the same key password reset uses. Still
     Resend only, never FormSubmit (rule 73). Practice copy office emails go to marketing@ for now. 2026-09-14 (Joshua): the saved practice address is now
-    production@lorenzosdogtrainingteam.com (Settings box; the code default stays marketing@ when nothing is saved).
+    production@lorenzosdogtrainingteam.com (Settings box). 2026-09-15 (Joshua): "change the marketing email to production, they will
+    get all the details for the booking": the office list's Marketing line is now Production (code default + practice
+    row), and the practice fallback is production@ too. The sender address is unchanged.
     Operations alert: `sendOpsAlert()` texts the Settings "Operations phone" (default Tim +12168168026)
     when a lead starts its journey (`enterPipeline`) and when an evaluation is booked (`afterBooking`),
     through Make scenario 6254549 (env LDTT_MAKE_HOOK_OPS, Preview only; tester filter on every route),
