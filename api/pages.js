@@ -245,13 +245,14 @@ async function uploadAsset(body, auth) {
 // trainer-page-videos, photos up to 10 MB into trainer-page-assets (practice-* on the practice copy, lib/sandbox.js).
 // Same office login as every other operation; the address works once and only for that one new file.
 const BIG_UPLOADS = {
-  "video/mp4": ["trainer-page-videos", "mp4", 50], "video/webm": ["trainer-page-videos", "webm", 50], "video/quicktime": ["trainer-page-videos", "mov", 50],
+  // MP4 and WebM only: the video bucket refuses MOV, and most iPhone MOV files do not play in Chrome or Firefox.
+  "video/mp4": ["trainer-page-videos", "mp4", 50], "video/webm": ["trainer-page-videos", "webm", 50],
   "image/jpeg": ["trainer-page-assets", "jpg", 10], "image/png": ["trainer-page-assets", "png", 10], "image/webp": ["trainer-page-assets", "webp", 10], "image/gif": ["trainer-page-assets", "gif", 10]
 };
 async function signedUpload(body, auth) {
   const type = clean(body.type, 60);
   const spec = BIG_UPLOADS[type];
-  if (!spec) throw fail(400, "Upload an MP4, WebM or MOV video, or a JPG, PNG, WebP or GIF photo.");
+  if (!spec) throw fail(400, type === "video/quicktime" ? "That is an iPhone MOV video. Save it as MP4 first (iPhone: Settings → Camera → Formats → Most Compatible, or share it as MP4), then upload it." : "Upload an MP4 or WebM video, or a JPG, PNG, WebP or GIF photo.");
   const [bucket, ext, mb] = spec;
   const size = Number(body.size || 0);
   if (!(size > 0)) throw fail(400, "The file was empty.");

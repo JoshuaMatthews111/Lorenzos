@@ -63,6 +63,12 @@
       else if (what === "theme") { sb.leftTab = "theme"; }
       else if (what === "nav") { sb.leftTab = "nav"; }
       else if (String(what).startsWith("trainer:")) await openTrainer(String(what).slice(8));
+      else if (String(what).startsWith("slug:")) {
+        const slug = String(what).slice(5);
+        const found = (store.pages || []).find(p => p.slug === slug && p.page_type !== "ad");
+        if (found) await openPage(found.id);
+        else { sb.leftTab = "pages"; openNewPanel(); toast((store.importable || []).some(p => p.slug === slug) ? `/${slug} is not in the Site Builder yet. Press Import next to it below to bring it in.` : "That page is not in the Site Builder yet. Import a page below, or start a new one.", 7000); }
+      }
       else if (what) await openPage(what);
       paintAll();
       // The first time someone opens the Site Builder in this browser, the "How to use" steps show first.
@@ -202,7 +208,7 @@
       const t = currentTrainer(); if (!t) throw new Error("That trainer is no longer in the portal. Refresh and try again.");
       const body = draftJson();
       sb.status = "saving"; paintStatus();
-      applyDraftToTrainer(t, sb.draft); t._editedAt = Date.now();
+      applyChangedToTrainer(t, sb.trainerBase, sb.draft); sb.trainerBase = S().clone(sb.draft); t._editedAt = Date.now();
       t.pageStatus = "Draft"; t.locked = false;
       if (portalHas("persistStateSnapshot")) persistStateSnapshot();
       if (portalHas("persistTrainerRecord")) await persistTrainerRecord(t);
@@ -379,7 +385,7 @@
   // (upload straight to storage with a progress bar, up to 50 MB).
   const assetUrl = value => (!value || /^https?:\/\//i.test(value) || value.startsWith("/") ? value : `/${value}`);
   const slider = (label, path, value, min, max, unit = "") => `<label class="ps-field ps-slider"><span>${S().esc(label)} <b data-sb-readout>${S().esc(value)}${unit}</b></span><input type="range" min="${min}" max="${max}" step="1" data-sb-field="${S().esc(path)}" data-unit="${S().esc(unit)}" value="${S().esc(value)}"></label>`;
-  const videoField = (label, path, value) => `<div class="ps-field"><span>${S().esc(label)}</span>${value ? `<video class="sb-thumb-video" src="${S().esc(assetUrl(value))}" muted playsinline preload="metadata"></video>` : ""}<div class="ps-row"><label class="ps-btn sb-upload-btn ${value ? "" : "red"}">${value ? "Replace the video" : "Upload a video"}<input type="file" accept="video/mp4,video/webm,video/quicktime" data-sb-bigupload="${S().esc(path)}" data-kind="video" hidden></label>${value ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="${S().esc(path)}">Remove</button>` : ""}</div><div class="sb-progress" data-sb-progress="${S().esc(path)}" hidden><i></i><span></span></div><input data-sb-field="${S().esc(path)}" value="${S().esc(value || "")}" placeholder="or paste the https:// address of an MP4"></div>`;
+  const videoField = (label, path, value) => `<div class="ps-field"><span>${S().esc(label)}</span>${value ? `<video class="sb-thumb-video" src="${S().esc(assetUrl(value))}" muted playsinline preload="metadata"></video>` : ""}<div class="ps-row"><label class="ps-btn sb-upload-btn ${value ? "" : "red"}">${value ? "Replace the video" : "Upload a video"}<input type="file" accept="video/mp4,video/webm" data-sb-bigupload="${S().esc(path)}" data-kind="video" hidden></label>${value ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="${S().esc(path)}">Remove</button>` : ""}</div><div class="sb-progress" data-sb-progress="${S().esc(path)}" hidden><i></i><span></span></div><input data-sb-field="${S().esc(path)}" value="${S().esc(value || "")}" placeholder="or paste the https:// address of an MP4"></div>`;
   const uploadField = (label, path, value, accept = "image/*") => `<div class="ps-field"><span>${S().esc(label)}</span>${value ? `<img class="sb-thumb-img" src="${S().esc(value)}" alt="">` : ""}<div class="ps-row"><input data-sb-field="${S().esc(path)}" value="${S().esc(value || "")}" placeholder="https://… or assets/…"><label class="ps-btn sb-upload-btn"><input type="file" accept="${accept}" data-sb-upload="${S().esc(path)}" hidden>Upload</label></div></div>`;
 
   function themePanel() {
@@ -389,6 +395,7 @@
     const pairSel = T.FONT_PAIRS.find(p => p.head === t.fontHead && p.body === t.fontBody)?.id || "custom";
     return `
       ${sb.kind === "ad2" ? `<div class="sb-tip" style="margin-bottom:12px">This 2.0 ad page keeps its own design and colours. Change its logo on the <b>Page</b> tab, its photos by clicking them. The theme below is for the Site Builder's website pages.</div>` : ""}
+      ${sb.kind === "trainer" ? `<div class="sb-tip" style="margin-bottom:12px">This trainer page keeps its own design. Change its colours, font and text size on the <b>Page</b> tab. The theme below is for the Site Builder's website pages only.</div>` : ""}
       <h3>Site theme</h3>
       <p class="ps-help">Fonts, colours, buttons and spacing for <b>every</b> Site Builder page. A page can override these under its Page tab. Saving applies within a minute.</p>
       <h4>Fonts</h4>
@@ -429,6 +436,7 @@
     const pageOptions = (S().store.pages || []).filter(p => p.page_type !== "ad" && p.page_type !== "ad2").map(p => `<option value="${esc(p.public_path || `/${p.slug}`)}">${esc(p.title || p.slug)}${p.status !== "published" ? " (draft)" : ""}</option>`).join("");
     const empty = !n.header.links.length;
     return `
+      ${isKit() ? `<div class="sb-tip" style="margin-bottom:12px">These menus are for the Site Builder's website pages. 2.0 ad pages and trainer pages keep their own top bar and footer.</div>` : ""}
       <h3>Menus</h3>
       <p class="ps-help">Which pages appear in the header and footer, in what order. ${empty ? "<b>Nothing is saved yet, so every page shows the website's built-in menus.</b> Press “Start from the current menus” to edit them." : "Saved menus show on every Site Builder page within a minute."}</p>
       ${empty ? `<button type="button" class="ps-btn navy" data-sb-act="nav-start">Start from the current menus</button><div style="height:10px"></div>` : ""}
@@ -471,7 +479,7 @@
     return `<div class="ps-field"><span>${esc(label)}</span>${value ? `<img class="sb-thumb-img" src="${esc(value.startsWith("http") || value.startsWith("/") ? value : `/${value}`)}" alt="">` : ""}<div class="ps-row"><input data-sb-field="${esc(path)}" value="${esc(value || "")}" placeholder="assets/… or https://…"><label class="ps-btn sb-upload-btn"><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" data-sb-bigupload="${esc(path)}" data-kind="photo" hidden>Upload</label></div><div class="sb-progress" data-sb-progress="${esc(path)}" hidden><i></i><span></span></div><details class="sb-photo-details"><summary>Choose from the site's photos</summary><div class="ps-photo-grid">${choices.map(p => `<button type="button" class="${p === value ? "selected" : ""}" data-sb-photo="${esc(path)}" data-src="${esc(p)}" style="background-image:url('/${esc(p)}')" title="${esc(p)}"></button>`).join("")}</div></details></div>`;
   }
   const btnFields = (label, path, b) => `<div class="ps-item"><div class="ps-item-head"><span>${S().esc(label)}</span></div><div class="ps-row">${F("Words", `${path}.label`, b?.label || "")}${F("Link", `${path}.href`, b?.href || "", { placeholder: "/contact or https://…" })}</div>${F("Style", `${path}.style`, b?.style || "primary", { type: "select", options: [["primary", "Filled (accent)"], ["outline", "Outline"], ["link", "Text link"]] })}</div>`;
-  const listItem = (title, index, i, body, removable = true) => `<div class="ps-item"><div class="ps-item-head"><span>${S().esc(title)}</span><span>${i > 0 ? `<button type="button" class="ps-icon-btn" data-sb-act="item-move" data-index="${index}" data-item="${i}" data-dir="-1" title="Move up">↑</button>` : ""}${removable ? `<button type="button" class="ps-icon-btn danger" data-sb-act="item-remove" data-index="${index}" data-item="${i}" title="Remove">✕</button>` : ""}</span></div>${body}</div>`;
+  const listItem = (title, index, i, body, removable = true) => `<div class="ps-item"><div class="ps-item-head"><span>${S().esc(title)}</span><span>${i > 0 ? `<button type="button" class="ps-icon-btn" data-sb-act="item-move" data-index="${index}" data-item="${i}" data-dir="-1" title="Move up">↑</button>` : ""}<button type="button" class="ps-icon-btn" data-sb-act="item-move" data-index="${index}" data-item="${i}" data-dir="1" title="Move down">↓</button>${removable ? `<button type="button" class="ps-icon-btn danger" data-sb-act="item-remove" data-index="${index}" data-item="${i}" title="Remove">✕</button>` : ""}</span></div>${body}</div>`;
 
   function blockFields(block, index) {
     const { esc } = S();
@@ -639,6 +647,10 @@
     }
     catch (error) { html = `<p style="font-family:sans-serif;padding:20px">The preview could not render: ${S().esc(error.message)}</p>`; }
     try { sb.frameScroll = frame.contentWindow?.scrollY || sb.frameScroll || 0; } catch { /* ignore */ }
+    // The editor buttons' size (--sbz) is in the page from its first paint, so nothing shifts under the mouse after it loads.
+    const wrapW = $("#sbFrameWrap")?.clientWidth || 0;
+    const sbz = sb.device === "desktop" && wrapW && wrapW < DESKTOP_W ? (DESKTOP_W / wrapW).toFixed(3) : "1";
+    html = html.replace("</head>", () => `<style>:root{--sbz:${sbz}}</style></head>`);
     frame.addEventListener("load", () => wireFrame(frame), { once: true });
     frame.srcdoc = html;
   }
@@ -831,6 +843,20 @@
     t.customOrder = (d.customOrder || []).slice();
     t.customBlocks = T.normalizeKitBlocks(d.blocks || [], TRAINER_ANCHORS);
   }
+  // Only the fields changed here are written back, so a change made meanwhile in the Page Editor, Trainer Network or another
+  // tab is never undone by an autosave from this screen.
+  function applyChangedToTrainer(t, base, d) {
+    const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    TRAINER_FIELDS.forEach(key => { if (!same(d[key], base?.[key])) t[key] = /Show$/.test(key) ? d[key] === true : String(d[key] ?? ""); });
+    const ds = d.styleSettings || {}; const bs = base?.styleSettings || {};
+    const style = { ...(t.styleSettings || {}) };
+    ["fontFamily", "brandPrimary", "brandAccent"].forEach(key => { if (!same(ds[key], bs[key])) style[key] = ds[key]; });
+    if (!same(ds.fontScale, bs.fontScale)) style.fontScale = Math.min(1.25, Math.max(0.85, Number(ds.fontScale || 100) / 100));
+    t.styleSettings = style;
+    if (!same(d.hiddenSections, base?.hiddenSections)) t.hiddenSections = (d.hiddenSections || []).slice();
+    if (!same(d.customOrder, base?.customOrder)) t.customOrder = (d.customOrder || []).slice();
+    if (!same(d.blocks, base?.blocks)) t.customBlocks = T.normalizeKitBlocks(d.blocks || [], TRAINER_ANCHORS);
+  }
   function currentTrainer() {
     if (!portalHas("trainerById")) return null;
     const t = trainerById(sb.trainerId);
@@ -839,7 +865,7 @@
   function trainerPreviewObject() {
     const t = currentTrainer();
     const copy = { ...t, styleSettings: { ...(t?.styleSettings || {}) } };
-    applyDraftToTrainer(copy, sb.draft);
+    applyChangedToTrainer(copy, sb.trainerBase, sb.draft);
     copy.customBlocks = []; // the Site Builder puts the blocks in itself, with their editor buttons
     return copy;
   }
@@ -856,7 +882,7 @@
     if (!t || (String(t.id) !== String(trainerId) && String(t.remoteId) !== String(trainerId))) throw new Error("That trainer could not be found. Refresh the portal and try again.");
     if (sb.pageId && sb.draft) await flushSave();
     const draft = trainerDraftFrom(t);
-    Object.assign(sb, { kind: "trainer", trainerId: t.id, selectedSec: null, pageId: `trainer:${t.id}`, page: { id: `trainer:${t.id}`, status: t.pageStatus === "Published" && t.locked ? "published" : "draft", slug: t.slug }, draft, savedJson: JSON.stringify(draft), draftRevision: 1, revisions: [], status: "saved", savedAt: null, selectedId: null, rightTab: "page", history: [], future: [], insertAt: null, panel: null, durability: null });
+    Object.assign(sb, { kind: "trainer", trainerBase: S().clone(draft), trainerId: t.id, selectedSec: null, pageId: `trainer:${t.id}`, page: { id: `trainer:${t.id}`, status: t.pageStatus === "Published" && t.locked ? "published" : "draft", slug: t.slug }, draft, savedJson: JSON.stringify(draft), draftRevision: 1, revisions: [], status: "saved", savedAt: null, selectedId: null, rightTab: "page", history: [], future: [], insertAt: null, panel: null, durability: null });
     sb.left = window.innerWidth > 1100 || !sb.right;
     paintAll();
   }
@@ -962,7 +988,7 @@
     m.querySelector("[data-ps-close]").addEventListener("click", () => m.remove());
     m.querySelector("[data-ps-go]").addEventListener("click", async event => {
       event.target.disabled = true; event.target.textContent = "Publishing…";
-      applyDraftToTrainer(t, sb.draft); t._editedAt = Date.now();
+      applyChangedToTrainer(t, sb.trainerBase, sb.draft); sb.trainerBase = S().clone(sb.draft); t._editedAt = Date.now();
       t.pageStatus = "Published"; t.locked = true;
       const ok = portalHas("runRemoteMutation") && portalHas("publishTrainerPageWorkflow")
         ? await runRemoteMutation("Trainer page published and locked", () => publishTrainerPageWorkflow(t, true), { reload: false, type: "Trainer Page", detail: `${t.name} landing page published and locked from the Site Builder.` })
@@ -1005,14 +1031,20 @@
     el.focus();
     try { const range = doc.caretRangeFromPoint?.(event.clientX, event.clientY); if (range) { const sel = doc.getSelection(); sel.removeAllRanges(); sel.addRange(range); } } catch { /* the cursor starts at the beginning */ }
     sb.inlineEditing = path;
-    pushHistory(true);
     const read = () => { if (rich) return T.sanitizeRichText(el.innerHTML); const clone = el.cloneNode(true); clone.querySelectorAll("br").forEach(br => br.replaceWith(" ")); return String(clone.textContent || "").replace(/\s+/g, " ").trim(); };
-    const onInput = () => { if (!sb?.draft) return; setPath(sb.draft, path, read()); markDirty({ canvas: false }); };
+    const before = read(); const stored = getPath(sb.draft, path); let pushed = false;
+    const onInput = () => { if (!sb?.draft) return; if (!pushed) { pushHistory(true); pushed = true; } setPath(sb.draft, path, read()); markDirty({ canvas: false }); };
     const onKey = e => { if (e.key === "Escape" || (!rich && e.key === "Enter")) { e.preventDefault(); e.stopPropagation(); el.blur(); } };
     const finish = () => {
       el.removeEventListener("input", onInput); el.removeEventListener("keydown", onKey); el.removeAttribute("contenteditable");
       if (!sb?.draft) return;
-      sb.inlineEditing = null; setPath(sb.draft, path, read()); markDirty({ rerail: true, canvas: false });
+      sb.inlineEditing = null;
+      const after = read();
+      if (after === before) { // clicked and left, or typed it back the same: the draft keeps what it had
+        if (pushed) { setPath(sb.draft, path, stored); sb.history.pop(); if (draftJson() === sb.savedJson) { sb.status = "saved"; paintStatus(); paintTop(); } else markDirty({ rerail: true, canvas: false }); }
+        return;
+      }
+      setPath(sb.draft, path, after); markDirty({ rerail: true, canvas: false });
     };
     el.addEventListener("input", onInput); el.addEventListener("keydown", onKey); el.addEventListener("blur", finish, { once: true });
     S().toast(rich ? "Type to change the words. Bold is Cmd/Ctrl+B. Click outside when you are done." : "Type to change the words. Press Enter when you are done.", 3200);
@@ -1220,8 +1252,9 @@
   async function uploadBig(file, path, kind = "photo") {
     const { api, toast } = S();
     if (!file || !sb) return;
-    const isVideo = /^video\/(mp4|webm|quicktime)$/.test(file.type);
-    if (kind === "video" && !isVideo) { toast("Pick a video file: MP4, WebM or MOV.", 5000); return; }
+    if (file.type === "video/quicktime") { toast("That is an iPhone MOV video. Save it as MP4 first (iPhone: Settings → Camera → Formats → Most Compatible, or share it as MP4), then upload it.", 9000); return; }
+    const isVideo = /^video\/(mp4|webm)$/.test(file.type);
+    if (kind === "video" && !isVideo) { toast("Pick a video file: MP4 or WebM.", 5000); return; }
     if (kind === "photo" && !/^image\/(jpeg|png|webp|gif)$/.test(file.type)) { toast("Pick a JPG, PNG, WebP or GIF photo.", 5000); return; }
     const maxMb = isVideo ? 50 : 10;
     if (file.size > maxMb * 1024 * 1024) { toast(isVideo ? "That video is bigger than 50 MB. Make it shorter or smaller (for example with the phone's “compress” or “export” option), then try again." : "That photo is bigger than 10 MB. Make it smaller, then try again.", 8000); return; }
@@ -1563,11 +1596,11 @@
       return;
     }
     if (typing) return;
-    const index = sb.draft ? sb.draft.blocks.findIndex(b => b.id === sb.selectedId) : -1;
+    const index = sb.draft ? (sb.draft.blocks || []).findIndex(b => b.id === sb.selectedId) : -1;
     if (index === -1) return;
     if (event.altKey && event.key === "ArrowUp") { event.preventDefault(); blockAction("up", index); }
     else if (event.altKey && event.key === "ArrowDown") { event.preventDefault(); blockAction("down", index); }
-    else if (event.key === "Delete" || event.key === "Backspace") { event.preventDefault(); blockAction("remove", index); }
+    else if (event.key === "Delete") { event.preventDefault(); blockAction("remove", index); } // not Backspace: right after typing it must only fix the typing
     else if (meta && event.key.toLowerCase() === "d") { event.preventDefault(); blockAction("duplicate", index); }
   }
   document.addEventListener("keydown", event => { if (sb && !document.querySelector("#psOverlay")) onKeys(event); }, true);
@@ -1579,7 +1612,13 @@
     if (open) {
       // "current" = the page on the Page Editor's screen: a trainer page opens as itself, anything else opens the page list.
       let what = open.dataset.sbOpen || "";
-      if (what === "current") { try { what = typeof state !== "undefined" && state.builderSurface === "trainer" && state.selectedTrainerId ? `trainer:${state.selectedTrainerId}` : ""; } catch { what = ""; } }
+      if (what === "current") {
+        try {
+          const main = String(state.builderMainPage || "").replace(/[?#].*$/, "");
+          what = state.builderSurface === "trainer" && state.selectedTrainerId ? `trainer:${state.selectedTrainerId}`
+            : state.builderSurface === "site" && main ? `slug:${main.replace(/^\/(ads\/)?/, "").replace(/\.html$/, "") || "index"}` : "";
+        } catch { what = ""; }
+      }
       openStudio(what);
       return;
     }

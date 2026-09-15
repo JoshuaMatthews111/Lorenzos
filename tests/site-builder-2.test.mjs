@@ -148,3 +148,24 @@ test("the Site Builder is the one editor: wiring for every page type, help, copi
   assert.match(read("trainer-backoffice/page-studio.js"), /sbDoor\.dataset\.sbOpen = "current"/);
   assert.match(read("trainer-backoffice/ad2-studio.js"), /if \(!classic && window\.LDTT_SITE_BUILDER\) return window\.LDTT_SITE_BUILDER\.open\(pageId\);/);
 });
+
+test("audit fixes (2026-09-15 night): MOV refused, trainer saves write only changed fields, a click that changes nothing writes nothing, Delete (not Backspace) removes a block, \"$\" in a 2.0 logo address is harmless", async () => {
+  const pages = read("api/pages.js");
+  assert.ok(!/"video\/quicktime": \[/.test(pages), "MOV is not signed for upload");
+  assert.match(pages, /That is an iPhone MOV video\. Save it as MP4 first/);
+  const sb = read("trainer-backoffice/site-builder.js");
+  assert.ok(!/video\/quicktime"/.test(sb.replace(/if \(file\.type === "video\/quicktime"\)/, "")), "the picker no longer offers MOV");
+  assert.match(sb, /function applyChangedToTrainer\(t, base, d\)/);
+  assert.match(sb, /applyChangedToTrainer\(t, sb\.trainerBase, sb\.draft\); sb\.trainerBase = S\(\)\.clone\(sb\.draft\);/);
+  assert.ok(!/applyDraftToTrainer\(t, sb\.draft\)/.test(sb), "no save writes the whole screen back any more");
+  assert.match(sb, /if \(after === before\) \{/);
+  assert.match(sb, /else if \(event\.key === "Delete"\) \{ event\.preventDefault\(\); blockAction\("remove", index\); \}/);
+  assert.ok(!/event\.key === "Backspace"/.test(sb));
+  const c = JSON.parse(JSON.stringify(A2.STARTERS[1]));
+  c.logo = { photo: "https://example.com/$1-$&-logo.png", size: 100 };
+  const html = A2.renderPage(c, { practice: true });
+  assert.equal((html.match(/<img class="ldtt-custom-logo" src="https:\/\/example\.com\/\$1-\$&amp;-logo\.png"/g) || []).length, 2, "the address is written as typed, in header and footer");
+  const editor = A2.renderPage(A2.STARTERS[0], { practice: true, preview: true, editor: true });
+  assert.match(editor, /src="\/assets\/v2\/d1-founder\.webp" data-sb-img="photos\.founder"/, "the design's photos open the photo picker in the editor");
+  assert.match(read("trainer-backoffice/app.js"), /const ads = \[\]; \/\/ Page Studio ad pages carry the Meta pixel/);
+});

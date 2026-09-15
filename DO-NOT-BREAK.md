@@ -1520,9 +1520,9 @@ COLLECTED; service-dog gold tag YES; milestones later.
     - **Block pages (`lib/site-page-template.js`):** per-block `layout` (whitelist `LAYOUTS`, first value = the old
       look), design extras (`gradFrom/gradTo/gradAngle`, `bgVideo`, `overlay`, `textColor`, `headSize`, `font`,
       `headFont`; "" = unused), theme `logoWidth` / `headScale`, one-click `COLOR_SCHEMES` (all pass `themeWarnings`),
-      Video block `provider: "file"` (MP4/WebM/MOV). A block background photo address is now written with `&quot;`
+      Video block `provider: "file"` (MP4/WebM; an iPhone MOV is refused in plain words: the bucket refuses MOV and most MOV files do not play in Chrome). Block pages store `layout` and the empty design keys on their next save (renders unchanged; the "stored only when used" rule is for 2.0 pages). A block background photo address is now written with `&quot;`
       (it used raw quotes inside `style="…"` before, which broke the attribute).
-    - **Big uploads:** `api/pages.js` operation `upload_url` (office login) signs a one-time upload address: videos up
+    - **Big uploads:** `api/pages.js` operation `upload_url` (office login) signs a one-time upload address: MP4/WebM videos up
       to 50 MB into `trainer-page-videos`, photos up to 10 MB into `trainer-page-assets` (practice-* on the practice
       copy). Photos of 3.5 MB or less still use the proven `upload` operation. `lib/page-durability.js` counts the video
       bucket as the deployment's own storage (checked, never copied into the photo bucket, which refuses video) and
@@ -1533,7 +1533,8 @@ COLLECTED; service-dog gold tag YES; milestones later.
     - **2.0 ad pages (`lib/ad2-page-template.js`, rule 85):** `renderPage` returns the 11 Sep bytes unless the page
       uses `blocks`/`logo`/`hidden`/`order` (or the editor asks); `arrange()` splits the page at its sections
       (`ANCHORS`), keeps the header and footer fixed, reorders, hides, places kit blocks after their section and swaps
-      the logo in header + footer. `api/ad-page.js` and `api/pages.js` pass live review/trainer data to those blocks.
+      the logo in header + footer (function replacements: a pasted address may contain "$"). In the editor the design's own
+      photos carry `data-sb-img="photos.<slot>"`, so a click on one opens the photo picker. `api/ad-page.js` and `api/pages.js` pass live review/trainer data to those blocks.
       Still practice copy only (Send to live still refuses `ad2`).
     - **Trainer pages (`app.js`):** `draft_content.custom_blocks` / `custom_order`, read back by `remoteTrainerToUi`
       (draft for the editor, published for the public page, rule 56). The public page runs
@@ -1541,14 +1542,18 @@ COLLECTED; service-dog gold tag YES; milestones later.
       loads `/lib/html-sanitize.js` + `/lib/site-page-template.js` ONLY when the page has blocks and fails open
       (rule 43). The Site Builder saves a trainer page with the Page Editor's own `persistTrainerRecord` (what
       `markBuilderDraftDirty` does) and publishes with `runRemoteMutation(… publishTrainerPageWorkflow(t, true))`; it
-      only ever edits the trainer it opened (id/remoteId checked, rule 31). Photo size/place, the photo library and
+      only ever edits the trainer it opened (id/remoteId checked, rule 31) and writes back ONLY the fields changed on its
+      screen since it opened or last saved (`applyChangedToTrainer`), so it never undoes a change made meanwhile in the
+      Page Editor, Trainer Network or another tab. Photo size/place, the photo library and
       socials stay in the classic Page Editor (More → Open this page in the classic Page Editor).
     - **Site Builder (`site-builder.js`):** click words on the canvas to type (plain text; rich text through the
-      same sanitiser), click a photo to change it, layout buttons, "? How to use" (shown once per browser) + a tour,
+      same sanitiser; a click that changes nothing writes nothing), only the Delete key removes a selected block (never
+      Backspace, which fixes typing), click a photo to change it, layout buttons, "? How to use" (shown once per browser) + a tour,
       "⧉ Copy" on every page row (site, landing, ad, 2.0; the copy is a draft), a Trainer pages group and trainer
       pages in the Landing page dropdown. The old 2.0 editor opens only from More (`open(id, { classic: true })`).
-    - **Page Editor audit fixes:** its preview iframe is sandboxed (no top navigation, so a page in it can no longer
-      send the portal away); its page dropdown also lists the Page Studio ad pages and redraws when the list arrives;
+    - **Page Editor audit fixes:** its preview iframe is sandboxed without top navigation, so a link or redirect inside the preview can
+      no longer take the portal away (allow-same-origin stays, so it is not a security boundary); its page dropdown redraws when the page list arrives (it stayed empty) and never lists Page Studio ad pages (their
+      /ads/ preview would fire the Meta pixel from office browsers);
       on a main website page the "Replace selected image" control is gone (the photo was kept in the browser only and
       it turned the selected trainer's page into a draft); "✦ Edit in the Site Builder" sits in its top bar.
     Tests: `tests/site-builder-2.test.mjs` (9). Browser proofs (local in-memory server, no login): 13 Site Builder
