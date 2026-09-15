@@ -293,13 +293,13 @@ test("office emails: request + callback wording; the booked-time email is unchan
   const { M } = load(true);
   const lead = { id: "L1", first_name: "Pat", last_name: "Tester", phone: "4405550100", zip: "44105", raw_payload: {} };
   const req = M.buildBookingEmail({ lead, booking: { trainer_name: "Eric Beck", requested: true, location_label: "In-home", client: { first_name: "Pat", last_name: "Tester", phone: "4405550100" }, dogs: [{ name: "Rex", breed: "Lab" }] }, staffLink: "https://x/staff", practice: true, kind: "trainer_request" });
-  assert.match(req.subject, /^\[PRACTICE COPY\] Trainer requested: Pat Tester wants Eric Beck/);
+  assert.match(req.subject, /^\[PRACTICE COPY\] Track 500 · Trainer requested: Pat Tester wants Eric Beck/);
   assert.match(req.text, /schedule the free evaluation with Eric Beck/);
   assert.match(req.text, /Breed: Lab/);
   const cb = M.buildBookingEmail({ lead, booking: { callback: { zip: "59101", phone: "4065550100" } }, kind: "no_trainer" });
-  assert.match(cb.subject, /^Callback needed: Pat Tester, no trainer within 30 miles of ZIP 59101/);
+  assert.match(cb.subject, /^Track 500 · Callback needed: Pat Tester, no trainer within 30 miles of ZIP 59101/);
   const booked = M.buildBookingEmail({ lead, booking: { when_label: "Mon, Sep 14, 8:00 AM EDT", trainer_name: "Lorenzo Miller" } });
-  assert.match(booked.subject, /^Eval booked: Pat Tester with Lorenzo Miller, Mon, Sep 14, 8:00 AM EDT/);
+  assert.match(booked.subject, /^Track 500 · Eval booked: Pat Tester with Lorenzo Miller, Mon, Sep 14, 8:00 AM EDT/);
   assert.match(booked.text, /Log this client into Alpha/);
 });
 

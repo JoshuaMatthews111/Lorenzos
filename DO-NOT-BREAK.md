@@ -1464,3 +1464,21 @@ COLLECTED; service-dog gold tag YES; milestones later.
       gets it after Age, never at the end: `normalizeFields`). Card, trainer view and office email order: Sex |
       Spayed/Neutered · Age | Age units · Breed | Vaccinations · Behavioral challenges.
     Tests: `tests/zip-timezone-and-dogs.test.mjs`.
+
+## The real lead timeline and Track 500 (added 2026-09-15, Claude; practice copy)
+
+87. **"What happened with this person" shows what really happened, and Track 500 is on the internal messages.**
+    Office 2026-09-15 (screenshot of "Wording not supplied yet"); meeting 2026-09-12 ("Track 500 - Schedule Eval",
+    Tim: "the only thing it needs to say is Track 500"); meeting 2026-09-14 16:30 (Kathy takes $250 off every Track
+    500 job; Joshua: "I can add it to every email and text and make it in the portal").
+    - `leadJourneyTimeline()` reads `raw_payload.pipeline` (each text: sent + time + phone ending, or the reason) and
+      `raw_payload.booking` (booked time, office email, pre-eval answers). Built-but-off texts say "not sending yet".
+      Each step shows the words in use from GET `/api/pipeline?op=texts_in_use` (office login, READ-ONLY: words in
+      use only, never templates or drafts; editing stays Super Admin, rule 84). Leads from before the pipeline say so.
+    - Track 500 lead = any lead that entered the pipeline (`raw_payload.pipeline.entered_at` or `.lane`): a navy
+      "Track 500" tag beside the service-dog tag (office card, Sales, trainer view, lead details) and in the timeline.
+    - Office emails: subject "[PRACTICE COPY] Track 500 · ..." (`track500Subject` in lib/office-email.js).
+    - Practice texts in use (practice.site_settings `pipeline_texts`, migration practice_track500_text_wording, by
+      "Joshua Matthews (Track 500 wording from Tim & Angela)"): trainer "Track 500 - Schedule Eval ...", Tim "Track 500 -
+      New lead: ..." and "Track 500 - Eval booked: ...". Client texts never say Track 500. Starting words unchanged.
+    Tests: `tests/journey-track500.test.mjs`.

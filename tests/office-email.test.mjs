@@ -236,7 +236,7 @@ test("the key arrives: 'send queued' sends the saved email ONCE through Resend, 
     assert.deepEqual(sent[0].body.to, ["marketing@lorenzosdogtrainingteam.com"], "practice copy: the one test address, never the office list by default");
     assert.equal(sent[0].body.from, "Lorenzo's Dog Training Team <no-reply@lorenzosdogtrainingteam.com>");
     const { html, text, subject } = sent[0].body;
-    assert.match(subject, /^\[PRACTICE COPY\] Eval booked: Joshua Proof with Lorenzo Miller/);
+    assert.match(subject, /^\[PRACTICE COPY\] Track 500 · Eval booked: Joshua Proof with Lorenzo Miller/);
     assert.ok(text.includes("Log this client into Alpha, then open the staff portal and mark this lead \"Added to Alpha\"."), "the Alpha instruction, word for word");
     for (const needle of ["Log this client into Alpha, then open the staff portal and mark this lead &quot;Added to Alpha&quot;.", `/staff?view=leads&amp;lead=${lead.id}`, "Lorenzo Miller", "Training center: 4815 Orchard Rd, Garfield Heights, OH 44128", "Joshua Proof", "440-214-2915", "proof@example.test", "1 Main St, Cleveland, OH 44128", "Rex", "Bella", "Labrador", "Beagle", "6 months", "Growls at visitors", "Jumps on guests", "Spayed/Neutered?", "Vaccinations up to date?", "Behavioral challenges", "Dog 2 of 2", "Schedule an in person evaluation with a trainer in my area", ...OFFICE]) {
       assert.ok(html.includes(needle), `html has ${needle}`);

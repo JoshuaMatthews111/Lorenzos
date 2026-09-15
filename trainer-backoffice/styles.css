@@ -5816,3 +5816,11 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
   .ptx-chip { flex: 1 1 auto; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .ptx-chip { transition: none; } }
+/* Rule 87: Track 500 tag + the real lead timeline (sent / not sent / built-but-off, words in use). */
+.lead-tag-track500 { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #fff; background: #071f46; border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 1px; }
+.lead-journey h3 .lead-tag-track500 { font-size: 12px; vertical-align: 3px; }
+.journey-step.skipped { border-color: #f1c2ca; }
+.journey-step.skipped small { color: #8a0b1f; }
+.journey-step.off { opacity: .75; border-style: dashed; }
+.journey-copy { white-space: pre-wrap; background: #eef2f7; border-radius: 12px 12px 12px 4px; padding: 8px 10px; margin: 6px 0 0; font-size: 13px; color: #0b1a33; }
+.journey-copy span { display: block; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: #587098; margin-bottom: 4px; }

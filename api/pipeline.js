@@ -51,6 +51,13 @@ module.exports = async function handler(req, res) {
         const { state } = await X.load(B.sbOrThrow);
         return res.status(200).json({ ok: true, ...X.view(state), make_uses_portal: process.env.LDTT_TEXTS_FROM_PORTAL === "1", test_phone_last4: "2915" });
       }
+      if (op === "texts_in_use") {
+        // Rule 87: the lead timeline shows every office user the words each text uses NOW. Read-only: no templates,
+        // no drafts, no edits (those stay Super Admin only, rule 84).
+        const { state } = await X.load(B.sbOrThrow);
+        const texts = Object.fromEntries(X.view(state).texts.map(t => [t.key, { label: t.label, status: t.status, preview: t.preview, active_name: t.active_name }]));
+        return res.status(200).json({ ok: true, texts, make_uses_portal: process.env.LDTT_TEXTS_FROM_PORTAL === "1" });
+      }
       if (op === "followup") {
         // Rule 81: the saved follow-up texts. READ ONLY: it plans and previews, it never sends or writes.
         const rows = await B.sbOrThrow("/rest/v1/leads?select=id,created_at,first_name,last_name,phone,sms_consent,status,raw_payload&sms_consent=is.true&order=created_at.desc&limit=3000");
