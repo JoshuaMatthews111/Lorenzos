@@ -1445,3 +1445,22 @@ COLLECTED; service-dog gold tag YES; milestones later.
     - **Site Builder "Landing page" dropdown (office, 2026-09-14).** The Site Builder top bar lists every landing page
       (Landing pages, Ad pages, Ad pages 2.0 on the practice copy); picking one saves the open page, then opens the
       pick in its own editor (block editor, ad editor or the 2.0 editor). `paintJump()` / `jumpTo()` in site-builder.js.
+
+## Local time zones and dog age units (added 2026-09-15, Claude; practice copy)
+
+86. **Every eval time shows in the lead's local time zone, and every dog has Age units.** Office 2026-09-15: "time
+    zones EST, CST, PST and more automatically when the eval is scheduled, based on the ZIP code, and they should also
+    see that in the text"; meeting 2026-09-14 49:30-51:30 + Zoom chat "Fix the time zone on all submissions";
+    52:00-56:00 + chat "Add age units, weeks, months or years"; Rachel's "Updated Sandbox Notes" (card order).
+    - `lib/zip-timezone.js` (data only, server + browser): ZIP prefix -> state -> zone, with the split prefixes
+      (Florida Panhandle 324/325 = Central: Panama City Beach and Miramar Beach are CENTRAL; west KY, east TN, NW/SW
+      Indiana, El Paso, north Idaho...). Unknown ZIP -> the trainer's zone.
+    - `lib/booking.js` `localTimeZone()`: in-home = client ZIP (or the ZIP ending the address); training center =
+      the trainer's calendar zone. `api/booking.js` saves `booking.local_time_zone` and writes `when_label` in it;
+      the trainer text and Tim's text (`lib/pipeline.js`) and the production@ email use it ("8:00 AM CDT").
+    - Portal: `leadEvalLabel(value, leadTimeZone(lead))` on the lead card, lead details and trainer view; older
+      leads fall back to the ZIP. The booking page itself still shows times in the trainer's zone (it says so).
+    - Dogs: new required `age_unit` (Weeks / Months / Years) right after Age in the booking questions (a saved form
+      gets it after Age, never at the end: `normalizeFields`). Card, trainer view and office email order: Sex |
+      Spayed/Neutered · Age | Age units · Breed | Vaccinations · Behavioral challenges.
+    Tests: `tests/zip-timezone-and-dogs.test.mjs`.

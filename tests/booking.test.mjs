@@ -100,7 +100,7 @@ const intake = over => ({ first_name: "Pat", last_name: "Tester", phone: "440-55
 const evalBody = over => ({
   trainer_slug: "lorenzo-miller", slot_start: SLOT_A, location: "in_home",
   client: { first_name: "Pat", last_name: "Tester", phone: "440-555-0100", email: "pat@example.test", address: "1 Main St, Cleveland, OH 44128" },
-  dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2 years", breed: "Lab", behavior: "Pulls on the leash" }],
+  dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2 years", age_unit: "Years", breed: "Lab", behavior: "Pulls on the leash" }],
   ...over
 });
 const writes = calls => calls.filter(c => c.host === "supabase.test" && c.method !== "GET");
@@ -211,7 +211,7 @@ test("booking: records the pick, moves the lead to Eval Scheduled with the time,
   const { db } = fakeWorld();
   const created = await call(leadApi, { body: intake() });
   const leadId = created.payload.lead_id;
-  const res = await call(bookingApi, { body: evalBody({ lead_id: leadId, location: "training_center", dogs: [evalBody().dogs[0], { name: "Bella", sex: "Female", fixed: "No", vaccinated: "Yes", age: "8 months", breed: "Beagle", behavior: "Jumping" }] }) });
+  const res = await call(bookingApi, { body: evalBody({ lead_id: leadId, location: "training_center", dogs: [evalBody().dogs[0], { name: "Bella", sex: "Female", fixed: "No", vaccinated: "Yes", age: "8 months", age_unit: "Months", breed: "Beagle", behavior: "Jumping" }] }) });
   assert.equal(res.statusCode, 200, JSON.stringify(res.payload));
   assert.equal(res.payload.eval_scheduled_at, iso(SLOT_A));
   assert.match(res.payload.location, /4815 Orchard Rd/);

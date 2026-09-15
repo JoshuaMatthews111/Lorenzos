@@ -8877,7 +8877,7 @@ function trainerPipelineBoard(leads) {
 
 function trainerCardEvalLine(lead) {
   if (lead.status !== "Evaluation Scheduled") return "";
-  const label = leadEvalLabel(lead.evalScheduledAt);
+  const label = leadEvalLabel(lead.evalScheduledAt, leadTimeZone(lead));
   return label
     ? `<p class="lead-card-eval"><span>Eval</span> <strong>${escapeHtml(label)}</strong></p>`
     : `<p class="lead-card-eval is-missing">Eval time not set yet. The office adds it.</p>`;
@@ -8948,11 +8948,11 @@ function trainerLeadDetailPanel() {
   const email = client.email || lead.email || "";
   const market = leadMarketLabel(lead);
   const dogs = Array.isArray(booking.dogs) && booking.dogs.length
-    ? booking.dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog?.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Breed", dog?.breed)}${row("Age", dog?.age)}${row("Sex", dog?.sex)}${row("Spayed/Neutered?", dog?.fixed)}${row("Vaccinations up to date?", dog?.vaccinated)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog?.behavior || "—")}</strong></div></div></div>`).join("")
+    ? booking.dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog?.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Sex", dog?.sex)}${row("Spayed/Neutered?", dog?.fixed)}${row("Age", dog?.age)}${row("Age units", dog?.age_unit)}${row("Breed", dog?.breed)}${row("Vaccinations up to date?", dog?.vaccinated)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog?.behavior || "—")}</strong></div></div></div>`).join("")
     : `<div class="lead-contact-grid">${row("Dog", leadDogLabel(lead))}</div>`;
   const evalLine = booking.slot_start
-    ? `${booking.when_label || leadEvalLabel(booking.slot_start)} · ${booking.location_label || "In-home"}`
-    : lead.evalScheduledAt ? leadEvalLabel(lead.evalScheduledAt)
+    ? `${booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead))} · ${booking.location_label || "In-home"}`
+    : lead.evalScheduledAt ? leadEvalLabel(lead.evalScheduledAt, leadTimeZone(lead))
     : booking.requested ? "Requested online. The office schedules the time." : "Not booked yet.";
   const notes = officeNotesFor("lead", lead.remoteId).map(note => `<li><strong>${escapeHtml(portalActorName(note.created_by))}</strong> <small>${escapeHtml(note.created_at ? new Date(note.created_at).toLocaleString() : "")}</small><p>${escapeHtml(note.note || "")}</p></li>`).join("");
   const canDeal = lead.status !== "Became a Client";
@@ -10610,10 +10610,21 @@ function leadCardDetailLines(lead) {
 
 // Meeting 2026-09-11: Eval Scheduled cards show the eval date + time without
 // opening the lead. Shown in the viewer's own time zone, with its short name.
-function leadEvalLabel(value) {
+// Rule 86 (office 2026-09-15): an eval time shows in the lead's local zone, e.g. "Thu, Sep 17, 8:00 AM CDT".
+// The booking saved it (raw_payload.booking.local_time_zone); otherwise the ZIP decides (lib/zip-timezone.js).
+function leadTimeZone(lead) {
+  const raw = leadRawPayload(lead);
+  const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+  if (booking.local_time_zone) return booking.local_time_zone;
+  const zip = lead?.zip || raw.zip || booking.intake?.zip || "";
+  return window.LDTT_ZIP_TIMEZONE?.timeZoneForZip(zip) || undefined;
+}
+
+function leadEvalLabel(value, timeZone) {
   const date = parseTimestamp(value);
   if (!date) return "";
-  return date.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" });
+  const opts = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" };
+  try { return date.toLocaleString("en-US", timeZone ? { ...opts, timeZone } : opts); } catch { return date.toLocaleString("en-US", opts); }
 }
 
 // Online booking (rule 71): the time the customer booked on /book/<trainer> and every eval answer.
@@ -10701,7 +10712,7 @@ function leadBookingBlock(lead) {
   const client = booking.client || {};
   const dogs = Array.isArray(booking.dogs) ? booking.dogs : [];
   const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
-  const dogRows = dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Sex", dog.sex)}${row("Spayed/Neutered?", dog.fixed)}${row("Vaccinations up to date?", dog.vaccinated)}${row("Age", dog.age)}${row("Breed", dog.breed)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog.behavior || "—")}</strong></div></div></div>`).join("");
+  const dogRows = dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Sex", dog.sex)}${row("Spayed/Neutered?", dog.fixed)}${row("Age", dog.age)}${row("Age units", dog.age_unit)}${row("Breed", dog.breed)}${row("Vaccinations up to date?", dog.vaccinated)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog.behavior || "—")}</strong></div></div></div>`).join("");
   // rule 74: "Request this trainer" (no calendar yet) and the no-trainer-nearby callback.
   const callback = booking.callback && typeof booking.callback === "object" ? booking.callback : null;
   const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 30 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
@@ -10714,12 +10725,12 @@ function leadBookingBlock(lead) {
     const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : (/^\/book\//.test(pipelineLink) ? pipelineLink : "");
     return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 30 miles." : "No trainer within 30 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
   }
-  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
+  return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead)))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", client.phone)}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
 
 function leadCardEvalLine(lead) {
   if (lead.status !== "Evaluation Scheduled") return "";
-  const label = leadEvalLabel(lead.evalScheduledAt);
+  const label = leadEvalLabel(lead.evalScheduledAt, leadTimeZone(lead));
   return label
     ? `<p class="lead-card-eval"><span>Eval</span> <strong>${escapeHtml(label)}</strong></p>`
     : `<p class="lead-card-eval is-missing">Eval date + time not set. Open the lead to add it.</p>`;

@@ -222,7 +222,9 @@ async function book(req, res, body) {
   }
   const holdRow = hold.data?.[0] || {};
   const now = new Date().toISOString();
-  const whenLabel = B.formatWhen(slotIso, setting.time_zone);
+  // Rule 86: the time is written in the eval's local zone (client ZIP in-home, trainer zone at the training center).
+  const localTimeZone = B.localTimeZone({ location, zip: lead.zip || body.zip || rawOf(lead).booking?.intake?.zip || "", address: client.address, setting });
+  const whenLabel = B.formatWhen(slotIso, localTimeZone);
   const locationLabel = B.locationLabel(location, setting);
 
   let record;
@@ -248,6 +250,7 @@ async function book(req, res, body) {
             slot_start: slotIso,
             slot_minutes: chosen.minutes,
             time_zone: setting.time_zone,
+            local_time_zone: localTimeZone,
             when_label: whenLabel,
             location,
             location_label: locationLabel,

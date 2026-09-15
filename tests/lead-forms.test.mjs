@@ -284,7 +284,7 @@ test("Send to live helper: the live draft gets the practice draft + the sender's
 // The flow degrades exactly as the warning says; it never breaks.
 // ---------------------------------------------------------------------------
 test("booking questions: removed = not required; optional may be blank; added questions are checked and kept; no config = the original 11 required", () => {
-  const body = { client: { first_name: "Ann", last_name: "Lee", phone: "", email: "ann@example.com", address: "" }, dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2", breed: "", behavior: "Pulls", custom: { x_walks01: "Daily" } }], client_custom: { x_vet00001: "" }, location: "in_home" };
+  const body = { client: { first_name: "Ann", last_name: "Lee", phone: "", email: "ann@example.com", address: "" }, dogs: [{ name: "Rex", sex: "Male", fixed: "Yes", vaccinated: "Yes", age: "2", age_unit: "Years", breed: "", behavior: "Pulls", custom: { x_walks01: "Daily" } }], client_custom: { x_vet00001: "" }, location: "in_home" };
   const strict = B.validateEvalForm(body, null);
   assert.ok(strict.errors.includes("Phone is required.") && strict.errors.includes("Physical address is required.") && strict.errors.includes("Dog 1: Breed is required."), "without a config nothing changed");
   const spec = LF.defaultFields("booking_eval").map(f => ({ ...f, removed: ["phone", "address"].includes(f.key) ? true : f.removed, required: f.key === "breed" ? false : f.required }));
@@ -304,7 +304,7 @@ test("booking page: questions come from the published form; removed ones are not
   const plain = renderBookingPage("lorenzo-miller", { practice: true });
   const spec = JSON.parse(plain.match(/var FORM = (\{.*?\});\n/)[1]);
   assert.deepEqual(spec.client.map(f => f.key), ["first_name", "last_name", "phone", "email", "address"]);
-  assert.deepEqual(spec.dog.map(f => f.key), ["name", "sex", "fixed", "vaccinated", "age", "breed", "behavior"]);
+  assert.deepEqual(spec.dog.map(f => f.key), ["name", "sex", "fixed", "vaccinated", "age", "age_unit", "breed", "behavior"]);
   assert.ok([...spec.client, ...spec.dog].every(f => f.required));
   const fields = LF.defaultFields("booking_eval").map(f => (f.key === "age" ? { ...f, removed: true } : f));
   fields.push({ key: "x_vet00001", label: "Vet </script><script>alert(1)</script>", type: "text", required: true, builtin: false, removed: false, group: "client" });
