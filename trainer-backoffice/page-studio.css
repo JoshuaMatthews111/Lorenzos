@@ -374,3 +374,4 @@ body.a2-open { overflow: hidden; }
 .sb-fit-grid{display:grid;grid-template-columns:repeat(3,34px);gap:6px}.sb-fit-grid button{width:34px;height:34px;border:2px solid #cbd5e1;border-radius:8px;background:#fff;cursor:pointer}.sb-fit-grid button:hover{border-color:#0b6bff}.sb-fit-grid button.on{background:#0b6bff;border-color:#0b6bff}
 .sb-fit-controls .ps-row .ps-btn{width:auto}
 @media (max-width:760px){.sb-fit-wrap{grid-template-columns:1fr}.sb-fit-preview{width:100%!important}}
+.ps-modal-card:has(.sb-fit-wrap){width:min(880px,100%)}.sb-fit-controls .ps-row{flex-wrap:wrap}
