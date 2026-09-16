@@ -1447,6 +1447,15 @@ COLLECTED; service-dog gold tag YES; milestones later.
     - **Site Builder "Landing page" dropdown (office, 2026-09-14).** The Site Builder top bar lists every landing page
       (Landing pages, Ad pages, Ad pages 2.0 on the practice copy); picking one saves the open page, then opens the
       pick in its own editor (block editor, ad editor or the 2.0 editor). `paintJump()` / `jumpTo()` in site-builder.js.
+    - **2026-09-16 (Arrison's asks, chat + her email).** The founder "MEET THE FOUNDER," eyebrow sits INSIDE
+      its section (it was drawn 10px above it and overlapped the hero) and the founder quote box clips
+      (.quote overflow:hidden) so text never spills onto the next section. Every PHOTO_SLOTS entry carries a
+      4th "best size" element the editors show. `videos2` (founder, ba1-4, st1-3) holds the office's OWN
+      video per play button — https MP4/WebM or a YouTube link — stored only when set, so untouched pages
+      keep their exact bytes. The Free Booklet modal carries a real download link
+      (assets/calm-dog-blueprint-final.pdf; per-page override `b_url`). One 2.0 page exists per market
+      (scripts/migrate-ad2-markets.mjs), wording and photos migrated from the original ad pages; the old
+      pixel ad pages stay, and the three starter pages are Arrison's to edit.
 
 ## Local time zones and dog age units (added 2026-09-15, Claude; practice copy)
 
