@@ -363,3 +363,5 @@ body.a2-open { overflow: hidden; }
   .sb-overlay.sb-left-hidden .sb-body{grid-template-columns:0 minmax(0,1fr) 330px}
   .sb-overlay.sb-right-hidden .sb-body{grid-template-columns:290px minmax(0,1fr) 0}
 }
+/* 2026-09-16: the photo the office clicked on the page is the highlighted one on the right */
+.sb-right .a2-photo.is-focus{border-color:#0b6bff;box-shadow:0 0 0 3px rgba(11,107,255,.18)}

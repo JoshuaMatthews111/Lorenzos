@@ -686,14 +686,23 @@
     doc.querySelectorAll("[data-sb-sectool]").forEach(btn => btn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); secAction(btn.dataset.sbSectool, btn.dataset.sec); }));
     // Site Builder 2.0: click words on the page and type over them; click a photo to change it.
     doc.querySelectorAll("[data-sb-edit],[data-sb-richedit]").forEach(el => el.addEventListener("click", event => { if (event.target.closest("[data-sb-tool]")) return; event.preventDefault(); event.stopPropagation(); startInlineEdit(el, event); }));
-    doc.querySelectorAll("[data-sb-img]").forEach(el => el.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); const blockEl = el.closest("[data-sb-block]"); if (blockEl && sb.selectedId !== blockEl.dataset.sbBlock) selectBlock(blockEl.dataset.sbBlock, { scroll: false }); openPhotoPicker(el.dataset.sbImg); }));
+    doc.querySelectorAll("[data-sb-img]").forEach(el => el.addEventListener("click", event => {
+      event.preventDefault(); event.stopPropagation();
+      const blockEl = el.closest("[data-sb-block]"); if (blockEl && sb.selectedId !== blockEl.dataset.sbBlock) selectBlock(blockEl.dataset.sbBlock, { scroll: false });
+      // Joshua 2026-09-16: "select the overlay, the options pop up, drag to resize and see the sliders change live".
+      const slot = sb.kind === "ad2" && /^photos\./.test(el.dataset.sbImg) ? el.dataset.sbImg.slice(7) : "";
+      if (slot) { focusPhotoSlot(slot, el); return; }
+      openPhotoPicker(el.dataset.sbImg);
+    }));
+    doc.querySelectorAll("[data-sb-img]").forEach(el => el.addEventListener("dblclick", event => { event.preventDefault(); event.stopPropagation(); openPhotoPicker(el.dataset.sbImg); }));
+    if (sb.kind === "ad2" && sb.focusSlot) decorateFrame(doc, sb.focusSlot);
     // Keyboard inside the frame: Esc / undo reach the parent
     doc.addEventListener("keydown", e => onKeys(e, true));
   }
 
   function selectBlock(id, { scroll = true } = {}) {
     if (!sb) return;
-    sb.selectedId = id; sb.selectedSec = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
+    sb.selectedId = id; sb.selectedSec = null; sb.focusSlot = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
     if (window.innerWidth < 1400) sb.left = false; // small screen: the page and its settings get the room; Blocks / ☰ brings the list back
     paintTop(); paintRight(); paintRails();
     const doc = $("#sbFrame")?.contentDocument;
@@ -704,8 +713,9 @@
   // The design's sections stay the design's own; the office changes their words and photos, moves or hides them,
   // swaps the logo, and puts any Site Builder block (reviews, video, gallery …) between them (content.blocks, each
   // with `after` = the section it follows). lib/ad2-page-template.js draws it all and checks every value.
-  function selectSection(key) {
+  function selectSection(key, { keepFocus = false } = {}) {
     if (!sb) return;
+    if (!keepFocus) sb.focusSlot = key === "hero" ? "hero" : null;
     sb.selectedSec = key; sb.selectedId = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
     if (window.innerWidth < 1400) sb.left = false;
     paintTop(); paintRight(); paintRails();
@@ -713,6 +723,68 @@
     if (doc) { doc.querySelectorAll("[data-sb-block].sb-selected").forEach(el => el.classList.remove("sb-selected")); doc.querySelectorAll("[data-sb-sec]").forEach(el => el.classList.toggle("sb-selected", el.dataset.sbSec === key)); }
   }
   const a2Label = key => (A2().ANCHORS[sb.draft.design].find(([id]) => id === key) || [key, key])[1];
+
+  // Joshua 2026-09-16: click a 2.0 photo -> it is selected, its options pop up on the right, and the frame
+  // gets a move cursor + a corner handle. Dragging moves / resizes the frame LIVE and the sliders follow.
+  function focusPhotoSlot(slot, el) {
+    const doc = el.ownerDocument;
+    const secEl = el.closest("[data-sb-sec]");
+    const secKey = secEl?.dataset.sbSec || sb.selectedSec;
+    sb.focusSlot = slot;
+    if (secKey) selectSection(secKey, { keepFocus: true }); else { paintRight(); }
+    const rail = $(`#sbRight [data-sb-slot="${CSS.escape(slot)}"]`);
+    if (rail) { rail.querySelector("details")?.setAttribute("open", ""); rail.scrollIntoView({ block: "center", behavior: "smooth" }); }
+    decorateFrame(doc, slot);
+  }
+  function frameElFor(doc, slot) {
+    const img = doc.querySelector(`[data-sb-img="photos.${CSS.escape(slot)}"]`);
+    if (!img) return null;
+    if (/--w:/.test(img.getAttribute("style") || "")) return img;
+    let el = img.parentElement;
+    while (el && el !== doc.body) { if (/--w:/.test(el.getAttribute("style") || "")) return el; el = el.parentElement; }
+    return null;
+  }
+  function decorateFrame(doc, slot) {
+    doc.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel"); x.querySelector(".sb-frame-handle")?.remove(); });
+    const frame = frameElFor(doc, slot);
+    if (!frame) return;
+    frame.classList.add("sb-frame-sel");
+    const handle = doc.createElement("span");
+    handle.className = "sb-frame-handle"; handle.title = "Drag to make the frame bigger or smaller";
+    frame.appendChild(handle);
+    const unit = () => { const page = doc.querySelector(".page"); return (page ? page.clientWidth : 1024) / 1024; };
+    const cur = k => { const n = parseInt(sb.draft.pframe?.[slot]?.[k], 10); return Number.isFinite(n) ? n : 0; };
+    const clamp = n => Math.max(-300, Math.min(300, n));
+    let drag = null;
+    const readVar = k => Number(frame.style.getPropertyValue(`--${k}`)) || 0;
+    const start = (e, mode) => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+      drag = { mode, sx: e.clientX, sy: e.clientY, dx: cur("dx"), dy: cur("dy"), dw: cur("dw"), dh: cur("dh"), x: readVar("x"), y: readVar("y"), w: readVar("w"), h: readVar("h"), live: null };
+      doc.addEventListener("mousemove", move); doc.addEventListener("mouseup", end);
+    };
+    const move = e => {
+      if (!drag) return;
+      const u = unit();
+      const ddx = Math.round((e.clientX - drag.sx) / u), ddy = Math.round((e.clientY - drag.sy) / u);
+      const live = drag.mode === "move" ? { dx: clamp(drag.dx + ddx), dy: clamp(drag.dy + ddy) } : { dw: clamp(drag.dw + ddx), dh: clamp(drag.dh + ddy) };
+      drag.live = live;
+      if (drag.mode === "move") { frame.style.setProperty("--x", drag.x + (live.dx - drag.dx)); frame.style.setProperty("--y", drag.y + (live.dy - drag.dy)); }
+      else { frame.style.setProperty("--w", Math.max(40, drag.w + (live.dw - drag.dw))); frame.style.setProperty("--h", Math.max(40, drag.h + (live.dh - drag.dh))); }
+      Object.entries(live).forEach(([k, v]) => { const input = $(`#sbRight [data-sb-field="pframe.${slot}.${k}"]`); if (input) { input.value = v; const out = input.closest("label")?.querySelector("[data-sb-readout]"); if (out) out.textContent = `${v}px`; } });
+    };
+    const end = () => {
+      doc.removeEventListener("mousemove", move); doc.removeEventListener("mouseup", end);
+      if (!drag) return;
+      const live = drag.live; drag = null;
+      if (!live) return;
+      pushHistory(true);
+      Object.entries(live).forEach(([k, v]) => setPath(sb.draft, `pframe.${slot}.${k}`, v));
+      markDirty({ rerail: true }); // the redraw keeps the focus: wireFrame decorates the frame again
+    };
+    frame.addEventListener("mousedown", e => { if (e.target === handle) return; start(e, "move"); });
+    handle.addEventListener("mousedown", e => start(e, "size"));
+  }
   function a2Order() {
     const d = sb.draft;
     const base = A2().ANCHORS[d.design].map(([id]) => id).filter(id => !A2().FIXED_ANCHORS.includes(id));
@@ -779,12 +851,12 @@
   }
   function a2PhotoField(label, slot, value, file, size, vslot) {
     const { esc } = S(); const orig = `${A2().A}${file}`; const path = `photos.${slot}`;
-    return `<div class="a2-photo"><img src="${esc(value || orig)}" alt="" loading="lazy"><div><strong>${esc(label)}</strong>${size ? `<small class="ps-help" style="display:block;margin:2px 0 4px">Best size: ${esc(size)} (JPG, PNG or WebP)</small>` : ""}<div class="a2-photo-actions"><label class="ps-btn sb-upload-btn">Upload<input type="file" accept="image/jpeg,image/png,image/webp" data-sb-bigupload="${path}" data-kind="photo" hidden></label><button type="button" class="ps-btn" data-sb-act="pick-photo" data-path="${path}">Choose</button>${value && value !== orig ? `<button type="button" class="ps-btn" data-sb-act="set-field" data-path="${path}" data-value="${esc(orig)}">Use the original</button>` : ""}</div><div class="sb-progress" data-sb-progress="${path}" hidden><i></i><span></span></div>${a2FrameSliders(slot)}${vslot ? videoField("Video behind this picture's play button (leave empty for the standard LDTT video)", `videos2.${vslot}`, sb.draft.videos2?.[vslot] || "", "or paste an MP4 https:// address or a YouTube link") : ""}</div></div>`;
+    return `<div class="a2-photo ${sb.focusSlot === slot ? "is-focus" : ""}" data-sb-slot="${esc(slot)}"><img src="${esc(value || orig)}" alt="" loading="lazy"><div><strong>${esc(label)}</strong>${size ? `<small class="ps-help" style="display:block;margin:2px 0 4px">Best size: ${esc(size)} (JPG, PNG or WebP)</small>` : ""}<div class="a2-photo-actions"><label class="ps-btn sb-upload-btn">Upload<input type="file" accept="image/jpeg,image/png,image/webp" data-sb-bigupload="${path}" data-kind="photo" hidden></label><button type="button" class="ps-btn" data-sb-act="pick-photo" data-path="${path}">Choose</button>${value && value !== orig ? `<button type="button" class="ps-btn" data-sb-act="set-field" data-path="${path}" data-value="${esc(orig)}">Use the original</button>` : ""}</div><div class="sb-progress" data-sb-progress="${path}" hidden><i></i><span></span></div>${a2FrameSliders(slot)}${vslot ? videoField("Video behind this picture's play button (leave empty for the standard LDTT video)", `videos2.${vslot}`, sb.draft.videos2?.[vslot] || "", "or paste an MP4 https:// address or a YouTube link") : ""}</div></div>`;
   }
   // Joshua 2026-09-16: "we need to resize the pictures in the frames" — zoom + focus per photo slot.
   function a2FrameSliders(slot) {
     const f = sb.draft.pframe?.[slot] || {};
-    const set = Object.keys(f).length > 0;
+    const set = Object.keys(f).length > 0 || sb.focusSlot === slot; // the clicked photo's options pop open
     const v = (k, d) => (f[k] === undefined || f[k] === "" ? d : f[k]);
     if (slot === "hero" || slot === "heroM") {
       if (slot === "heroM") return "";
@@ -922,6 +994,7 @@
     paintAll();
   }
   const TRAINER_EDITOR_STYLE = `<style data-sb-trainer-editor>
+.sb-frame-sel{outline:3px solid #0b6bff!important;outline-offset:-3px;cursor:move!important}.sb-frame-sel img{pointer-events:none}.sb-frame-handle{position:absolute;right:2px;bottom:2px;width:calc(var(--u)*14);height:calc(var(--u)*14);min-width:12px;min-height:12px;background:#0b6bff;border:2px solid #fff;border-radius:3px;cursor:nwse-resize;z-index:80;box-shadow:0 2px 8px rgba(0,0,0,.4)}
 [data-sb-sec]{outline:2px dashed transparent;outline-offset:-2px;cursor:pointer}[data-sb-sec]:hover{outline-color:rgba(216,15,53,.55)}[data-sb-sec].sb-selected{outline:3px solid #d80f35;outline-offset:-3px}
 [data-sb-sec]>.sb-label{position:absolute;top:8px;left:10px;z-index:60;display:none;background:#d80f35;color:#fff;font:900 11px/1 Inter,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;padding:7px 10px;border-radius:999px}
 [data-sb-sec]:hover>.sb-label,[data-sb-sec].sb-selected>.sb-label{display:block}
