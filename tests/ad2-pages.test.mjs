@@ -102,3 +102,29 @@ test("the Site Builder top bar has a Landing page dropdown that opens each page 
   assert.match(builder, /if \(el\.matches\("\[data-sb-jump\]"\)\) \{ if \(event\.type === "change" && el\.value\) jumpTo\(el\.value\); return; \}/);
   assert.match(builder, /sb\.panel = null; await openPage\(id\); paintAll\(\); \/\/ block pages and 2\.0 ad pages open right here/);
 });
+
+// Arrison's editor asks (email 2026-09-16) — pinned so they never quietly regress.
+test("Arrison 2026-09-16: founder eyebrow sits inside its section, photo slots carry a best-size hint", () => {
+  const src = readFileSync(new URL("../lib/ad2-page-template.js", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /y: -10, fs: 13/, "the MEET THE FOUNDER eyebrow no longer overlaps the section above");
+  assert.match(src, /quotePanel\(788, 8, 205, 208, 14, 18\.5\)/, "the founder quote fits its box");
+  assert.ok(T.PHOTO_SLOTS.d2.every(s => /×.*px/.test(s[3] || "")), "every d2 photo slot names its best size");
+});
+
+test("Arrison 2026-09-16: her own videos play behind the founder and before/after thumbnails", () => {
+  const c = T.normalizeContent({ design: "d2", slug: "x", videos2: { founder: "https://youtu.be/abc12345", ba1: "https://example.com/v.mp4", ba9: "https://x.com/v.mp4", st1: "javascript:alert(1)" } });
+  assert.deepEqual(c.videos2, { founder: "https://youtu.be/abc12345", ba1: "https://example.com/v.mp4" }, "only known slots with safe https addresses are kept");
+  const html = T.renderPage(c, { practice: true });
+  assert.match(html, /data-video="https:\/\/youtu\.be\/abc12345"/, "the founder play button uses her video");
+  assert.match(html, /data-video="https:\/\/example\.com\/v\.mp4"/, "the ba1 play button uses her video");
+  const plain = T.normalizeContent({ design: "d2", slug: "x" });
+  assert.ok(!("videos2" in plain), "a page without its own videos keeps its exact shape (rule 85)");
+});
+
+test("the booklet is downloadable: the modal carries a real PDF link, b_url can replace it", () => {
+  const c = T.normalizeContent({ design: "d2", slug: "x" });
+  const html = T.renderPage(c, { practice: true });
+  assert.match(html, /href="https:\/\/lorenzosdogtrainingteam\.com\/assets\/calm-dog-blueprint-final\.pdf"[^>]*download/, "the standard booklet PDF is the download");
+  const own = T.renderPage(T.normalizeContent({ design: "d2", slug: "x", b_url: "https://example.com/my-booklet.pdf" }), { practice: true });
+  assert.match(own, /href="https:\/\/example\.com\/my-booklet\.pdf"[^>]*download/, "an office-set PDF address replaces it");
+});

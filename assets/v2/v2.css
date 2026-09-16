@@ -47,7 +47,7 @@ a{color:inherit}
 .play i{margin-left:9%}
 .vcap{color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.7)}
 .vcap b{display:block;font-weight:700}
-.quote{background:var(--panel);color:#fff}
+.quote{background:var(--panel);color:#fff;overflow:hidden}
 .qm{display:block;color:var(--hot);font-family:Georgia,serif;font-weight:700}
 .quote figcaption b{display:block}
 .quote figcaption span{display:block;opacity:.9}

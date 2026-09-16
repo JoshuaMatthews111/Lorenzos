@@ -21,6 +21,8 @@
       m.hidden = true;
       var v = m.querySelector("video");
       if (v) { v.pause(); v.removeAttribute("src"); v.load(); }
+      var fr = m.querySelector("iframe");
+      if (fr) fr.remove(); // a YouTube frame keeps playing unless it is removed
     });
     document.body.style.overflow = "";
     if (lastFocus && lastFocus.focus) lastFocus.focus();
@@ -35,8 +37,27 @@
     if (t.hasAttribute("data-close")) { closeAll(); return; }
     e.preventDefault();
     if (t.hasAttribute("data-video")) {
+      var url = t.getAttribute("data-video");
+      var card = document.querySelector("#m-video .mcard");
       var v = document.querySelector("#m-video video");
-      v.src = t.getAttribute("data-video");
+      var old = document.querySelector("#m-video iframe");
+      if (old) old.remove();
+      // Arrison 2026-09-16: a YouTube address plays in a YouTube frame; anything else is a plain video file.
+      var yt = url.match(/^https:\/\/(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,20})/);
+      if (yt) {
+        v.hidden = true;
+        v.removeAttribute("src");
+        var fr = document.createElement("iframe");
+        fr.src = "https://www.youtube-nocookie.com/embed/" + yt[1] + "?autoplay=1&rel=0";
+        fr.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+        fr.setAttribute("allowfullscreen", "");
+        fr.style.cssText = "width:100%;aspect-ratio:16/9;border:0;display:block";
+        card.appendChild(fr);
+        open("m-video");
+        return;
+      }
+      v.hidden = false;
+      v.src = url;
       open("m-video");
       v.play().catch(function () {});
       return;

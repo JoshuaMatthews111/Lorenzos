@@ -128,9 +128,9 @@
       return `<fieldset class="a2-group"><legend>${esc(f.label)} · <b data-a2-state-count>${v.length}</b> ticked</legend><div class="a2-states">${T.ALL_STATES.map(name => `<label><input type="checkbox" data-a2-state="${esc(name)}" ${on.has(name) ? "checked" : ""}> ${esc(name)}</label>`).join("")}</div><p class="ps-help">The map, the state list and every "states" number follow these ticks.</p></fieldset>`;
     }
     if (f.kind === "photos") {
-      return (T.PHOTO_SLOTS[d.design] || []).map(([key, label, file]) => {
+      return (T.PHOTO_SLOTS[d.design] || []).map(([key, label, file, size]) => {
         const url = d.photos[key];
-        return `<div class="a2-photo"><img src="${esc(url)}" alt="" loading="lazy"><div><strong>${esc(label)}</strong>
+        return `<div class="a2-photo"><img src="${esc(url)}" alt="" loading="lazy"><div><strong>${esc(label)}</strong>${size ? `<small class="ps-help" style="display:block;margin:2px 0 4px">Best size: ${esc(size)}</small>` : ""}
           <input type="text" data-a2-photo="${key}" value="${esc(url)}" aria-label="${esc(label)} address">
           <div class="a2-photo-actions"><label class="ps-btn a2-upload">Upload<input type="file" accept="image/jpeg,image/png,image/webp" data-a2-upload="${key}" hidden></label>${url === T.A + file ? "" : `<button type="button" class="ps-btn" data-a2-photo-reset="${key}">Use the original</button>`}</div></div></div>`;
       }).join("") + `<p class="ps-help">JPG, PNG or WEBP, up to 4 MB. Uploads go to the practice copy's own photo storage.</p>`;
