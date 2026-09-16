@@ -128,3 +128,13 @@ test("the booklet is downloadable: the modal carries a real PDF link, b_url can 
   const own = T.renderPage(T.normalizeContent({ design: "d2", slug: "x", b_url: "https://example.com/my-booklet.pdf" }), { practice: true });
   assert.match(own, /href="https:\/\/example\.com\/my-booklet\.pdf"[^>]*download/, "an office-set PDF address replaces it");
 });
+
+test("Joshua 2026-09-16: the top photo can fit (no stretch), move and darken; every frame can move and resize", () => {
+  const c = T.normalizeContent({ design: "d1", slug: "x", pframe: { hero: { fit: "cover", shade: 30, y: 20 }, founder: { dx: -40, dw: 60, z: 120 }, golden: { dh: 999 } } });
+  assert.deepEqual(c.pframe, { hero: { y: 20, fit: "cover", shade: 30 }, founder: { z: 120, dx: -40, dw: 60 } }, "out-of-range frame moves are dropped");
+  const html = T.renderPage(c, { practice: true });
+  assert.match(html, /--hpos:50% 20%;--hsz:cover;--hshade:0\.3/, "the top photo fits, focuses and shades through CSS variables");
+  assert.match(html, /ph-founder" style="--x:338;--y:-1;--w:706;--h:275"/, "the founder frame moved left and grew wider");
+  const plain = T.renderPage(T.normalizeContent({ design: "d1", slug: "x" }), { practice: true });
+  assert.doesNotMatch(plain, /--hpos|--hshade/, "a page without framing keeps the design's exact hero");
+});

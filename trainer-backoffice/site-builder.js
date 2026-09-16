@@ -784,12 +784,29 @@
   // Joshua 2026-09-16: "we need to resize the pictures in the frames" — zoom + focus per photo slot.
   function a2FrameSliders(slot) {
     const f = sb.draft.pframe?.[slot] || {};
-    const set = f.z || f.x !== undefined || f.y !== undefined;
-    return `<details class="sb-photo-details" ${set ? "open" : ""}><summary>Resize in the frame (zoom + focus)</summary>
-      ${slider("Zoom in", `pframe.${slot}.z`, f.z || 100, 100, 220, "%")}
-      ${slider("Focus left ↔ right", `pframe.${slot}.x`, f.x === undefined ? 50 : f.x, 0, 100, "%")}
-      ${slider("Focus up ↕ down", `pframe.${slot}.y`, f.y === undefined ? 50 : f.y, 0, 100, "%")}
-      ${set ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="pframe.${slot}">Put the photo back the way the design frames it</button>` : ""}</details>`;
+    const set = Object.keys(f).length > 0;
+    const v = (k, d) => (f[k] === undefined || f[k] === "" ? d : f[k]);
+    if (slot === "hero" || slot === "heroM") {
+      if (slot === "heroM") return "";
+      return `<details class="sb-photo-details" ${set ? "open" : ""}><summary>Fit, move and darken the top photo</summary>
+        <label class="ps-field"><span>How the photo fills the top</span><select data-sb-field="pframe.hero.fit"><option value="" ${v("fit", "") === "" ? "selected" : ""}>Stretch to the box (the design's way)</option><option value="cover" ${v("fit", "") === "cover" ? "selected" : ""}>Fit to the frame — no stretching (recommended)</option></select></label>
+        ${slider("Zoom in", "pframe.hero.z", v("z", 100), 100, 220, "%")}
+        ${slider("Move left ↔ right", "pframe.hero.x", v("x", 50), 0, 100, "%")}
+        ${slider("Move up ↕ down", "pframe.hero.y", v("y", 50), 0, 100, "%")}
+        ${slider("Darken the photo behind the words", "pframe.hero.shade", v("shade", 0), 0, 70, "%")}
+        ${set ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="pframe.hero">Put the top photo back the way the design has it</button>` : ""}</details>`;
+    }
+    return `<details class="sb-photo-details" ${set ? "open" : ""}><summary>Resize: the photo in its frame, or the frame itself</summary>
+      <p class="ps-help">The photo inside the frame:</p>
+      ${slider("Zoom in", `pframe.${slot}.z`, v("z", 100), 100, 220, "%")}
+      ${slider("Focus left ↔ right", `pframe.${slot}.x`, v("x", 50), 0, 100, "%")}
+      ${slider("Focus up ↕ down", `pframe.${slot}.y`, v("y", 50), 0, 100, "%")}
+      <p class="ps-help">The frame on the page:</p>
+      ${slider("Move frame left ↔ right", `pframe.${slot}.dx`, v("dx", 0), -300, 300, "px")}
+      ${slider("Move frame up ↕ down", `pframe.${slot}.dy`, v("dy", 0), -300, 300, "px")}
+      ${slider("Frame wider ↔ narrower", `pframe.${slot}.dw`, v("dw", 0), -300, 300, "px")}
+      ${slider("Frame taller ↕ shorter", `pframe.${slot}.dh`, v("dh", 0), -300, 300, "px")}
+      ${set ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="pframe.${slot}">Put the photo and its frame back the way the design has them</button>` : ""}</details>`;
   }
   function ad2SectionFields(key) {
     const { esc } = S(); const a2 = A2(); const d = sb.draft; const design = d.design;
