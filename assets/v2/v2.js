@@ -67,10 +67,20 @@
 
   document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAll(); });
 
+  // Joshua 2026-09-16: street address, city and state are required (the trainer comes to the home), in plain words.
+  var WHY = {
+    address: "Please add your street address so the trainer knows where to come.",
+    city: "Please add your city.",
+    state: "Please pick your state.",
+    zip: "Please add your 5-digit ZIP code.",
+    phone: "Please add a phone number with 10 digits.",
+    email: "Please add an email address that looks like name@example.com."
+  };
+
   function validate(form, status) {
     var bad = null;
     form.querySelectorAll("[required]").forEach(function (el) {
-      var v = el.value.trim();
+      var v = String(el.value || "").trim();
       var ok = v !== "" && (el.type !== "email" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
       if (el.type === "tel" && ok) ok = v.replace(/\D/g, "").length >= 10;
       if (el.name === "zip" && ok) ok = /^\d{5}(-?\d{4})?$/.test(v);
@@ -79,7 +89,7 @@
     });
     if (bad) {
       status.className = "fstatus wide err";
-      status.textContent = "Please check the highlighted box.";
+      status.textContent = WHY[bad.name] || "Please check the highlighted box.";
       bad.focus();
     }
     return !bad;
@@ -104,6 +114,9 @@
       last_name: f.last_name.value.trim(),
       phone: f.phone.value.trim(),
       email: f.email.value.trim(),
+      address: f.address ? f.address.value.trim() : "", // Joshua 2026-09-16: the full address rides with the lead
+      city: f.city ? f.city.value.trim() : "",
+      state: f.state ? f.state.value : "",
       zip: f.zip.value.trim(),
       problem: f.problem.value,
       dog_name: f.dog_name.value.trim(),

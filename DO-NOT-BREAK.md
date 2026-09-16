@@ -1051,7 +1051,7 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       = no link, no text, office follow-up. Trainer-page leads still stay with their own trainer (rule 72 unchanged).
       `/api/booking-lead` answers the same contract (`trainer_slug` null only when nobody is within 50 miles).
     - The lead panel shows "Trainer requested online" (with every answer) and "Callback asked" (`leadBookingBlock`).
-    Tests: `tests/booking-zip.test.mjs` (10). Audit: the rule 74 check.
+    Tests: `tests/booking-zip.test.mjs` (10). Audit: the rule 74 check. (2026-09-16, Joshua: only the trainers Missy gave calendar links (an active booking_trainers row) are cards on the booking page; no calendar = not listed; nobody with a calendar within 50 miles = office follow-up.)
 
 ## Lead form editor (added 2026-09-12, Claude, portal chain step 4)
 

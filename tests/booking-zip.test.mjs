@@ -143,13 +143,12 @@ test("step 1: ZIP 44105 lists Cleveland-area trainers nearest first with miles; 
   assert.equal(lorenzo.calendar, true);
   assert.equal(lorenzo.market, "Cleveland, OH");
   assert.equal(lorenzo.photo, "/assets/l.jpg");
-  const eric = list.find(t => t.slug === "eric-beck");
-  assert.equal(eric.calendar, false, "no schedule id = request this trainer");
-  assert.deepEqual(eric.locations, ["in_home", "training_center"], "Cleveland trainers offer the training center");
-  assert.equal(eric.training_center_address, "4815 Orchard Rd, Garfield Heights, OH 44128");
-  const brady = list.find(t => t.slug === "brady-deremer");
-  assert.deepEqual(brady.locations, ["in_home"], "Streetsboro is in-home only");
-  assert.equal(brady.photo, "", "an unsafe photo address is dropped");
+  // Joshua 2026-09-16: only the trainers Missy gave calendar links are cards; no schedule id = not listed.
+  assert.ok(!slugs.includes("eric-beck"), "no schedule id = not on the booking page");
+  assert.ok(!slugs.includes("brady-deremer"), "no schedule id = not on the booking page");
+  assert.ok(list.every(t => t.calendar === true), "every card has a calendar");
+  assert.deepEqual(lorenzo.locations, ["in_home", "training_center"], "Cleveland trainers offer the training center");
+  assert.equal(lorenzo.training_center_address, "4815 Orchard Rd, Garfield Heights, OH 44128");
   assert.equal(res.payload.radius, 50, "Joshua 2026-09-16: 50 miles");
   assert.equal(calls.filter(c => c.host.includes("google")).length, 0, "step 1 never asks Google");
   assert.ok(calls.filter(c => c.host === "supabase.test").every(c => c.headers["Accept-Profile"] === "practice"), "rule 20: practice schema only");
@@ -163,7 +162,7 @@ test("step 1: 32536 lists Daniel first; 59101 has nobody within 50 miles; bad an
   assert.equal(fl.payload.trainers[0].miles, 0);
   assert.equal(fl.payload.trainers[0].calendar, true);
   assert.deepEqual(fl.payload.trainers[0].locations, ["in_home"]);
-  assert.ok(fl.payload.trainers.some(t => t.slug === "michael-king" && !t.calendar));
+  assert.ok(!fl.payload.trainers.some(t => t.slug === "michael-king"), "Joshua 2026-09-16: no calendar = not listed");
   const none = await call(bookingApi, { method: "GET", query: { zip: "59101" } });
   assert.equal(none.statusCode, 200);
   assert.deepEqual(none.payload.trainers, []);
@@ -247,15 +246,14 @@ test("no trainer within 50 miles: the callback tells the office (queued email) a
   assert.equal(notice.office_email.status, "queued");
 });
 
-test("text routing uses the radius: near only no-calendar trainers still gets a link; nobody near gets none", async () => {
+test("text routing uses the radius: near only no-calendar trainers = office follow-up (Joshua 2026-09-16); nobody near gets no link", async () => {
   const { leadApi } = load(true);
   const { db } = fakeWorld();
   const atl = await call(leadApi, { body: { first_name: "Ann", phone: "404-555-0100", email: "ann@example.test", zip: "30303", sms_consent: true, source_page: "ads-v2/atlanta" } });
   assert.equal(atl.statusCode, 200, JSON.stringify(atl.payload));
-  assert.equal(atl.payload.trainer_slug, "aryson-whorley");
-  assert.match(atl.payload.book_url, /\/book\/aryson-whorley\?lead=/);
-  assert.match(atl.payload.message, /Pick your trainer/);
-  assert.equal(db.leads.find(l => l.id === atl.payload.lead_id).trainer_slug, undefined, "no trainer is assigned until the client picks");
+  assert.equal(atl.payload.trainer_slug, null, "trainers without a calendar are not offered");
+  assert.equal(atl.payload.book_url, null);
+  assert.equal(db.leads.find(l => l.id === atl.payload.lead_id).trainer_slug, undefined, "no trainer is assigned");
   const cle = await call(leadApi, { body: { first_name: "Cy", phone: "216-555-0100", email: "cy@example.test", zip: "44105", sms_consent: false, source_page: "ads-v2/cleveland" } });
   assert.equal(cle.payload.trainer_slug, "lorenzo-miller", "the nearest trainer WITH a calendar is assigned");
   const mt = await call(leadApi, { body: { first_name: "Mo", phone: "406-555-0100", email: "mo@example.test", zip: "59101", sms_consent: true, source_page: "ads-v2/x" } });

@@ -177,6 +177,43 @@ test("Joshua 2026-09-16: elements and photo frames can be rotated (not the top p
   assert.match(html, /class="a ba ba2" style="[^"]*rotate\(5deg\)/);
 });
 
+// Joshua 2026-09-16: "make the required fields of city, state, street address in all the pages ... with an autofill
+// option, but that full address is required in those fields on the landing pages 2.0, all of them."
+test("Joshua 2026-09-16: street address, city and state are required on every 2.0 evaluation form, with browser autofill", () => {
+  for (const starter of T.STARTERS) {
+    const html = T.renderPage(starter, { practice: true });
+    const form = (html.match(/<form class="lead contact-intake"[\s\S]*?<\/form>/) || [""])[0];
+    assert.match(form, /^<form class="lead contact-intake" data-kind="evaluation" data-endpoint="\/api\/booking-lead" autocomplete="on" novalidate>/, `${starter.design}: the form asks the browser to autofill`);
+    assert.match(form, /<label class="wide">Street address<input name="address" autocomplete="street-address" maxlength="300" required/, `${starter.design}: street address`);
+    assert.match(form, /<label>City<input name="city" autocomplete="address-level2" maxlength="80" required/, `${starter.design}: city`);
+    assert.match(form, /<label>State<select name="state" autocomplete="address-level1" required><option value="">Choose a state<\/option>/, `${starter.design}: state list`);
+    assert.match(form, /<input name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="10" required/, `${starter.design}: ZIP stays required`);
+    assert.equal((form.match(/<option value="[A-Z]{2}"/g) || []).length, 51, `${starter.design}: the 50 states + DC`);
+    const own = T.normalizeContent(starter).state; // FL / FL / MI, read from the market line
+    assert.match(own, /^[A-Z]{2}$/);
+    assert.match(form, new RegExp(`<option value="${own}" selected>`), `${starter.design}: the page's own state is picked first`);
+    for (const name of ["first_name", "last_name", "phone", "email"]) assert.match(form, new RegExp(`name="${name}" [^>]*autocomplete="[a-z-]+"`), `${starter.design}: ${name} autofills`);
+  }
+  assert.equal((T.renderPage(T.normalizeContent({ design: "d1", slug: "x", market: "Somewhere" }), {}).match(/<option value="[A-Z]{2}" selected>/g) || []).length, 0, "a page without a state picks none");
+  // The client script sends the three fields and explains a missing one in plain words.
+  const js = read("assets/v2/v2.js");
+  assert.match(js, /address: f\.address \? f\.address\.value\.trim\(\) : ""/);
+  assert.match(js, /city: f\.city \? f\.city\.value\.trim\(\) : ""/);
+  assert.match(js, /state: f\.state \? f\.state\.value : ""/);
+  assert.match(js, /address: "Please add your street address so the trainer knows where to come\."/);
+  assert.match(read("assets/v2/v2.css"), /\.lead select\[aria-invalid="true"\]/, "a missed state box is outlined red like an input");
+  // The server keeps them: on the lead's own columns and in raw_payload (lib/pipeline.js reads lead.address for the visit).
+  const B = require("../lib/booking.js");
+  const intake = B.cleanLeadIntake({ first_name: "A", phone: "4405550100", address: "1 Main St", city: "Cleveland", state: "oh", zip: "44128" });
+  assert.deepEqual([intake.value.address, intake.value.city, intake.value.state, intake.errors], ["1 Main St", "Cleveland", "OH", []]);
+  assert.equal(B.cleanLeadIntake({ first_name: "A", phone: "4405550100" }).errors.length, 0, "older forms without an address still pass");
+  assert.equal(B.cleanLeadIntake({ first_name: "A", phone: "4405550100", state: "Narnia" }).value.state, "", "only a real state is kept");
+  const booking = read("lib/booking.js");
+  assert.match(booking, /\.\.\.\(intake\.address \? \{ address_line_1: intake\.address \} : \{\}\)/);
+  assert.match(booking, /\.\.\.\(intake\.city \? \{ city: intake\.city \} : \{\}\),\n\s*\.\.\.\(intake\.state \? \{ state: intake\.state \} : \{\}\),\n\s*dog_name:/);
+  assert.match(booking, /\.\.\.\(intake\.address \? \{ address: intake\.address \} : \{\}\),\n\s*\.\.\.\(intake\.city \? \{ city: intake\.city \} : \{\}\),\n\s*\.\.\.\(intake\.state \? \{ state: intake\.state \} : \{\}\),\n\s*\.\.\.\(intake\.utm_source/);
+});
+
 test("Joshua 2026-09-16: a photo can show whole (contain) instead of filling its frame", () => {
   const c = T.normalizeContent({ design: "d2", slug: "x", pframe: { founder: { fit: "contain", y: 0 }, hero: { fit: "contain" } } });
   assert.deepEqual(c.pframe, { founder: { y: 0, fit: "contain" } }, "the top photo knows only cover");

@@ -283,6 +283,7 @@ const defaultState = {
   role: "",
   activeView: "dashboard",
   communicationsSection: "alerts",
+  salesTab: "board", // Joshua 2026-09-16: Sales sub-tabs, "board" (the pipeline) | "settings" (texts + test scenarios, Super Admin)
   communicationsFilters: { status: "All", market: "All", owner: "All" },
   showTestLeads: false,
   deals: [],
@@ -7200,12 +7201,84 @@ function pipelineTextClick(event) {
     return true;
   }
   if ((el = hit("test"))) {
-    const key = el.dataset.ptxTest;
+    // One key = the card / editor button. Several keys (comma-joined) = a Test scenario row: sent one after another.
+    const keys = String(el.dataset.ptxTest || "").split(",").map(k => k.trim()).filter(Boolean);
+    const key = keys[0];
     const words = el.dataset.ptxTestEdit && s.edit?.key === key ? s.edit.words : undefined;
-    ptextPost({ op: "text_test", key, words });
+    if (keys.length > 1) ptextSendTests(keys); else ptextPost({ op: "text_test", key, words });
     return true;
   }
   return false;
+}
+
+// Joshua 2026-09-16: "Test scenarios" on the Sales > Text settings tab. Ready one-click tests for the Super Admin on
+// the practice copy: each row says which role gets which text at that moment and what the office gets by email.
+// "Send test" reuses the text_test op (rule 84): the words IN USE, filled with the SAMPLE details, marked [TEST],
+// to the locked tester phone (rule 82). The API takes no phone or role, so there is no "send to" choice; the note
+// under the table says so. Keys mirror lib/pipeline-texts.js TEXTS; the senders are in lib/pipeline.js
+// (enterPipeline, sendBookingTexts, sendPreEvalTexts, sendEvalCompletedTexts) and lib/office-email.js.
+const PIPELINE_TEST_SCENARIO_ROLES = [["client", "Client"], ["trainer", "Trainer"], ["operations", "Operations (Tim)"]];
+const PIPELINE_TEST_SCENARIOS = [
+  {
+    id: "new_lead_cleveland", label: "New lead (Cleveland 44118)", when: "A website form with SMS consent; a trainer with a calendar is within 50 miles, so the booking link goes out.",
+    client: "booking_link", trainer: null, operations: "ops_new_lead", email: "New-lead email to the office list: booking link ready."
+  },
+  {
+    id: "new_lead_nobody", label: "New lead, nobody in range (10001)", when: "No trainer within 50 miles of the ZIP: office follow-up, no booking link, no client text.",
+    client: null, trainer: null, operations: "ops_new_lead", email: "New-lead email to the office list: office follow-up, no link."
+  },
+  {
+    id: "eval_booked", label: "Evaluation booked", when: "The client picks a time on the booking page.",
+    client: "booking_confirmation", trainer: "trainer_new_eval", operations: "ops_eval_booked", email: "Booking email to the office list: the time, the trainer and every answer."
+  },
+  {
+    id: "pre_eval_answered", label: "Pre-eval answered", when: "The client answers the pre-evaluation questions.",
+    client: null, trainer: "pre_eval_answers", operations: null, email: "None."
+  },
+  {
+    id: "eval_completed", label: "Eval completed → log the deal", when: "The trainer marks the evaluation completed in the portal.",
+    client: null, trainer: "trainer_log_deal", operations: null, email: "None."
+  }
+];
+
+function pipelineTestScenariosPanel() {
+  if (!window.LDTT_IS_SANDBOX || !isSuperAdmin()) return "";
+  const d = pipelineTextsState.data;
+  if (!pipelineTextsState.loaded || !d) return ""; // the Text messages panel below shows "loading" or the error
+  const live = d.make_uses_portal === true;
+  const cell = key => {
+    if (!key) return `<td><span class="ptx-none">No text</span></td>`;
+    const t = ptextFind(key);
+    return `<td><strong>${escapeHtml(t ? t.label : key)}</strong>${t?.active_name ? `<small>Words in use: ${escapeHtml(t.active_name)}</small>` : ""}<div><button type="button" class="btn btn-outline btn-small" data-ptx-test="${escapeHtml(key)}" ${live ? "" : "disabled"}>Send this one</button></div></td>`;
+  };
+  const rows = PIPELINE_TEST_SCENARIOS.map(sc => {
+    const keys = PIPELINE_TEST_SCENARIO_ROLES.map(([role]) => sc[role]).filter(Boolean);
+    return `<tr data-ptx-scenario="${escapeHtml(sc.id)}"><td><strong>${escapeHtml(sc.label)}</strong><small>${escapeHtml(sc.when)}</small></td>${PIPELINE_TEST_SCENARIO_ROLES.map(([role]) => cell(sc[role])).join("")}<td>${escapeHtml(sc.email)}</td><td><button type="button" class="btn btn-navy btn-small" data-ptx-test="${escapeHtml(keys.join(","))}" ${live ? "" : "disabled"}>Send test (${keys.length})</button></td></tr>`;
+  }).join("");
+  const status = live ? "" : `<p class="field-hint">Send test turns on when the Make texts are switched to the portal's words.</p>`;
+  return panel("Test scenarios", "", `<div class="ptx">
+    <p class="panel-copy">Ready scenarios for the practice copy. Each row shows who gets which text at that moment. <strong>Send test</strong> sends the words in use, filled with example details and marked [TEST].</p>
+    <div class="table-wrap"><table class="data-table"><thead><tr><th>Scenario</th>${PIPELINE_TEST_SCENARIO_ROLES.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join("")}<th>Production email</th><th>Test</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="field-hint">Every test goes only to the locked tester phone ...${escapeHtml(d.test_phone_last4 || "")} — the test API takes no phone or role choice, so there is no "send to" pick here. The email is not sent by a test.</p>${status}
+  </div>`, "pad");
+}
+
+// Several test texts, one after another, one toast at the end.
+async function ptextSendTests(keys) {
+  if (pipelineTextsState.busy) return;
+  pipelineTextsState.busy = true;
+  let sent = 0;
+  try {
+    for (const key of keys) {
+      await pipelineTextsRequest("POST", { op: "text_test", key });
+      sent += 1;
+    }
+    showToast(`${sent} test text${sent === 1 ? "" : "s"} sent to the tester phone.`);
+  } catch (error) {
+    showToast(`${sent ? `${sent} sent, then: ` : ""}${error.message || "Not done."}`);
+  } finally {
+    pipelineTextsState.busy = false;
+  }
 }
 
 // Rule 81: the saved follow-up texts (Tim's wording; 15 min, 40 min, 24 h, 48 h). READ ONLY: nothing sends,
@@ -7563,6 +7636,10 @@ async function setupSandboxTrainerLogin() {
   box.dataset.ready = "true";
   const toggle = document.querySelector(".login-card .portal-mode-toggle");
   box.hidden = (toggle?.dataset.activeMode || "trainer") !== "trainer";
+  // Joshua 2026-09-16: "let them just enter by typing the trainer's email". In Trainer mode the password
+  // box stops being required on the practice copy; the loginForm submit handler then takes the empty
+  // password as "sign in by email" (sandboxEmailOnlyLoginActive below).
+  applySandboxLoginMode(box.closest(".login-card") || document);
   button.addEventListener("click", () => sandboxTrainerSignIn({ select, button, status }));
   try {
     const response = await fetch("/api/sandbox-trainer-login", { cache: "no-store" });
@@ -7595,12 +7672,29 @@ async function sandboxTrainerSignIn({ select, button, status }) {
   const loginForm = document.getElementById("loginForm");
   const remember = loginForm?.elements?.remember?.checked === true;
   button.disabled = true;
-  status.textContent = `Signing in as ${select.options[select.selectedIndex]?.textContent || email}…`;
+  try {
+    await sandboxEmailSignIn({ email, status, remember, label: select.options[select.selectedIndex]?.textContent || email });
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// The one passwordless door, practice copy only. Three ways lead here: the trainer select box
+// (sandboxTrainerSignIn), the login form with an empty password in Trainer mode (loginForm submit,
+// Joshua 2026-09-16 "let them just enter by typing the trainer's email, which is their username"),
+// and the /staff?as=<trainer email> test link (sandboxAutoSignInFromUrl). All three end in the same
+// finishPortalSignIn() as a password sign-in. Errors land in `status` (the server's 403 for a
+// non-trainer email included) and the half-made session is cleared, exactly like the password path.
+async function sandboxEmailSignIn({ email, status, remember = false, label = "" }) {
+  if (window.LDTT_IS_SANDBOX !== true) throw new Error("Passwordless trainer sign-in only exists on the practice copy.");
+  const address = String(email || "").trim().toLowerCase();
+  status.className = "login-status";
+  status.textContent = `Signing in as ${label || address}…`;
   try {
     const response = await fetch("/api/sandbox-trainer-login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email })
+      body: JSON.stringify({ email: address })
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok || !result.token_hash) throw new Error(result.message || "The practice copy could not sign you in as that trainer.");
@@ -7608,15 +7702,75 @@ async function sandboxTrainerSignIn({ select, button, status }) {
     await finishPortalSignIn(status);
   } catch (error) {
     status.className = "login-status error";
-    status.textContent = loginFailureMessage(error, email);
+    status.textContent = loginFailureMessage(error, address);
     try {
       await window.LDTT_PORTAL?.signOut?.();
     } catch {
       // Keep the useful error even if the sign-out fails.
     }
-  } finally {
-    button.disabled = false;
   }
+}
+
+// True only when the login form may take an email with no password: practice copy, Trainer mode.
+// Admin / Office mode keeps its password everywhere; off the practice copy nothing changes at all.
+function sandboxEmailOnlyLoginActive(card) {
+  if (window.LDTT_IS_SANDBOX !== true) return false;
+  const toggle = (card || document).querySelector(".portal-mode-toggle");
+  return (toggle?.dataset.activeMode || "trainer") === "trainer";
+}
+
+// Practice copy only: the password box is optional in Trainer mode (required again in Admin / Office
+// mode and everywhere off the practice copy, where this returns before touching anything). Also the
+// Trainer-mode help line, so the office knows the password may stay empty here.
+function applySandboxLoginMode(card) {
+  if (window.LDTT_IS_SANDBOX !== true) return;
+  const scope = card || document;
+  const password = scope.querySelector('#loginForm input[name="password"]');
+  const helper = scope.querySelector("#loginModeHelp");
+  const emailOnly = sandboxEmailOnlyLoginActive(scope);
+  if (password) {
+    password.required = !emailOnly;
+    password.placeholder = emailOnly ? "Not needed on the sandbox" : "Password";
+  }
+  if (helper && emailOnly) helper.textContent = "Sandbox: type the trainer's email and press Enter Portal. No password needed here.";
+}
+
+// Practice copy only: /staff?as=<trainer email> (and /trainer-backoffice/?as=) signs that trainer in on
+// load, so each trainer login can be handed out as one link (Joshua 2026-09-16, "a link laid out for each
+// account"). Runs after bootstrapApplication() so an existing session is known: the same trainer stays
+// signed in, anyone else is signed out first. The parameter is removed from the address bar either way
+// (history.replaceState) so a refresh does not sign in again. Off the practice copy `as` is ignored.
+async function sandboxAutoSignInFromUrl() {
+  if (window.LDTT_IS_SANDBOX !== true) return;
+  let url;
+  try { url = new URL(window.location.href); } catch { return; }
+  const email = String(url.searchParams.get("as") || "").trim().toLowerCase();
+  if (!email) return;
+  url.searchParams.delete("as");
+  try { window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`); } catch { /* the address bar is cosmetic here */ }
+  if (!document.getElementById("loginForm") || !window.LDTT_PORTAL?.enabled) return;
+  const status = document.getElementById("loginStatus");
+  if (!status) return;
+  if (!email.includes("@")) {
+    status.className = "login-status error";
+    status.textContent = "The ?as= link needs a trainer email, for example /staff?as=trainer@lorenzosdogtrainingteam.com.";
+    return;
+  }
+  if (session?.loggedIn && String(portalUser?.email || "").toLowerCase() === email) return; // already that trainer
+  if (session?.loggedIn) {
+    try { await window.LDTT_PORTAL.signOut(); } catch { /* a stale session must not block the test link */ }
+    portalUser = null;
+    remoteReady = false;
+    session = { loggedIn: false, role: "" };
+    sessionStorage.removeItem(SESSION_KEY);
+    render();
+  }
+  const card = document.querySelector(".login-card");
+  const trainerButton = card?.querySelector('[data-login-mode="trainer"]');
+  if (trainerButton && !trainerButton.classList.contains("active")) trainerButton.click(); // the link is a trainer door
+  const username = card?.querySelector('#loginForm input[name="username"]');
+  if (username) username.value = email;
+  await sandboxEmailSignIn({ email, status, remember: false });
 }
 
 function suggestedPortalPassword() {
@@ -9531,7 +9685,33 @@ function testLeadNotice() {
   </section>`;
 }
 
+// Joshua 2026-09-16: "don't put it near the pipeline in any way; make it open in the same tab but a different
+// tab under Sales." Two sub-tabs at the top of Sales: "Pipeline" (the board + source table) and, for the Super
+// Admin on the practice copy only, "Text settings & test scenarios". The settings tab never draws the board and
+// the board tab never draws the settings. Clicks are delegated at document level (data-sales-tab), like
+// data-communications-section.
+function salesSettingsTabAvailable() {
+  return Boolean(window.LDTT_IS_SANDBOX) && isSuperAdmin();
+}
+
+function salesTabCurrent() {
+  return state.salesTab === "settings" && salesSettingsTabAvailable() ? "settings" : "board";
+}
+
+function salesTabsRow(current) {
+  const tabs = [["board", "Pipeline"], ...(salesSettingsTabAvailable() ? [["settings", "Text settings & test scenarios"]] : [])];
+  if (tabs.length < 2) return "";
+  return `<div class="communications-tabs sales-tabs" role="tablist" aria-label="Sales">${tabs.map(([id, label]) => `<button type="button" role="tab" class="${current === id ? "active" : ""}" aria-selected="${current === id}" data-sales-tab="${id}">${label}</button>`).join("")}</div>`;
+}
+
 function salesPipelineView() {
+  const tab = salesTabCurrent();
+  const tabsRow = salesTabsRow(tab);
+  if (tab === "settings") return `${tabsRow}${pipelineSettingsSection()}`;
+  return `${tabsRow}${salesPipelineBoard()}`;
+}
+
+function salesPipelineBoard() {
   const rows = salesPipelineRows();
   const deals = METRICS.activeDeals(state.deals || []);
   const buckets = METRICS.salesBuckets(rows, SALES_STAGES);
@@ -9586,7 +9766,7 @@ function salesPipelineView() {
     : `<p class="panel-copy sales-intro">This board fills as the bot carries paid-ad leads and as trainers submit deals from their portal. The Leads tab and its numbers are separate and untouched.</p>`;
   return `${testLeadNotice()}${metrics}
     ${panel("Sales Pipeline", "", `${intro}${sourceLegend()}<div class="sales-board">${columns}</div><p class="panel-copy sales-rule">Marketing owns a lead until the evaluation is booked and the trainer has made contact. After that it is sales. A lead is not assigned to anyone until the customer picks a trainer or the market's lead trainer hands it out. Win-back holds ${winback.length} lead${winback.length === 1 ? "" : "s"} that are still recoverable &mdash; nothing is archived before 90 days.</p>`, "pad")}
-    <br>${panel("Close Rate by Source", "", sourceTable, "pad")}${pipelineSettingsSection()}${leadDetailPanel()}`;
+    <br>${panel("Close Rate by Source", "", sourceTable, "pad")}${leadDetailPanel()}`;
 }
 
 // Joshua 2026-09-16: "make sure the roles can be established in the setting in the sales pipeline, not in the
@@ -9622,7 +9802,9 @@ function pipelineSettingsSection() {
   const stageChips = d?.stages?.length
     ? `<div class="ptx-chips" role="group" aria-label="Show texts at stage">${[{ key: "all", label: "Every stage" }, ...d.stages].map((st, i) => `<button type="button" class="ptx-chip ptx-role-all${s.stage === st.key ? " is-on" : ""}" data-ptx-stage="${escapeHtml(st.key)}" aria-pressed="${s.stage === st.key}" title="${escapeHtml(st.hint || "")}"><i></i>${st.key === "all" ? "" : `${i}. `}${escapeHtml(st.label)}<b>${count(s.role, st.key)}</b></button>`).join("")}</div>`
     : "";
-  return `<br>${panel("Pipeline settings", "", `<div class="ptx">
+  // Joshua 2026-09-16: this whole section is the "Text settings & test scenarios" sub-tab of Sales (salesPipelineView),
+  // never next to the board. Test scenarios first, then the roles/stages that filter the wording panel below.
+  return `${pipelineTestScenariosPanel()}${panel("Pipeline settings", "", `<div class="ptx">
     <p class="panel-copy">Who gets which text, and the words they get. Super Admin only.</p>
     <p class="field-hint">Pick a role to see only that person's texts, and a stage to see only that moment in the client's journey. The texts below follow your pick; the booking-email list at the bottom decides which phones and inboxes get them on the practice copy.</p>
     <h3 style="margin:14px 0 6px">Roles</h3>
@@ -12803,10 +12985,20 @@ document.addEventListener("click", async event => {
     // marks it ready; anywhere else it stays hidden whatever the mode).
     const sandboxBox = card.querySelector("#sandboxTrainerLogin");
     if (sandboxBox && sandboxBox.dataset.ready === "true") sandboxBox.hidden = mode !== "trainer";
+    // Practice copy only: Trainer mode drops the password requirement, Admin / Office mode puts it back
+    // (applySandboxLoginMode returns at once anywhere else, so live keeps the wording above).
+    applySandboxLoginMode(card);
     return;
   }
   if (session.role === "admin" && isOfficeAdmin() && event.target.closest("#addTrainer,[data-open-client-import],[data-publish-trainer],[data-delete-trainer]")) {
     showToast("This action requires Super Admin access.");
+    return;
+  }
+  const salesTab = event.target.closest("[data-sales-tab]");
+  if (salesTab) {
+    // Joshua 2026-09-16: Sales sub-tabs (Pipeline | Text settings & test scenarios). saveState re-renders.
+    state.salesTab = salesTab.dataset.salesTab === "settings" ? "settings" : "board";
+    saveState();
     return;
   }
   const communicationsSection = event.target.closest("[data-communications-section]");
@@ -16167,6 +16359,21 @@ document.addEventListener("submit", async event => {
     const password = event.target.elements.password.value;
     const status = document.getElementById("loginStatus");
     const button = event.target.querySelector('button[type="submit"]');
+    // Practice copy only, Trainer mode only: an email with NO password is the passwordless door
+    // (Joshua 2026-09-16). A typed password, Admin / Office mode, or live all take the password path below.
+    if (!password && sandboxEmailOnlyLoginActive(event.target.closest(".login-card"))) {
+      button.disabled = true;
+      try {
+        if (!username.includes("@")) throw new Error("Type the trainer's email (their username) to sign in without a password on the sandbox.");
+        await sandboxEmailSignIn({ email: username, status, remember: event.target.elements.remember?.checked === true });
+      } catch (error) {
+        status.className = "login-status error";
+        status.textContent = loginFailureMessage(error, username);
+      } finally {
+        button.disabled = false;
+      }
+      return;
+    }
     try {
       button.disabled = true;
       status.textContent = "Signing in...";
@@ -16267,7 +16474,8 @@ async function applyEnvironmentBadge() {
 // so starting the portal before we know would leave a gap.
 document.addEventListener("DOMContentLoaded", () => enhancePasswordFields(document));
 enhancePasswordFields(document);
-applyEnvironmentBadge().finally(() => bootstrapApplication());
+const portalBoot = applyEnvironmentBadge().finally(() => bootstrapApplication());
+portalBoot.finally(() => sandboxAutoSignInFromUrl()); // practice copy only: /staff?as=<trainer email>, after the boot knows who is signed in
 
 // ---- Rule 84: typing on the Text messages page. Kept in state (a redraw never loses it); live bubble + count ----
 document.addEventListener("input", event => {

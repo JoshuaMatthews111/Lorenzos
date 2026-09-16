@@ -169,7 +169,47 @@ test("text wording + pipeline roles live under Sales Pipeline (Super Admin only)
   assert.match(settings, /practiceResetPanel\(\)/, "Settings keeps the practice-copy tools");
   assert.match(settings, /Sales Pipeline/, "Settings tells the Super Admin where the wording went");
   assert.match(fn("salesPipelineView"), /pipelineSettingsSection\(\)/);
+  // Joshua 2026-09-16: "don't put it near the pipeline in any way; make it open in the same tab but a different tab
+  // under Sales." Sub-tabs: Pipeline | Text settings & test scenarios (Super Admin, practice copy). Neither draws the other.
+  const view = fn("salesPipelineView");
+  assert.match(view, /salesTabsRow\(tab\)/, "the Sales view starts with the sub-tab row");
+  assert.match(view, /if \(tab === "settings"\) return `\$\{tabsRow\}\$\{pipelineSettingsSection\(\)\}`;/, "the settings tab draws ONLY the settings section");
+  assert.match(view, /return `\$\{tabsRow\}\$\{salesPipelineBoard\(\)\}`;/, "the board tab draws ONLY the board");
+  assert.doesNotMatch(view, /sales-board|metricGrid|Close Rate by Source/, "no board markup in the dispatcher");
+  const board = fn("salesPipelineBoard");
+  assert.match(board, /sales-board/);
+  assert.doesNotMatch(board, /pipelineSettingsSection|pipelineTextsPanel|pipelineTestScenariosPanel|followUpTextsPanel|pipelineSettingsPanel/, "the board never includes the settings");
+  const tabsRow = fn("salesTabsRow");
+  assert.match(tabsRow, /class="communications-tabs sales-tabs"/, "reuses the Communications tab styling");
+  assert.match(tabsRow, /data-sales-tab="\$\{id\}"/);
+  assert.match(tabsRow, /\["board", "Pipeline"\]/);
+  assert.match(tabsRow, /salesSettingsTabAvailable\(\) \? \[\["settings", "Text settings & test scenarios"\]\] : \[\]/, "the settings tab exists only when allowed");
+  assert.match(fn("salesSettingsTabAvailable"), /window\.LDTT_IS_SANDBOX\) && isSuperAdmin\(\)/, "Super Admin on the practice copy only");
+  assert.match(fn("salesTabCurrent"), /state\.salesTab === "settings" && salesSettingsTabAvailable\(\) \? "settings" : "board"/, "a saved settings pick falls back to the board for everyone else");
+  assert.match(app, /salesTab: "board",/, "default sub-tab is the board");
+  assert.match(app, /const salesTab = event\.target\.closest\("\[data-sales-tab\]"\);\n  if \(salesTab\) \{\n[^\n]*\n    state\.salesTab = salesTab\.dataset\.salesTab === "settings" \? "settings" : "board";\n    saveState\(\);/, "document-level click delegate, like data-communications-section");
   const section = fn("pipelineSettingsSection");
+  assert.match(section, /pipelineTestScenariosPanel\(\)/, "Test scenarios sit in the settings tab, above the wording");
+  assert.ok(section.indexOf("pipelineTestScenariosPanel()") < section.indexOf('panel("Pipeline settings"'), "scenarios come before the roles/stages and wording panels");
+  assert.doesNotMatch(section, /sales-board|salesPipelineBoard/, "the settings never include the board");
+  // The scenarios panel: sandbox + Super Admin only, one "Send test" per row through the existing text_test op.
+  const scenarios = fn("pipelineTestScenariosPanel");
+  assert.match(scenarios, /^function pipelineTestScenariosPanel\(\) \{\n  if \(!window\.LDTT_IS_SANDBOX \|\| !isSuperAdmin\(\)\) return "";/);
+  assert.match(scenarios, /data-ptx-test="\$\{escapeHtml\(keys\.join\(","\)\)\}"/, "a row sends every text of the scenario");
+  assert.match(scenarios, /takes no phone or role choice/, "says the test API only knows the locked tester phone");
+  assert.match(fn("pipelineTextClick"), /if \(keys\.length > 1\) ptextSendTests\(keys\); else ptextPost\(\{ op: "text_test", key, words \}\);/);
+  const list = app.slice(app.indexOf("const PIPELINE_TEST_SCENARIOS = ["), app.indexOf("function pipelineTestScenariosPanel("));
+  const texts = readFileSync(new URL("../lib/pipeline-texts.js", import.meta.url), "utf8");
+  for (const label of ["New lead (Cleveland 44118)", "New lead, nobody in range (10001)", "Evaluation booked", "Pre-eval answered", "Eval completed → log the deal"]) assert.ok(list.includes(`label: "${label}"`), `scenario ${label}`);
+  const expected = { new_lead_cleveland: ["booking_link", null, "ops_new_lead"], new_lead_nobody: [null, null, "ops_new_lead"], eval_booked: ["booking_confirmation", "trainer_new_eval", "ops_eval_booked"], pre_eval_answered: [null, "pre_eval_answers", null], eval_completed: [null, "trainer_log_deal", null] };
+  for (const [id, [client, trainer, operations]] of Object.entries(expected)) {
+    const row = list.slice(list.indexOf(`id: "${id}"`), list.indexOf("email:", list.indexOf(`id: "${id}"`)));
+    assert.ok(row.includes(`client: ${client ? `"${client}"` : "null"}`), `${id} client text`);
+    assert.ok(row.includes(`trainer: ${trainer ? `"${trainer}"` : "null"}`), `${id} trainer text`);
+    assert.ok(row.includes(`operations: ${operations ? `"${operations}"` : "null"}`), `${id} operations text`);
+    for (const key of [client, trainer, operations].filter(Boolean)) assert.ok(texts.includes(`key: "${key}"`), `${key} is a real text in lib/pipeline-texts.js`);
+  }
+  assert.match(list, /Production email|email: "/, "each row says what the office gets by email");
   assert.match(section, /^function pipelineSettingsSection\(\) \{\n  if \(!isSuperAdmin\(\)\) return "";/, "office admins and trainers see nothing extra");
   assert.match(section, /pipelineTextsPanel\(\)/);
   assert.match(section, /followUpTextsPanel\(\)/);

@@ -497,7 +497,7 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 .lead label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:600;color:var(--ink)}
 .lead input,.lead select{font:16px Poppins,sans-serif;padding:11px 12px;border:1.5px solid #cfd6e2;border-radius:6px;color:var(--ink);background:#fff;width:100%}
 .lead input:focus,.lead select:focus{border-color:var(--ink);outline:none;box-shadow:0 0 0 3px rgba(11,31,68,.12)}
-.lead input[aria-invalid="true"]{border-color:var(--red)}
+.lead input[aria-invalid="true"],.lead select[aria-invalid="true"]{border-color:var(--red)}
 .lead .wide{grid-column:1/-1}
 .lead label small{font-weight:400;color:#5b6883}
 .lead .consent{flex-direction:row;align-items:flex-start;gap:10px;font-weight:400;font-size:11.5px;line-height:1.45;color:#44536f}
