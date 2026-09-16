@@ -4613,9 +4613,37 @@ function render() {
     const frame = document.getElementById("pageEditorPreview");
     if (frame) {
       frame.addEventListener("load", () => injectLiveBuilder(frame), { once: true });
+      frame.addEventListener("load", () => rememberBuilderNavigation(frame));
       injectLiveBuilder(frame);
     }
   }, 120);
+}
+
+// Joshua 2026-09-16: "I click view bio ... it redirects me back. It's very glitchy." Browsing inside the
+// preview navigates the iframe; a background redraw then rebuilt the iframe at the dropdown's page and
+// snapped the user back. The frame now reports where it really is, so every redraw rebuilds the SAME page
+// and the Website Page dropdown follows the browsing.
+function rememberBuilderNavigation(frame) {
+  if (state.activeView !== "pageEditor" || state.builderSurface !== "site") return;
+  try {
+    const loc = frame.contentWindow?.location;
+    if (!loc || loc.origin !== window.location.origin || loc.pathname === "about:blank") return;
+    const search = loc.search.replace(/[?&]builderPreview=1/, "").replace(/^&/, "?");
+    const path = loc.pathname + (search === "?" ? "" : search);
+    if (!path || path === "/blank" || path === state.builderMainPage) return;
+    state.builderMainPage = path;
+    persistStateSnapshot(); // no full redraw: the user is busy browsing inside the frame
+    const select = document.querySelector("select[data-builder-main-page]");
+    if (select) {
+      if (![...select.options].some(option => option.value === path)) {
+        const option = document.createElement("option");
+        option.value = path;
+        option.textContent = `Browsing: ${path}`;
+        select.appendChild(option);
+      }
+      select.value = path;
+    }
+  } catch { /* the frame moved somewhere this page cannot read */ }
 }
 
 const horizontalScrollSelectors = [
@@ -9948,6 +9976,12 @@ function injectLiveBuilder(frame) {
   if (state.builderSurface === "trainer") applySectionBuilderSettings(doc, trainerById());
   if (state.builderSurface === "trainer") { applyTrainerCustomOrder(doc, trainerById()); applyTrainerBlocksToDocument(doc, null, ""); } // Site Builder 2.0: order + blocks back under their sections
   if (state.builderSurface === "trainer") wireTrainerMediaDrag(doc); // rule 76: drag to move, corner handle to resize (Browse and Edit Overlay)
+  if (state.builderScrollTo && state.builderSurface === "trainer") {
+    const key = state.builderScrollTo;
+    state.builderScrollTo = "";
+    const el = key === "__form" ? doc.querySelector("form") : trainerPageSectionEl(doc, key);
+    if (el) el.scrollIntoView({ block: "start" });
+  }
   if (state.builderMode !== "edit") return;
   if (!doc.getElementById("ldtt-builder-style")) {
     const style = doc.createElement("style");
@@ -14783,6 +14817,9 @@ document.addEventListener("change", async event => {
   if (event.target.dataset.builderPage !== undefined) {
     state.builderPage = event.target.value;
     state.builderSelectedSelector = "";
+    // Joshua 2026-09-16: "when I click trainer bio, it doesn't switch" — the choice now scrolls the
+    // preview to that part of the page (the trainer page is ONE page; injectLiveBuilder does the scroll).
+    state.builderScrollTo = { home: "hero", services: "services", trainer: "trainer", reviews: "reviews", contact: "__form" }[event.target.value] || "";
     saveState();
     return;
   }

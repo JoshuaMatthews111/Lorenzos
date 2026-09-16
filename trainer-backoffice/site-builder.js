@@ -779,7 +779,17 @@
   }
   function a2PhotoField(label, slot, value, file, size, vslot) {
     const { esc } = S(); const orig = `${A2().A}${file}`; const path = `photos.${slot}`;
-    return `<div class="a2-photo"><img src="${esc(value || orig)}" alt="" loading="lazy"><div><strong>${esc(label)}</strong>${size ? `<small class="ps-help" style="display:block;margin:2px 0 4px">Best size: ${esc(size)} (JPG, PNG or WebP)</small>` : ""}<div class="a2-photo-actions"><label class="ps-btn sb-upload-btn">Upload<input type="file" accept="image/jpeg,image/png,image/webp" data-sb-bigupload="${path}" data-kind="photo" hidden></label><button type="button" class="ps-btn" data-sb-act="pick-photo" data-path="${path}">Choose</button>${value && value !== orig ? `<button type="button" class="ps-btn" data-sb-act="set-field" data-path="${path}" data-value="${esc(orig)}">Use the original</button>` : ""}</div><div class="sb-progress" data-sb-progress="${path}" hidden><i></i><span></span></div>${vslot ? videoField("Video behind this picture's play button (leave empty for the standard LDTT video)", `videos2.${vslot}`, sb.draft.videos2?.[vslot] || "", "or paste an MP4 https:// address or a YouTube link") : ""}</div></div>`;
+    return `<div class="a2-photo"><img src="${esc(value || orig)}" alt="" loading="lazy"><div><strong>${esc(label)}</strong>${size ? `<small class="ps-help" style="display:block;margin:2px 0 4px">Best size: ${esc(size)} (JPG, PNG or WebP)</small>` : ""}<div class="a2-photo-actions"><label class="ps-btn sb-upload-btn">Upload<input type="file" accept="image/jpeg,image/png,image/webp" data-sb-bigupload="${path}" data-kind="photo" hidden></label><button type="button" class="ps-btn" data-sb-act="pick-photo" data-path="${path}">Choose</button>${value && value !== orig ? `<button type="button" class="ps-btn" data-sb-act="set-field" data-path="${path}" data-value="${esc(orig)}">Use the original</button>` : ""}</div><div class="sb-progress" data-sb-progress="${path}" hidden><i></i><span></span></div>${a2FrameSliders(slot)}${vslot ? videoField("Video behind this picture's play button (leave empty for the standard LDTT video)", `videos2.${vslot}`, sb.draft.videos2?.[vslot] || "", "or paste an MP4 https:// address or a YouTube link") : ""}</div></div>`;
+  }
+  // Joshua 2026-09-16: "we need to resize the pictures in the frames" — zoom + focus per photo slot.
+  function a2FrameSliders(slot) {
+    const f = sb.draft.pframe?.[slot] || {};
+    const set = f.z || f.x !== undefined || f.y !== undefined;
+    return `<details class="sb-photo-details" ${set ? "open" : ""}><summary>Resize in the frame (zoom + focus)</summary>
+      ${slider("Zoom in", `pframe.${slot}.z`, f.z || 100, 100, 220, "%")}
+      ${slider("Focus left ↔ right", `pframe.${slot}.x`, f.x === undefined ? 50 : f.x, 0, 100, "%")}
+      ${slider("Focus up ↕ down", `pframe.${slot}.y`, f.y === undefined ? 50 : f.y, 0, 100, "%")}
+      ${set ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="pframe.${slot}">Put the photo back the way the design frames it</button>` : ""}</details>`;
   }
   function ad2SectionFields(key) {
     const { esc } = S(); const a2 = A2(); const d = sb.draft; const design = d.design;
@@ -792,6 +802,7 @@
     return `<div class="sb-block-head"><h3>${esc(a2Label(key))}</h3>${fixed ? "" : `<div><button type="button" class="ps-icon-btn" data-sb-act="sec" data-tool="up" data-sec="${key}" title="Move this section up" ${i <= 0 ? "disabled" : ""}>↑</button><button type="button" class="ps-icon-btn" data-sb-act="sec" data-tool="down" data-sec="${key}" title="Move this section down" ${i === order.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="ps-btn" style="width:auto;min-height:36px;padding:0 12px" data-sb-act="sec" data-tool="${hidden ? "show" : "hide"}" data-sec="${key}">${hidden ? "Show" : "Hide"}</button></div>`}</div>
       <p class="ps-help sb-tip">This section is part of the 2.0 design: change its words and photos here. To add reviews, a video, photos or anything else, press <b>+ Add block here</b> under it on the page.</p>
       ${fields.map(a2Field).join("") || `<p class="ps-help">${key === "hdr" ? "The logo is on the <b>Page</b> tab, or click the logo on the page." : "This section has no words to change. You can move it or hide it."}</p>`}
+      ${key === "hero" ? slider("Headline size", "h1_size", sb.draft.h1_size || 100, 50, 150, "%") : ""}
       ${slots.length ? `<h4>Photos</h4>${slots.map(([slot, label, file, size]) => a2PhotoField(label, slot, d.photos?.[slot], file, size, a2VideoSlot(design, slot))).join("")}<p class="ps-help">JPG, PNG or WebP, up to 10 MB.</p>` : ""}`;
   }
   function ad2PageFields() {
@@ -1165,6 +1176,21 @@
     editor.dispatchEvent(new Event("input", { bubbles: true }));
   }
 
+  // Joshua 2026-09-16: "I definitely need a discard button." Puts the newest PUBLISHED version back into
+  // the draft, so an accidental add or edit is gone in one press. ↶ Undo stays for single steps.
+  async function discardToPublished() {
+    const rev = (sb.revisions || []).find(r => r.kind === "published");
+    if (!rev) { S().toast("This page has no published version yet. Use ↶ Undo instead."); return; }
+    try {
+      const data = await api({ operation: "restore", id: sb.pageId, revision_id: rev.id });
+      pushHistory(true);
+      sb.draft = normalizeDraft(data.content);
+      sb.draftRevision = Number(data.draft_revision || sb.draftRevision + 1);
+      sb.savedJson = draftJson(); sb.status = "saved"; sb.savedAt = new Date().toISOString(); sb.selectedId = null;
+      paintAll();
+      S().toast("Your changes were thrown away. The draft matches the published page again.", 6000);
+    } catch (e) { S().toast(e.message, 6000); }
+  }
   function blockAction(act, index, extra = {}) {
     const d = sb.draft; const { toast } = S();
     const block = d.blocks[index];
@@ -1200,7 +1226,7 @@
     }
     sb.insertAt = null; sb.selectedId = block.id; sb.rightTab = "block"; sb.right = true;
     if (window.innerWidth < 1100) sb.left = false;
-    S().toast(`${T.BLOCK_LABEL(type)} added. Change its words on the right.`);
+    S().toast(`${T.BLOCK_LABEL(type)} added. Not what you wanted? Press the ✕ on the block, or ↶ Undo.`, 6000);
     markDirty({ rerail: true }); paintLeft(); paintRails();
     setTimeout(() => selectBlock(block.id), 350);
   }
@@ -1452,7 +1478,7 @@
         return;
       }
       case "publish": publishFlow(); return;
-      case "more": { const m = modal(`<h3>More</h3><div class="ps-actions" style="flex-direction:column"><button type="button" class="ps-btn" data-x="page">Page settings, history and versions</button>${sb.kind === "ad2" ? `<button type="button" class="ps-btn" data-x="classic">Open this page in the old 2.0 editor</button>` : ""}${sb.kind === "trainer" ? `<button type="button" class="ps-btn" data-x="classic-trainer">Open this page in the classic Page Editor</button>` : ""}${sb.kind !== "trainer" && sb.page.status === "published" ? `<button type="button" class="ps-btn" data-x="unpublish">Take this page offline</button>` : ""}${sb.kind === "trainer" ? "" : `<button type="button" class="ps-btn" style="color:#b00020;border-color:#f1c2ca" data-x="archive">Remove this page</button>`}<button type="button" class="ps-btn" data-x="close">Cancel</button></div>`); m.addEventListener("click", e => { const x = e.target.closest("[data-x]")?.dataset.x; if (!x) return; m.remove(); if (x === "page") { sb.rightTab = "page"; sb.right = true; paintTop(); paintRight(); paintRails(); } else if (x === "unpublish") unpublish(); else if (x === "archive") archive(); else if (x === "classic-trainer") openClassicTrainerEditor(); else if (x === "classic") { const id = sb.pageId; flushSave().then(() => { closeStudio(); window.LDTT_AD2_STUDIO?.open(id, { classic: true }).catch(e => toast(e.message, 6000)); }); } }); return; }
+      case "more": { const m = modal(`<h3>More</h3><div class="ps-actions" style="flex-direction:column"><button type="button" class="ps-btn" data-x="page">Page settings, history and versions</button>${sb.kind === "ad2" ? `<button type="button" class="ps-btn" data-x="classic">Open this page in the old 2.0 editor</button>` : ""}${sb.kind === "trainer" ? `<button type="button" class="ps-btn" data-x="classic-trainer">Open this page in the classic Page Editor</button>` : ""}${sb.kind !== "trainer" && (sb.revisions || []).some(r => r.kind === "published") ? `<button type="button" class="ps-btn" data-x="discard">Throw away my changes (back to the published page)</button>` : ""}${sb.kind !== "trainer" && sb.page.status === "published" ? `<button type="button" class="ps-btn" data-x="unpublish">Take this page offline</button>` : ""}${sb.kind === "trainer" ? "" : `<button type="button" class="ps-btn" style="color:#b00020;border-color:#f1c2ca" data-x="archive">Remove this page</button>`}<button type="button" class="ps-btn" data-x="close">Cancel</button></div>`); m.addEventListener("click", e => { const x = e.target.closest("[data-x]")?.dataset.x; if (!x) return; m.remove(); if (x === "page") { sb.rightTab = "page"; sb.right = true; paintTop(); paintRight(); paintRails(); } else if (x === "discard") discardToPublished(); else if (x === "unpublish") unpublish(); else if (x === "archive") archive(); else if (x === "classic-trainer") openClassicTrainerEditor(); else if (x === "classic") { const id = sb.pageId; flushSave().then(() => { closeStudio(); window.LDTT_AD2_STUDIO?.open(id, { classic: true }).catch(e => toast(e.message, 6000)); }); } }); return; }
       case "unpublish": unpublish(); return;
       case "archive": archive(); return;
       case "snapshot": try { await saveDraft({ snapshot: true }); toast("Version saved."); await refreshRevisions(); paintRight(); } catch (e) { toast(e.message); } return;
