@@ -351,7 +351,7 @@ const checks = [
       && /Office email waiting for the Resend key/.test(app) && /data-pipeline-send-queued/.test(app) && /data-pipeline-\(email\|label\|trainer-phone\|practice-email\|ops-phone\|alpha-email\)=/.test(app);
   })()],
   // booking page redesign: ZIP first, trainer cards within 50 miles, questions, calendar or request (rule 74, step 3c)
-  ["rule 74: the booking page runs ZIP -> trainer cards (30 miles from each trainer's Base ZIP (Tim, meeting 2026-09-12; was 50), bundled Census ZIP file, no outside call) -> Rachel's questions -> calendar or 'Request this trainer' -> congratulations; a request never moves the lead to Eval Scheduled and never holds a time; /book wins over the trainer catch-all; Base ZIP is 5 digits or empty on create and update; the migration is additive in both schemas", (() => {
+  ["rule 74: the booking page runs ZIP -> trainer cards (50 miles from each trainer's Base ZIP (Joshua 2026-09-16; Tim's 2026-09-12 meeting had 30), bundled Census ZIP file, no outside call) -> Rachel's questions -> calendar or 'Request this trainer' -> congratulations; a request never moves the lead to Eval Scheduled and never holds a time; /book wins over the trainer catch-all; Base ZIP is 5 digits or empty on create and update; the migration is additive in both schemas", (() => {
     const bookingApi = read("api/booking.js");
     const request = bookingApi.slice(bookingApi.indexOf("async function requestTrainer("), bookingApi.indexOf("async function callback("));
     const page = read("lib/booking-page.js");
@@ -362,7 +362,7 @@ const checks = [
     const mutation = read("api/operational-mutation.js");
     const bookRewrite = vercel.rewrites.findIndex(r => r.source === "/book" && r.destination === "/api/booking-page");
     return Object.keys(centroids).length > 30000 && Array.isArray(centroids["44128"]) && !/fetch\(|https?:\/\//.test(zipLib.replace(/\/\/[^\n]*/g, ""))
-      && /const RADIUS_MILES = 30;/.test(bookingLib) && /milesBetween\(zip, trainer\.base_zip\)/.test(bookingLib) && /!\/\^office-draft-\/\.test\(t\.slug\)/.test(bookingLib)
+      && /const RADIUS_MILES = 50;/.test(bookingLib) && /milesBetween\(zip, trainer\.base_zip\)/.test(bookingLib) && /!\/\^office-draft-\/\.test\(t\.slug\)/.test(bookingLib)
       && request.length > 0 && !/status: "evaluation_scheduled"|eval_scheduled_at|booking_holds|googleSlots/.test(request) && /requested: true,/.test(request) && /await P\.afterOfficeRequest\(\{ lead: record, kind: "trainer_request" \}\)/.test(request)
       && /await P\.afterOfficeRequest\(\{ lead: record, kind: "no_trainer" \}\)/.test(bookingApi)
       && at("stepZip") > 0 && at("stepZip") < at("stepForm") && at("stepForm") < at("stepTime") && at("stepTime") < at("stepDone") && /Enter your ZIP code/.test(page) && /866\.436\.4959/.test(page)

@@ -24,6 +24,8 @@ const MAKE_WORDS = {
   trainer_new_eval: "🔔 NEW LDTT EVALUATION\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\nDog: {dog_name}\nPrimary concern: {problem}\n{safety_flag}\nPlease call the client today to introduce yourself, then mark CONTACTED: {trainer_portal_link}",
   ops_new_lead: "New LDTT lead: {client_name}, ZIP {zip}, {problem}. From: {source}. {next_step} {link}",
   ops_eval_booked: "Evaluation booked: {client_name} with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. It is now in Eval Scheduled. {link}",
+  // Joshua 2026-09-16: "instruct them to log in and log the deal in the portal using this link" (after Eval completed).
+  trainer_log_deal: "🚨🚨 Track 500 - Eval completed 🚨🚨\n{first_name} {last_name} ({dog_name}).\nPlease log in to the trainer portal and log the deal here: {trainer_portal_link}",
   pre_eval_answers: "📝 EVAL QUESTIONS COMPLETED\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\n{safety_flag}\n{answers_summary}\n\nLog in to the trainer portal to view the full answers and lead details: {trainer_portal_link}"
 };
 
@@ -41,7 +43,7 @@ test("starting words are exactly the agreed words, so the Make switch changes no
   for (const [key, words] of Object.entries(MAKE_WORDS)) assert.equal(X.wordsFor(null, key), words, key);
   const inUse = X.TEXTS.filter(t => t.status === "in_use").map(t => t.key).sort();
   assert.deepEqual(inUse, Object.keys(MAKE_WORDS).sort(), "every text Make sends today is in the editor, and only those say Sending now");
-  assert.match(X.TEXTS.find(t => t.key === "trainer_new_eval").offered.words, /^Track 500 - Schedule Eval\n/, "the meeting's wording is offered as a template");
+  assert.match(X.TEXTS.find(t => t.key === "trainer_new_eval").offered.words, /^🚨🚨 Track 500 - Schedule Eval 🚨🚨\n\{first_name\} \{last_name\}\n\{appointment_day\}, \{appointment_date\} at/, "the meeting's wording is offered as a template (two emojis each side, date included — Joshua 2026-09-16)");
   const P = require("../lib/pipeline.js");
   assert.equal(X.render(X.wordsFor(null, "care_call"), { first_name: "Sam" }), P.CARE_TEXT("Sam"), "the office-call text starts as today's words");
 });
@@ -134,8 +136,8 @@ test("service-dog leads wear a gold tag on office, Sales and trainer cards and i
   assert.match(read("trainer-backoffice/styles.css"), /\.lead-tag-service-dog \{/);
 });
 
-test("follow-up plan: Tim's text first, then the booking link at 40 min, 24 h and 48 h (still not sending)", () => {
-  assert.deepEqual(R.STEPS.map(s => s.kind), ["tim", "link", "link", "link"]);
+test("follow-up plan: Tim's text first, then the booking link at 30 min and 24 h (still not sending; Joshua 2026-09-16)", () => {
+  assert.deepEqual(R.STEPS.map(s => s.kind), ["tim", "link", "link"]);
   assert.equal(R.SENDING_ENABLED, false);
   assert.equal(R.linkTextFor({ first_name: "Angela Marie" }, "https://x/book"), "Hi Angela, it's Lorenzo's Dog Training Team. Here is your link to book your free evaluation:\nhttps://x/book\n\nReply STOP to opt out.");
   const p = R.plan({ first_name: "A", phone: "4405550101", sms_consent: true, status: "new_inquiry", created_at: new Date(Date.parse("2026-09-14T16:00:00Z") - 20 * 60000).toISOString(), raw_payload: {} }, Date.parse("2026-09-14T16:00:00Z"));

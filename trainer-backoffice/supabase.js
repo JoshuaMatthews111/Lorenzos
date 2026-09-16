@@ -250,6 +250,23 @@
     }
   }
 
+  // Practice copy only (api/sandbox-trainer-login.js, Joshua 2026-09-16): exchange a one-time magic-link
+  // token hash for a session. Same writeSession() path as the password sign-in above, so everything after
+  // it (portal_users lookup, refresh, sign-out) behaves exactly the same. Refused unless /api/environment
+  // said this is the practice copy. It sends no password and changes none.
+  async function verifyPracticeTokenHash(tokenHash, options = {}) {
+    await environmentReady;
+    if (schema === "public" || window.LDTT_IS_SANDBOX !== true) throw new Error("Passwordless trainer sign-in only exists on the practice copy.");
+    const session = await request("/auth/v1/verify", {
+      method: "POST",
+      body: JSON.stringify({ type: "magiclink", token_hash: String(tokenHash || "") }),
+      session: null
+    });
+    if (!session?.access_token) throw new Error("The practice copy could not start a session.");
+    writeSession(session, options.remember === true);
+    return session;
+  }
+
   async function changePassword(password, profile = {}) {
     // Logins are shared with live, so a password change on the practice copy
     // would change a real password. This is the one thing the practice copy refuses.
@@ -670,6 +687,7 @@
     readSession,
     signIn,
     signOut,
+    verifyPracticeTokenHash,
     changePassword,
     currentPortalUser,
     currentAuthUser,

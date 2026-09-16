@@ -6491,8 +6491,11 @@ const adminScreens = {
   portalAccess() {
     return portalAccessScreen();
   },
+  // Joshua 2026-09-16: the text wording, who-gets-which-text roles, the follow-up plan and the booking-email
+  // list moved out of here to the bottom of Sales Pipeline (pipelineSettingsSection). Settings keeps the
+  // profile, password, help links and the practice-copy tools only.
     settings() {
-    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + pipelineSettingsPanel() + pipelineTextsPanel() + followUpTextsPanel() + practiceResetPanel();
+    return panel("Settings", "", `${portalUser?.must_change_password ? `${passwordSetupForm()}<hr>` : ""}${portalProfileForm()}<hr><p class="panel-copy"><strong>Supabase connected.</strong> Leads, applications, clients, approvals, trainer access, profiles, reporting, and trainer-page publishing are shared across authorized office devices. Google Sheets and FormSubmit remain separate delivery backups for website forms.</p>${isSuperAdmin() ? `<p class="panel-copy"><strong>Looking for the text wording or the pipeline roles?</strong> Who gets which text (Client, Trainer, Operations), the words they get, the follow-up plan and the booking-email list now live under <strong>Sales Pipeline</strong>, below the board. Super Admin only.</p>` : ""}${savedPortalShortcutHelp()}${liveDataReferenceLinks()}<br><button class="btn btn-red" id="logoutBtn">Log Out</button>`, "pad") + practiceResetPanel();
   }
 };
 
@@ -6514,7 +6517,7 @@ const trainerScreens = {
         ["trophy", "Sold", figures.won, "Became a client", figures.won ? "up" : ""],
         ["message", "Lost", figures.lost, figures.lost ? "Call these back" : "None right now", figures.lost ? "down" : ""],
         ["star", "Clients", clientFigures.clients, `Track 500 · ${clientFigures.clientsToGo} to go`, clientFigures.clients ? "up" : ""]
-      ])}</div>`;
+      ])}</div>${trainerTeamPanel()}`;
   },
   deals() {
     return trainerDealsView();
@@ -6960,7 +6963,7 @@ async function savePipelineSettings() {
 // answers 403 to them too. Pick who the text goes to (role chips), read the texts in the order a client meets them
 // (stage timeline), see each one as a phone bubble, keep several templates per text and put ONE in use (full name).
 // Send test goes only to the locked phone (rule 82).
-let pipelineTextsState = { loaded: false, loading: false, data: null, error: "", role: "all", open: "", edit: null, fullName: "", busy: false };
+let pipelineTextsState = { loaded: false, loading: false, data: null, error: "", role: "all", stage: "all", open: "", edit: null, fullName: "", busy: false };
 const PTEXT_ROLE_CLASS = { all: "all", client: "client", trainer: "trainer", operations: "ops" };
 const PTEXT_READER = { client: "What the client sees", trainer: "What the trainer sees", operations: "What Tim sees" };
 
@@ -7019,7 +7022,10 @@ function pipelineTextsPanel() {
     return `<button type="button" class="ptx-chip ptx-role-${PTEXT_ROLE_CLASS[r.key] || "all"}${role === r.key ? " is-on" : ""}" data-ptx-role="${escapeHtml(r.key)}" aria-pressed="${role === r.key}"><i></i>${escapeHtml(r.label)}<b>${n}</b></button>`;
   }).join("");
   const roleName = roles.find(r => r.key === role)?.label || "";
+  // Joshua 2026-09-16: the stage chips above the board (pipelineSettingsSection) narrow the timeline to one stage.
+  const stageFilter = pipelineTextsState.stage || "all";
   const stages = (d.stages || []).map((s, i) => {
+    if (stageFilter !== "all" && s.key !== stageFilter) return "";
     const here = texts.filter(t => t.stage === s.key && (role === "all" || t.role === role));
     const cards = here.length ? here.map(t => ptextCard(t, d, live)).join("") : `<p class="ptx-none">No text goes to ${escapeHtml(roleName)} at this stage.</p>`;
     return `<li class="ptx-stage${here.length ? "" : " is-empty"}"><div class="ptx-stage-head"><span class="ptx-dot">${i + 1}</span><div><strong>${escapeHtml(s.label)}</strong><small>${escapeHtml(s.hint)}</small></div></div><div class="ptx-cards">${cards}</div></li>`;
@@ -7144,6 +7150,7 @@ function pipelineTextClick(event) {
   const s = pipelineTextsState;
   let el;
   if ((el = hit("role"))) { s.role = el.dataset.ptxRole; render(); return true; }
+  if ((el = hit("stage"))) { s.stage = el.dataset.ptxStage; render(); return true; }
   if ((el = hit("open"))) {
     const key = el.dataset.ptxOpen;
     const next = s.open === key ? "" : key;
@@ -7497,6 +7504,119 @@ function loginFailureMessage(error, username = "") {
   if (/too many requests|rate limit/i.test(raw)) return "Too many attempts. Wait a minute, then try once more.";
   if (/failed to fetch|networkerror/i.test(raw)) return "Could not reach the portal. Check your internet connection and try again.";
   return `Sign in failed: ${raw}`;
+}
+
+// Everything the login form does once a Supabase session exists. Shared by the password sign-in
+// (loginForm submit) and, on the practice copy only, the passwordless trainer sign-in below, so a
+// trainer who came in without a password gets exactly the same checks and the same dashboard.
+async function finishPortalSignIn(status) {
+  // The data request goes out at the same time as the "who am I" lookup
+  // instead of after it: one round trip less before the dashboard. The API
+  // verifies the token on its own, and a sandbox-only login is refused there
+  // too, so nothing is shown that the access checks below would refuse.
+  const dataInFlight = window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }).catch(error => ({ __error: error }));
+  portalUser = await window.LDTT_PORTAL.currentPortalUser();
+  if (!window.LDTT_IS_SANDBOX && isSandboxOnlyLogin(portalUser)) {
+    await window.LDTT_PORTAL.signOut();
+    portalUser = null;
+    throw new Error(SANDBOX_ONLY_LOGIN_MESSAGE);
+  }
+  if (!portalUserHasAccess(portalUser)) {
+    await window.LDTT_PORTAL.signOut();
+    throw new Error("This portal account is disabled. Contact Lorenzo's office.");
+  }
+  saveSession(portalUser.role);
+  state.activeView = "dashboard";
+  state.leadDateRange = "60";
+  state.customLeadStart = toDateInputValue(defaultLeadStartDate);
+  state.customLeadEnd = toDateInputValue(defaultLeadEndDate);
+  const loaded = await dataInFlight;
+  if (loaded?.__error) throw loaded.__error;
+  const data = await prepareRemoteData(loaded);
+  mergeRemoteOperationalData(data);
+  startBackgroundHistoryLoad();
+  if (portalUser.trainer_id) {
+    state.selectedTrainerId = currentTrainerId();
+  }
+  recordActivity("Portal sign-in", `${portalDisplayName(portalUser)} signed in.`, "Security");
+  status.textContent = "";
+  render();
+}
+
+// ---------------------------------------------------------------------------
+// Practice copy only: sign in as a trainer with no password (Joshua 2026-09-16,
+// "just for testing purposes only"). The box in index.html ships hidden and is
+// shown here only after /api/environment said this is the practice copy
+// (window.LDTT_IS_SANDBOX). The server side, api/sandbox-trainer-login.js,
+// answers 404 anywhere else, so on live neither the box nor the door exists.
+// No password is ever set, changed or removed: the server hands out a one-time
+// magic-link token hash, the browser trades it for an ordinary session, and
+// finishPortalSignIn() runs the same checks as a password sign-in.
+// ---------------------------------------------------------------------------
+async function setupSandboxTrainerLogin() {
+  if (window.LDTT_IS_SANDBOX !== true || !document.body.classList.contains("is-sandbox")) return;
+  const box = document.getElementById("sandboxTrainerLogin");
+  const select = document.getElementById("sandboxTrainerSelect");
+  const button = document.getElementById("sandboxTrainerSignIn");
+  const status = document.getElementById("sandboxTrainerStatus");
+  if (!box || !select || !button || !status || box.dataset.ready === "true") return;
+  box.dataset.ready = "true";
+  const toggle = document.querySelector(".login-card .portal-mode-toggle");
+  box.hidden = (toggle?.dataset.activeMode || "trainer") !== "trainer";
+  button.addEventListener("click", () => sandboxTrainerSignIn({ select, button, status }));
+  try {
+    const response = await fetch("/api/sandbox-trainer-login", { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok || !Array.isArray(result.trainers)) throw new Error(result.message || "The trainer list could not be loaded.");
+    const options = result.trainers.map(trainer => {
+      const where = [trainer.market, trainer.state].filter(Boolean).join(", ");
+      return `<option value="${escapeHtml(trainer.email)}">${escapeHtml(trainer.full_name || trainer.email)}${where ? ` — ${escapeHtml(where)}` : ""}</option>`;
+    });
+    select.innerHTML = options.length
+      ? `<option value="">Choose a trainer…</option>${options.join("")}`
+      : `<option value="">No active trainer logins on the practice copy</option>`;
+    button.disabled = !options.length;
+  } catch (error) {
+    select.innerHTML = `<option value="">Trainer list unavailable</option>`;
+    button.disabled = true;
+    status.className = "login-status error";
+    status.textContent = error.message || "The trainer list could not be loaded.";
+  }
+}
+
+async function sandboxTrainerSignIn({ select, button, status }) {
+  if (window.LDTT_IS_SANDBOX !== true) return;
+  const email = String(select.value || "").trim().toLowerCase();
+  status.className = "login-status";
+  if (!email) {
+    status.textContent = "Pick a trainer first.";
+    return;
+  }
+  const loginForm = document.getElementById("loginForm");
+  const remember = loginForm?.elements?.remember?.checked === true;
+  button.disabled = true;
+  status.textContent = `Signing in as ${select.options[select.selectedIndex]?.textContent || email}…`;
+  try {
+    const response = await fetch("/api/sandbox-trainer-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok || !result.token_hash) throw new Error(result.message || "The practice copy could not sign you in as that trainer.");
+    await window.LDTT_PORTAL.verifyPracticeTokenHash(result.token_hash, { remember });
+    await finishPortalSignIn(status);
+  } catch (error) {
+    status.className = "login-status error";
+    status.textContent = loginFailureMessage(error, email);
+    try {
+      await window.LDTT_PORTAL?.signOut?.();
+    } catch {
+      // Keep the useful error even if the sign-out fails.
+    }
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function suggestedPortalPassword() {
@@ -9045,6 +9165,7 @@ function trainerPipelineBoard(leads) {
         ${trainerCardEvalLine(lead)}
         ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
         ${trainerCardNextStep(lead, id)}
+        ${id === "sold" ? "" : trainerHandoffBox(lead, "card")}
       </article>`;
     }).join("");
     const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more in My Leads</p>` : "";
@@ -9172,7 +9293,71 @@ function trainerLeadActionsBox(lead) {
       <label>Note for the office <span class="hint">optional</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
       <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="lost" data-lead-ref="${escapeHtml(lead.id)}">Mark lost</button>
     </div>`}
+    ${closed ? "" : trainerHandoffBox(lead)}
   </section>`;
+}
+
+// ---- Same-state team (Joshua 2026-09-16) ------------------------------------
+// "Put those who are in the same state in their downline" until the MLM tree is known. The downline comes from
+// GET /api/trainer-lead-action?team=1 (every active Lorenzo's trainer in the trainer's state), loaded once per
+// session and kept here. A lead card / the lead panel offers "Hand off to a teammate"; the dashboard lists the team.
+// The picked teammate lives in state.trainerHandoff so a background redraw never loses it (same idea as trainerLost).
+let trainerTeam = null;          // { state: "OH", trainers: [{ id, full_name, market, ... }], error? } once loaded
+let trainerTeamPromise = null;   // the one in-flight load
+
+function loadTrainerTeam() {
+  if (trainerTeam || trainerTeamPromise || session.role === "admin") return trainerTeamPromise;
+  // Not signed in to the live portal yet (or demo data): nothing to load; the next redraw after sign-in tries again.
+  if (!remoteReady || !window.LDTT_PORTAL?.accessToken) return null;
+  trainerTeamPromise = (async () => {
+    try {
+      const token = await window.LDTT_PORTAL.accessToken();
+      const response = await fetch("/api/trainer-lead-action?team=1", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load your team (${response.status}).`);
+      trainerTeam = { state: payload.state || "", trainers: Array.isArray(payload.trainers) ? payload.trainers : [] };
+    } catch (error) {
+      trainerTeam = { state: "", trainers: [], error: error.message || "Could not load your team." };
+    } finally {
+      trainerTeamPromise = null;
+      if (typeof render === "function") render();
+    }
+  })();
+  return trainerTeamPromise;
+}
+
+function trainerTeamStateLabel() {
+  const code = trainerTeam?.state || "";
+  return code ? (US_STATE_NAMES[code] || code) : "your state";
+}
+
+// The "Hand off to a teammate" control: a teammate list + one button. Drawn on each open lead card and in the
+// lead panel's "Update this lead" box. Only trainers see it (the office assigns from its own tools).
+function trainerHandoffBox(lead, where = "panel") {
+  if (session.role === "admin" || !lead?.remoteId) return "";
+  loadTrainerTeam();
+  if (!trainerTeam) return remoteReady ? `<p class="field-hint trainer-handoff-note">Loading your team…</p>` : "";
+  if (trainerTeam.error) return `<p class="field-hint trainer-handoff-note">${escapeHtml(trainerTeam.error)} <button type="button" class="btn btn-outline btn-small" data-trainer-team-reload>Try again</button></p>`;
+  if (!trainerTeam.trainers.length) return `<p class="field-hint trainer-handoff-note">No other Lorenzo's trainer in ${escapeHtml(trainerTeamStateLabel())} yet, so there is no one to hand this lead to.</p>`;
+  const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
+  const options = trainerTeam.trainers.map(t => `<option value="${escapeHtml(t.id)}" ${pick.toTrainerId === t.id ? "selected" : ""}>${escapeHtml(t.full_name)}${t.market ? ` · ${escapeHtml(t.market)}` : ""}</option>`).join("");
+  return `<div class="trainer-handoff-box${where === "card" ? " is-card" : ""}">
+    <label>Hand off to a teammate<select data-trainer-handoff-to data-lead-ref="${escapeHtml(lead.id)}" aria-label="Hand off ${escapeHtml(lead.owner || "this lead")} to a teammate"><option value="">Pick a teammate in ${escapeHtml(trainerTeamStateLabel())}</option>${options}</select></label>
+    <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="handoff" data-lead-ref="${escapeHtml(lead.id)}">Hand off</button>
+  </div>`;
+}
+
+// Dashboard panel: who is on the trainer's same-state team.
+function trainerTeamPanel() {
+  if (session.role === "admin") return "";
+  loadTrainerTeam();
+  const note = `<p class="field-hint">Your downline for now is every Lorenzo's trainer in your state. The office can change this later.</p>`;
+  let body;
+  if (!trainerTeam) body = `<p class="panel-copy">${remoteReady ? "Loading your team…" : "Sign in to the live portal to see your team."}</p>`;
+  else if (trainerTeam.error) body = `<p class="panel-copy">${escapeHtml(trainerTeam.error)}</p><button type="button" class="btn btn-outline btn-small" data-trainer-team-reload>Try again</button>`;
+  else if (!trainerTeam.trainers.length) body = `<p class="panel-copy">No other Lorenzo's trainer in ${escapeHtml(trainerTeamStateLabel())} yet. When one joins, they show up here and you can hand leads to them.</p>`;
+  else body = `<ul class="trainer-team-list">${trainerTeam.trainers.map(t => `<li><strong>${escapeHtml(t.full_name)}</strong><span>${escapeHtml(t.market || t.state || "")}</span></li>`).join("")}</ul>`;
+  return panel(`Your team in ${escapeHtml(trainerTeamStateLabel())}`, "", `${body}${note}`, "pad");
 }
 
 async function trainerLeadAction(button) {
@@ -9189,6 +9374,14 @@ async function trainerLeadAction(button) {
     body.note = pick.note || "";
   }
   if (action === "eval_completed" && !window.confirm(`Mark ${lead.owner}'s evaluation as completed?`)) return;
+  let teammate = null;
+  if (action === "handoff") {
+    const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
+    teammate = (trainerTeam?.trainers || []).find(t => t.id === pick.toTrainerId) || null;
+    if (!teammate) { showToast("Pick the teammate who takes this lead."); return; }
+    if (!window.confirm(`Hand ${lead.owner} off to ${teammate.full_name}? The lead leaves your list.`)) return;
+    body.to_trainer_id = teammate.id;
+  }
   button.disabled = true;
   try {
     const token = await window.LDTT_PORTAL?.accessToken?.();
@@ -9196,7 +9389,13 @@ async function trainerLeadAction(button) {
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
     state.trainerLost = null;
-    showToast(payload.message || "Saved.");
+    if (action === "handoff") {
+      state.trainerHandoff = null;
+      if (state.selectedLeadId === lead.id || state.selectedLeadId === lead.remoteId) state.selectedLeadId = "";
+      showToast(`Handed off to ${teammate.full_name}`);
+    } else {
+      showToast(payload.message || "Saved.");
+    }
     await reloadRemoteData().catch(() => {});
     render();
   } catch (error) {
@@ -9387,7 +9586,50 @@ function salesPipelineView() {
     : `<p class="panel-copy sales-intro">This board fills as the bot carries paid-ad leads and as trainers submit deals from their portal. The Leads tab and its numbers are separate and untouched.</p>`;
   return `${testLeadNotice()}${metrics}
     ${panel("Sales Pipeline", "", `${intro}${sourceLegend()}<div class="sales-board">${columns}</div><p class="panel-copy sales-rule">Marketing owns a lead until the evaluation is booked and the trainer has made contact. After that it is sales. A lead is not assigned to anyone until the customer picks a trainer or the market's lead trainer hands it out. Win-back holds ${winback.length} lead${winback.length === 1 ? "" : "s"} that are still recoverable &mdash; nothing is archived before 90 days.</p>`, "pad")}
-    <br>${panel("Close Rate by Source", "", sourceTable, "pad")}${leadDetailPanel()}`;
+    <br>${panel("Close Rate by Source", "", sourceTable, "pad")}${pipelineSettingsSection()}${leadDetailPanel()}`;
+}
+
+// Joshua 2026-09-16: "make sure the roles can be established in the setting in the sales pipeline, not in the
+// settings of the site ... only for super admin these settings are seen, and the wording also which should be
+// able to be changed." So the who-gets-which-text roles and the words (rule 84), the follow-up plan (rule 81)
+// and the booking-email list (rule 72) sit HERE, under the board, for the Super Admin only. Office admins and
+// trainers get nothing extra, not even a placeholder. Every button inside is handled by the document-level click
+// delegate (data-ptx-* and data-pipeline-*), so the panels work here exactly as they did under Settings.
+// Roles and stages mirror lib/pipeline-texts.js (ROLES / STAGES); the API sends them with the texts, and the
+// fallback below only covers the moment before that load answers.
+const PIPELINE_TEXT_ROLE_FALLBACK = [
+  { key: "client", label: "Client" },
+  { key: "trainer", label: "Trainer" },
+  { key: "operations", label: "Operations (Tim)" }
+];
+const PIPELINE_TEXT_ROLE_WHO = {
+  client: "The person who filled in the form. Texts go to the phone they typed, when they ticked the texting box.",
+  trainer: "The trainer the client picked, or the one the market's lead trainer handed the lead to. Practice copy: the trainer tester phone in the email box below.",
+  operations: "Tim. Gets the new-lead and evaluation-booked alerts. Practice copy: the Operations tester phone in the email box below."
+};
+
+function pipelineSettingsSection() {
+  if (!isSuperAdmin()) return "";
+  const panels = pipelineTextsPanel() + followUpTextsPanel() + pipelineSettingsPanel();
+  if (!panels) return ""; // live portal: these panels are practice-copy only (the API answers 404 there)
+  const d = pipelineTextsState.data;
+  const s = pipelineTextsState;
+  const roles = d?.roles?.length ? d.roles : PIPELINE_TEXT_ROLE_FALLBACK;
+  const texts = d?.texts || [];
+  const count = (role, stage) => texts.filter(t => (role === "all" || t.role === role) && (stage === "all" || t.stage === stage)).length;
+  const roleChip = (key, label) => `<button type="button" class="ptx-chip ptx-role-${PTEXT_ROLE_CLASS[key] || "all"}${s.role === key ? " is-on" : ""}" data-ptx-role="${escapeHtml(key)}" aria-pressed="${s.role === key}"><i></i>${escapeHtml(label)}${d ? `<b>${count(key, s.stage)}</b>` : ""}</button>`;
+  const roleLegend = roles.map(r => `<div class="ptx-role-who" style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#fff"><div style="flex:0 0 auto">${roleChip(r.key, r.label)}</div><small style="flex:1 1 200px;color:var(--muted);line-height:1.4">${escapeHtml(PIPELINE_TEXT_ROLE_WHO[r.key] || "")}</small></div>`).join("");
+  const stageChips = d?.stages?.length
+    ? `<div class="ptx-chips" role="group" aria-label="Show texts at stage">${[{ key: "all", label: "Every stage" }, ...d.stages].map((st, i) => `<button type="button" class="ptx-chip ptx-role-all${s.stage === st.key ? " is-on" : ""}" data-ptx-stage="${escapeHtml(st.key)}" aria-pressed="${s.stage === st.key}" title="${escapeHtml(st.hint || "")}"><i></i>${st.key === "all" ? "" : `${i}. `}${escapeHtml(st.label)}<b>${count(s.role, st.key)}</b></button>`).join("")}</div>`
+    : "";
+  return `<br>${panel("Pipeline settings", "", `<div class="ptx">
+    <p class="panel-copy">Who gets which text, and the words they get. Super Admin only.</p>
+    <p class="field-hint">Pick a role to see only that person's texts, and a stage to see only that moment in the client's journey. The texts below follow your pick; the booking-email list at the bottom decides which phones and inboxes get them on the practice copy.</p>
+    <h3 style="margin:14px 0 6px">Roles</h3>
+    <div class="ptx-chips" role="group" aria-label="Show texts for">${roleChip("all", "Everyone")}</div>
+    <div class="ptx-role-legend" style="display:grid;gap:8px;margin:8px 0 14px">${roleLegend}</div>
+    ${stageChips ? `<h3 style="margin:14px 0 6px">Stages</h3>${stageChips}` : ""}
+  </div>`, "pad")}${panels}`;
 }
 
 function leadPipelineTable(admin) {
@@ -10112,7 +10354,7 @@ function syncRow(trainer, pair) {
   return `<article class="profile-sync-row ${publicMatches && landingMatches ? "matches" : "mismatch"}">
     <label><span>${escapeHtml(pair.label)}</span>${control}</label>
     ${pair.public ? `<div class="sync-meta"><span class="sync-state ${publicMatches ? "match" : "mismatch"}">${publicMatches ? publicWords[0] : publicWords[1]}</span><button class="btn btn-outline btn-small" type="button" data-sync-public-field="${pair.profile}">${publicWords[2]}</button></div>` : ""}
-    ${pair.baseZip ? `<p class="field-hint">Clients within 30 miles of this ZIP see this trainer on the booking page (/book), nearest first. Leave it empty to keep this trainer off the booking page.</p>` : ""}
+    ${pair.baseZip ? `<p class="field-hint">Clients within 50 miles of this ZIP see this trainer on the booking page (/book), nearest first. Leave it empty to keep this trainer off the booking page.</p>` : ""}
     ${pair.landing ? `<div class="sync-meta"><span class="sync-state ${landingMatches ? "match" : "mismatch"}">${landingMatches ? "✓ Matches landing page" : "Needs landing page update"}</span><button class="btn btn-outline btn-small" type="button" data-sync-profile-field="${pair.profile}" data-landing-field="${pair.landing}" data-sync-list="${pair.list ? "true" : "false"}">Update landing page</button></div>` : ""}
   </article>`;
 }
@@ -10850,7 +11092,7 @@ function leadPipelineNotices(lead) {
     const t = last.texts || {};
     // rule 74: a "request this trainer" / no-trainer callback notice sends no texts by design; say what it is instead.
     if (last.kind === "trainer_request") lines.push("Trainer requested online: no time booked, no texts. The office schedules this client.");
-    else if (last.kind === "no_trainer") lines.push("No trainer within 30 miles: the client asked for a callback. No texts.");
+    else if (last.kind === "no_trainer") lines.push("No trainer within 50 miles: the client asked for a callback. No texts.");
     else lines.push(`Confirmation + trainer alert texts: ${say(t)}${t.customer_last4 ? ` (customer ...${t.customer_last4})` : ""}${t.trainer_last4 ? ` (trainer alert ...${t.trainer_last4})` : ""}${t.status === "sent" && t.notes ? `. ${t.notes}` : ""}`);
     const mail = last.office_email;
     if (mail && typeof mail === "object") {
@@ -10915,7 +11157,7 @@ function leadBookingBlock(lead) {
   const dogRows = dogs.map((dog, i) => `<div class="lead-booking-dog"><em>Dog ${i + 1}${dog.name ? `: ${escapeHtml(dog.name)}` : ""}</em><div class="lead-contact-grid">${row("Sex", dog.sex)}${row("Spayed/Neutered?", dog.fixed)}${row("Age", dog.age)}${row("Age units", dog.age_unit)}${row("Breed", dog.breed)}${row("Vaccinations up to date?", dog.vaccinated)}<div class="wide"><span>Behavioral challenges</span><strong>${escapeHtml(dog.behavior || "—")}</strong></div></div></div>`).join("");
   // rule 74: "Request this trainer" (no calendar yet) and the no-trainer-nearby callback.
   const callback = booking.callback && typeof booking.callback === "object" ? booking.callback : null;
-  const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 30 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
+  const callbackNote = callback ? `<p><strong>Callback asked:</strong> ${escapeHtml(callback.reason || "No trainer within 50 miles.")} Call ${escapeHtml(callback.phone || "the client")} and match them with a trainer.</p>` : "";
   if (!booking.slot_start && booking.requested) {
     return `<section class="detail-note-block lead-booking-block"><span>Trainer requested online</span><p>The client asked for <strong>${escapeHtml(booking.trainer_name || booking.trainer_slug || "a trainer")}</strong> · ${escapeHtml(booking.location_label || "In-home")}. No time was booked: this trainer has no online calendar yet.</p><p class="field-hint">Call the client to pick a day and time, then set this lead to Evaluation Scheduled with the eval date + time.</p>${callbackNote}${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", formatPhoneNumber(client.phone))}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
   }
@@ -10923,7 +11165,7 @@ function leadBookingBlock(lead) {
     const slug = intake.trainer_slug || "";
     const pipelineLink = String(leadRawPayload(lead).pipeline?.book_url || "").replace(/^https?:\/\/[^/]+/, "");
     const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : (/^\/book\//.test(pipelineLink) ? pipelineLink : "");
-    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 30 miles." : "No trainer within 30 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
+    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 50 miles." : "No trainer within 50 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
   }
   return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead)))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", formatPhoneNumber(client.phone))}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
@@ -12078,6 +12320,85 @@ function profileBioParagraphs(text) {
     .join("");
 }
 
+// Trainer bio page reviews (Joshua 2026-09-16): a "See my reviews" button in the hero and a
+// "What clients say about <first name>" block, only when the trainer has a real review to
+// show — the reviews the office published to this trainer's page (approved_reviews, plus
+// anything the reviews API says is published to it) and the manual review boxes ticked
+// "Show on page". Text reviews only; a photo-only review has nothing to quote here.
+function trainerBioReviewList(trainer, apiReviews = []) {
+  const seen = new Set();
+  const list = [];
+  const add = (id, author, copy, extra = {}) => {
+    const text = String(copy || "").trim();
+    const key = String(id || "");
+    if (!text || !key || seen.has(key)) return;
+    seen.add(key);
+    const rating = Math.max(1, Math.min(5, Number(extra.rating || 5) || 5));
+    list.push({ id: key, author: String(author || "").trim() || "Verified Client", copy: text, rating, location: String(extra.location || "").trim(), source: String(extra.source || "").trim(), date: String(extra.date || "").trim() });
+  };
+  (Array.isArray(trainer?.approvedReviews) ? trainer.approvedReviews : []).forEach((review, index) => {
+    if (review?.display?.showText === false) return;
+    add(review?.submission_id || review?.id || `approved-${index}`, review?.author, review?.copy, { rating: review?.rating, location: review?.display?.showLocation ? review?.location : "", source: review?.source, date: review?.published_at });
+  });
+  [1, 2, 3].filter(n => trainer?.[`review${n}Show`] === true)
+    .forEach(n => add(`manual-${n}`, trainer[`review${n}Author`], placeholderReviewCopy(String(trainer[`review${n}Copy`] || "").trim())));
+  (Array.isArray(apiReviews) ? apiReviews : []).forEach((review, index) => {
+    add(review?.id || `api-${index}`, review?.reviewer, review?.review_text, { rating: review?.rating, location: review?.location, date: review?.published_at || review?.created_at });
+  });
+  return list;
+}
+
+function trainerBioReviewsButton(reviews) {
+  return reviews.length ? `<a class="btn btn-outline trainer-profile-reviews-link" href="#reviews">See my reviews</a>` : "";
+}
+
+function trainerBioReviewDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "";
+  return `<time datetime="${escapeHtml(date.toISOString().slice(0, 10))}">${escapeHtml(date.toLocaleDateString("en-US", { month: "long", year: "numeric" }))}</time>`;
+}
+
+function trainerBioReviewsSection(trainer, reviews) {
+  if (!reviews.length) return "";
+  const firstName = escapeHtml(String(trainer?.name || "").trim().split(/\s+/)[0] || "this trainer");
+  const cards = reviews.map(review => `<article class="trainer-profile-review">
+        <div class="review-stars" aria-label="${review.rating} star review">${"★".repeat(review.rating)}${"☆".repeat(5 - review.rating)}</div>
+        <blockquote>${escapeHtml(review.copy)}</blockquote>
+        <footer><strong>${escapeHtml(review.author)}</strong>${review.location ? `<span>${escapeHtml(review.location)}</span>` : ""}${review.source ? `<span>${escapeHtml(review.source)}</span>` : ""}${trainerBioReviewDate(review.date)}</footer>
+      </article>`).join("");
+  return `<section class="section trainer-profile-reviews" id="reviews">
+    <div class="container">
+      <span class="eyebrow">Real client reviews</span>
+      <h2>What clients say about <span data-trainer-profile-first-name>${firstName}</span></h2>
+      <div class="trainer-profile-review-grid">${cards}</div>
+    </div>
+  </section>`;
+}
+
+// After the bio page paints: ask the reviews API which reviews are published to this
+// trainer's page and redraw the block + button with anything the saved page did not have
+// (a review approved after the last Publish shows without a republish, rule 56 untouched).
+async function refreshPublicTrainerBioReviews(trainer) {
+  if (!trainer?.id || !/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(String(trainer.id))) return; // sample trainers have no rows
+  try {
+    const response = await fetch(`/api/approved-homepage-reviews?destination_type=trainer_page&destination_id=${encodeURIComponent(trainer.id)}`, { cache: "no-store" });
+    const data = await response.json();
+    const apiReviews = Array.isArray(data?.reviews) ? data.reviews : [];
+    if (!apiReviews.length) return;
+    const root = document.getElementById("publicTrainerProfile");
+    if (!root) return;
+    const reviews = trainerBioReviewList(trainer, apiReviews);
+    const markup = trainerBioReviewsSection(trainer, reviews);
+    const current = root.querySelector("#reviews");
+    if (current) current.outerHTML = markup;
+    else root.querySelector(".trainer-profile-body")?.insertAdjacentHTML("afterend", markup);
+    const actions = root.querySelector(".trainer-profile-actions");
+    if (actions && !actions.querySelector(".trainer-profile-reviews-link")) (actions.querySelector("a") || actions).insertAdjacentHTML(actions.querySelector("a") ? "afterend" : "beforeend", trainerBioReviewsButton(reviews));
+  } catch (error) {
+    console.warn("trainer bio page reviews: the reviews API was unavailable", error);
+  }
+}
+
 function publicTrainerProfileMarkup(trainer) {
   const name = escapeHtml(trainer.name || "Lorenzo Trainer");
   const location = escapeHtml(trainerLocationLabel(trainer) || trainer.market || "");
@@ -12085,6 +12406,7 @@ function publicTrainerProfileMarkup(trainer) {
   const summary = escapeHtml(trainer.summary || trainer.tagline || `${trainer.name || "This trainer"} provides office-supported dog training through Lorenzo's Dog Training Team.`);
   const photo = escapeHtml(trainerBioPhoto(trainer));
   const scheduleUrl = `${trainerPageHref(trainer)}#contact`;
+  const reviews = trainerBioReviewList(trainer);
   return `<section class="trainer-profile-hero" data-trainer-profile-slug="${escapeHtml(trainer.slug || trainer.id || "")}">
     <div class="container trainer-profile-grid">
       <figure class="trainer-profile-photo"><img src="${photo}" data-trainer-image-role="profileBioPhoto" alt="${name} trainer bio photo"></figure>
@@ -12094,7 +12416,7 @@ function publicTrainerProfileMarkup(trainer) {
         <p class="trainer-profile-location">${location}</p>
         <p class="trainer-profile-summary">${summary}</p>
         <div class="trainer-profile-actions">
-          <a class="btn btn-red" href="${escapeHtml(scheduleUrl)}">Schedule This Trainer</a>
+          <a class="btn btn-red" href="${escapeHtml(scheduleUrl)}">Schedule This Trainer</a>${trainerBioReviewsButton(reviews)}
           <a class="btn btn-outline" href="/find-a-trainer">Back to Trainer Directory</a>
         </div>
       </article>
@@ -12106,7 +12428,7 @@ function publicTrainerProfileMarkup(trainer) {
       <h2>About <span data-trainer-profile-name>${name}</span></h2>
       <div data-trainer-profile-bio>${profileBioParagraphs(trainer.profileBio || trainer.publicBio || trainer.bio)}</div>
     </div>
-  </section>
+  </section>${trainerBioReviewsSection(trainer, reviews)}
   <section class="section soft">
     <div class="container">
       <div class="cta-band">
@@ -12174,6 +12496,7 @@ function renderPublicTrainerProfile() {
   const description = document.querySelector('meta[name="description"]');
   if (description) description.content = `${trainer.name} trainer bio, service area, and scheduling page through Lorenzo's Dog Training Team.`;
   document.getElementById("publicTrainerProfile").innerHTML = publicTrainerProfileMarkup(trainer);
+  refreshPublicTrainerBioReviews(trainer);
   recordTrainerPageView(trainer);
 }
 
@@ -12476,6 +12799,10 @@ document.addEventListener("click", async event => {
       ? "Trainers sign in with their assigned trainer email and temporary or permanent password."
       : "Office staff sign in with their assigned admin email and password.";
     if (username) username.placeholder = mode === "trainer" ? "Trainer email" : "Admin email";
+    // Practice copy only: the passwordless trainer box belongs to Trainer mode (setupSandboxTrainerLogin
+    // marks it ready; anywhere else it stays hidden whatever the mode).
+    const sandboxBox = card.querySelector("#sandboxTrainerLogin");
+    if (sandboxBox && sandboxBox.dataset.ready === "true") sandboxBox.hidden = mode !== "trainer";
     return;
   }
   if (session.role === "admin" && isOfficeAdmin() && event.target.closest("#addTrainer,[data-open-client-import],[data-publish-trainer],[data-delete-trainer]")) {
@@ -13118,9 +13445,10 @@ document.addEventListener("click", async event => {
     return;
   }
   const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
-  if (event.target.closest("[data-ptx-role], [data-ptx-open], [data-ptx-field], [data-ptx-new], [data-ptx-offered], [data-ptx-copy], [data-ptx-edit], [data-ptx-cancel], [data-ptx-save], [data-ptx-delete], [data-ptx-activate], [data-ptx-test]") && pipelineTextClick(event)) return;
+  if (event.target.closest("[data-ptx-role], [data-ptx-stage], [data-ptx-open], [data-ptx-field], [data-ptx-new], [data-ptx-offered], [data-ptx-copy], [data-ptx-edit], [data-ptx-cancel], [data-ptx-save], [data-ptx-delete], [data-ptx-activate], [data-ptx-test]") && pipelineTextClick(event)) return;
   const trainerAction = event.target.closest("[data-trainer-lead-action]");
   if (trainerAction) { trainerLeadAction(trainerAction); return; }
+  if (event.target.closest("[data-trainer-team-reload]")) { trainerTeam = null; loadTrainerTeam(); render(); return; }
   const dealEdit = event.target.closest("[data-deal-edit]");
   if (dealEdit) { startDealEdit(dealEdit.dataset.dealEdit); return; }
   if (event.target.closest("[data-deal-cancel-edit]")) { state.dealForm = {}; render(); return; }
@@ -15858,37 +16186,9 @@ document.addEventListener("submit", async event => {
         return;
       }
       await window.LDTT_PORTAL.signIn(username, password, { remember: event.target.elements.remember?.checked === true });
-      // The data request goes out at the same time as the "who am I" lookup
-      // instead of after it: one round trip less before the dashboard. The API
-      // verifies the token on its own, and a sandbox-only login is refused there
-      // too, so nothing is shown that the access checks below would refuse.
-      const dataInFlight = window.LDTT_PORTAL.loadOperationalData({ omit: "sheets,history,events" }).catch(error => ({ __error: error }));
-      portalUser = await window.LDTT_PORTAL.currentPortalUser();
-      if (!window.LDTT_IS_SANDBOX && isSandboxOnlyLogin(portalUser)) {
-        await window.LDTT_PORTAL.signOut();
-        portalUser = null;
-        throw new Error(SANDBOX_ONLY_LOGIN_MESSAGE);
-      }
-      if (!portalUserHasAccess(portalUser)) {
-        await window.LDTT_PORTAL.signOut();
-        throw new Error("This portal account is disabled. Contact Lorenzo's office.");
-      }
-      saveSession(portalUser.role);
-      state.activeView = "dashboard";
-      state.leadDateRange = "60";
-      state.customLeadStart = toDateInputValue(defaultLeadStartDate);
-      state.customLeadEnd = toDateInputValue(defaultLeadEndDate);
-      const loaded = await dataInFlight;
-      if (loaded?.__error) throw loaded.__error;
-      const data = await prepareRemoteData(loaded);
-      mergeRemoteOperationalData(data);
-      startBackgroundHistoryLoad();
-      if (portalUser.trainer_id) {
-        state.selectedTrainerId = currentTrainerId();
-      }
-      recordActivity("Portal sign-in", `${portalDisplayName(portalUser)} signed in.`, "Security");
-      status.textContent = "";
-      render();
+      // Everything after the session exists is shared with the practice copy's passwordless trainer
+      // sign-in (finishPortalSignIn, next to loginFailureMessage), so both doors lead to the same room.
+      await finishPortalSignIn(status);
     } catch (error) {
       status.textContent = loginFailureMessage(error, username);
       try {
@@ -15939,6 +16239,7 @@ async function applyEnvironmentBadge() {
     window.LDTT_IS_SANDBOX = true;
     window.LDTT_DB_SCHEMA = info.schema || "practice";
     document.body.classList.add("is-sandbox");
+    setupSandboxTrainerLogin(); // practice copy only: the passwordless trainer box under the login form
     // The box "keep me signed in" is the tester's choice, here exactly as on
     // live. It used to be force-ticked for testers, and the office read the
     // result as "the portal signs me in without asking". A plain refresh keeps
@@ -15993,6 +16294,13 @@ document.addEventListener("input", event => {
   const leadId = field.dataset.leadRef;
   const keep = state.trainerLost?.leadId === leadId ? state.trainerLost : {};
   state.trainerLost = { ...keep, leadId, ...(reason ? { reason: reason.value } : { note: note.value }) };
+});
+
+// ---- Trainer "Hand off to a teammate" pick (same-state team, 2026-09-16): kept in state for the same reason ----
+document.addEventListener("input", event => {
+  const pick = event.target.closest("[data-trainer-handoff-to]");
+  if (!pick) return;
+  state.trainerHandoff = { leadId: pick.dataset.leadRef, toTrainerId: pick.value };
 });
 
 // ---- Submit Deal form: live field edits + submit ----

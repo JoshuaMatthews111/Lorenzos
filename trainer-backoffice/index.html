@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo back-office prototype for office-controlled trainer pages, leads, clients, imports, approvals, and reporting.">
-  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260916sb16">
+  <link rel="stylesheet" href="/trainer-backoffice/styles.css?v=20260916sb17">
   <script>
     /* refresh 2026-09-09: a stored session means this page will sign back in by
        itself. Painting the login card first read as "refreshing logs me out".
@@ -47,6 +47,14 @@
         <button class="btn btn-outline" type="submit">Email me a reset link</button>
         <div class="login-status" id="forgotStatus" role="status" aria-live="polite"></div>
       </form>
+      <!-- Practice copy only (Joshua 2026-09-16): app.js setupSandboxTrainerLogin() shows this box when
+           /api/environment says sandbox; /api/sandbox-trainer-login answers 404 anywhere else. -->
+      <div class="sandbox-trainer-login" id="sandboxTrainerLogin" hidden>
+        <p class="sandbox-trainer-login-title">Sandbox testing: sign in as a trainer with no password</p>
+        <label>Trainer<select id="sandboxTrainerSelect" aria-label="Trainer to sign in as"><option value="">Loading trainers…</option></select></label>
+        <button class="btn btn-outline" type="button" id="sandboxTrainerSignIn">Sign in as this trainer</button>
+        <div class="login-status" id="sandboxTrainerStatus" role="status" aria-live="polite"></div>
+      </div>
     </div>
   </section>
 
@@ -64,14 +72,14 @@
   <!-- perf/portal-speed: the Excel and PDF readers (1.2 MB) load only when a client import needs them; see loadImportLibrary() in app.js -->
   <script src="/trainer-backoffice/application-data.js?v=20260730ads3"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.55.0/dist/umd/supabase.min.js"></script>
-  <script src="/trainer-backoffice/old-copy-bar.js?v=20260916sb16"></script>
-  <script src="/trainer-backoffice/supabase.js?v=20260916sb16"></script>
-  <script src="/trainer-backoffice/metrics.js?v=20260916sb16"></script><!-- numbers: one source of truth, must load before app.js -->
-  <script src="/lib/zip-timezone.js?v=20260916sb16"></script><!-- rule 86 -->
-  <script src="/trainer-backoffice/app.js?v=20260916sb16"></script>
-  <script src="/trainer-backoffice/page-studio.js?v=20260916sb16"></script>
-  <script src="/trainer-backoffice/site-builder.js?v=20260916sb16"></script><!-- site-builder -->
-  <script src="/trainer-backoffice/ad2-studio.js?v=20260916sb16"></script><!-- rule 85: Ad landing pages 2.0 editor -->
-  <script src="/trainer-backoffice/form-editor.js?v=20260916sb16"></script><!-- lead forms, rule 75 -->
+  <script src="/trainer-backoffice/old-copy-bar.js?v=20260916sb17"></script>
+  <script src="/trainer-backoffice/supabase.js?v=20260916sb17"></script>
+  <script src="/trainer-backoffice/metrics.js?v=20260916sb17"></script><!-- numbers: one source of truth, must load before app.js -->
+  <script src="/lib/zip-timezone.js?v=20260916sb17"></script><!-- rule 86 -->
+  <script src="/trainer-backoffice/app.js?v=20260916sb17"></script>
+  <script src="/trainer-backoffice/page-studio.js?v=20260916sb17"></script>
+  <script src="/trainer-backoffice/site-builder.js?v=20260916sb17"></script><!-- site-builder -->
+  <script src="/trainer-backoffice/ad2-studio.js?v=20260916sb17"></script><!-- rule 85: Ad landing pages 2.0 editor -->
+  <script src="/trainer-backoffice/form-editor.js?v=20260916sb17"></script><!-- lead forms, rule 75 -->
 </body>
 </html>

@@ -1287,10 +1287,12 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       deal's program is kept as Other. The POST body to `api/submit-deal.js` is unchanged. "Today" is the trainer's
       local day (`localTodayIso`), not UTC.
     - **Sales column `confirmed`** is labelled "Eval Questions Completed" (label only; key + `site_visit` unchanged).
-    - **Booking radius is 30 miles** (`RADIUS_MILES`, Tim). Every client/office wording says 30.
+    - **Booking radius is 50 miles** (`RADIUS_MILES`, Joshua 2026-09-16; Tim's 2026-09-12 meeting had 30). The booking
+      page and the office email read `RADIUS_MILES` instead of spelling a number. `scripts/zip-radius-check.mjs` prints
+      the per-ZIP table (who is within 50 miles, who is auto-assigned, what the page shows).
     - Texts are NOT changed here: trainer "Track 500 - Schedule Eval", Tim's "Track 500" and "closed" texts live in Make
       (rule 73: needs Joshua's OK).
-    Tests: `tests/trainer-portal-2026-09-12.test.mjs` (8). Audit rule 74 check now pins 30.
+    Tests: `tests/trainer-portal-2026-09-12.test.mjs` (8). Audit rule 74 check pins 50 since 2026-09-16 (was 30).
 
 ## Pre-evaluation questions + saved follow-up texts (added 2026-09-14, Claude, branch feat/meeting-2026-09-12)
 
@@ -1569,3 +1571,33 @@ COLLECTED; service-dog gold tag YES; milestones later.
     checks, 15 for a 2.0 page (open, fields, block under a section, type on it, move it, hide/move sections, logo,
     publish, public page), 13 for a trainer page (open, type headline, block under the bio, hide/move, save carries
     custom_blocks/custom_order, public page draws the block, a page without blocks is unchanged).
+
+## 2026-09-16 lanes: sandbox trainer sign-in, same-state hand-off, pipeline settings, bio reviews (Claude; practice copy)
+
+90. **Passwordless trainer sign-in exists ONLY on the practice copy.** `api/sandbox-trainer-login.js` answers
+    404 `{ ok:false }` for GET and POST unless `lib/sandbox.js` `isSandbox()` is true (`LDTT_SANDBOX=1`, server
+    side); the browser draws the `#sandboxTrainerLogin` box (ships `hidden`) only after `/api/environment` said
+    sandbox (`window.LDTT_IS_SANDBOX === true`, `setupSandboxTrainerLogin`), and
+    `trainer-backoffice/supabase.js` `verifyPracticeTokenHash` throws off the practice copy. Trainers only: active
+    `portal_users` rows with role `trainer`, `access_status` active and a `trainer_id`; admin rows and the two admin
+    testing logins are refused (403). The answer carries the magic-link `token_hash` only, never the `action_link`;
+    no password is set, changed or removed (rule 33). After the token exchange the trainer goes through the SAME
+    `finishPortalSignIn` as a password login. Tests: `tests/sandbox-trainer-login.test.mjs` (5).
+91. **A same-state hand-off writes ONLY `trainer_id` (+ `assigned_trainer_name` when the row has it), guarded by
+    `version`.** `api/trainer-lead-action.js` GET `?team=1` = every ACTIVE trainer in the caller's state ("Ohio" ==
+    "OH"; drafts, inactive rows and the caller left out; the office may pass `trainer_id`). POST action `handoff`:
+    only the trainer the lead is assigned to (or the office) may hand it off, only to a trainer in that downline
+    (403 otherwise, even for the office; cross-state moves stay with the office's own assign tools). No status, no
+    eval time, no other lead field (rule 83); `audit_events` `trainer_lead_handoff` + `lead_events`
+    `trainer_handoff`, no `lifecycle_events`. Tests: `tests/trainer-handoff.test.mjs` (6).
+92. **The pipeline text wording, the who-gets-which-text roles, the follow-up plan and the booking-email list live
+    under Sales Pipeline (`pipelineSettingsSection()`, below the board) for the Super Admin ONLY.** Office admins
+    and trainers get nothing extra, not even a placeholder; Settings keeps the profile, password setup, help links,
+    Log Out and the practice-copy tools, and tells the Super Admin where the wording went. Test: the pipeline
+    settings test in `tests/trainer-portal-2026-09-12.test.mjs`.
+93. **A trainer bio page shows "See my reviews" and the "What clients say about <first name>" block ONLY when there
+    is a real review to show:** an approved review published to that trainer's page (`review_publications`, from
+    the saved `approved_reviews` or `/api/approved-homepage-reviews?destination_type=trainer_page`) or a manual
+    review box ticked "Show on page" (a real `true`; placeholder copy never counts). With none, the button and the
+    `#reviews` section are absent. Text reviews only (a photo-only review is skipped); every value is escaped.
+    Tests: `tests/trainer-bio-reviews.test.mjs` (6).

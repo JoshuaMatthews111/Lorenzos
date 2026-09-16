@@ -4,7 +4,8 @@
 //   - "My Deals" is "Clients": Clients (Track 500 countdown) / Revenue / Collected / Balance Due / Contracted Revenue.
 //   - Performance left the menu (saved screen -> Dashboard); Communications left the menu, its screen is kept.
 //   - Submit a Deal: the lead fills client + dog; Program is a dropdown with "Other (type it)".
-//   - Sales column "Confirmed" reads "Eval Questions Completed" (label only). Booking radius 30 miles.
+//   - Sales column "Confirmed" reads "Eval Questions Completed" (label only). Booking radius 30 miles then;
+//     50 miles since Joshua 2026-09-16 (the radius test below pins 50).
 // Run: node --test tests/   Nothing here talks to the real project.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -136,9 +137,51 @@ test("Submit a Deal: Program dropdown keeps any program; picking a lead fills an
   assert.match(app, /: JSON\.stringify\(\{ lead_id: f\.lead_id, client_name: f\.client_name, dog_name: f\.dog_name, program: f\.program,/, "a new deal still sends the same fields (edits use op update)");
 });
 
-test("booking radius is 30 miles everywhere the client or the office reads it", () => {
-  assert.match(read("lib/booking.js"), /const RADIUS_MILES = 30;/);
-  for (const file of ["lib/booking-page.js", "lib/office-email.js", "trainer-backoffice/app.js"]) {
-    assert.doesNotMatch(read(file), /50 miles/, `${file} still says 50 miles`);
+// Joshua 2026-09-16: 50 miles (Tim's 2026-09-12 meeting had said 30). The page and the office email read
+// RADIUS_MILES instead of spelling a number, so the next change is one line in lib/booking.js.
+// trainer-backoffice/app.js still spells "30 miles" in its hints (other agents own that file on 2026-09-16);
+// it is checked separately below so the gap is visible, not hidden.
+test("booking radius is 50 miles everywhere the client or the office reads it", () => {
+  assert.match(read("lib/booking.js"), /const RADIUS_MILES = 50;/);
+  for (const file of ["lib/booking-page.js", "lib/office-email.js"]) {
+    assert.doesNotMatch(read(file), /\b(30|50) miles/, `${file} spells the radius instead of reading RADIUS_MILES`);
   }
+});
+
+test("trainer-backoffice/app.js hints say 50 miles, never 30 (Joshua 2026-09-16)", () => {
+  const app = readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
+  assert.ok(!/30 miles|30-mile/.test(app), "app.js still says 30 miles somewhere");
+  assert.ok(app.includes("within 50 miles of this ZIP"), "Base ZIP hint says 50 miles");
+});
+
+// Joshua 2026-09-16: "the roles can be established in the setting in the sales pipeline, not in the settings of
+// the site ... only for super admin these settings are seen, and the wording also which should be able to be changed."
+test("text wording + pipeline roles live under Sales Pipeline (Super Admin only), not under Settings", () => {
+  const fn = name => {
+    const start = app.indexOf(`function ${name}(`);
+    assert.ok(start > -1, `${name} exists`);
+    return app.slice(start, app.indexOf("\n}\n", start));
+  };
+  const settingsStart = app.indexOf("    settings() {");
+  const settings = app.slice(settingsStart, app.indexOf("\n  }\n", settingsStart));
+  assert.ok(settingsStart > -1);
+  assert.doesNotMatch(settings, /pipelineTextsPanel\(|followUpTextsPanel\(|pipelineSettingsPanel\(/, "Settings no longer draws the text, follow-up or email panels");
+  assert.match(settings, /practiceResetPanel\(\)/, "Settings keeps the practice-copy tools");
+  assert.match(settings, /Sales Pipeline/, "Settings tells the Super Admin where the wording went");
+  assert.match(fn("salesPipelineView"), /pipelineSettingsSection\(\)/);
+  const section = fn("pipelineSettingsSection");
+  assert.match(section, /^function pipelineSettingsSection\(\) \{\n  if \(!isSuperAdmin\(\)\) return "";/, "office admins and trainers see nothing extra");
+  assert.match(section, /pipelineTextsPanel\(\)/);
+  assert.match(section, /followUpTextsPanel\(\)/);
+  assert.match(section, /pipelineSettingsPanel\(\)/);
+  assert.match(section, /Who gets which text, and the words they get\. Super Admin only\./);
+  const fallback = app.slice(app.indexOf("const PIPELINE_TEXT_ROLE_FALLBACK = ["), app.indexOf("function pipelineSettingsSection("));
+  for (const role of ["client", "trainer", "operations"]) assert.match(fallback, new RegExp(`key: "${role}"`), `role legend lists ${role}`);
+  assert.match(section, /PIPELINE_TEXT_ROLE_FALLBACK/, "the legend falls back to the catalog roles before the texts load");
+  assert.match(section, /data-ptx-role=/, "role chips filter the texts");
+  assert.match(section, /data-ptx-stage=/, "stage chips filter the texts");
+  // The click delegate on document handles both, so the panels work wherever they render.
+  assert.match(app, /event\.target\.closest\("\[data-ptx-role\], \[data-ptx-stage\], \[data-ptx-open\]/);
+  assert.match(fn("pipelineTextClick"), /hit\("stage"\)/);
+  assert.doesNotMatch(app, /activeView === "settings"[^\n]*pipelineTexts/, "no Settings-only guard on the texts");
 });

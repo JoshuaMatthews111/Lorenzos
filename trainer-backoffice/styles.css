@@ -5282,6 +5282,10 @@ button:disabled{cursor:not-allowed}
 /* ---- Show / hide password ---- */
 .password-field{position:relative;display:block}
 .password-field input{padding-right:74px !important;width:100%}
+/* 2026-09-16 live fix: the login Password box vanished after load in Safari and Chrome
+   (label + "Show" pill stayed, the box itself was gone). Nothing in this file hides it,
+   so the box is pinned visible against any later rule, inline style or extension style. */
+.password-field input{display:block !important;visibility:visible !important;opacity:1 !important;position:static !important;min-height:44px;box-sizing:border-box;background:#fff;border:1px solid #cad7e8}
 .password-peek{position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:2;-webkit-appearance:none;appearance:none;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;padding:4px 10px;font:inherit;font-size:.7rem;font-weight:800;cursor:pointer;line-height:1}
 .password-peek:hover{color:var(--red);border-color:var(--red)}
 
@@ -5309,6 +5313,14 @@ body.is-sandbox .lead-detail-panel{top:var(--ldtt-banner-h,0px);height:calc(100v
 body.is-sandbox.ps-builder-fullscreen .page-editor-shell.fullscreen-builder{top:var(--ldtt-banner-h,0px)}
 .sandbox-banner strong{background:#2b1d00;color:#ffcf4d;padding:3px 10px;border-radius:999px;font-size:.72rem;letter-spacing:.08em}
 body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shares the same practice changes. The live site never changes.";display:block;margin-top:14px;padding:9px 12px;border-radius:8px;background:#fff6dd;border:1px solid #f0cf7a;color:#5b4300;font-size:.78rem;font-weight:700}
+/* Practice copy only: one-click trainer sign-in box under the login form (api/sandbox-trainer-login.js).
+   index.html ships it hidden; app.js setupSandboxTrainerLogin() shows it only when /api/environment says sandbox. */
+.sandbox-trainer-login{display:grid;gap:10px;margin-top:14px;padding:12px;border-radius:8px;background:#fff6dd;border:1px solid #f0cf7a;text-align:left}
+.sandbox-trainer-login[hidden]{display:none}
+.sandbox-trainer-login-title{margin:0;color:#5b4300;font-size:.8rem;font-weight:800}
+.sandbox-trainer-login label{color:#5b4300;font-weight:850;font-size:.84rem}
+.sandbox-trainer-login select{width:100%;margin-top:7px;padding:10px 12px;border:1px solid #e3c46a;border-radius:10px;background:#fff;color:var(--ink);font:inherit}
+.sandbox-trainer-login .btn{justify-self:start}
 
 /* Conversions box sits directly under the buckets box, same column */
 .dashboard-stack{display:grid;gap:16px;align-content:start;min-width:0}
@@ -5575,8 +5587,10 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 
 /* Rachel 2026-08-27: no Show button on Safari. Safari draws its own key/autofill
    button inside password boxes, on top of ours. Hide Safari's so ours shows. */
-.password-field input::-webkit-credentials-auto-fill-button,
-.password-field input::-webkit-contacts-auto-fill-button,
+/* 2026-09-16: one rule per pseudo-element. In a shared selector list a browser that does
+   not know one of these pseudo-elements throws the whole rule away. */
+.password-field input::-webkit-credentials-auto-fill-button{visibility:hidden;display:none !important;pointer-events:none;position:absolute;right:0}
+.password-field input::-webkit-contacts-auto-fill-button{visibility:hidden;display:none !important;pointer-events:none;position:absolute;right:0}
 .password-field input::-webkit-strong-password-auto-fill-button{visibility:hidden;display:none !important;pointer-events:none;position:absolute;right:0}
 
 /* rule 46: practice-copy sync chip next to "Live · updated" */
@@ -5738,6 +5752,21 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 }
 .trainer-lost-box select:focus, .trainer-lost-box input:focus { outline: 2px solid #fecdd3; border-color: #c8102e; }
 .trainer-lost-box .btn { min-height: 40px; }
+/* Same-state team (2026-09-16): "Hand off to a teammate" on a lead card and in the lead panel; the dashboard team list. */
+.trainer-handoff-box { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; border-top: 1px dashed rgba(148, 163, 184, .5); padding-top: 10px; margin-top: 8px; }
+.trainer-handoff-box label { font-size: .85rem; font-weight: 700; min-width: 0; }
+.trainer-handoff-box select {
+  display: block; width: 100%; margin-top: 4px; min-height: 40px; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font: inherit; font-weight: 500; color: #0f172a;
+}
+.trainer-handoff-box select:focus { outline: 2px solid #fecdd3; border-color: #c8102e; }
+.trainer-handoff-box .btn { min-height: 40px; }
+.trainer-handoff-box.is-card { font-size: .8rem; }
+.trainer-handoff-box.is-card select, .trainer-handoff-box.is-card .btn { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
+.trainer-handoff-note { margin: 8px 0 0; }
+.trainer-team-list { list-style: none; padding: 0; margin: 0 0 8px; }
+.trainer-team-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; border-top: 1px solid rgba(148, 163, 184, .3); padding: 8px 0; }
+.trainer-team-list li:first-child { border-top: 0; }
+.trainer-team-list li span { color: #64748b; font-size: .9rem; }
 /* Joshua 2026-09-14: service-dog leads wear a gold tag (office, Sales and trainer cards, lead details). */
 .lead-tag-service-dog { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #6b4a00; background: #ffe7a3; border: 1px solid #e8b931; border-radius: 999px; padding: 1px 7px; margin-left: 4px; vertical-align: 1px; }
 /* Rule 84: Text messages editor (Settings). */

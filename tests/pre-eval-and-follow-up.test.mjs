@@ -85,9 +85,9 @@ test("booking API: the questions answer 404 on live like every booking route", a
 const NOW = Date.parse("2026-09-14T16:00:00Z"); // noon Eastern
 const lead = (extra = {}) => ({ id: "L", first_name: "Angela Marie", phone: "(440) 555-0101", sms_consent: true, status: "new_inquiry", created_at: new Date(NOW - 5 * 60000).toISOString(), raw_payload: {}, ...extra });
 
-test("follow-up texts: saved wording, 15 / 40 min / 24 / 48 h, sending OFF and no send code at all", () => {
+test("follow-up texts: saved wording, 15 / 30 min / 24 h, sending OFF and no send code at all", () => {
   assert.equal(R.SENDING_ENABLED, false);
-  assert.deepEqual(R.STEPS.map(s => s.minutes), [15, 40, 1440, 2880]);
+  assert.deepEqual(R.STEPS.map(s => s.minutes), [15, 30, 1440]);
   assert.match(R.FOLLOW_UP_TEXT, /^Hi \{\{first_name\}\}, this is \{\{sender_name\}\} with Lorenzo's Dog Training Team\. You reached out to us through our website for help with your dog, and I wanted to connect with you\.\n\nAre you looking for help with training your dog\? If so, reply YES and I will help you get started\.$/);
   assert.equal(R.textFor(lead()), R.FOLLOW_UP_TEXT.replace("{{first_name}}", "Angela").replace("{{sender_name}}", "Tim") + "\n\nReply STOP to opt out.");
   const src = read("lib/reengage.js").replace(/\/\/[^\n]*/g, "");
