@@ -1,0 +1,22 @@
+<!doctype html>
+<!-- Local proof harness (never linked from the portal): loads the Site Builder against the local proof server
+     with the demo bearer token, so the selection kit can be checked in a real browser without any login. -->
+<html lang="en"><head><meta charset="utf-8"><title>Site Builder proof</title>
+<link rel="stylesheet" href="/trainer-backoffice/styles.css">
+<link rel="stylesheet" href="/trainer-backoffice/page-studio.css">
+<script>
+  window.LDTT_IS_SANDBOX = true;
+  window.LDTT_PORTAL = { accessToken: () => "local-demo", currentAuthUser: () => ({ id: "local-office", email: "office@local.test" }) };
+  window.state = { trainers: [] };
+  window.session = { role: "admin" };
+</script>
+</head><body>
+<div id="appShell"><main class="workspace"><div id="viewRoot"></div></main></div>
+<script src="/lib/ad-page-template.js"></script>
+<script src="/lib/ad2-usmap.js"></script>
+<script src="/lib/ad2-page-template.js"></script>
+<script src="/lib/site-page-template.js"></script>
+<script src="/trainer-backoffice/page-studio.js"></script>
+<script src="/trainer-backoffice/site-builder.js"></script>
+<script src="/trainer-backoffice/ad2-studio.js"></script>
+</body></html>

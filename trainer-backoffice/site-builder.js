@@ -796,16 +796,42 @@
   // The same handles for ANY positioned element of the design (Joshua 2026-09-16: "click what I want and
   // resize it like a page editor"): basePath is "pframe.<slot>" for a photo frame or "elbox.<section:n>".
   function decorateBox(doc, frame, basePath) {
-    doc.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel"); x.querySelector(".sb-frame-handle")?.remove(); });
+    doc.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel", "sb-clip"); x.querySelector(".sb-frame-handle")?.remove(); x.querySelector(".sb-eltools")?.remove(); });
     if (!frame) return;
     const pathOf = () => { const t = basePath.split("."); let node = sb.draft; for (const k of t) node = node?.[k]; return node || {}; };
     frame.classList.add("sb-frame-sel");
+    const clipped = ["hidden", "clip"].includes(doc.defaultView.getComputedStyle(frame).overflow);
+    frame.classList.toggle("sb-clip", clipped);
+    doc.querySelectorAll(".sb-eltools").forEach(x => x.remove());
     const handle = doc.createElement("span");
-    handle.className = "sb-frame-handle"; handle.title = "Drag to make the frame bigger or smaller";
+    handle.className = "sb-frame-handle"; handle.title = "Drag to make it bigger or smaller";
     frame.appendChild(handle);
-    const unit = () => { const page = doc.querySelector(".page"); return (page ? page.clientWidth : 1024) / 1024; };
+    // The little toolbar ON the element (Joshua 2026-09-16: "no button, no x on it").
+    const isPhoto = basePath.startsWith("pframe.");
+    const editable = frame.matches("[data-sb-edit],[data-sb-richedit]");
+    const tools = doc.createElement("div");
+    tools.className = "sb-eltools";
+    tools.innerHTML = `<span>${S().esc(isPhoto ? "Photo" : elLabel(frame))}</span>${editable ? `<button type="button" data-eltool="edit">Edit words</button>` : ""}${isPhoto ? `<button type="button" data-eltool="photo">Change photo</button>` : ""}<button type="button" data-eltool="reset" title="Put it back where the design has it">↺ Reset</button><button type="button" class="x" data-eltool="close" title="Done">✕</button>`;
+    frame.appendChild(tools);
+    tools.addEventListener("mousedown", e => e.stopPropagation());
+    tools.addEventListener("click", e => {
+      const act = e.target.closest("[data-eltool]")?.dataset.eltool; if (!act) return;
+      e.preventDefault(); e.stopPropagation();
+      if (act === "edit") startInlineEdit(frame, e);
+      else if (act === "photo") openPhotoPicker(`photos.${basePath.slice(7)}`);
+      else if (act === "reset") { pushHistory(true); const t = basePath.split("."); const parent = t.length > 1 ? getPath(sb.draft, t.slice(0, -1).join(".")) : sb.draft; if (parent && typeof parent === "object") delete parent[t[t.length - 1]]; markDirty({ rerail: true }); }
+      else if (act === "close") { sb.selectedEl = null; sb.focusSlot = null; paintRight(); frame.classList.remove("sb-frame-sel", "sb-clip"); handle.remove(); tools.remove(); }
+    });
+    // Design units per screen pixel: this element's drawn width over its --w, else the page width over 1024.
+    const unit = () => {
+      const w = Number(frame.style.getPropertyValue("--w")); const drawn = frame.getBoundingClientRect().width;
+      if (w > 0 && drawn > 0) return drawn / w;
+      const pw = (doc.querySelector(".page") || doc.body).getBoundingClientRect().width;
+      return pw > 0 ? pw / 1024 : 1;
+    };
     const cur = k => { const n = parseInt(pathOf()[k], 10); return Number.isFinite(n) ? n : 0; };
-    const clamp = n => Math.max(-600, Math.min(600, n));
+    const lim = basePath.startsWith("pframe.") ? 300 : 400; // the same limits normalizeContent keeps
+    const clamp = (n, max = lim) => Math.max(-max, Math.min(max, n));
     const hasH = /--h:/.test(frame.getAttribute("style") || "");
     let drag = null;
     const readVar = k => Number(frame.style.getPropertyValue(`--${k}`)) || 0;
@@ -819,7 +845,8 @@
       if (!drag) return;
       const u = unit();
       const ddx = Math.round((e.clientX - drag.sx) / u), ddy = Math.round((e.clientY - drag.sy) / u);
-      const live = drag.mode === "move" ? { dx: clamp(drag.dx + ddx), dy: clamp(drag.dy + ddy) } : (hasH ? { dw: clamp(drag.dw + ddx), dh: clamp(drag.dh + ddy) } : { dw: clamp(drag.dw + ddx) });
+      const wLim = basePath.startsWith("pframe.") ? 300 : 600;
+      const live = drag.mode === "move" ? { dx: clamp(drag.dx + ddx), dy: clamp(drag.dy + ddy) } : (hasH ? { dw: clamp(drag.dw + ddx, wLim), dh: clamp(drag.dh + ddy) } : { dw: clamp(drag.dw + ddx, wLim) });
       drag.live = live;
       if (drag.mode === "move") { frame.style.setProperty("--x", drag.x + (live.dx - drag.dx)); frame.style.setProperty("--y", drag.y + (live.dy - drag.dy)); }
       else { frame.style.setProperty("--w", Math.max(20, drag.w + (live.dw - drag.dw))); if (hasH) frame.style.setProperty("--h", Math.max(20, drag.h + (live.dh - drag.dh))); }
@@ -834,7 +861,7 @@
       Object.entries(live).forEach(([k, v]) => setPath(sb.draft, `${basePath}.${k}`, v));
       markDirty({ rerail: true }); // the redraw keeps the focus: wireFrame decorates the frame again
     };
-    frame.addEventListener("mousedown", e => { if (e.target === handle) return; start(e, "move"); });
+    frame.addEventListener("mousedown", e => { if (e.target === handle || e.target.closest(".sb-eltools")) return; if (frame.isContentEditable) return; start(e, "move"); });
     handle.addEventListener("mousedown", e => start(e, "size"));
   }
   function a2Order() {
