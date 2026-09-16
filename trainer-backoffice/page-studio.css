@@ -375,3 +375,6 @@ body.a2-open { overflow: hidden; }
 .sb-fit-controls .ps-row .ps-btn{width:auto}
 @media (max-width:760px){.sb-fit-wrap{grid-template-columns:1fr}.sb-fit-preview{width:100%!important}}
 .ps-modal-card:has(.sb-fit-wrap){width:min(880px,100%)}.sb-fit-controls .ps-row{flex-wrap:wrap}
+
+/* 2026-09-16: saved blocks library */
+.sb-lib-cat{margin:10px 0 6px;color:#64748b;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}.sb-lib-card{position:relative;padding:0;border:0;background:none}.sb-lib-card .sb-lib-add{width:100%;text-align:left;border:1px solid #e3eaf4;border-radius:12px;background:#fff;padding:10px;cursor:pointer;display:grid;gap:4px}.sb-lib-card .sb-lib-add:hover{border-color:#0b6bff}.sb-lib-card .sb-lib-del{position:absolute;top:6px;right:6px}

@@ -324,6 +324,7 @@
 
   // ───────────────────────── left rail ─────────────────────────
   const BLOCK_ICONS = {
+    locations: `<svg viewBox="0 0 60 36"><rect x="4" y="5" width="30" height="4" rx="1" fill="#0b2a55"/><rect x="4" y="12" width="22" height="3" fill="#94a3b8"/><rect x="4" y="19" width="14" height="6" rx="2" fill="#d80f35"/><path d="M38 8l16 2-3 14-14-1z" fill="#0b2a55"/><circle cx="47" cy="15" r="2.5" fill="#d80f35"/></svg>`,
     hero: `<svg viewBox="0 0 60 36"><rect width="60" height="36" rx="4" fill="#0b2a55"/><rect x="8" y="10" width="26" height="5" rx="2" fill="#fff"/><rect x="8" y="18" width="18" height="3" rx="1.5" fill="#9fb1d6"/><rect x="8" y="25" width="12" height="5" rx="2" fill="#d80f35"/></svg>`,
     richtext: `<svg viewBox="0 0 60 36"><rect x="8" y="7" width="30" height="4" rx="2" fill="#0b2a55"/><rect x="8" y="15" width="44" height="2.5" rx="1" fill="#9fb1d6"/><rect x="8" y="21" width="40" height="2.5" rx="1" fill="#9fb1d6"/><rect x="8" y="27" width="30" height="2.5" rx="1" fill="#9fb1d6"/></svg>`,
     imagetext: `<svg viewBox="0 0 60 36"><rect x="6" y="7" width="22" height="22" rx="3" fill="#cbd8e8"/><rect x="33" y="9" width="20" height="4" rx="2" fill="#0b2a55"/><rect x="33" y="16" width="22" height="2.5" rx="1" fill="#9fb1d6"/><rect x="33" y="21" width="18" height="2.5" rx="1" fill="#9fb1d6"/></svg>`,
@@ -370,6 +371,7 @@
         <input class="sb-search" type="search" placeholder="Search blocks… (hero, form, faq)" value="${esc(sb.blockSearch)}" data-sb-search="blocks">
         <p class="ps-help">${sb.draft ? (sb.insertAt !== null ? `Click a block to put it at position ${sb.insertAt + 1}.` : sb.selectedId ? "Click a block to add it after the selected one." : "Click a block to add it to the end of the page.") : "Open a page first, then add blocks."}</p>
         ${isKit() ? `<p class="ps-help sb-tip">On this page a new block goes under the section or block you clicked, or where you pressed <b>+ Add block here</b>.</p>` : ""}
+        ${libraryPanel(q)}
         ${!q || "icon box preloaded icons".includes(q) ? `<h3>Ready-made</h3><div class="sb-block-grid"><button type="button" class="sb-block-card" data-sb-addpreset="iconbox" ${sb.draft ? "" : "disabled"} title="Three icon boxes with words already in them; change anything after"><span class="sb-thumb">🐾 🛡️ 📞</span><strong>Icon box</strong><small>Three preloaded icon boxes: evaluation, guarantee, callback.</small></button></div>` : ""}
         ${groups.map(g => { const list = T.BLOCK_TYPES.filter(b => b.group === g && !(isKit() && T.KIT_EXCLUDED.has(b.type)) && (!q || `${b.label} ${b.help} ${b.type}`.toLowerCase().includes(q))); return list.length ? `<h3>${esc(g)}</h3><div class="sb-block-grid">${list.map(b => `<button type="button" class="sb-block-card" data-sb-addblock="${b.type}" ${sb.draft ? "" : "disabled"} title="${esc(b.help)}"><span class="sb-thumb">${BLOCK_ICONS[b.type] || ""}</span><strong>${esc(b.label)}</strong><small>${esc(b.help)}</small></button>`).join("")}</div>` : ""; }).join("") || `<p class="ps-help">No block matches “${esc(sb.blockSearch)}”.</p>`}`;
     } else if (sb.leftTab === "theme") {
@@ -382,6 +384,53 @@
   // ───────────────────────── theme + menus panels ─────────────────────────
   // Joshua 2026-09-16: "an icon box ... with preloaded things". Emoji work on every page and every phone.
   const ICON_PICKS = ["🐕", "🐶", "🦮", "🐕‍🦺", "🦴", "🐾", "🏠", "🛡️", "⭐", "🏆", "✅", "📞", "📅", "🎓", "❤️", "👨‍👩‍👧", "🚶", "🔔", "🎯", "💪", "🧠", "🕊️", "🌟", "💬"];
+  // Saved blocks (Joshua 2026-09-16): any block can be saved with a label + category and used on any page later.
+  async function loadLibrary(force = false) {
+    if (sb.library && !force) return sb.library;
+    try { const data = await S().api({ operation: "library_get" }); sb.library = data.items || []; } catch { sb.library = sb.library || []; }
+    return sb.library;
+  }
+  async function saveLibrary(items) {
+    const data = await S().api({ operation: "library_save", items });
+    sb.library = data.items || items; paintLeft();
+    return sb.library;
+  }
+  function saveBlockToLibrary(index) {
+    const block = sb.draft?.blocks?.[index]; if (!block) return;
+    const cats = [...new Set((sb.library || []).map(i => i.category))];
+    const m = S().modal(`<h3>Save this block for later</h3><p class="ps-help">It goes into <b>Blocks → Saved</b> with the words and photos it has right now. Use it on any page.</p>
+      <label class="ps-field"><span>Name</span><input data-lib-label value="${S().esc(T.BLOCK_LABEL(block.type))}" maxlength="60"></label>
+      <label class="ps-field"><span>Category (for finding it later)</span><input data-lib-cat list="sb-lib-cats" value="${S().esc(cats[0] || "Footers")}" maxlength="40" placeholder="Footers, Headers, Reviews…"><datalist id="sb-lib-cats">${cats.map(c => `<option value="${S().esc(c)}">`).join("")}<option value="Footers"><option value="Headers"><option value="Reviews"><option value="Offers"></datalist></label>
+      <div class="ps-actions"><button type="button" class="ps-btn red" data-x="save">Save block</button><button type="button" class="ps-btn" data-x="close">Cancel</button></div>`);
+    m.querySelector("[data-lib-label]").focus();
+    m.addEventListener("click", async e => {
+      const x = e.target.closest("[data-x]")?.dataset.x; if (!x) return;
+      if (x === "close") { m.remove(); return; }
+      const label = m.querySelector("[data-lib-label]").value.trim() || T.BLOCK_LABEL(block.type);
+      const category = m.querySelector("[data-lib-cat]").value.trim() || "Saved";
+      const copy = JSON.parse(JSON.stringify(block)); delete copy.id; delete copy.after;
+      try {
+        await loadLibrary();
+        await saveLibrary([{ id: `lib-${Date.now().toString(36)}`, label, category, saved_at: new Date().toISOString(), saved_by: "", block: copy }, ...(sb.library || [])]);
+        m.remove(); S().toast(`Saved as “${label}” in ${category}. Find it under Blocks → Saved.`, 6000);
+      } catch (err) { S().toast(err.message, 6000); }
+    });
+  }
+  function addFromLibrary(id) {
+    const it = (sb.library || []).find(x => x.id === id); if (!it || !sb.draft) return;
+    const type = it.block.type;
+    if (isKit() && T.KIT_EXCLUDED.has(type)) { S().toast("This page has its own lead form already."); return; }
+    addBlock(type);
+    const b = (sb.draft.blocks || []).find(x => x.id === sb.selectedId);
+    if (b) { const keep = { id: b.id, after: b.after }; Object.assign(b, JSON.parse(JSON.stringify(it.block)), keep); markDirty({ rerail: true }); S().toast(`“${it.label}” added.`); }
+  }
+  function libraryPanel(q) {
+    const items = (sb.library || []).filter(i => !q || `${i.label} ${i.category} ${i.block.type}`.toLowerCase().includes(q));
+    if (!sb.library) loadLibrary().then(() => paintLeft());
+    if (!items.length) return sb.library ? (q ? "" : `<h3>Saved</h3><p class="ps-help">Nothing saved yet. Hover a block on the page and press <b>💾</b> to save it here with a name and a category.</p>`) : "";
+    const cats = [...new Set(items.map(i => i.category))].sort();
+    return `<h3>Saved</h3>${cats.map(c => `<h4 class="sb-lib-cat">${S().esc(c)}</h4><div class="sb-block-grid">${items.filter(i => i.category === c).map(i => `<div class="sb-block-card sb-lib-card"><button type="button" class="sb-lib-add" data-sb-libadd="${S().esc(i.id)}" ${sb.draft ? "" : "disabled"} title="Add to this page"><span class="sb-thumb">${BLOCK_ICONS[i.block.type] || "💾"}</span><strong>${S().esc(i.label)}</strong><small>${S().esc(T.BLOCK_LABEL(i.block.type))}</small></button><button type="button" class="ps-icon-btn danger sb-lib-del" data-sb-libdel="${S().esc(i.id)}" title="Delete from Saved">✕</button></div>`).join("")}</div>`).join("")}`;
+  }
   const ICON_BOX_PRESET = { layout: "icon-left", items: [
     { icon: "🐾", image: "", title: "Free In-Home Evaluation", text: "A trainer meets you and your dog at home and recommends a clear next step. No cost, no obligation.", href: "" },
     { icon: "🛡️", image: "", title: "90-Day Guarantee", text: "Balanced, proven training with follow-through, backed by our guarantee.", href: "" },
@@ -552,6 +601,10 @@
           ${block.plans.map((pl, i) => listItem(`Plan ${i + 1}`, index, i, `<div class="ps-row">${F("Name", `${p("plans")}.${i}.name`, pl.name)}${F("Price", `${p("plans")}.${i}.price`, pl.price, { placeholder: "From $1,250" })}</div>${F("Note under the price", `${p("plans")}.${i}.note`, pl.note)}${F("What's included", `${p("plans")}.${i}.features`, pl.features, { list: true, rows: 4 })}${btnFields("Button", `${p("plans")}.${i}.button`, pl.button)}${F("Highlight this plan", `${p("plans")}.${i}.featured`, pl.featured, { type: "checkbox" })}`)).join("")}
           <button type="button" class="ps-btn" data-sb-act="item-add" data-index="${index}">+ Add a plan</button>`;
         break;
+      case "locations":
+        fields = `<h4>Closing call</h4>${imageField("Photo on the left (optional)", p("image"), block.image)}${F("Small line", p("eyebrow"), block.eyebrow)}${F("Big headline", p("heading"), block.heading)}${F("Sentence", p("text"), block.text, { type: "textarea", rows: 2 })}${F("Phone on the red button", p("phone"), block.phone)}${btnFields("Second button", p("button"), block.button)}${F("Hand-written quote (blank = none)", p("quote"), block.quote)}
+          <h4>Locations map</h4><label class="ps-field"><span><input type="checkbox" data-sb-field="${p("showMap")}" ${block.showMap ? "checked" : ""}> Show the states map</span></label>${F("Small line", p("locEyebrow"), block.locEyebrow)}${F("Heading", p("locHeading"), block.locHeading)}${F("Areas you serve", p("locText"), block.locText, { type: "textarea", rows: 2 })}${btnFields("Button", p("locButton"), block.locButton)}<label class="ps-field"><span>States on the map (one per line, up to 12)</span><textarea data-sb-field="${p("states")}" data-sb-list rows="6">${esc((block.states || []).join("\n"))}</textarea></label>`;
+        break;
       case "cta":
         fields = `${F("Heading", p("heading"), block.heading)}${F("Sentence", p("text"), block.text, { type: "textarea", rows: 2 })}${btnFields("Button", p("button"), block.button)}${btnFields("Second button (blank = none)", p("button2"), block.button2)}`;
         break;
@@ -592,7 +645,7 @@
       <button type="button" class="ps-btn" data-sb-act="design-reset" data-index="${index}">Put this block's design back to normal</button></details>`;
     // On a 2.0 ad page a block can always step past the next section, so its arrows are never greyed out there.
     const kit = isKit();
-    return `<div class="sb-block-head"><h3>${kit ? "" : `${index + 1}. `}${esc(T.BLOCK_LABEL(block.type))}</h3><div><button type="button" class="ps-icon-btn" data-sb-act="move" data-index="${index}" data-dir="-1" title="Move up" ${!kit && index === 0 ? "disabled" : ""}>↑</button><button type="button" class="ps-icon-btn" data-sb-act="move" data-index="${index}" data-dir="1" title="Move down" ${!kit && index === sb.draft.blocks.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="ps-icon-btn" data-sb-act="duplicate" data-index="${index}" title="Duplicate">⧉</button><button type="button" class="ps-icon-btn danger" data-sb-act="remove" data-index="${index}" title="Delete">✕</button></div></div><p class="ps-help sb-tip">Tip: click words on the page to type over them. Click a photo to change it.</p>${layoutChooser(block, index)}${fields}${design}`;
+    return `<div class="sb-block-head"><h3>${kit ? "" : `${index + 1}. `}${esc(T.BLOCK_LABEL(block.type))}</h3><div><button type="button" class="ps-icon-btn" data-sb-act="move" data-index="${index}" data-dir="-1" title="Move up" ${!kit && index === 0 ? "disabled" : ""}>↑</button><button type="button" class="ps-icon-btn" data-sb-act="move" data-index="${index}" data-dir="1" title="Move down" ${!kit && index === sb.draft.blocks.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="ps-icon-btn" data-sb-act="duplicate" data-index="${index}" title="Duplicate">⧉</button><button type="button" class="ps-icon-btn" data-sb-act="lib-save" data-index="${index}" title="Save this block for later">💾</button><button type="button" class="ps-icon-btn danger" data-sb-act="remove" data-index="${index}" title="Delete">✕</button></div></div><p class="ps-help sb-tip">Tip: click words on the page to type over them. Click a photo to change it.</p>${layoutChooser(block, index)}${fields}${design}`;
   }
   // Site Builder 2.0: the block's layout as big buttons (T.LAYOUTS; the first one is the original look).
   function layoutChooser(block, index) {
@@ -675,7 +728,7 @@
       el.addEventListener("click", event => {
         const tool = event.target.closest("[data-sb-tool]");
         const index = sb.draft.blocks.findIndex(b => b.id === el.dataset.sbBlock);
-        if (tool) { event.stopPropagation(); if (tool.dataset.sbTool !== "drag") blockAction(tool.dataset.sbTool, index); return; }
+        if (tool) { event.stopPropagation(); if (tool.dataset.sbTool === "save") saveBlockToLibrary(index); else if (tool.dataset.sbTool !== "drag") blockAction(tool.dataset.sbTool, index); return; }
         selectBlock(el.dataset.sbBlock, { scroll: false });
       });
       // drag to reorder
@@ -893,6 +946,41 @@
       paint();
     });
     paint();
+  }
+  function liveApplyField(path, value, prev) {
+    const doc = $("#sbFrame")?.contentDocument; if (!doc) return false;
+    const n = v => { const x = parseInt(v, 10); return Number.isFinite(x) ? x : 0; };
+    const bump = (el, name, delta) => { if (!el || !delta) return; const cur = Number(el.style.getPropertyValue(`--${name}`)); if (!Number.isFinite(cur) || !/--/.test(el.getAttribute("style") || "")) return false; el.style.setProperty(`--${name}`, Math.round((cur + delta) * 10) / 10); return true; };
+    const scaleFs = (el, from, to) => { if (!el) return; const f = Number(el.style.getPropertyValue("--fs")), l = Number(el.style.getPropertyValue("--lh")); const k = (n(to) || 100) / (n(from) || 100); if (f) el.style.setProperty("--fs", Math.round(f * k * 10) / 10); if (l) el.style.setProperty("--lh", Math.round(l * k * 10) / 10); };
+    let m;
+    if (path === "h1_size") { scaleFs(doc.querySelector(".sec.hero h1"), prev || 100, value); return true; }
+    if ((m = path.match(/^elbox\.([^.]+)\.(dx|dy|dw|dh|fs|rot)$/))) {
+      const el = doc.querySelector(`[data-sb-el="${CSS.escape(m[1])}"]`); if (!el) return false;
+      const k = m[2];
+      if (k === "fs") { scaleFs(el, prev || 100, value); return true; }
+      if (k === "rot") { el.style.transform = n(value) ? `rotate(${n(value)}deg)` : ""; return true; }
+      return bump(el, { dx: "x", dy: "y", dw: "w", dh: "h" }[k], n(value) - n(prev)) !== false;
+    }
+    if ((m = path.match(/^pframe\.([^.]+)\.(dx|dy|dw|dh|rot|x|y|z|shade)$/))) {
+      const slot = m[1], k = m[2];
+      if (slot === "hero") {
+        const sec = doc.querySelector(".sec.hero"); if (!sec) return false;
+        const f = sb.draft.pframe?.hero || {};
+        const x = f.x === undefined ? 50 : n(f.x), y = f.y === undefined ? 50 : n(f.y), z = n(f.z) || 100, shade = n(f.shade);
+        sec.style.setProperty("--hpos", `${x}% ${y}%`); sec.style.setProperty("--hsz", z > 100 ? `${z}% auto` : "cover"); sec.style.setProperty("--hshade", String(Math.round(shade) / 100));
+        return true;
+      }
+      const frame = frameElFor(doc, slot);
+      if (k === "rot") { if (!frame) return false; frame.style.transform = n(value) ? `rotate(${n(value)}deg)` : ""; return true; }
+      if (/^d[xywh]$/.test(k)) return Boolean(frame) && bump(frame, { dx: "x", dy: "y", dw: "w", dh: "h" }[k], n(value) - n(prev)) !== false;
+      const img = doc.querySelector(`[data-sb-img="photos.${CSS.escape(slot)}"]`); if (!img) return false;
+      const f = sb.draft.pframe?.[slot] || {};
+      const x = f.x === undefined ? 50 : n(f.x), y = f.y === undefined ? 50 : n(f.y), z = n(f.z) || 100;
+      img.style.objectFit = f.fit === "contain" ? "contain" : "cover"; img.style.objectPosition = `${x}% ${y}%`;
+      img.style.transform = z > 100 ? `scale(${z / 100})` : ""; img.style.transformOrigin = `${x}% ${y}%`;
+      return true;
+    }
+    return false;
   }
   function frameElFor(doc, slot) {
     const img = doc.querySelector(`[data-sb-img="photos.${CSS.escape(slot)}"]`);
@@ -1449,9 +1537,13 @@
         if (m) { if (/vimeo\.com/i.test(value)) setPath(sb.draft, t.path.replace(/videoId$/, "provider"), "vimeo"); value = m[1]; }
       }
       pushHistory();
+      const prevValue = getPath(sb.draft, t.path);
       setPath(sb.draft, t.path, value);
       if (/^(title|slug|pageType)$/.test(t.path)) paintTop();
       const structural = event.type === "change" && (field.tagName === "SELECT" || field.type === "checkbox");
+      // Joshua 2026-09-16: "the page is jumping around while moving or resizing — let it stay still". A slider
+      // for a move / size / zoom / rotation changes the element on the page directly; no rebuild, no jump.
+      if (sb.kind === "ad2" && !structural && liveApplyField(t.path, value, prevValue)) { markDirty({ canvas: false }); return; }
       markDirty({ rerail: structural });
       if (structural && sb.rightTab === "block") sb.designOpen = $("#sbRight .sb-design")?.open;
     } else {
@@ -1732,6 +1824,8 @@
     const rtab = target.closest("[data-sb-rtab]"); if (rtab) { sb.rightTab = rtab.dataset.sbRtab; sb.right = true; paintTop(); paintRight(); paintRails(); return; }
     const pageRow = target.closest("[data-sb-page]"); if (pageRow) { if (pageRow.dataset.type === "trainer") { sb.panel = null; openTrainer(pageRow.dataset.sbPage.slice(8)).catch(e => toast(e.message, 5000)); return; } if (pageRow.dataset.type === "ad") { closeStudio(); window.LDTT_PAGE_STUDIO.open(pageRow.dataset.sbPage).catch(e => toast(e.message)); return; } sb.panel = null; try { await openPage(pageRow.dataset.sbPage); } catch (e) { toast(e.message, 5000); } return; }
     const addBtn = target.closest("[data-sb-addblock]"); if (addBtn) { if (!sb.draft) { toast("Open a page first."); return; } addBlock(addBtn.dataset.sbAddblock); return; }
+    const libAdd = target.closest("[data-sb-libadd]"); if (libAdd) { addFromLibrary(libAdd.dataset.sbLibadd); return; }
+    const libDel = target.closest("[data-sb-libdel]"); if (libDel) { if (!window.confirm("Delete this saved block? Pages that already use it keep it.")) return; saveLibrary((sb.library || []).filter(i => i.id !== libDel.dataset.sbLibdel)).catch(e => S().toast(e.message, 6000)); return; }
     const presetBtn = target.closest("[data-sb-addpreset]"); if (presetBtn) { if (!sb.draft) { toast("Open a page first."); return; } addBlock("columns"); const b = (sb.draft.blocks || []).find(x => x.id === sb.selectedId); if (b && b.type === "columns") { Object.assign(b, JSON.parse(JSON.stringify(ICON_BOX_PRESET))); markDirty({ rerail: true }); } return; }
     const photo = target.closest("[data-sb-photo]"); if (photo) { const t = targetFor(photo.dataset.sbPhoto); if (t.kind === "page") pushHistory(); setPath(t.root, t.path, photo.dataset.src); if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); } return; }
     const richBtn = target.closest("[data-sb-rich]"); if (richBtn) { const ed = richBtn.closest(".ps-field")?.querySelector("[data-sb-richfield]"); if (ed) richCommand(richBtn.dataset.sbRich, ed); return; }
@@ -1751,6 +1845,7 @@
       case "layout": { const b = sb.draft?.blocks[index]; if (!b) return; pushHistory(true); b.layout = btn.dataset.layout; markDirty({ rerail: true }); return; }
       case "design-reset": { const b = sb.draft?.blocks[index]; if (!b) return; pushHistory(true); b.design = T.blankBlock(b.type).design; toast("This block's design is back to normal."); markDirty({ rerail: true }); return; }
       case "show-hidden": showHidden(btn.dataset.path); return;
+      case "lib-save": saveBlockToLibrary(Number(btn.dataset.index)); return;
       case "el-trash": hideSelected(); return;
       case "el-close": { sb.selectedEl = null; paintRight(); $("#sbFrame")?.contentDocument?.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel"); x.querySelector(".sb-frame-handle")?.remove(); }); return; }
       case "el-edit": { const doc = $("#sbFrame")?.contentDocument; const el = doc?.querySelector(`[data-sb-el="${CSS.escape(sb.selectedEl || "")}"]`); if (el) { el.scrollIntoView({ block: "center" }); startInlineEdit(el, { clientX: 0, clientY: 0 }); } return; }

@@ -169,3 +169,15 @@ test("audit fixes (2026-09-15 night): MOV refused, trainer saves write only chan
   assert.match(editor, /src="\/assets\/v2\/d1-founder\.webp" data-sb-img="photos\.founder"/, "the design's photos open the photo picker in the editor");
   assert.match(read("trainer-backoffice/app.js"), /const ads = \[\]; \/\/ Page Studio ad pages carry the Meta pixel/);
 });
+
+test("Joshua 2026-09-16: the 'Closing call + locations map' block draws on 2.0 pages and plain site pages; saved blocks are normalized", () => {
+  const b = S.blankBlock("locations", { market: "Chicago, IL" });
+  assert.equal(b.states.length, 12);
+  const c = A2.normalizeContent({ design: "d2", slug: "x", blocks: [{ ...b, after: "ebook" }] });
+  const html = A2.renderPage(c, { practice: true });
+  assert.match(html, /loc-close/); assert.match(html, /loc-map-svg[^>]*><svg/); assert.match(html, /tel:\+18664364959/);
+  const noMap = A2.renderPage(A2.normalizeContent({ design: "d3", slug: "x", blocks: [{ ...b, showMap: false, after: "rvs" }] }), { practice: true });
+  assert.doesNotMatch(noMap, /<div class="loc-map-svg">/, "the map can be switched off (d3 already has one)");
+  const site = S.normalizeSitePage({ slug: "y", title: "y", blocks: [b] });
+  assert.ok(S.renderSitePage(site, { base: "/" }).includes("loc-states"));
+});

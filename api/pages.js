@@ -105,6 +105,17 @@ async function saveSetting(key, value, auth) {
   });
   return row;
 }
+// Saved blocks: at most 200, each with a label, a category and one normalized kit block (no HTML is ever stored).
+function libraryItems(value) {
+  const list = Array.isArray(value?.items) ? value.items : (Array.isArray(value) ? value : []);
+  const clean = v => String(v ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim();
+  return list.slice(0, 200).map(it => {
+    const block = it && typeof it === "object" && it.block && typeof it.block === "object" ? site.normalizeKitBlocks([{ ...it.block, after: "end" }], ["end"])[0] : null;
+    if (!block) return null;
+    delete block.after;
+    return { id: /^[a-z0-9-]{4,40}$/i.test(String(it.id || "")) ? String(it.id) : `lib-${Math.random().toString(36).slice(2, 10)}`, label: clean(it.label).slice(0, 60) || site.BLOCK_LABEL(block.type), category: clean(it.category).slice(0, 40) || "Saved", saved_at: clean(it.saved_at).slice(0, 40), saved_by: clean(it.saved_by).slice(0, 120), block };
+  }).filter(Boolean);
+}
 async function siteTheme() { const row = await getSetting("theme").catch(() => null); return site.normalizeTheme(row?.value || {}); }
 async function siteNav() { const row = await getSetting("navigation").catch(() => null); return site.normalizeNav(row?.value || {}); }
 
@@ -409,6 +420,17 @@ module.exports = async function handler(req, res) {
         if (!auth.isSuperAdmin) throw fail(403, "Only a Super Admin can remove a page.");
         await updatePage(id, { status: "archived", published_content: null }, auth, null);
         return res.status(200).json({ ok: true, sandbox, message: "Page removed. It is off the site and out of the list." });
+      }
+      // Joshua 2026-09-16: "let me save whole blocks of pages if I like them and use them later ... easy to find,
+      // easy to label". The saved blocks live in site_settings key sb_library (practice copy has its own row).
+      case "library_get": {
+        const row = await getSetting("sb_library").catch(() => null);
+        return res.status(200).json({ ok: true, items: libraryItems(row?.value) });
+      }
+      case "library_save": {
+        const items = libraryItems(body.items);
+        await saveSetting("sb_library", { items }, auth);
+        return res.status(200).json({ ok: true, items, message: "Saved blocks updated." });
       }
       case "theme_get": {
         const row = await getSetting("theme").catch(() => null);
