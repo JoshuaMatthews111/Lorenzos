@@ -770,13 +770,19 @@
     }));
     doc.querySelectorAll("[data-sb-img]").forEach(el => el.addEventListener("dblclick", event => { event.preventDefault(); event.stopPropagation(); openPhotoPicker(el.dataset.sbImg); }));
     if (sb.kind === "ad2" && sb.focusSlot) decorateFrame(doc, sb.focusSlot);
+    // Click on plain page space (no element, photo, section tool or block): the element is unselected (Joshua 2026-09-16).
+    doc.addEventListener("click", e => {
+      if (e.target.closest("[data-sb-el],[data-sb-img],[data-sb-block],.sb-eltools,.sb-frame-handle,.sb-rot-handle,[data-sb-sectool],[data-sb-add-btn],[data-sb-tool]")) return;
+      if (sb.selectedEl || sb.focusSlot) clearElSelection();
+    });
     // Keyboard inside the frame: Esc / undo reach the parent
     doc.addEventListener("keydown", e => onKeys(e, true));
   }
 
   function selectBlock(id, { scroll = true } = {}) {
     if (!sb) return;
-    sb.selectedId = id; sb.selectedSec = null; sb.focusSlot = null; sb.selectedEl = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
+    clearElSelection({ paint: false });
+    sb.selectedId = id; sb.selectedSec = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
     if (window.innerWidth < 1400) sb.left = false; // small screen: the page and its settings get the room; Blocks / ☰ brings the list back
     paintTop(); paintRight(); paintRails();
     const doc = $("#sbFrame")?.contentDocument;
@@ -789,7 +795,7 @@
   // with `after` = the section it follows). lib/ad2-page-template.js draws it all and checks every value.
   function selectSection(key, { keepFocus = false } = {}) {
     if (!sb) return;
-    if (!keepFocus) { sb.focusSlot = key === "hero" ? "hero" : null; sb.selectedEl = null; }
+    if (!keepFocus) { clearElSelection({ paint: false }); sb.focusSlot = key === "hero" ? "hero" : null; }
     sb.selectedSec = key; sb.selectedId = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
     if (window.innerWidth < 1400) sb.left = false;
     paintTop(); paintRight(); paintRails();
@@ -809,6 +815,31 @@
     const rail = $(`#sbRight [data-sb-slot="${CSS.escape(slot)}"]`);
     if (rail) { rail.querySelector("details")?.setAttribute("open", ""); rail.scrollIntoView({ block: "center", behavior: "smooth" }); }
     decorateFrame(doc, slot);
+  }
+  function clearElSelection({ paint = true } = {}) {
+    const doc = $("#sbFrame")?.contentDocument;
+    doc?.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel", "sb-clip"); x.querySelector(".sb-frame-handle")?.remove(); x.querySelector(".sb-rot-handle")?.remove(); x.querySelector(".sb-eltools")?.remove(); });
+    const had = sb.selectedEl || sb.focusSlot;
+    sb.selectedEl = null; sb.focusSlot = null;
+    if (paint && had) paintRight();
+    return Boolean(had);
+  }
+  // Arrow keys nudge the selected element or photo frame by 1 design px (Shift: 10).
+  function nudgeSelected(dx, dy) {
+    const base = sb.selectedEl ? `elbox.${sb.selectedEl}` : (sb.focusSlot && sb.focusSlot !== "hero" ? `pframe.${sb.focusSlot}` : "");
+    if (!base) return false;
+    const lim = base.startsWith("pframe.") ? 300 : 400;
+    pushHistory();
+    for (const [k, d] of [["dx", dx], ["dy", dy]]) {
+      if (!d) continue;
+      const prev = parseInt(getPath(sb.draft, `${base}.${k}`), 10) || 0;
+      const next = Math.max(-lim, Math.min(lim, prev + d));
+      setPath(sb.draft, `${base}.${k}`, next);
+      liveApplyField(`${base}.${k}`, next, prev);
+      const input = $(`#sbRight [data-sb-field="${base}.${k}"]`); if (input) { input.value = next; const out = input.closest("label")?.querySelector("[data-sb-readout]"); if (out) out.textContent = `${next}px`; }
+    }
+    markDirty({ canvas: false });
+    return true;
   }
   function selectEl(id, el) {
     const secKey = el.closest("[data-sb-sec]")?.dataset.sbSec || sb.selectedSec;
@@ -1779,7 +1810,7 @@
     const panel = $("#sbPanel");
     panel.innerHTML = `<div class="sb-new sb-help"><div class="sb-new-head"><div><h2>How to use the Site Builder</h2><p>Everything you can change, in order. You cannot break the live website from here: nothing goes live until you press Publish.</p></div><div style="display:flex;gap:8px"><button type="button" class="ps-btn navy" style="width:auto" data-sb-act="tour">Show me around</button><button type="button" class="ps-btn" style="width:auto" data-sb-act="close-panel">Close</button></div></div>
       <ol class="sb-help-steps">${HELP_STEPS.map(([title, body]) => `<li><strong>${esc(title)}</strong><span>${body}</span></li>`).join("")}</ol>
-      <p class="ps-help">Keyboard: <b>Cmd/Ctrl+Z</b> undo · <b>Shift+Cmd/Ctrl+Z</b> redo · <b>Cmd/Ctrl+S</b> save now · <b>Esc</b> hides the side panels · with a block selected: <b>Alt+↑ / Alt+↓</b> move it, <b>Cmd/Ctrl+D</b> copy it, <b>Delete</b> removes it.</p></div>`;
+      <p class="ps-help">Keyboard: <b>Cmd/Ctrl+Z</b> undo · <b>Shift+Cmd/Ctrl+Z</b> redo · <b>Cmd/Ctrl+S</b> save now · <b>Esc</b> hides the side panels · with a block selected: <b>Alt+↑ / Alt+↓</b> move it, <b>Cmd/Ctrl+D</b> copy it, <b>Delete</b> removes it · with an element or photo selected on a 2.0 page: <b>arrow keys</b> nudge it (Shift = 10 px), <b>Delete</b> hides it, <b>Esc</b> or a click on empty space unselects it.</p></div>`;
     panel.hidden = false;
     paintCanvas();
   }
@@ -2029,6 +2060,7 @@
     if (meta && event.key.toLowerCase() === "z" && !typing) { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return; }
     if (event.key === "Escape") {
       if ($(".ps-modal")) { $$(".ps-modal").pop().remove(); return; }
+      if (sb.kind === "ad2" && (sb.selectedEl || sb.focusSlot)) { event.preventDefault(); clearElSelection(); return; } // unselect the element first
       if (sb.panel) { sb.panel = null; paintCanvas(); return; }
       if (typing && !fromFrame) { event.target.blur(); return; }
       if (sb.left || sb.right) { sb.left = false; sb.right = false; paintRails(); S().toast("Rails hidden. Press ☰ Pages & blocks or Settings to bring them back."); return; }
@@ -2036,6 +2068,12 @@
     }
     if (typing) return;
     if (event.key === "Delete" && sb.kind === "ad2" && (sb.selectedEl || sb.focusSlot) && hideSelected()) { event.preventDefault(); return; }
+    if (/^Arrow(Left|Right|Up|Down)$/.test(event.key) && sb.kind === "ad2" && (sb.selectedEl || sb.focusSlot) && !event.altKey) {
+      const step = event.shiftKey ? 10 : 1;
+      const dx = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+      const dy = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+      if (nudgeSelected(dx, dy)) { event.preventDefault(); return; }
+    }
     const index = sb.draft ? (sb.draft.blocks || []).findIndex(b => b.id === sb.selectedId) : -1;
     if (index === -1) return;
     if (event.altKey && event.key === "ArrowUp") { event.preventDefault(); blockAction("up", index); }
