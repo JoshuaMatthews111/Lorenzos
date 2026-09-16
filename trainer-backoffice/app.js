@@ -11290,6 +11290,35 @@ function leadPipelineNotices(lead) {
 }
 
 // Rule 73: the "send queued" retry (Resend only; with no key the server sends nothing and says so).
+// Joshua 2026-09-16: the "Has not booked yet" follow-up texts are an OFFICE BUTTON on the lead's detailed view
+// (Sales Pipeline), not a timer. Office admins, practice copy, leads with a phone and SMS consent only. The
+// server (lib/pipeline.js sendFollowUpText) still limits every send to an active tester phone (rules 72/73).
+// The trainer screens never draw this block: it lives in the office lead panel only.
+function leadFollowUpTextBlock(lead, hasLink) {
+  if (!window.LDTT_IS_SANDBOX || session.role !== "admin") return "";
+  if (!lead?.phone || !(lead.smsConsent === "Yes" || lead.smsConsent === true)) return "";
+  const ref = escapeHtml(lead.remoteId || lead.id);
+  const sends = Array.isArray(leadRawPayload(lead).pipeline?.followups) ? leadRawPayload(lead).pipeline.followups.slice(-5).reverse() : [];
+  const history = sends.length
+    ? `<ul class="lead-followup-history">${sends.map(s => `<li>${escapeHtml(s.step === "link" ? "Booking link again" : "Tim's follow-up")} · ${escapeHtml(s.status === "sent" ? `sent${s.to_last4 ? ` to ...${s.to_last4}` : ""}` : `${s.status}${s.reason ? `: ${s.reason}` : ""}`)} · ${escapeHtml(formatDateTime(s.at))}${s.by ? ` · ${escapeHtml(s.by)}` : ""}</li>`).join("")}</ul>`
+    : `<p class="field-hint">No follow-up text sent yet.</p>`;
+  return `<div class="lead-followup-texts"><span>Follow-up texts</span><p class="field-hint">Practice copy: the text goes only to an active tester phone.</p><div class="row-actions"><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="tim" data-lead-ref="${ref}">Send Tim's follow-up text</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="link" data-lead-ref="${ref}" ${hasLink ? "" : "disabled title=\"No booking link for this lead yet.\""}>Send the booking link again</button></div>${history}</div>`;
+}
+
+async function sendLeadFollowUpTextNow(leadId, step) {
+  const token = await window.LDTT_PORTAL?.accessToken?.();
+  const response = await fetch("/api/pipeline", {
+    method: "POST", cache: "no-store",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` },
+    body: JSON.stringify({ op: "followup_send", lead_id: leadId, step })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not sent (${response.status}).`);
+  showToast(payload.message || "Done.", 8000);
+  await refreshOperationalData("manual").catch(() => {});
+  render();
+}
+
 async function sendQueuedOfficeEmailsNow() {
   const token = await window.LDTT_PORTAL?.accessToken?.();
   const response = await fetch("/api/pipeline", {
@@ -11347,7 +11376,7 @@ function leadBookingBlock(lead) {
     const slug = intake.trainer_slug || "";
     const pipelineLink = String(leadRawPayload(lead).pipeline?.book_url || "").replace(/^https?:\/\/[^/]+/, "");
     const link = slug ? `/book/${encodeURIComponent(slug)}?lead=${encodeURIComponent(lead.remoteId || lead.id)}` : (/^\/book\//.test(pipelineLink) ? pipelineLink : "");
-    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 50 miles." : "No trainer within 50 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}</section>`;
+    return `<section class="detail-note-block lead-booking-block"><span>Online booking</span>${callbackNote}<p>${link ? `Not booked yet. Booking link${intake.trainer_name ? ` (nearest with a calendar: ${escapeHtml(intake.trainer_name)})` : ""}: <a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(link)}</a>` : callback ? "No booking link: no trainer within 50 miles." : "No trainer within 50 miles of this ZIP yet. Office follow-up: call this lead."}</p>${leadPipelineNotices(lead)}${leadFollowUpTextBlock(lead, Boolean(link))}</section>`;
   }
   return `<section class="detail-note-block lead-booking-block"><span>Booked online</span><p><strong>${escapeHtml(booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead)))}</strong> with ${escapeHtml(booking.trainer_name || booking.trainer_slug || "the trainer")} · ${escapeHtml(booking.location_label || "In-home")}</p><p class="field-hint">The trainer or TC reserves this time in Google. Nothing was booked in Google automatically.</p>${leadPipelineNotices(lead)}${leadPreEvalBlock(booking)}<div class="lead-contact-grid">${row("Name", [client.first_name, client.last_name].filter(Boolean).join(" "))}${row("Phone", formatPhoneNumber(client.phone))}${row("Email", client.email)}<div class="wide"><span>Physical address</span><strong>${escapeHtml(client.address || "—")}</strong></div></div>${dogRows}</section>`;
 }
@@ -13805,6 +13834,14 @@ document.addEventListener("click", async event => {
     pipelineSendQueued.disabled = true;
     try { await sendQueuedOfficeEmailsNow(); } catch (error) { showToast(`Not sent: ${error.message}`, 8000); }
     finally { pipelineSendQueued.disabled = false; }
+    return;
+  }
+  const leadFollowUpText = event.target.closest("[data-lead-followup-text]");
+  if (leadFollowUpText) {
+    if (!window.LDTT_IS_SANDBOX || session.role !== "admin") return;
+    leadFollowUpText.disabled = true;
+    try { await sendLeadFollowUpTextNow(leadFollowUpText.dataset.leadRef, leadFollowUpText.dataset.leadFollowupText); } catch (error) { showToast(`Not sent: ${error.message}`, 8000); }
+    finally { leadFollowUpText.disabled = false; }
     return;
   }
   const practiceReset = event.target.closest("[data-practice-reset]");

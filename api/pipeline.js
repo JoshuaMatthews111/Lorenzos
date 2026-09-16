@@ -110,6 +110,20 @@ module.exports = async function handler(req, res) {
         : `Sent ${result.sent.length}. Failed ${result.failed.length}.${result.failed[0] ? ` ${result.failed[0].message}` : ""}`;
       return res.status(200).json({ ok: true, message, ...result });
     }
+    if (op === "followup_send") {
+      // Joshua 2026-09-16: the "Has not booked yet" follow-up texts are an office button, not a timer.
+      // Practice copy, active tester phones only (rules 72/73); lib/pipeline.js sendFollowUpText decides.
+      const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
+      if (!access) return;
+      const leadId = B.clean(body.lead_id, 80);
+      const step = B.clean(body.step, 10) === "link" ? "link" : "tim";
+      if (!/^[0-9a-f-]{36}$/i.test(leadId)) return res.status(400).json({ ok: false, message: "Which lead? The lead id is missing." });
+      const lead = (await B.sbOrThrow(`/rest/v1/leads?id=eq.${encodeURIComponent(leadId)}&select=${P.LEAD_SELECT}&limit=1`))?.[0];
+      if (!lead) return res.status(404).json({ ok: false, message: "That lead was not found." });
+      const texts = await P.afterFollowUp({ lead, step, by: access.actor?.email });
+      const message = texts.status === "sent" ? `Sent to the tester phone ending ${texts.to_last4}.` : `Not sent: ${texts.reason || texts.status}`;
+      return res.status(200).json({ ok: true, message, texts });
+    }
     return res.status(400).json({ ok: false, message: "Unknown request." });
   } catch (error) {
     console.error("pipeline_failed", String(error?.message || error));
