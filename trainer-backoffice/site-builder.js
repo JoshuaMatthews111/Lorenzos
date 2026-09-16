@@ -786,6 +786,7 @@
       ${slider("Move up ↕ down", `elbox.${id}.dy`, v("dy", 0), -400, 400, "px")}
       ${/--w:/.test(style) ? slider("Wider ↔ narrower", `elbox.${id}.dw`, v("dw", 0), -600, 600, "px") : ""}
       ${/--h:/.test(style) ? slider("Taller ↕ shorter", `elbox.${id}.dh`, v("dh", 0), -400, 400, "px") : ""}
+      ${slider("Rotate", `elbox.${id}.rot`, v("rot", 0), -180, 180, "°")}
       ${/--fs:/.test(style) ? slider("Text size", `elbox.${id}.fs`, v("fs", 100), 30, 300, "%") : ""}
       ${/--fs:/.test(style) ? `<label class="ps-field"><span>Font</span><select data-sb-field="elbox.${id}.font"><option value="">The design's font</option>${(A2().FONTS || []).map(f => `<option value="${S().esc(f)}" ${v("font", "") === f ? "selected" : ""} style="font-family:'${S().esc(f)}'">${S().esc(f)}</option>`).join("")}</select></label>` : ""}
       <button type="button" class="ps-btn" style="color:#b00020;border-color:#f1c2ca" data-sb-act="el-trash">🗑 Remove this from the page</button>
@@ -802,7 +803,7 @@
     pushHistory(true);
     setPath(sb.draft, `${basePath}.hide`, true);
     if (label) setPath(sb.draft, `${basePath}.label`, label.slice(0, 40));
-    if (el) { el.classList.remove("sb-frame-sel", "sb-clip"); el.querySelector(".sb-frame-handle")?.remove(); el.querySelector(".sb-eltools")?.remove(); el.style.display = "none"; }
+    if (el) { el.classList.remove("sb-frame-sel", "sb-clip"); el.querySelector(".sb-frame-handle")?.remove(); el.querySelector(".sb-rot-handle")?.remove(); el.querySelector(".sb-eltools")?.remove(); el.style.display = "none"; }
     sb.selectedEl = null; sb.focusSlot = null;
     markDirty({ rerail: true, canvas: false });
     S().toast("Removed from the page. Bring it back any time from “Hidden items” in that section.", 6000);
@@ -836,7 +837,7 @@
   // The same handles for ANY positioned element of the design (Joshua 2026-09-16: "click what I want and
   // resize it like a page editor"): basePath is "pframe.<slot>" for a photo frame or "elbox.<section:n>".
   function decorateBox(doc, frame, basePath) {
-    doc.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel", "sb-clip"); x.querySelector(".sb-frame-handle")?.remove(); x.querySelector(".sb-eltools")?.remove(); });
+    doc.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel", "sb-clip"); x.querySelector(".sb-frame-handle")?.remove(); x.querySelector(".sb-rot-handle")?.remove(); x.querySelector(".sb-eltools")?.remove(); });
     if (!frame) return;
     const pathOf = () => { const t = basePath.split("."); let node = sb.draft; for (const k of t) node = node?.[k]; return node || {}; };
     frame.classList.add("sb-frame-sel");
@@ -846,6 +847,21 @@
     const handle = doc.createElement("span");
     handle.className = "sb-frame-handle"; handle.title = "Drag to make it bigger or smaller";
     frame.appendChild(handle);
+    // Joshua 2026-09-16: "things need to be able to be rotated" — drag the ↻ handle around the element's centre.
+    const rotHandle = doc.createElement("span");
+    rotHandle.className = "sb-rot-handle"; rotHandle.title = "Drag to rotate (hold Shift for 15° steps)"; rotHandle.textContent = "↻";
+    frame.appendChild(rotHandle);
+    rotHandle.addEventListener("mousedown", e => {
+      if (e.button !== 0) return; e.preventDefault(); e.stopPropagation();
+      const rect = frame.getBoundingClientRect(); const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+      const startRot = (() => { const n = parseInt(pathOf().rot, 10); return Number.isFinite(n) ? n : 0; })();
+      const startAng = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+      let rot = startRot;
+      doc.body.style.userSelect = "none";
+      const mv = ev => { ev.preventDefault(); const ang = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI; rot = Math.round(startRot + ang - startAng); if (rot > 180) rot -= 360; if (rot < -180) rot += 360; if (ev.shiftKey) rot = Math.round(rot / 15) * 15; frame.style.transform = rot ? `rotate(${rot}deg)` : ""; const input = $(`#sbRight [data-sb-field="${basePath}.rot"]`); if (input) { input.value = rot; const out = input.closest("label")?.querySelector("[data-sb-readout]"); if (out) out.textContent = `${rot}°`; } };
+      const up = () => { doc.removeEventListener("mousemove", mv); doc.removeEventListener("mouseup", up); doc.body.style.userSelect = ""; if (rot !== startRot) { pushHistory(true); setPath(sb.draft, `${basePath}.rot`, rot); markDirty({ rerail: true, canvas: false }); } };
+      doc.addEventListener("mousemove", mv); doc.addEventListener("mouseup", up);
+    });
     // The little toolbar ON the element (Joshua 2026-09-16: "no button, no x on it").
     const isPhoto = basePath.startsWith("pframe.");
     const editable = frame.matches("[data-sb-edit],[data-sb-richedit]");
@@ -861,7 +877,7 @@
       else if (act === "photo") openPhotoPicker(`photos.${basePath.slice(7)}`);
       else if (act === "reset") { pushHistory(true); const t = basePath.split("."); const parent = t.length > 1 ? getPath(sb.draft, t.slice(0, -1).join(".")) : sb.draft; if (parent && typeof parent === "object") delete parent[t[t.length - 1]]; markDirty({ rerail: true }); }
       else if (act === "trash") hideSelected();
-      else if (act === "close") { sb.selectedEl = null; sb.focusSlot = null; paintRight(); frame.classList.remove("sb-frame-sel", "sb-clip"); handle.remove(); tools.remove(); }
+      else if (act === "close") { sb.selectedEl = null; sb.focusSlot = null; paintRight(); frame.classList.remove("sb-frame-sel", "sb-clip"); handle.remove(); rotHandle.remove(); tools.remove(); }
     });
     // Design units per screen pixel: this element's drawn width over its --w, else the page width over 1024.
     const unit = () => {
@@ -907,7 +923,7 @@
       // The page already shows the move (the vars were set live): no canvas rebuild, so nothing bounces (Joshua 2026-09-16).
       markDirty({ rerail: true, canvas: false });
     };
-    frame.addEventListener("mousedown", e => { if (e.target === handle || e.target.closest(".sb-eltools")) return; if (frame.isContentEditable) return; start(e, "move"); });
+    frame.addEventListener("mousedown", e => { if (e.target === handle || e.target === rotHandle || e.target.closest(".sb-eltools")) return; if (frame.isContentEditable) return; start(e, "move"); });
     handle.addEventListener("mousedown", e => start(e, "size"));
   }
   function a2Order() {
@@ -1003,6 +1019,7 @@
       ${slider("Move frame up ↕ down", `pframe.${slot}.dy`, v("dy", 0), -300, 300, "px")}
       ${slider("Frame wider ↔ narrower", `pframe.${slot}.dw`, v("dw", 0), -300, 300, "px")}
       ${slider("Frame taller ↕ shorter", `pframe.${slot}.dh`, v("dh", 0), -300, 300, "px")}
+      ${slider("Rotate the frame", `pframe.${slot}.rot`, v("rot", 0), -180, 180, "°")}
       ${set ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="pframe.${slot}">Put the photo and its frame back the way the design has them</button>` : ""}</details>`;
   }
   function ad2SectionFields(key) {

@@ -167,3 +167,12 @@ test("Joshua 2026-09-16: the trash can hides an element or photo (never deletes 
   assert.match(html, /font-family:'Georgia'/, "the font is applied");
   assert.ok(T.FONTS.includes("Oswald") && T.FONTS.length >= 8, "a preloaded font list");
 });
+
+test("Joshua 2026-09-16: elements and photo frames can be rotated (not the top photo)", () => {
+  const c = T.normalizeContent({ design: "d2", slug: "x", elbox: { "hero:0": { rot: -12 }, "hero:1": { rot: 400 } }, pframe: { ba1: { rot: 5 }, hero: { rot: 9 } } });
+  assert.deepEqual(c.elbox, { "hero:0": { rot: -12 } });
+  assert.deepEqual(c.pframe, { ba1: { rot: 5 } });
+  const html = T.renderPage(c, { practice: true });
+  assert.match(html, /<h1 class="a" style="[^"]*transform:rotate\(-12deg\)/);
+  assert.match(html, /class="a ba ba2" style="[^"]*rotate\(5deg\)/);
+});
