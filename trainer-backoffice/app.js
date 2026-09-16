@@ -4913,8 +4913,10 @@ const TRAINER_RETIRED_VIEWS = ["performance"];
 
 function renderSidebar() {
   const isAdmin = session.role === "admin";
-  const passwordSetupRequired = Boolean(portalUser?.must_change_password);
-  const profileSetupRequired = portalProfileNeedsCompletion();
+  // Sandbox: a password cannot be saved there, so the two setup gates never take over the menu (Joshua 2026-09-16:
+  // "just take us to the new dashboard"). Live behaves exactly as before.
+  const passwordSetupRequired = !window.LDTT_IS_SANDBOX && Boolean(portalUser?.must_change_password);
+  const profileSetupRequired = !window.LDTT_IS_SANDBOX && portalProfileNeedsCompletion();
   const nav = isAdmin
     ? profileSetupRequired ? [["settings", "Complete Profile", "settings"]] : adminNav()
     : passwordSetupRequired
@@ -4951,8 +4953,10 @@ function renderSidebar() {
 
 function renderTopbar() {
   const isAdmin = session.role === "admin";
-  const passwordSetupRequired = Boolean(portalUser?.must_change_password);
-  const profileSetupRequired = portalProfileNeedsCompletion();
+  // Sandbox: a password cannot be saved there, so the two setup gates never take over the menu (Joshua 2026-09-16:
+  // "just take us to the new dashboard"). Live behaves exactly as before.
+  const passwordSetupRequired = !window.LDTT_IS_SANDBOX && Boolean(portalUser?.must_change_password);
+  const profileSetupRequired = !window.LDTT_IS_SANDBOX && portalProfileNeedsCompletion();
   const titles = isAdmin ? {
     dashboard: ["Admin Dashboard", "Network performance, lead outcomes, and conversion reporting."],
     trainerPages: ["Trainer Landing Pages", "Three approved designs, page performance, publishing, and locking."],
