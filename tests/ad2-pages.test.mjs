@@ -144,3 +144,15 @@ test("a shorter line list stays shorter: no starter words are borrowed to fill t
   assert.deepEqual(c.sub, ["One", "Two", "Start with a free in-home evaluation.", ""]);
   assert.equal(T.normalizeContent({ design: "d1", slug: "x" }).sub.length, 4, "a page with no saved lines still gets the starter's four");
 });
+
+test("Joshua 2026-09-16: any element of the design can be moved, resized and re-sized (elbox), tagged only in the editor", () => {
+  const c = T.normalizeContent({ design: "d1", slug: "x", elbox: { "hero:0": { dx: -20, fs: 80 }, "hero:2": { dy: 15, dw: 100 }, bogus: { dx: 5 }, "hero:9": { dx: 9999 } } });
+  assert.deepEqual(c.elbox, { "hero:0": { dx: -20, fs: 80 }, "hero:2": { dy: 15, dw: 100 } });
+  const ed = T.renderPage(c, { practice: true, editor: true });
+  const pub = T.renderPage(c, { practice: true });
+  assert.match(ed, /<h1 class="a" data-sb-el="hero:0" style="--x:44;--y:57;--fs:51\.2;--lh:44"/, "the headline moved left and shrank to 80% in the editor");
+  assert.match(pub, /<h1 class="a" style="--x:44;--y:57;--fs:51\.2;--lh:44"/, "and on the public page, without editor tags");
+  assert.ok((ed.match(/data-sb-el=/g) || []).length > 50 && !/data-sb-el=/.test(pub), "every positioned element is clickable in the editor only");
+  const plain = T.renderPage(T.normalizeContent({ design: "d1", slug: "x" }), { practice: true });
+  assert.doesNotMatch(plain, /data-sb-el/, "a page without moves keeps its exact bytes");
+});

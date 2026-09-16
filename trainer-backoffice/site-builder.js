@@ -685,7 +685,20 @@
     });
     doc.querySelectorAll("[data-sb-sectool]").forEach(btn => btn.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); secAction(btn.dataset.sbSectool, btn.dataset.sec); }));
     // Site Builder 2.0: click words on the page and type over them; click a photo to change it.
-    doc.querySelectorAll("[data-sb-edit],[data-sb-richedit]").forEach(el => el.addEventListener("click", event => { if (event.target.closest("[data-sb-tool]")) return; event.preventDefault(); event.stopPropagation(); startInlineEdit(el, event); }));
+    doc.querySelectorAll("[data-sb-edit],[data-sb-richedit]").forEach(el => el.addEventListener("click", event => {
+      if (event.target.closest("[data-sb-tool]")) return;
+      event.preventDefault(); event.stopPropagation();
+      // 2.0 pages: one click selects the element (move / resize / text size); a double-click types over it.
+      if (sb.kind === "ad2" && el.dataset.sbEl) { if (sb.selectedEl === el.dataset.sbEl || event.detail > 1) startInlineEdit(el, event); else selectEl(el.dataset.sbEl, el); return; }
+      startInlineEdit(el, event);
+    }));
+    if (sb.kind === "ad2") {
+      doc.querySelectorAll("[data-sb-el]").forEach(el => {
+        if (el.matches("[data-sb-edit],[data-sb-richedit],[data-sb-img]") || el.querySelector("[data-sb-img]")) return; // words and photos have their own click
+        el.addEventListener("click", event => { if (event.target.closest("[data-sb-sectool],[data-sb-add-btn]")) return; event.preventDefault(); event.stopPropagation(); selectEl(el.dataset.sbEl, el); });
+      });
+      if (sb.selectedEl) { const el = doc.querySelector(`[data-sb-el="${CSS.escape(sb.selectedEl)}"]`); if (el) decorateBox(doc, el, `elbox.${sb.selectedEl}`); }
+    }
     doc.querySelectorAll("[data-sb-img]").forEach(el => el.addEventListener("click", event => {
       event.preventDefault(); event.stopPropagation();
       const blockEl = el.closest("[data-sb-block]"); if (blockEl && sb.selectedId !== blockEl.dataset.sbBlock) selectBlock(blockEl.dataset.sbBlock, { scroll: false });
@@ -702,7 +715,7 @@
 
   function selectBlock(id, { scroll = true } = {}) {
     if (!sb) return;
-    sb.selectedId = id; sb.selectedSec = null; sb.focusSlot = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
+    sb.selectedId = id; sb.selectedSec = null; sb.focusSlot = null; sb.selectedEl = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
     if (window.innerWidth < 1400) sb.left = false; // small screen: the page and its settings get the room; Blocks / ☰ brings the list back
     paintTop(); paintRight(); paintRails();
     const doc = $("#sbFrame")?.contentDocument;
@@ -715,7 +728,7 @@
   // with `after` = the section it follows). lib/ad2-page-template.js draws it all and checks every value.
   function selectSection(key, { keepFocus = false } = {}) {
     if (!sb) return;
-    if (!keepFocus) sb.focusSlot = key === "hero" ? "hero" : null;
+    if (!keepFocus) { sb.focusSlot = key === "hero" ? "hero" : null; sb.selectedEl = null; }
     sb.selectedSec = key; sb.selectedId = null; sb.rightTab = "block"; sb.right = true; sb.insertAt = null;
     if (window.innerWidth < 1400) sb.left = false;
     paintTop(); paintRight(); paintRails();
@@ -736,6 +749,38 @@
     if (rail) { rail.querySelector("details")?.setAttribute("open", ""); rail.scrollIntoView({ block: "center", behavior: "smooth" }); }
     decorateFrame(doc, slot);
   }
+  function selectEl(id, el) {
+    const secKey = el.closest("[data-sb-sec]")?.dataset.sbSec || sb.selectedSec;
+    sb.selectedEl = id; sb.focusSlot = null;
+    if (secKey) selectSection(secKey, { keepFocus: true }); else paintRight();
+    $("#sbRight .sb-el-panel")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    decorateBox(el.ownerDocument, el, `elbox.${id}`);
+  }
+  function elLabel(el) {
+    if (!el) return "Element";
+    const tag = el.tagName.toLowerCase();
+    const kind = el.matches("[data-sb-img]") ? "Photo" : /^h[1-6]$/.test(tag) ? "Heading" : tag === "button" || tag === "a" ? "Button" : tag === "p" ? "Text" : tag === "li" ? "List line" : "Element";
+    const words = (el.textContent || "").replace(/\s+/g, " ").trim().slice(0, 40);
+    return words ? `${kind}: “${words}${words.length === 40 ? "…" : ""}”` : kind;
+  }
+  function elPanel() {
+    const id = sb.selectedEl; if (!id) return "";
+    const doc = $("#sbFrame")?.contentDocument;
+    const el = doc?.querySelector(`[data-sb-el="${CSS.escape(id)}"]`);
+    const f = sb.draft.elbox?.[id] || {};
+    const v = (k, d) => (f[k] === undefined || f[k] === "" ? d : f[k]);
+    const style = el?.getAttribute("style") || "";
+    const editable = Boolean(el?.matches("[data-sb-edit],[data-sb-richedit]"));
+    return `<div class="sb-el-panel"><div class="sb-block-head"><h3>${S().esc(elLabel(el))}</h3><button type="button" class="ps-icon-btn" data-sb-act="el-close" title="Done with this element">✕</button></div>
+      <p class="ps-help sb-tip">Drag it on the page to move it; drag its blue corner to resize. ${editable ? "<b>Double-click</b> it (or press Edit the words) to type." : ""}</p>
+      ${editable ? `<button type="button" class="ps-btn red" data-sb-act="el-edit">Edit the words</button>` : ""}
+      ${slider("Move left ↔ right", `elbox.${id}.dx`, v("dx", 0), -400, 400, "px")}
+      ${slider("Move up ↕ down", `elbox.${id}.dy`, v("dy", 0), -400, 400, "px")}
+      ${/--w:/.test(style) ? slider("Wider ↔ narrower", `elbox.${id}.dw`, v("dw", 0), -600, 600, "px") : ""}
+      ${/--h:/.test(style) ? slider("Taller ↕ shorter", `elbox.${id}.dh`, v("dh", 0), -400, 400, "px") : ""}
+      ${/--fs:/.test(style) ? slider("Text size", `elbox.${id}.fs`, v("fs", 100), 30, 300, "%") : ""}
+      ${Object.keys(f).length ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="elbox.${id}">Put it back where the design has it</button>` : ""}</div>`;
+  }
   function frameElFor(doc, slot) {
     const img = doc.querySelector(`[data-sb-img="photos.${CSS.escape(slot)}"]`);
     if (!img) return null;
@@ -745,16 +790,23 @@
     return null;
   }
   function decorateFrame(doc, slot) {
-    doc.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel"); x.querySelector(".sb-frame-handle")?.remove(); });
     const frame = frameElFor(doc, slot);
+    decorateBox(doc, frame, `pframe.${slot}`);
+  }
+  // The same handles for ANY positioned element of the design (Joshua 2026-09-16: "click what I want and
+  // resize it like a page editor"): basePath is "pframe.<slot>" for a photo frame or "elbox.<section:n>".
+  function decorateBox(doc, frame, basePath) {
+    doc.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel"); x.querySelector(".sb-frame-handle")?.remove(); });
     if (!frame) return;
+    const pathOf = () => { const t = basePath.split("."); let node = sb.draft; for (const k of t) node = node?.[k]; return node || {}; };
     frame.classList.add("sb-frame-sel");
     const handle = doc.createElement("span");
     handle.className = "sb-frame-handle"; handle.title = "Drag to make the frame bigger or smaller";
     frame.appendChild(handle);
     const unit = () => { const page = doc.querySelector(".page"); return (page ? page.clientWidth : 1024) / 1024; };
-    const cur = k => { const n = parseInt(sb.draft.pframe?.[slot]?.[k], 10); return Number.isFinite(n) ? n : 0; };
-    const clamp = n => Math.max(-300, Math.min(300, n));
+    const cur = k => { const n = parseInt(pathOf()[k], 10); return Number.isFinite(n) ? n : 0; };
+    const clamp = n => Math.max(-600, Math.min(600, n));
+    const hasH = /--h:/.test(frame.getAttribute("style") || "");
     let drag = null;
     const readVar = k => Number(frame.style.getPropertyValue(`--${k}`)) || 0;
     const start = (e, mode) => {
@@ -767,11 +819,11 @@
       if (!drag) return;
       const u = unit();
       const ddx = Math.round((e.clientX - drag.sx) / u), ddy = Math.round((e.clientY - drag.sy) / u);
-      const live = drag.mode === "move" ? { dx: clamp(drag.dx + ddx), dy: clamp(drag.dy + ddy) } : { dw: clamp(drag.dw + ddx), dh: clamp(drag.dh + ddy) };
+      const live = drag.mode === "move" ? { dx: clamp(drag.dx + ddx), dy: clamp(drag.dy + ddy) } : (hasH ? { dw: clamp(drag.dw + ddx), dh: clamp(drag.dh + ddy) } : { dw: clamp(drag.dw + ddx) });
       drag.live = live;
       if (drag.mode === "move") { frame.style.setProperty("--x", drag.x + (live.dx - drag.dx)); frame.style.setProperty("--y", drag.y + (live.dy - drag.dy)); }
-      else { frame.style.setProperty("--w", Math.max(40, drag.w + (live.dw - drag.dw))); frame.style.setProperty("--h", Math.max(40, drag.h + (live.dh - drag.dh))); }
-      Object.entries(live).forEach(([k, v]) => { const input = $(`#sbRight [data-sb-field="pframe.${slot}.${k}"]`); if (input) { input.value = v; const out = input.closest("label")?.querySelector("[data-sb-readout]"); if (out) out.textContent = `${v}px`; } });
+      else { frame.style.setProperty("--w", Math.max(20, drag.w + (live.dw - drag.dw))); if (hasH) frame.style.setProperty("--h", Math.max(20, drag.h + (live.dh - drag.dh))); }
+      Object.entries(live).forEach(([k, v]) => { const input = $(`#sbRight [data-sb-field="${basePath}.${k}"]`); if (input) { input.value = v; const out = input.closest("label")?.querySelector("[data-sb-readout]"); if (out) out.textContent = `${v}px`; } });
     };
     const end = () => {
       doc.removeEventListener("mousemove", move); doc.removeEventListener("mouseup", end);
@@ -779,7 +831,7 @@
       const live = drag.live; drag = null;
       if (!live) return;
       pushHistory(true);
-      Object.entries(live).forEach(([k, v]) => setPath(sb.draft, `pframe.${slot}.${k}`, v));
+      Object.entries(live).forEach(([k, v]) => setPath(sb.draft, `${basePath}.${k}`, v));
       markDirty({ rerail: true }); // the redraw keeps the focus: wireFrame decorates the frame again
     };
     frame.addEventListener("mousedown", e => { if (e.target === handle) return; start(e, "move"); });
@@ -888,7 +940,7 @@
     const fixed = a2.FIXED_ANCHORS.includes(key);
     const hidden = (d.hidden || []).includes(key);
     const order = a2Order(); const i = order.indexOf(key);
-    return `<div class="sb-block-head"><h3>${esc(a2Label(key))}</h3>${fixed ? "" : `<div><button type="button" class="ps-icon-btn" data-sb-act="sec" data-tool="up" data-sec="${key}" title="Move this section up" ${i <= 0 ? "disabled" : ""}>↑</button><button type="button" class="ps-icon-btn" data-sb-act="sec" data-tool="down" data-sec="${key}" title="Move this section down" ${i === order.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="ps-btn" style="width:auto;min-height:36px;padding:0 12px" data-sb-act="sec" data-tool="${hidden ? "show" : "hide"}" data-sec="${key}">${hidden ? "Show" : "Hide"}</button></div>`}</div>
+    return `${elPanel()}<div class="sb-block-head"><h3>${esc(a2Label(key))}</h3>${fixed ? "" : `<div><button type="button" class="ps-icon-btn" data-sb-act="sec" data-tool="up" data-sec="${key}" title="Move this section up" ${i <= 0 ? "disabled" : ""}>↑</button><button type="button" class="ps-icon-btn" data-sb-act="sec" data-tool="down" data-sec="${key}" title="Move this section down" ${i === order.length - 1 ? "disabled" : ""}>↓</button><button type="button" class="ps-btn" style="width:auto;min-height:36px;padding:0 12px" data-sb-act="sec" data-tool="${hidden ? "show" : "hide"}" data-sec="${key}">${hidden ? "Show" : "Hide"}</button></div>`}</div>
       <p class="ps-help sb-tip">This section is part of the 2.0 design: change its words and photos here. To add reviews, a video, photos or anything else, press <b>+ Add block here</b> under it on the page.</p>
       ${fields.map(a2Field).join("") || `<p class="ps-help">${key === "hdr" ? "The logo is on the <b>Page</b> tab, or click the logo on the page." : "This section has no words to change. You can move it or hide it."}</p>`}
       ${key === "hero" ? slider("Headline size", "h1_size", sb.draft.h1_size || 100, 50, 150, "%") : ""}
@@ -1533,6 +1585,8 @@
       case "set-field": { const t = targetFor(btn.dataset.path); if (t.kind === "page") pushHistory(true); setPath(t.root, t.path, btn.dataset.value || ""); if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); } return; }
       case "layout": { const b = sb.draft?.blocks[index]; if (!b) return; pushHistory(true); b.layout = btn.dataset.layout; markDirty({ rerail: true }); return; }
       case "design-reset": { const b = sb.draft?.blocks[index]; if (!b) return; pushHistory(true); b.design = T.blankBlock(b.type).design; toast("This block's design is back to normal."); markDirty({ rerail: true }); return; }
+      case "el-close": { sb.selectedEl = null; paintRight(); $("#sbFrame")?.contentDocument?.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel"); x.querySelector(".sb-frame-handle")?.remove(); }); return; }
+      case "el-edit": { const doc = $("#sbFrame")?.contentDocument; const el = doc?.querySelector(`[data-sb-el="${CSS.escape(sb.selectedEl || "")}"]`); if (el) { el.scrollIntoView({ block: "center" }); startInlineEdit(el, { clientX: 0, clientY: 0 }); } return; }
       case "clear-field": { const t = targetFor(btn.dataset.path); if (t.kind === "page") pushHistory(true); setPath(t.root, t.path, ""); if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); } return; }
       case "scheme": { const s = T.COLOR_SCHEMES.find(x => x.id === btn.dataset.scheme); if (!s) return; const t = sb.themeDraft || (sb.themeDraft = S().clone(siteCache.theme)); t.colors = { ...s.colors }; paintLeft(); repaintCanvas(); toast(`${s.label}: on the canvas now. Press Save site theme to keep it for every page.`, 5000); return; }
       case "logo-size-reset": { const t = sb.themeDraft || (sb.themeDraft = S().clone(siteCache.theme)); t.logoWidth = ""; paintLeft(); repaintCanvas(); return; }
