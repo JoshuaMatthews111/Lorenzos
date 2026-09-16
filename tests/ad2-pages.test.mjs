@@ -156,3 +156,14 @@ test("Joshua 2026-09-16: any element of the design can be moved, resized and re-
   const plain = T.renderPage(T.normalizeContent({ design: "d1", slug: "x" }), { practice: true });
   assert.doesNotMatch(plain, /data-sb-el/, "a page without moves keeps its exact bytes");
 });
+
+test("Joshua 2026-09-16: the trash can hides an element or photo (never deletes it) and an element can take a font", () => {
+  const c = T.normalizeContent({ design: "d2", slug: "x", elbox: { "hero:2": { hide: true, label: "Moved to Bay County", font: "Georgia" }, "hero:0": { font: "Comic Sans" } }, pframe: { ba1: { hide: true }, hero: { hide: true } } });
+  assert.deepEqual(c.elbox, { "hero:2": { hide: true, label: "Moved to Bay County", font: "Georgia" } }, "unknown fonts are dropped");
+  assert.deepEqual(c.pframe, { ba1: { hide: true } }, "the top photo can never be hidden");
+  const html = T.renderPage(c, { practice: true });
+  assert.match(html, /hero-sub" style="[^"]*display:none/, "a hidden element is not shown");
+  assert.match(html, /class="a ba ba2" style="[^"]*display:none/, "a hidden photo frame is not shown");
+  assert.match(html, /font-family:'Georgia'/, "the font is applied");
+  assert.ok(T.FONTS.includes("Oswald") && T.FONTS.length >= 8, "a preloaded font list");
+});

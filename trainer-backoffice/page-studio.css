@@ -365,3 +365,5 @@ body.a2-open { overflow: hidden; }
 }
 /* 2026-09-16: the photo the office clicked on the page is the highlighted one on the right */
 .sb-right .a2-photo.is-focus{border-color:#0b6bff;box-shadow:0 0 0 3px rgba(11,107,255,.18)}
+/* 2026-09-16: preloaded icon picker on Feature columns / Icon box */
+.sb-icon-pick{display:flex;flex-wrap:wrap;gap:4px;margin:-4px 0 10px}.sb-icon-pick button{border:1px solid #dbe4ef;background:#fff;border-radius:8px;font-size:18px;line-height:1;padding:5px 6px;cursor:pointer}.sb-icon-pick button:hover,.sb-icon-pick button.on{border-color:#0b6bff;background:#eaf2ff}

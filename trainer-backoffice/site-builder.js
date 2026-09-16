@@ -370,6 +370,7 @@
         <input class="sb-search" type="search" placeholder="Search blocks… (hero, form, faq)" value="${esc(sb.blockSearch)}" data-sb-search="blocks">
         <p class="ps-help">${sb.draft ? (sb.insertAt !== null ? `Click a block to put it at position ${sb.insertAt + 1}.` : sb.selectedId ? "Click a block to add it after the selected one." : "Click a block to add it to the end of the page.") : "Open a page first, then add blocks."}</p>
         ${isKit() ? `<p class="ps-help sb-tip">On this page a new block goes under the section or block you clicked, or where you pressed <b>+ Add block here</b>.</p>` : ""}
+        ${!q || "icon box preloaded icons".includes(q) ? `<h3>Ready-made</h3><div class="sb-block-grid"><button type="button" class="sb-block-card" data-sb-addpreset="iconbox" ${sb.draft ? "" : "disabled"} title="Three icon boxes with words already in them; change anything after"><span class="sb-thumb">🐾 🛡️ 📞</span><strong>Icon box</strong><small>Three preloaded icon boxes: evaluation, guarantee, callback.</small></button></div>` : ""}
         ${groups.map(g => { const list = T.BLOCK_TYPES.filter(b => b.group === g && !(isKit() && T.KIT_EXCLUDED.has(b.type)) && (!q || `${b.label} ${b.help} ${b.type}`.toLowerCase().includes(q))); return list.length ? `<h3>${esc(g)}</h3><div class="sb-block-grid">${list.map(b => `<button type="button" class="sb-block-card" data-sb-addblock="${b.type}" ${sb.draft ? "" : "disabled"} title="${esc(b.help)}"><span class="sb-thumb">${BLOCK_ICONS[b.type] || ""}</span><strong>${esc(b.label)}</strong><small>${esc(b.help)}</small></button>`).join("")}</div>` : ""; }).join("") || `<p class="ps-help">No block matches “${esc(sb.blockSearch)}”.</p>`}`;
     } else if (sb.leftTab === "theme") {
       rail.innerHTML = themePanel();
@@ -379,6 +380,13 @@
   }
 
   // ───────────────────────── theme + menus panels ─────────────────────────
+  // Joshua 2026-09-16: "an icon box ... with preloaded things". Emoji work on every page and every phone.
+  const ICON_PICKS = ["🐕", "🐶", "🦮", "🐕‍🦺", "🦴", "🐾", "🏠", "🛡️", "⭐", "🏆", "✅", "📞", "📅", "🎓", "❤️", "👨‍👩‍👧", "🚶", "🔔", "🎯", "💪", "🧠", "🕊️", "🌟", "💬"];
+  const ICON_BOX_PRESET = { layout: "icon-left", items: [
+    { icon: "🐾", image: "", title: "Free In-Home Evaluation", text: "A trainer meets you and your dog at home and recommends a clear next step. No cost, no obligation.", href: "" },
+    { icon: "🛡️", image: "", title: "90-Day Guarantee", text: "Balanced, proven training with follow-through, backed by our guarantee.", href: "" },
+    { icon: "📞", image: "", title: "Same-Day Callback", text: "Lorenzo's office calls you back the same day to get you started.", href: "" }
+  ] };
   const F = (label, path, value, opts = {}) => S().field(label, path, value, opts).replace(/data-ps-field=/g, "data-sb-field=").replace(/data-ps-list=/g, "data-sb-list=");
   const colorField = (label, path, value, fallback) => `<label class="ps-field"><span>${S().esc(label)}</span><div class="ps-row"><input type="color" data-sb-field="${S().esc(path)}" value="${S().esc(value || fallback)}"><input type="text" data-sb-field="${S().esc(path)}" value="${S().esc(value || "")}" placeholder="${S().esc(fallback)}"></div></label>`;
   // Site Builder 2.0 helpers: a stored address as something the browser can show, a slider, and the video box
@@ -500,7 +508,7 @@
         break;
       case "columns":
         fields = `${F("Small line", p("eyebrow"), block.eyebrow)}${F("Heading", p("heading"), block.heading)}${F("Intro sentence", p("text"), block.text, { type: "textarea", rows: 2 })}${F("Columns", p("count"), block.count, { type: "select", options: [[2, "2"], [3, "3"], [4, "4"]] })}
-          ${block.items.map((it, i) => listItem(`Card ${i + 1}`, index, i, `${F("Icon (emoji, optional)", `${p("items")}.${i}.icon`, it.icon)}${imageField("Photo (optional, replaces the icon)", `${p("items")}.${i}.image`, it.image)}${F("Title", `${p("items")}.${i}.title`, it.title)}${F("Text", `${p("items")}.${i}.text`, it.text, { type: "textarea", rows: 3 })}${F("Link (optional)", `${p("items")}.${i}.href`, it.href, { placeholder: "/dog-training" })}`)).join("")}
+          ${block.items.map((it, i) => listItem(`Card ${i + 1}`, index, i, `${F("Icon (emoji, optional)", `${p("items")}.${i}.icon`, it.icon)}<div class="sb-icon-pick">${ICON_PICKS.map(ic => `<button type="button" class="${it.icon === ic ? "on" : ""}" data-sb-act="set-field" data-path="${p("items")}.${i}.icon" data-value="${ic}" title="Use this icon">${ic}</button>`).join("")}</div>${imageField("Photo (optional, replaces the icon)", `${p("items")}.${i}.image`, it.image)}${F("Title", `${p("items")}.${i}.title`, it.title)}${F("Text", `${p("items")}.${i}.text`, it.text, { type: "textarea", rows: 3 })}${F("Link (optional)", `${p("items")}.${i}.href`, it.href, { placeholder: "/dog-training" })}`)).join("")}
           <button type="button" class="ps-btn" data-sb-act="item-add" data-index="${index}">+ Add a card</button>`;
         break;
       case "steps":
@@ -779,7 +787,39 @@
       ${/--w:/.test(style) ? slider("Wider ↔ narrower", `elbox.${id}.dw`, v("dw", 0), -600, 600, "px") : ""}
       ${/--h:/.test(style) ? slider("Taller ↕ shorter", `elbox.${id}.dh`, v("dh", 0), -400, 400, "px") : ""}
       ${/--fs:/.test(style) ? slider("Text size", `elbox.${id}.fs`, v("fs", 100), 30, 300, "%") : ""}
+      ${/--fs:/.test(style) ? `<label class="ps-field"><span>Font</span><select data-sb-field="elbox.${id}.font"><option value="">The design's font</option>${(A2().FONTS || []).map(f => `<option value="${S().esc(f)}" ${v("font", "") === f ? "selected" : ""} style="font-family:'${S().esc(f)}'">${S().esc(f)}</option>`).join("")}</select></label>` : ""}
+      <button type="button" class="ps-btn" style="color:#b00020;border-color:#f1c2ca" data-sb-act="el-trash">🗑 Remove this from the page</button>
       ${Object.keys(f).length ? `<button type="button" class="ps-btn" data-sb-act="clear-field" data-path="elbox.${id}">Put it back where the design has it</button>` : ""}</div>`;
+  }
+  // Joshua 2026-09-16: "delete object ... allow me just to hit the delete button". Hides the selected element or
+  // photo (stored as hide:true, so nothing is lost); the section's Hidden items list brings it back.
+  function hideSelected() {
+    const doc = $("#sbFrame")?.contentDocument; if (!doc || sb.kind !== "ad2") return false;
+    let basePath = "", el = null, label = "";
+    if (sb.selectedEl) { basePath = `elbox.${sb.selectedEl}`; el = doc.querySelector(`[data-sb-el="${CSS.escape(sb.selectedEl)}"]`); label = elLabel(el).replace(/^[A-Za-z ]+: /, "").replace(/[“”]/g, ""); }
+    else if (sb.focusSlot && sb.focusSlot !== "hero" && sb.focusSlot !== "heroM") { basePath = `pframe.${sb.focusSlot}`; el = frameElFor(doc, sb.focusSlot); }
+    if (!basePath) return false;
+    pushHistory(true);
+    setPath(sb.draft, `${basePath}.hide`, true);
+    if (label) setPath(sb.draft, `${basePath}.label`, label.slice(0, 40));
+    if (el) { el.classList.remove("sb-frame-sel", "sb-clip"); el.querySelector(".sb-frame-handle")?.remove(); el.querySelector(".sb-eltools")?.remove(); el.style.display = "none"; }
+    sb.selectedEl = null; sb.focusSlot = null;
+    markDirty({ rerail: true, canvas: false });
+    S().toast("Removed from the page. Bring it back any time from “Hidden items” in that section.", 6000);
+    return true;
+  }
+  function showHidden(basePath) {
+    pushHistory(true);
+    const t = basePath.split("."); const parent = getPath(sb.draft, t.slice(0, -1).join("."));
+    if (parent && parent[t[t.length - 1]]) { delete parent[t[t.length - 1]].hide; delete parent[t[t.length - 1]].label; if (!Object.keys(parent[t[t.length - 1]]).length) delete parent[t[t.length - 1]]; }
+    markDirty({ rerail: true });
+  }
+  function hiddenItemsPanel(secKey) {
+    const a2 = A2(); const d = sb.draft; const rows = [];
+    Object.entries(d.elbox || {}).forEach(([id, f]) => { if (f?.hide && id.startsWith(`${secKey}:`)) rows.push([`elbox.${id}`, f.label || "Element"]); });
+    (a2.ANCHOR_PHOTOS[secKey] || []).forEach(slot => { if (d.pframe?.[slot]?.hide) rows.push([`pframe.${slot}`, `Photo: ${(a2.PHOTO_SLOTS[d.design] || []).find(x => x[0] === slot)?.[1] || slot}`]); });
+    if (!rows.length) return "";
+    return `<h4>Hidden items</h4>${rows.map(([path, label]) => `<div class="sb-sec-row"><span>${S().esc(label)}</span><button type="button" class="ps-btn" data-sb-act="show-hidden" data-path="${S().esc(path)}">Show again</button></div>`).join("")}`;
   }
   function frameElFor(doc, slot) {
     const img = doc.querySelector(`[data-sb-img="photos.${CSS.escape(slot)}"]`);
@@ -811,7 +851,7 @@
     const editable = frame.matches("[data-sb-edit],[data-sb-richedit]");
     const tools = doc.createElement("div");
     tools.className = "sb-eltools";
-    tools.innerHTML = `<span>${S().esc(isPhoto ? "Photo" : elLabel(frame))}</span>${editable ? `<button type="button" data-eltool="edit">Edit words</button>` : ""}${isPhoto ? `<button type="button" data-eltool="photo">Change photo</button>` : ""}<button type="button" data-eltool="reset" title="Put it back where the design has it">↺ Reset</button><button type="button" class="x" data-eltool="close" title="Done">✕</button>`;
+    tools.innerHTML = `<span>${S().esc(isPhoto ? "Photo" : elLabel(frame))}</span>${editable ? `<button type="button" data-eltool="edit">Edit words</button>` : ""}${isPhoto ? `<button type="button" data-eltool="photo">Change photo</button>` : ""}<button type="button" data-eltool="reset" title="Put it back where the design has it">↺ Reset</button><button type="button" class="x" data-eltool="trash" title="Remove this from the page (you can bring it back from Hidden items)">🗑 Delete</button><button type="button" class="x" data-eltool="close" title="Done">✕</button>`;
     frame.appendChild(tools);
     tools.addEventListener("mousedown", e => e.stopPropagation());
     tools.addEventListener("click", e => {
@@ -820,6 +860,7 @@
       if (act === "edit") startInlineEdit(frame, e);
       else if (act === "photo") openPhotoPicker(`photos.${basePath.slice(7)}`);
       else if (act === "reset") { pushHistory(true); const t = basePath.split("."); const parent = t.length > 1 ? getPath(sb.draft, t.slice(0, -1).join(".")) : sb.draft; if (parent && typeof parent === "object") delete parent[t[t.length - 1]]; markDirty({ rerail: true }); }
+      else if (act === "trash") hideSelected();
       else if (act === "close") { sb.selectedEl = null; sb.focusSlot = null; paintRight(); frame.classList.remove("sb-frame-sel", "sb-clip"); handle.remove(); tools.remove(); }
     });
     // Design units per screen pixel: this element's drawn width over its --w, else the page width over 1024.
@@ -839,10 +880,13 @@
       if (e.button !== 0) return;
       e.preventDefault(); e.stopPropagation();
       drag = { mode, sx: e.clientX, sy: e.clientY, dx: cur("dx"), dy: cur("dy"), dw: cur("dw"), dh: cur("dh"), x: readVar("x"), y: readVar("y"), w: readVar("w"), h: readVar("h"), live: null };
+      doc.body.style.userSelect = "none"; doc.body.style.webkitUserSelect = "none"; // Joshua: the corner drag used to select a letter
+      try { doc.getSelection()?.removeAllRanges(); } catch { /* ignore */ }
       doc.addEventListener("mousemove", move); doc.addEventListener("mouseup", end);
     };
     const move = e => {
       if (!drag) return;
+      e.preventDefault();
       const u = unit();
       const ddx = Math.round((e.clientX - drag.sx) / u), ddy = Math.round((e.clientY - drag.sy) / u);
       const wLim = basePath.startsWith("pframe.") ? 300 : 600;
@@ -854,12 +898,14 @@
     };
     const end = () => {
       doc.removeEventListener("mousemove", move); doc.removeEventListener("mouseup", end);
+      doc.body.style.userSelect = ""; doc.body.style.webkitUserSelect = "";
       if (!drag) return;
       const live = drag.live; drag = null;
       if (!live) return;
       pushHistory(true);
       Object.entries(live).forEach(([k, v]) => setPath(sb.draft, `${basePath}.${k}`, v));
-      markDirty({ rerail: true }); // the redraw keeps the focus: wireFrame decorates the frame again
+      // The page already shows the move (the vars were set live): no canvas rebuild, so nothing bounces (Joshua 2026-09-16).
+      markDirty({ rerail: true, canvas: false });
     };
     frame.addEventListener("mousedown", e => { if (e.target === handle || e.target.closest(".sb-eltools")) return; if (frame.isContentEditable) return; start(e, "move"); });
     handle.addEventListener("mousedown", e => start(e, "size"));
@@ -971,6 +1017,7 @@
       <p class="ps-help sb-tip">This section is part of the 2.0 design: change its words and photos here. To add reviews, a video, photos or anything else, press <b>+ Add block here</b> under it on the page.</p>
       ${fields.map(a2Field).join("") || `<p class="ps-help">${key === "hdr" ? "The logo is on the <b>Page</b> tab, or click the logo on the page." : "This section has no words to change. You can move it or hide it."}</p>`}
       ${key === "hero" ? slider("Headline size", "h1_size", sb.draft.h1_size || 100, 50, 150, "%") : ""}
+      ${hiddenItemsPanel(key)}
       ${slots.length ? `<h4>Photos</h4>${slots.map(([slot, label, file, size]) => a2PhotoField(label, slot, d.photos?.[slot], file, size, a2VideoSlot(design, slot))).join("")}<p class="ps-help">JPG, PNG or WebP, up to 10 MB.</p>` : ""}`;
   }
   function ad2PageFields() {
@@ -1595,6 +1642,7 @@
     const rtab = target.closest("[data-sb-rtab]"); if (rtab) { sb.rightTab = rtab.dataset.sbRtab; sb.right = true; paintTop(); paintRight(); paintRails(); return; }
     const pageRow = target.closest("[data-sb-page]"); if (pageRow) { if (pageRow.dataset.type === "trainer") { sb.panel = null; openTrainer(pageRow.dataset.sbPage.slice(8)).catch(e => toast(e.message, 5000)); return; } if (pageRow.dataset.type === "ad") { closeStudio(); window.LDTT_PAGE_STUDIO.open(pageRow.dataset.sbPage).catch(e => toast(e.message)); return; } sb.panel = null; try { await openPage(pageRow.dataset.sbPage); } catch (e) { toast(e.message, 5000); } return; }
     const addBtn = target.closest("[data-sb-addblock]"); if (addBtn) { if (!sb.draft) { toast("Open a page first."); return; } addBlock(addBtn.dataset.sbAddblock); return; }
+    const presetBtn = target.closest("[data-sb-addpreset]"); if (presetBtn) { if (!sb.draft) { toast("Open a page first."); return; } addBlock("columns"); const b = (sb.draft.blocks || []).find(x => x.id === sb.selectedId); if (b && b.type === "columns") { Object.assign(b, JSON.parse(JSON.stringify(ICON_BOX_PRESET))); markDirty({ rerail: true }); } return; }
     const photo = target.closest("[data-sb-photo]"); if (photo) { const t = targetFor(photo.dataset.sbPhoto); if (t.kind === "page") pushHistory(); setPath(t.root, t.path, photo.dataset.src); if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); } return; }
     const richBtn = target.closest("[data-sb-rich]"); if (richBtn) { const ed = richBtn.closest(".ps-field")?.querySelector("[data-sb-richfield]"); if (ed) richCommand(richBtn.dataset.sbRich, ed); return; }
     const status = target.closest("#sbStatus"); if (status && sb.status === "error") { flushSave(); return; }
@@ -1612,6 +1660,8 @@
       case "set-field": { const t = targetFor(btn.dataset.path); if (t.kind === "page") pushHistory(true); setPath(t.root, t.path, btn.dataset.value || ""); if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); } return; }
       case "layout": { const b = sb.draft?.blocks[index]; if (!b) return; pushHistory(true); b.layout = btn.dataset.layout; markDirty({ rerail: true }); return; }
       case "design-reset": { const b = sb.draft?.blocks[index]; if (!b) return; pushHistory(true); b.design = T.blankBlock(b.type).design; toast("This block's design is back to normal."); markDirty({ rerail: true }); return; }
+      case "show-hidden": showHidden(btn.dataset.path); return;
+      case "el-trash": hideSelected(); return;
       case "el-close": { sb.selectedEl = null; paintRight(); $("#sbFrame")?.contentDocument?.querySelectorAll(".sb-frame-sel").forEach(x => { x.classList.remove("sb-frame-sel"); x.querySelector(".sb-frame-handle")?.remove(); }); return; }
       case "el-edit": { const doc = $("#sbFrame")?.contentDocument; const el = doc?.querySelector(`[data-sb-el="${CSS.escape(sb.selectedEl || "")}"]`); if (el) { el.scrollIntoView({ block: "center" }); startInlineEdit(el, { clientX: 0, clientY: 0 }); } return; }
       case "clear-field": { const t = targetFor(btn.dataset.path); if (t.kind === "page") pushHistory(true); setPath(t.root, t.path, ""); if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); } return; }
@@ -1800,6 +1850,7 @@
       return;
     }
     if (typing) return;
+    if (event.key === "Delete" && sb.kind === "ad2" && (sb.selectedEl || sb.focusSlot) && hideSelected()) { event.preventDefault(); return; }
     const index = sb.draft ? (sb.draft.blocks || []).findIndex(b => b.id === sb.selectedId) : -1;
     if (index === -1) return;
     if (event.altKey && event.key === "ArrowUp") { event.preventDefault(); blockAction("up", index); }
