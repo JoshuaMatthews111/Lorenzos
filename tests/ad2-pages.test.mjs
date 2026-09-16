@@ -138,3 +138,9 @@ test("Joshua 2026-09-16: the top photo can fit (no stretch), move and darken; ev
   const plain = T.renderPage(T.normalizeContent({ design: "d1", slug: "x" }), { practice: true });
   assert.doesNotMatch(plain, /--hpos|--hshade/, "a page without framing keeps the design's exact hero");
 });
+
+test("a shorter line list stays shorter: no starter words are borrowed to fill the gap", () => {
+  const c = T.normalizeContent({ design: "d1", slug: "x", sub: ["One", "Two", "Start with a free in-home evaluation."] });
+  assert.deepEqual(c.sub, ["One", "Two", "Start with a free in-home evaluation.", ""]);
+  assert.equal(T.normalizeContent({ design: "d1", slug: "x" }).sub.length, 4, "a page with no saved lines still gets the starter's four");
+});
