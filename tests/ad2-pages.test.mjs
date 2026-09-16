@@ -176,3 +176,9 @@ test("Joshua 2026-09-16: elements and photo frames can be rotated (not the top p
   assert.match(html, /<h1 class="a" style="[^"]*transform:rotate\(-12deg\)/);
   assert.match(html, /class="a ba ba2" style="[^"]*rotate\(5deg\)/);
 });
+
+test("Joshua 2026-09-16: a photo can show whole (contain) instead of filling its frame", () => {
+  const c = T.normalizeContent({ design: "d2", slug: "x", pframe: { founder: { fit: "contain", y: 0 }, hero: { fit: "contain" } } });
+  assert.deepEqual(c.pframe, { founder: { y: 0, fit: "contain" } }, "the top photo knows only cover");
+  assert.match(T.renderPage(c, { practice: true }), /object-fit:contain;object-position:50% 0%/);
+});

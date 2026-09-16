@@ -822,6 +822,78 @@
     if (!rows.length) return "";
     return `<h4>Hidden items</h4>${rows.map(([path, label]) => `<div class="sb-sec-row"><span>${S().esc(label)}</span><button type="button" class="ps-btn" data-sb-act="show-hidden" data-path="${S().esc(path)}">Show again</button></div>`).join("")}`;
   }
+  // Joshua 2026-09-16: after an upload "say how you want it to fit: top / middle / center, show a preview of how it
+  // will appear, then if needed change the box size, or size the box to fit". Writes pframe.<slot>.
+  function openPhotoFit(slot, url) {
+    const a2 = A2(); const esc = S().esc; const d = sb.draft; if (!d) return;
+    const isHero = slot === "hero" || slot === "heroM";
+    const meta = (a2.PHOTO_SLOTS[d.design] || []).find(x => x[0] === slot);
+    const size = String(meta?.[3] || "").match(/(\d+)\D+(\d+)/);
+    const doc = $("#sbFrame")?.contentDocument;
+    const frameEl = isHero ? null : (doc ? frameElFor(doc, slot) : null);
+    const baseW = frameEl ? Number(frameEl.style.getPropertyValue("--w")) : (size ? Number(size[1]) / 2 : 400);
+    const baseH = frameEl ? Number(frameEl.style.getPropertyValue("--h")) : (size ? Number(size[2]) / 2 : 250);
+    const cur = { ...(d.pframe?.[slot] || {}) };
+    const st = { fit: cur.fit || (isHero ? "" : "cover"), x: cur.x ?? 50, y: cur.y ?? 50, z: cur.z || 100, dw: cur.dw || 0, dh: cur.dh || 0 };
+    let natural = null;
+    const grid = [["0", "0", "Top left"], ["50", "0", "Top"], ["100", "0", "Top right"], ["0", "50", "Left"], ["50", "50", "Middle"], ["100", "50", "Right"], ["0", "100", "Bottom left"], ["50", "100", "Bottom"], ["100", "100", "Bottom right"]];
+    const m = S().modal(`<h3>How should this photo fit?</h3>
+      <p class="ps-help">${esc(meta?.[1] || slot)} · the frame is about ${Math.round(baseW)}×${Math.round(baseH)} on the page. Pick how it fits, tap where the photo should focus, and check the preview.</p>
+      <div class="sb-fit-wrap"><div class="sb-fit-preview" data-fit-preview><img src="${esc(url)}" alt=""></div>
+      <div class="sb-fit-controls">
+        <div class="ps-field"><span>Fit</span><div class="ps-row" data-fit-modes>${isHero
+          ? `<button type="button" class="ps-btn" data-fit="cover">Fit, no stretching</button><button type="button" class="ps-btn" data-fit="">Stretch to the box</button>`
+          : `<button type="button" class="ps-btn" data-fit="cover">Fill the frame (crop)</button><button type="button" class="ps-btn" data-fit="contain">Show the whole photo</button>`}</div></div>
+        <div class="ps-field"><span>Focus</span><div class="sb-fit-grid">${grid.map(([x, y, t]) => `<button type="button" data-fx="${x}" data-fy="${y}" title="${t}"></button>`).join("")}</div></div>
+        <label class="ps-field ps-slider"><span>Zoom in <b data-fit-zoom>${st.z}%</b></span><input type="range" min="100" max="220" step="1" value="${st.z}" data-fit-z></label>
+        ${isHero ? "" : `<div class="ps-field"><span>The frame</span><div class="ps-row"><button type="button" class="ps-btn" data-fit-size>Size the frame to this photo</button></div></div>
+        <label class="ps-field ps-slider"><span>Frame wider ↔ narrower <b data-fit-dw>${st.dw}px</b></span><input type="range" min="-300" max="300" step="1" value="${st.dw}" data-fit-dwi></label>
+        <label class="ps-field ps-slider"><span>Frame taller ↕ shorter <b data-fit-dh>${st.dh}px</b></span><input type="range" min="-300" max="300" step="1" value="${st.dh}" data-fit-dhi></label>`}
+      </div></div>
+      <div class="ps-actions"><button type="button" class="ps-btn red" data-x="apply">Use this</button><button type="button" class="ps-btn" data-x="close">Keep the design's framing</button></div>`);
+    const prev = m.querySelector("[data-fit-preview]"); const img = prev.querySelector("img");
+    const paint = () => {
+      const w = Math.max(40, baseW + st.dw), h = Math.max(40, baseH + st.dh);
+      const pw = 360, ph = Math.max(60, Math.min(300, Math.round(pw * h / w)));
+      prev.style.width = `${pw}px`; prev.style.height = `${ph}px`;
+      const fit = isHero ? (st.fit === "cover" ? "cover" : "fill") : (st.fit === "contain" ? "contain" : "cover");
+      img.style.objectFit = fit; img.style.objectPosition = `${st.x}% ${st.y}%`;
+      img.style.transform = st.z > 100 ? `scale(${st.z / 100})` : ""; img.style.transformOrigin = `${st.x}% ${st.y}%`;
+      m.querySelectorAll("[data-fit]").forEach(b => b.classList.toggle("navy", b.dataset.fit === st.fit));
+      m.querySelectorAll("[data-fx]").forEach(b => b.classList.toggle("on", Number(b.dataset.fx) === Number(st.x) && Number(b.dataset.fy) === Number(st.y)));
+      const zo = m.querySelector("[data-fit-zoom]"); if (zo) zo.textContent = `${st.z}%`;
+      const dwo = m.querySelector("[data-fit-dw]"); if (dwo) dwo.textContent = `${st.dw}px`;
+      const dho = m.querySelector("[data-fit-dh]"); if (dho) dho.textContent = `${st.dh}px`;
+    };
+    img.addEventListener("load", () => { natural = { w: img.naturalWidth, h: img.naturalHeight }; paint(); });
+    m.addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.fit !== undefined) { st.fit = b.dataset.fit; paint(); return; }
+      if (b.dataset.fx !== undefined) { st.x = Number(b.dataset.fx); st.y = Number(b.dataset.fy); paint(); return; }
+      if (b.hasAttribute("data-fit-size")) { if (!natural) { S().toast("The photo is still loading."); return; } st.dh = Math.max(-300, Math.min(300, Math.round(baseW * natural.h / natural.w - baseH))); st.fit = "cover"; st.z = 100; const dhi = m.querySelector("[data-fit-dhi]"); if (dhi) dhi.value = st.dh; paint(); S().toast("The frame now has the photo's shape. Nothing is cut off."); return; }
+      if (b.dataset.x === "apply") {
+        pushHistory(true);
+        const next = { ...cur };
+        delete next.x; delete next.y; delete next.z; delete next.fit; delete next.dw; delete next.dh;
+        if (isHero) { if (st.fit === "cover") next.fit = "cover"; } else if (st.fit === "contain") next.fit = "contain";
+        if (Number(st.x) !== 50) next.x = Number(st.x); if (Number(st.y) !== 50) next.y = Number(st.y);
+        if (st.z > 100) next.z = st.z; if (st.dw) next.dw = st.dw; if (st.dh) next.dh = st.dh;
+        if (!d.pframe) d.pframe = {};
+        if (Object.keys(next).length) d.pframe[slot] = next; else delete d.pframe[slot];
+        sb.focusSlot = slot;
+        markDirty({ rerail: true }); m.remove(); S().toast("Framing applied. Change it any time under the photo's Resize options."); return;
+      }
+      if (b.dataset.x === "close") { m.remove(); }
+    });
+    m.addEventListener("input", e => {
+      if (e.target.matches("[data-fit-z]")) st.z = Number(e.target.value);
+      else if (e.target.matches("[data-fit-dwi]")) st.dw = Number(e.target.value);
+      else if (e.target.matches("[data-fit-dhi]")) st.dh = Number(e.target.value);
+      else return;
+      paint();
+    });
+    paint();
+  }
   function frameElFor(doc, slot) {
     const img = doc.querySelector(`[data-sb-img="photos.${CSS.escape(slot)}"]`);
     if (!img) return null;
@@ -1317,7 +1389,7 @@
     const set = value => { if (!sb?.draft) return; pushHistory(true); setPath(sb.draft, path, value); markDirty({ rerail: true }); };
     m.addEventListener("click", e => {
       const pick = e.target.closest("[data-pick]");
-      if (pick) { set(pick.dataset.pick); m.remove(); toast("Photo changed. Undo with ↶ if it is wrong."); return; }
+      if (pick) { set(pick.dataset.pick); m.remove(); toast("Photo changed. Undo with ↶ if it is wrong."); if (sb.kind === "ad2" && /^photos\./.test(path)) openPhotoFit(path.slice(7), pick.dataset.pick); return; }
       const x = e.target.closest("[data-x]")?.dataset.x;
       if (x === "close") m.remove();
       else if (x === "remove") { set(""); m.remove(); toast("Photo removed."); }
@@ -1549,6 +1621,7 @@
     if (sb.photoModal?.isConnected) sb.photoModal.remove();
     toast(isVideo ? "Video uploaded. It is on the page now; Publish puts it live." : "Photo uploaded. Publish puts it live.", 4500);
     if (t.kind === "page") markDirty({ rerail: true }); else { paintLeft(); repaintCanvas(); }
+    if (!isVideo && sb.kind === "ad2" && /^photos\./.test(path)) openPhotoFit(path.slice(7), url); // Joshua 2026-09-16: "say how you want it to fit"
   }
 
   // Site Builder 2.0: copy any page (site, landing, ad, 2.0). The copy is a draft with its own web address.

@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260916sb12"; // rule 76 photos; rule 85 (2.0 pages); landing page dropdown; rule 89 Site Builder 2.0 (new CSS + lib files). Loads page-studio.css + the lib scripts.
+  const VERSION = "20260916sb13"; // rule 76 photos; rule 85 (2.0 pages); landing page dropdown; rule 89 Site Builder 2.0 (new CSS + lib files). Loads page-studio.css + the lib scripts.
   const API = "/api/pages"; // site-builder: one API for ad, site and landing pages (api/ad-pages.js is an alias)
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/ad2-usmap.js", "/lib/ad2-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
   const store = { pages: null, markets: [], starters: [], importable: [], sandbox: false, loading: false, error: "" };
