@@ -11300,9 +11300,9 @@ function leadFollowUpTextBlock(lead, hasLink) {
   const ref = escapeHtml(lead.remoteId || lead.id);
   const sends = Array.isArray(leadRawPayload(lead).pipeline?.followups) ? leadRawPayload(lead).pipeline.followups.slice(-5).reverse() : [];
   const history = sends.length
-    ? `<ul class="lead-followup-history">${sends.map(s => `<li>${escapeHtml(s.step === "link" ? "Booking link again" : "Tim's follow-up")} · ${escapeHtml(s.status === "sent" ? `sent${s.to_last4 ? ` to ...${s.to_last4}` : ""}` : `${s.status}${s.reason ? `: ${s.reason}` : ""}`)} · ${escapeHtml(formatDateTime(s.at))}${s.by ? ` · ${escapeHtml(s.by)}` : ""}</li>`).join("")}</ul>`
+    ? `<ul class="lead-followup-history">${sends.map(s => `<li>${escapeHtml(s.step === "link" ? "Booking link again" : s.step === "care" ? "Care text (office will call)" : "Tim's follow-up")} · ${escapeHtml(s.status === "sent" ? `sent${s.to_last4 ? ` to ...${s.to_last4}` : ""}` : `${s.status}${s.reason ? `: ${s.reason}` : ""}`)} · ${escapeHtml(formatDateTime(s.at))}${s.by ? ` · ${escapeHtml(s.by)}` : ""}</li>`).join("")}</ul>`
     : `<p class="field-hint">No follow-up text sent yet.</p>`;
-  return `<div class="lead-followup-texts"><span>Follow-up texts</span><p class="field-hint">Practice copy: the text goes only to an active tester phone.</p><div class="row-actions"><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="tim" data-lead-ref="${ref}">Send Tim's follow-up text</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="link" data-lead-ref="${ref}" ${hasLink ? "" : "disabled title=\"No booking link for this lead yet.\""}>Send the booking link again</button></div>${history}</div>`;
+  return `<div class="lead-followup-texts"><span>Follow-up texts</span><p class="field-hint">Practice copy: the text goes only to an active tester phone.</p><div class="row-actions"><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="tim" data-lead-ref="${ref}">Send Tim's follow-up text</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="link" data-lead-ref="${ref}" ${hasLink ? "" : "disabled title=\"No booking link for this lead yet.\""}>Send the booking link again</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="care" data-lead-ref="${ref}">Send care text (Office will call you)</button></div>${history}</div>`;
 }
 
 async function sendLeadFollowUpTextNow(leadId, step) {
@@ -12604,7 +12604,7 @@ async function refreshPublicTrainerBioReviews(trainer) {
     if (current) current.outerHTML = markup;
     else root.querySelector(".trainer-profile-body")?.insertAdjacentHTML("afterend", markup);
     const actions = root.querySelector(".trainer-profile-actions");
-    if (actions && !actions.querySelector(".trainer-profile-reviews-link")) (actions.querySelector("a") || actions).insertAdjacentHTML(actions.querySelector("a") ? "afterend" : "beforeend", trainerBioReviewsButton(reviews));
+    if (actions && !actions.querySelector(".trainer-profile-reviews-link")) actions.insertAdjacentHTML("beforeend", trainerBioReviewsButton(reviews));
   } catch (error) {
     console.warn("trainer bio page reviews: the reviews API was unavailable", error);
   }
@@ -12627,8 +12627,8 @@ function publicTrainerProfileMarkup(trainer) {
         <p class="trainer-profile-location">${location}</p>
         <p class="trainer-profile-summary">${summary}</p>
         <div class="trainer-profile-actions">
-          <a class="btn btn-red" href="${escapeHtml(scheduleUrl)}">Schedule This Trainer</a>${trainerBioReviewsButton(reviews)}
-          <a class="btn btn-outline" href="/find-a-trainer">Back to Trainer Directory</a>
+          <a class="btn btn-red" href="${escapeHtml(scheduleUrl)}">Schedule This Trainer</a>
+          <a class="btn btn-outline" href="/find-a-trainer">Back to Trainer Directory</a>${trainerBioReviewsButton(reviews)}
         </div>
       </article>
     </div>

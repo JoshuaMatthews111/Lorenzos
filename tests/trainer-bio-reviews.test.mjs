@@ -68,9 +68,9 @@ test("bio page: review text is escaped and the star rating is clamped", () => {
   assert.ok(section.includes(`aria-label="5 star review"`));
 });
 
-test("bio page template wires the button next to Schedule This Trainer, the block after the bio, and the API refresh", () => {
+test("bio page template wires the button beside Back to Trainer Directory, the block after the bio, and the API refresh", () => {
   const markup = fn("publicTrainerProfileMarkup");
-  assert.ok(markup.includes(`>Schedule This Trainer</a>\${trainerBioReviewsButton(reviews)}`), "button sits next to the existing call-to-action");
+  assert.ok(markup.includes(`>Back to Trainer Directory</a>\${trainerBioReviewsButton(reviews)}`), "button sits beside Back to Trainer Directory (Joshua 2026-09-16)");
   assert.ok(markup.includes("</section>${trainerBioReviewsSection(trainer, reviews)}"), "block follows the bio section");
   assert.ok(fn("renderPublicTrainerProfile").includes("refreshPublicTrainerBioReviews(trainer);"));
   const refresh = fn("refreshPublicTrainerBioReviews");

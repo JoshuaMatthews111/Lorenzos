@@ -116,7 +116,8 @@ module.exports = async function handler(req, res) {
       const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
       if (!access) return;
       const leadId = B.clean(body.lead_id, 80);
-      const step = B.clean(body.step, 10) === "link" ? "link" : "tim";
+      const stepRaw = B.clean(body.step, 10);
+      const step = stepRaw === "link" ? "link" : stepRaw === "care" ? "care" : "tim";
       if (!/^[0-9a-f-]{36}$/i.test(leadId)) return res.status(400).json({ ok: false, message: "Which lead? The lead id is missing." });
       const lead = (await B.sbOrThrow(`/rest/v1/leads?id=eq.${encodeURIComponent(leadId)}&select=${P.LEAD_SELECT}&limit=1`))?.[0];
       if (!lead) return res.status(404).json({ ok: false, message: "That lead was not found." });
