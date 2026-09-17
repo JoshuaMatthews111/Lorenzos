@@ -261,6 +261,9 @@ const leadStatuses = [
   "Lost / Chose Another Provider",
   "Lost: Client Complaint",
   "Lost: No Trainer in the Area",
+  // Meeting 2026-09-16: two closed statuses for a sale that came apart. They count with Lost (not sold).
+  "Canceled / Refunded",
+  "Canceled / Write off",
   "Bad Lead",
   "Do Not Contact",
   "Archived"
@@ -775,6 +778,8 @@ const leadStatusToDb = {
   "Lost / Chose Another Provider": "lost_chose_another_provider",
   "Lost: Client Complaint": "lost_client_complaint",
   "Lost: No Trainer in the Area": "lost_no_trainer_area",
+  "Canceled / Refunded": "canceled_refunded",
+  "Canceled / Write off": "canceled_write_off",
   "Bad Lead": "bad_lead",
   "Do Not Contact": "do_not_contact",
   "Archived": "archived"
@@ -3487,7 +3492,7 @@ window.LDTT_CAN_SEND_TO_LIVE = canSendToLive;
 function sentToLiveLabel(at, name) {
   if (!at) return "";
   const date = new Date(at);
-  return `Sent to live ✓${name ? ` by ${name}` : ""} at ${date.toLocaleDateString([], { month: "short", day: "numeric" })} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  return `Sent to live ✓${name ? ` by ${name}` : ""} at ${formatDate(date)} ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
 }
 function fullNameOrEmpty(value) {
   const name = String(value || "").replace(/\s+/g, " ").trim().slice(0, 200);
@@ -3500,7 +3505,7 @@ function sendToLiveControls(trainer) {
     const from = trainer?.fromPracticeCopy;
     if (!from) return "";
     const who = from.name || from.by || "the office";
-    const when = from.at ? new Date(from.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "";
+    const when = from.at ? formatDateTime(from.at) : "";
     return `<span class="practice-copy-tag" title="${escapeHtml(`Sent from the practice copy by ${who}${from.by && from.name ? ` (${from.by})` : ""}${when ? ` on ${when}` : ""}`)}">From practice copy — Sent by ${escapeHtml(who)}${when ? ` on ${escapeHtml(when)}` : ""}</span>`;
   }
   const allowed = canSendToLive();
@@ -4607,6 +4612,7 @@ function render() {
   renderSidebar();
   renderTopbar();
   renderView();
+  markRequiredLabels(document);
   requestAnimationFrame(() => enhancePasswordFields(document));
   requestAnimationFrame(enhanceHorizontalScrollers);
   requestAnimationFrame(refreshTemplatePreview);
@@ -4618,6 +4624,25 @@ function render() {
       injectLiveBuilder(frame);
     }
   }, 120);
+}
+
+// Meeting 2026-09-16: every required box wears a red asterisk. A label that holds a `required` control gets
+// a <span class="required-mark">*</span> right after its words (nothing per field to edit); the CSS rule
+// `label:has(> [required]):not(:has(.required-mark))::before` covers any label this pass did not reach.
+function markRequiredLabels(root) {
+  if (!root || typeof root.querySelectorAll !== "function") return;
+  root.querySelectorAll("label:not(.has-required-mark)").forEach(label => {
+    const control = Array.from(label.children).find(child => child.matches?.("input[required], select[required], textarea[required]"));
+    if (!control || control.type === "checkbox" || control.type === "radio" || label.querySelector(".required-mark")) return;
+    const text = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+    if (!text || /\*\s*$/.test(text.textContent)) { label.classList.add("has-required-mark"); return; }
+    const mark = document.createElement("span");
+    mark.className = "required-mark";
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = "*";
+    text.after(mark);
+    label.classList.add("has-required-mark");
+  });
 }
 
 // Joshua 2026-09-16: "I click view bio ... it redirects me back. It's very glitchy." Browsing inside the
@@ -5239,7 +5264,7 @@ function communicationsLeadIsActive(lead) {
   return !new Set([
     "archived", "do_not_contact", "bad_lead", "became_client",
     "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
-    "lost_client_complaint", "lost_no_trainer_area"
+    "lost_client_complaint", "lost_no_trainer_area", "canceled_refunded", "canceled_write_off"
   ]).has(lead.dbStatus || "");
 }
 
@@ -6670,7 +6695,7 @@ function pathwayTestScreen() {
         <label>Customer<select name="customer_tester">${testerOptions(pick("angela") || pick("josh"))}</select></label>
         <label>Trainer<select name="trainer_tester">${testerOptions(pick("tim"))}</select></label>
         <label>Market leader<select name="leader_tester">${testerOptions(pick("tim"))}</select></label>
-        <label>Operations (Tim)<select name="operations_tester">${testerOptions(pick("tim"))}</select></label>
+        <label>Operations (Lorenzo)<select name="operations_tester">${testerOptions(pick("tim"))}</select></label>
       </div>
       <p class="field-help">Give each part a different person to feel the real hand-offs: the customer texts go to the Customer phone, the NEW EVALUATION alert to the Trainer phone, and the escalations to the Leader and Operations phones. If one person plays several parts, that one phone receives all of those texts. Add office members under Communications → Testers (name + mobile) and they appear here.</p>
       <h3>3. Speed</h3>
@@ -6971,7 +6996,7 @@ async function savePipelineSettings() {
 // Send test goes only to the locked phone (rule 82).
 let pipelineTextsState = { loaded: false, loading: false, data: null, error: "", role: "all", stage: "all", open: "", edit: null, fullName: "", busy: false };
 const PTEXT_ROLE_CLASS = { all: "all", client: "client", trainer: "trainer", operations: "ops" };
-const PTEXT_READER = { client: "What the client sees", trainer: "What the trainer sees", operations: "What Tim sees" };
+const PTEXT_READER = { client: "What the client sees", trainer: "What the trainer sees", operations: "What Lorenzo sees" };
 
 async function pipelineTextsRequest(method, body) {
   const token = await window.LDTT_PORTAL?.accessToken?.();
@@ -7075,7 +7100,7 @@ function ptextTemplates(t, d, live) {
   const rows = t.templates.map(tp => {
     const inUse = tp.id === t.active_id;
     const id = escapeHtml(tp.id);
-    const saved = tp.builtin ? "Always kept. The safe fallback." : `Saved by ${escapeHtml(tp.by || "")}${tp.at ? ` · ${escapeHtml(new Date(tp.at).toLocaleDateString())}` : ""}`;
+    const saved = tp.builtin ? "Always kept. The safe fallback." : `Saved by ${escapeHtml(tp.by || "")}${tp.at ? ` · ${escapeHtml(formatDate(tp.at))}` : ""}`;
     const snip = tp.preview.length > 150 ? `${tp.preview.slice(0, 150)}…` : tp.preview;
     const buttons = [
       inUse ? "" : `<button type="button" class="btn btn-red btn-small" data-ptx-activate="${id}" data-ptx-key="${k}"${edit?.id === tp.id ? ` disabled title="Save or cancel the edit first"` : ""}>Use this</button>`,
@@ -7222,7 +7247,7 @@ function pipelineTextClick(event) {
 // to the locked tester phone (rule 82). The API takes no phone or role, so there is no "send to" choice; the note
 // under the table says so. Keys mirror lib/pipeline-texts.js TEXTS; the senders are in lib/pipeline.js
 // (enterPipeline, sendBookingTexts, sendPreEvalTexts, sendEvalCompletedTexts) and lib/office-email.js.
-const PIPELINE_TEST_SCENARIO_ROLES = [["client", "Client"], ["trainer", "Trainer"], ["operations", "Operations (Tim)"]];
+const PIPELINE_TEST_SCENARIO_ROLES = [["client", "Client"], ["trainer", "Trainer"], ["operations", "Operations (Lorenzo)"]];
 const PIPELINE_TEST_SCENARIOS = [
   {
     id: "new_lead_cleveland", label: "New lead (Cleveland 44118)", when: "A website form with SMS consent; a trainer with a calendar is within 50 miles, so the booking link goes out.",
@@ -7315,10 +7340,10 @@ function followUpTextsPanel() {
   const d = followUpState.data;
   if (!d) return panel(title, "", `<p class="panel-copy">The follow-up plan did not load: ${escapeHtml(followUpState.error)}. Reload the page to try again.</p>`, "pad");
   const c = d.counts || {};
-  const when = r => r.group === "new" && r.next?.at ? `Text ${r.next.step} (${r.next.kind === "link" ? "booking link" : "Tim's text"}, ${r.next.label}) on ${new Date(r.next.at).toLocaleString()}` : "Backlog: Tim's text once, when sending is switched on";
+  const when = r => r.group === "new" && r.next?.at ? `Text ${r.next.step} (${r.next.kind === "link" ? "booking link" : "Lorenzo's text"}, ${r.next.label}) on ${new Date(r.next.at).toLocaleString()}` : "Backlog: Lorenzo's text once, when sending is switched on";
   const rows = (d.sample || []).map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(METRICS.LEAD_STATUS_FROM_DB?.[r.status] || r.status)}</td><td>${escapeHtml(r.received ? new Date(r.received).toLocaleString() : "")}</td><td>${escapeHtml(when(r))}</td></tr>`).join("");
   return panel(title, "", `<p class="panel-copy"><strong>Sending is OFF. Nothing here is sent to anybody.</strong> This is the saved plan, so it is ready when you switch it on.</p>
-    <div class="followup-text"><span>Text 1 (15 min), from ${escapeHtml(d.sender || "Tim")}</span><pre>${escapeHtml(d.text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre></div><div class="followup-text"><span>Texts 2-4 (40 min, 24 h, 48 h): the booking link again</span><pre>${escapeHtml(d.link_text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre><small>{{first_name}} becomes the lead's first name; {{booking_link}} their own booking link.</small></div>
+    <div class="followup-text"><span>Text 1 (15 min), from ${escapeHtml(d.sender || "Lorenzo")}</span><pre>${escapeHtml(d.text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre></div><div class="followup-text"><span>Texts 2-4 (40 min, 24 h, 48 h): the booking link again</span><pre>${escapeHtml(d.link_text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre><small>{{first_name}} becomes the lead's first name; {{booking_link}} their own booking link.</small></div>
     <p class="field-hint"><strong>When:</strong> ${escapeHtml((d.steps || []).join(", "))} after the lead comes in, only while they have not booked. Quiet hours ${escapeHtml(d.quiet_hours || "")}: a text waits until 8 AM. <strong>Who:</strong> SMS consent, a phone number, still New Inquiry / Office Contacted / Engaged, not booked, not the recruiting or office-call lane.</p>
     <p class="field-hint"><strong>On the practice copy right now:</strong> ${escapeHtml(String(c.new || 0))} in their first 48 hours · ${escapeHtml(String(c.backlog || 0))} older (the backlog; ${escapeHtml(String(c.backlog_contacted || 0))} of them in Office Contacted) · ${escapeHtml(String(c.not_eligible || 0))} with consent but not eligible. The practice copy's leads can be behind live.</p>
     <div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Received</th><th>Would get</th></tr></thead><tbody>${rows || `<tr><td colspan="4">No leads would get these texts right now.</td></tr>`}</tbody></table></div>`, "pad");
@@ -8954,28 +8979,45 @@ async function loadJourneyTexts() {
 }
 
 // Office 2026-09-15 (meeting 14 Sep 16:30, Tim): every lead that entered the new pipeline is a Track 500 lead.
+// Meeting 2026-09-16 (Joshua, Lorenzo, Missy, Rachel): the badge belongs ONLY to leads that came in from an
+// ad landing page (the old /ads/<slug> pages, whose form sends the page slug) or a 2.0 page (whose form
+// sends the page address, .../ads/<slug>). Website forms, the Contact page, trainer pages and vet referrals
+// wear no badge, even when the pipeline carried them.
+function leadCameFromAdPage(lead = {}) {
+  const raw = leadRawPayload(lead);
+  const values = [raw.source_page, lead.source_page, lead.sourcePage, raw.page_url, raw.landing_url, raw.page_path]
+    .map(value => String(value || "").trim().toLowerCase()).filter(Boolean);
+  if (values.some(value => /^\/?ads(-v2)?\//.test(value) || /^https?:\/\/[^/]+\/ads(-v2)?\//.test(value))) return true;
+  return isPaidAdLandingPageLead(lead);
+}
+
 function isTrack500Lead(lead = {}) {
-  const pipeline = leadRawPayload(lead).pipeline;
-  return Boolean(pipeline && typeof pipeline === "object" && (pipeline.entered_at || pipeline.lane));
+  return leadCameFromAdPage(lead);
 }
 
 function track500Tag(lead) {
-  return isTrack500Lead(lead) ? ` <span class="lead-tag-track500" title="Came in through the Track 500 pipeline">Track 500</span>` : "";
+  return isTrack500Lead(lead) ? ` <span class="lead-tag-track500" title="Came in from an ad landing page">Track 500</span>` : "";
+}
+
+// A deal's Track 500 mark follows its lead: the same ad-page rule, nothing else.
+function dealTrack500Tag(deal) {
+  const lead = deal?.lead_id ? (state.leads || []).find(l => (l.remoteId || l.id) === deal.lead_id) : null;
+  return lead ? track500Tag(lead) : "";
 }
 
 const JOURNEY_STEPS = [
   { key: "captured", label: "Lead captured", channel: "Form" },
   { key: "link", label: "Booking link text to the client", channel: "SMS", text: "booking_link" },
   { key: "care", label: "\"The office will call you\" text", channel: "SMS", text: "care_call", lane: "office_call" },
-  { key: "ops_new", label: "Tim: new lead", channel: "SMS to Operations", text: "ops_new_lead" },
+  { key: "ops_new", label: "Lorenzo: new lead", channel: "SMS to Operations", text: "ops_new_lead" },
   { key: "followup", label: "Follow-ups if not booked (15 min, 40 min, 24 h, 48 h)", channel: "SMS", text: "followup_first", off: true, notBooked: true },
   { key: "booked", label: "Evaluation booked", channel: "Calendar" },
   { key: "confirm", label: "Confirmation + pre-evaluation link to the client", channel: "SMS", text: "booking_confirmation" },
   { key: "alert", label: "Trainer alerted", channel: "SMS to trainer", text: "trainer_new_eval" },
-  { key: "ops_booked", label: "Tim: evaluation booked", channel: "SMS to Operations", text: "ops_eval_booked" },
+  { key: "ops_booked", label: "Lorenzo: evaluation booked", channel: "SMS to Operations", text: "ops_eval_booked" },
   { key: "email", label: "Booking email to the office", channel: "Email" },
   { key: "preeval", label: "Pre-evaluation answers", channel: "Form + SMS to trainer", text: "pre_eval_answers", off: true },
-  { key: "closed", label: "Deal closed: Tim", channel: "SMS to Operations", text: "ops_closed", off: true }
+  { key: "closed", label: "Deal closed: Lorenzo", channel: "SMS to Operations", text: "ops_closed", off: true }
 ];
 
 function journeyWhen(value) {
@@ -9081,10 +9123,11 @@ function dealForm() {
   };
 }
 
-// Meeting 2026-09-12: Program is a dropdown. PLACEHOLDER LIST: the 2026-09-11 training list, until Rachel /
-// Missy send the real program names. "Other (type it)" keeps any program possible, and an older deal's
-// program that is not on the list shows as Other with its words kept.
-const DEAL_PROGRAM_CHOICES = ["Obedience On & Off Leash & Household Manners", "Behavior Modification", "Puppy Training & Socialization", "Board & Train Programs", "Service Dog Training"];
+// Meeting 2026-09-12: Program is a dropdown. Meeting 2026-09-16 (Joshua, Lorenzo, Missy, Rachel): the real
+// program names. Puppy training / socialization and Service Dog Training left the list. "Other (type it)"
+// keeps any program possible, and an older deal's program that is not on the list shows as Other with its
+// words kept.
+const DEAL_PROGRAM_CHOICES = ["Board and Train", "Basic Obedience", "Basic Obedience Plus", "Obedience On Leash", "Obedience Off Leash", "Behavior Modification"];
 function dealProgramField(f) {
   const known = DEAL_PROGRAM_CHOICES.includes(f.program);
   const choice = f.program_choice || (f.program ? (known ? f.program : "__other") : "");
@@ -9161,7 +9204,7 @@ function dealFormDerived(f) {
     .map(x => { const [v, l] = x.split(":"); return `<option value="${v}" ${f.plan_type === v ? "selected" : ""}>${l}</option>`; }).join("");
   const customRows = f.plan_type !== "custom" ? "" : `<div class="custom-dates"><span class="hint">One line per payment. The balance splits evenly across them.</span>${f.custom_dates.map((d, i) => `<div class="row"><input type="date" data-deal-custom="${i}" value="${escapeHtml(d)}"><button type="button" class="btn btn-outline btn-small" data-deal-custom-remove="${i}" ${f.custom_dates.length === 1 ? "disabled" : ""}>Remove</button></div>`).join("")}<button type="button" class="btn btn-outline btn-small" data-deal-custom-add>+ Add a date</button></div>`;
   const installments = ["weekly", "biweekly", "monthly"].includes(f.plan_type) ? `<label>How many payments<input type="number" min="1" max="60" data-deal-field="installments" value="${escapeHtml(String(f.installments))}"></label>` : "";
-  const preview = !schedule.length ? (balance > 0 && f.plan_type === "paid_in_full" ? `<p class="deal-error">There is a ${fmtMoney(balance)} balance. Choose how it will be paid.</p>` : "") : `<div class="deal-schedule">${collected > 0 ? `<div class="deal-schedule-row collected"><span class="seq">0</span><span>Collected today &middot; ${escapeHtml(f.sold_on)}</span><span class="amt">${fmtMoney(collected)}</span></div>` : ""}${schedule.map((p, i) => `<div class="deal-schedule-row"><span class="seq">${i + 1}</span><span>Due ${escapeHtml(p.due_on)}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`).join("")}</div>`;
+  const preview = !schedule.length ? (balance > 0 && f.plan_type === "paid_in_full" ? `<p class="deal-error">There is a ${fmtMoney(balance)} balance. Choose how it will be paid.</p>` : "") : `<div class="deal-schedule">${collected > 0 ? `<div class="deal-schedule-row collected"><span class="seq">0</span><span>Collected today &middot; ${escapeHtml(f.sold_on)}</span><span class="amt">${fmtMoney(collected)}</span></div>` : ""}${schedule.map((p, i) => `<div class="deal-schedule-row"><span class="seq">${i + 1}</span><span>Due ${escapeHtml(formatDate(p.due_on))}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`).join("")}</div>`;
   return `<div class="deal-balance ${over ? "over" : ""}"><span>${over ? "Collected cannot be more than the sale" : "Balance due"}</span><strong>${fmtMoney(Math.max(0, balance))}</strong></div>
     <div class="grid-2">
       <label>How will the balance be paid?<select data-deal-field="plan_type" ${balance <= 0 ? "disabled" : ""}>${planSel}</select></label>
@@ -9197,7 +9240,7 @@ function trainerDealFigures(trainer) {
 function trainerClientTiles(figures) {
   const due = figures.dueNow.length
     ? `${figures.dueNow.length} payment${figures.dueNow.length === 1 ? "" : "s"} due now`
-    : figures.upcoming[0] ? `Next: ${figures.upcoming[0].due_on}` : "Nothing scheduled";
+    : figures.upcoming[0] ? `Next: ${formatDate(figures.upcoming[0].due_on)}` : "Nothing scheduled";
   return `<div class="five-up">${metricGrid([
     // Tim: "we start with 500 and then we go down, 499, 498" — the big number counts down.
     ["trophy", "Clients To Go", figures.clientsToGo, `Track 500 · ${figures.clients} client${figures.clients === 1 ? "" : "s"} signed`, figures.clients ? "up" : ""],
@@ -9215,7 +9258,7 @@ function trainerDealsTable(deals) {
   const rows = deals.map(d => {
     const dp = paymentsForDeal(d.id); const next = dp.find(p => p.status === "scheduled");
     const isOpen = open === d.id;
-    return `<tr class="deal-row${isOpen ? " is-open" : ""}" data-deal-row="${escapeHtml(d.id)}"><td>${escapeHtml(d.sold_on)}</td><td><strong>${escapeHtml(d.client_name)}</strong>${d.dog_name ? `<small>${escapeHtml(d.dog_name)}</small>` : ""}</td><td>${escapeHtml(d.program)}</td><td class="amt">${fmtMoney(d.sold_amount)}</td><td class="amt">${fmtMoney(d.collected_amount)}</td><td class="amt">${fmtMoney(d.balance_due)}</td><td>${next ? `${escapeHtml(next.due_on)} &middot; ${fmtMoney(next.amount)}` : (Number(d.balance_due) > 0 ? "&mdash;" : `<span class="status won">Paid</span>`)}</td><td><button type="button" class="btn btn-outline btn-small" data-deal-row="${escapeHtml(d.id)}" aria-expanded="${isOpen ? "true" : "false"}">${isOpen ? "Hide" : "View more"}</button></td></tr>${isOpen ? `<tr class="deal-detail-row"><td colspan="8">${trainerDealDetail(d, dp)}</td></tr>` : ""}`;
+    return `<tr class="deal-row${isOpen ? " is-open" : ""}" data-deal-row="${escapeHtml(d.id)}"><td>${escapeHtml(formatDate(d.sold_on))}</td><td><strong>${escapeHtml(d.client_name)}</strong>${dealTrack500Tag(d)}${d.dog_name ? `<small>${escapeHtml(d.dog_name)}</small>` : ""}</td><td>${escapeHtml(d.program)}</td><td class="amt">${fmtMoney(d.sold_amount)}</td><td class="amt">${fmtMoney(d.collected_amount)}</td><td class="amt">${fmtMoney(d.balance_due)}</td><td>${next ? `${escapeHtml(formatDate(next.due_on))} &middot; ${fmtMoney(next.amount)}` : (Number(d.balance_due) > 0 ? "&mdash;" : `<span class="status won">Paid</span>`)}</td><td><button type="button" class="btn btn-outline btn-small" data-deal-row="${escapeHtml(d.id)}" aria-expanded="${isOpen ? "true" : "false"}">${isOpen ? "Hide" : "View more"}</button></td></tr>${isOpen ? `<tr class="deal-detail-row"><td colspan="8">${trainerDealDetail(d, dp)}</td></tr>` : ""}`;
   }).join("");
   return `<div class="table-wrap"><table class="data-table trainer-deals-table"><thead><tr><th>Date</th><th>Client</th><th>Program</th><th>Revenue</th><th>Collected</th><th>Balance</th><th>Next payment</th><th></th></tr></thead><tbody>${rows || `<tr><td colspan="8">No clients yet. Your first one goes in with Submit a Deal.</td></tr>`}</tbody></table></div>`;
 }
@@ -9225,9 +9268,9 @@ function trainerDealDetail(deal, payments) {
   const row = (label, value) => `<div><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "—")}</strong></div>`;
   const phone = lead?.phone ? `<div><span>Phone</span><strong><a href="tel:${escapeHtml(String(lead.phone).replace(/[^0-9+]/g, ""))}">${escapeHtml(formatPhoneNumber(lead.phone))}</a></strong></div>` : row("Phone", "");
   const today = new Date().toISOString().slice(0, 10);
-  const schedule = payments.length ? `<div class="deal-schedule">${payments.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${escapeHtml(String(p.sequence))}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(p.due_on)}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>` : "";
+  const schedule = payments.length ? `<div class="deal-schedule">${payments.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${escapeHtml(String(p.sequence))}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(formatDate(p.due_on))}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>` : "";
   return `<section class="detail-note-block trainer-deal-detail">
-    <div class="lead-contact-grid">${row("Client", deal.client_name)}${phone}${row("Email", lead?.email)}${row("Dog", deal.dog_name || (lead ? leadDogLabel(lead) : ""))}${row("Program", deal.program)}${row("Date of sale", deal.sold_on)}<div class="wide"><span>Address</span><strong>${escapeHtml(lead?.address || "—")}</strong></div>${deal.notes ? `<div class="wide"><span>Notes for the office</span><strong>${escapeHtml(deal.notes)}</strong></div>` : ""}</div>
+    <div class="lead-contact-grid">${row("Client", deal.client_name)}${phone}${row("Email", lead?.email)}${row("Dog", deal.dog_name || (lead ? leadDogLabel(lead) : ""))}${row("Program", deal.program)}${row("Date of sale", formatDate(deal.sold_on))}${dealTrack500Tag(deal) ? `<div><span>Track 500</span><strong>Yes: the lead came in from an ad landing page</strong></div>` : ""}<div class="wide"><span>Address</span><strong>${escapeHtml(lead?.address || "—")}</strong></div>${deal.notes ? `<div class="wide"><span>Notes for the office</span><strong>${escapeHtml(deal.notes)}</strong></div>` : ""}</div>
     ${schedule}
     <div class="deal-balance"><span>Balance due</span><strong>${fmtMoney(deal.balance_due)}</strong></div>
     <p class="field-hint">Upsell idea: a client who finished one program may want the next one. Call them on a slow day.</p>
@@ -9301,7 +9344,7 @@ function trainerDealsView() {
   const trainer = trainerById(currentTrainerId());
   const figures = trainerDealFigures(trainer);
   const { deals, dueNow } = figures;
-  const reminders = dueNow.length ? `<section class="source-record-note"><span class="status draft">${dueNow.length} balance payment${dueNow.length === 1 ? "" : "s"} due now</span><p>${dueNow.slice(0, 5).map(p => { const d = deals.find(x => x.id === p.deal_id); return `${escapeHtml(d?.client_name || "Client")} &middot; ${fmtMoney(p.amount)} due ${escapeHtml(p.due_on)}`; }).join("<br>")}</p></section>` : "";
+  const reminders = dueNow.length ? `<section class="source-record-note"><span class="status draft">${dueNow.length} balance payment${dueNow.length === 1 ? "" : "s"} due now</span><p>${dueNow.slice(0, 5).map(p => { const d = deals.find(x => x.id === p.deal_id); return `${escapeHtml(d?.client_name || "Client")} &middot; ${fmtMoney(p.amount)} due ${escapeHtml(formatDate(p.due_on))}`; }).join("<br>")}</p></section>` : "";
   return `${trainerClientTiles(figures)}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Clients", "", trainerDealsTable(deals), "pad")}`;
 }
 
@@ -9438,7 +9481,7 @@ const TRAINER_LOST_REASONS = [["price", "Price concern"], ["not_ready", "Not rea
 
 function trainerLeadActionsBox(lead) {
   if (!lead.remoteId) return "";
-  const closed = ["Became a Client", "Archived", "Do Not Contact", "Bad Lead"].includes(lead.status) || /^Lost/.test(String(lead.status || ""));
+  const closed = ["Became a Client", "Archived", "Do Not Contact", "Bad Lead"].includes(lead.status) || /^(Lost|Canceled)/.test(String(lead.status || ""));
   const alpha = lead.addedToAlpha === true;
   const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
   const reasons = TRAINER_LOST_REASONS.map(([value, label]) => `<option value="${value}" ${pick.reason === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
@@ -9637,7 +9680,7 @@ function clientPaymentsSection(client) {
   return `<section class="detail-note-block client-payments"><h3>Payments</h3>${deals.map(d => {
     const dp = paymentsForDeal(d.id);
     return `<div class="deal-head"><strong>${escapeHtml(d.program)} &middot; ${fmtMoney(d.sold_amount)}</strong><small>${escapeHtml(d.sold_on)} &middot; ${escapeHtml(trainerName(trainerIdFromRemote(d.trainer_id)) || "Trainer")}</small></div>
-    <div class="deal-schedule">${dp.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${p.sequence}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(p.due_on)}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>
+    <div class="deal-schedule">${dp.map(p => { const late = p.status === "scheduled" && p.due_on < today; const cls = p.status === "collected" ? "collected" : p.status === "paid" ? "paid" : late ? "late" : ""; const label = p.sequence === 0 ? "First payment" : `Payment ${p.sequence}`; return `<div class="deal-schedule-row ${cls}"><span class="seq">${p.sequence}</span><span>${label} &middot; ${p.status === "collected" || p.status === "paid" ? `paid ${escapeHtml(p.paid_on || p.due_on)}` : `${late ? "overdue" : "due"} ${escapeHtml(formatDate(p.due_on))}`}</span><span class="amt">${fmtMoney(p.amount)}</span></div>`; }).join("")}</div>
     <div class="deal-balance"><span>Balance due</span><strong>${fmtMoney(d.balance_due)}</strong></div>`;
   }).join("")}</section>`;
 }
@@ -9739,9 +9782,9 @@ function salesPipelineBoard() {
       const nextDue = pays.find(p => p.status === "scheduled");
       return `<article class="sales-card deal-card" data-open-deal="${escapeHtml(d.id)}">
         <header><span class="source-badge trainer" aria-hidden="true">${SOURCE_MARKS.trainer.svg}</span><strong>${escapeHtml(d.client_name)}</strong></header>
-        <small>${escapeHtml(d.program)}${d.dog_name ? ` &middot; ${escapeHtml(d.dog_name)}` : ""}</small>
+        <small>${escapeHtml(d.program)}${d.dog_name ? ` &middot; ${escapeHtml(d.dog_name)}` : ""}${dealTrack500Tag(d)}</small>
         <small class="sales-card-trainer">${escapeHtml(trainerName(trainerIdFromRemote(d.trainer_id)) || "Trainer")}</small>
-        <small class="deal-money">${fmtMoney(d.collected_amount)} of ${fmtMoney(d.sold_amount)}${Number(d.balance_due) > 0 ? ` &middot; ${fmtMoney(d.balance_due)} due${nextDue ? ` by ${escapeHtml(nextDue.due_on)}` : ""}` : " &middot; paid"}</small>
+        <small class="deal-money">${fmtMoney(d.collected_amount)} of ${fmtMoney(d.sold_amount)}${Number(d.balance_due) > 0 ? ` &middot; ${fmtMoney(d.balance_due)} due${nextDue ? ` by ${escapeHtml(formatDate(nextDue.due_on))}` : ""}` : " &middot; paid"}</small>
       </article>`;
     }).join("");
     const cards = dealCards + items.slice(0, 25).map(lead => `
@@ -9785,12 +9828,12 @@ function salesPipelineBoard() {
 const PIPELINE_TEXT_ROLE_FALLBACK = [
   { key: "client", label: "Client" },
   { key: "trainer", label: "Trainer" },
-  { key: "operations", label: "Operations (Tim)" }
+  { key: "operations", label: "Operations (Lorenzo)" }
 ];
 const PIPELINE_TEXT_ROLE_WHO = {
   client: "The person who filled in the form. Texts go to the phone they typed, when they ticked the texting box.",
   trainer: "The trainer the client picked, or the one the market's lead trainer handed the lead to. Practice copy: the trainer tester phone in the email box below.",
-  operations: "Tim. Gets the new-lead and evaluation-booked alerts. Practice copy: the Operations tester phone in the email box below."
+  operations: "Lorenzo. Gets the new-lead and evaluation-booked alerts. Practice copy: the Operations tester phone in the email box below."
 };
 
 function pipelineSettingsSection() {
@@ -11305,9 +11348,9 @@ function leadFollowUpTextBlock(lead, hasLink) {
   const ref = escapeHtml(lead.remoteId || lead.id);
   const sends = Array.isArray(leadRawPayload(lead).pipeline?.followups) ? leadRawPayload(lead).pipeline.followups.slice(-5).reverse() : [];
   const history = sends.length
-    ? `<ul class="lead-followup-history">${sends.map(s => `<li>${escapeHtml(s.step === "link" ? "Booking link again" : s.step === "care" ? "Care text (office will call)" : "Tim's follow-up")} · ${escapeHtml(s.status === "sent" ? `sent${s.to_last4 ? ` to ...${s.to_last4}` : ""}` : `${s.status}${s.reason ? `: ${s.reason}` : ""}`)} · ${escapeHtml(formatDateTime(s.at))}${s.by ? ` · ${escapeHtml(s.by)}` : ""}</li>`).join("")}</ul>`
+    ? `<ul class="lead-followup-history">${sends.map(s => `<li>${escapeHtml(s.step === "link" ? "Booking link again" : s.step === "care" ? "Care text (office will call)" : "Lorenzo's follow-up")} · ${escapeHtml(s.status === "sent" ? `sent${s.to_last4 ? ` to ...${s.to_last4}` : ""}` : `${s.status}${s.reason ? `: ${s.reason}` : ""}`)} · ${escapeHtml(formatDateTime(s.at))}${s.by ? ` · ${escapeHtml(s.by)}` : ""}</li>`).join("")}</ul>`
     : `<p class="field-hint">No follow-up text sent yet.</p>`;
-  return `<div class="lead-followup-texts"><span>Follow-up texts</span><p class="field-hint">Practice copy: the text goes only to an active tester phone.</p><div class="row-actions"><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="tim" data-lead-ref="${ref}">Send Tim's follow-up text</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="link" data-lead-ref="${ref}" ${hasLink ? "" : "disabled title=\"No booking link for this lead yet.\""}>Send the booking link again</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="care" data-lead-ref="${ref}">Send care text (Office will call you)</button></div>${history}</div>`;
+  return `<div class="lead-followup-texts"><span>Follow-up texts</span><p class="field-hint">Practice copy: the text goes only to an active tester phone.</p><div class="row-actions"><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="tim" data-lead-ref="${ref}">Send Lorenzo's follow-up text</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="link" data-lead-ref="${ref}" ${hasLink ? "" : "disabled title=\"No booking link for this lead yet.\""}>Send the booking link again</button><button class="btn btn-outline btn-small" type="button" data-lead-followup-text="care" data-lead-ref="${ref}">Send care text (Office will call you)</button></div>${history}</div>`;
 }
 
 async function sendLeadFollowUpTextNow(leadId, step) {
@@ -11638,7 +11681,7 @@ function submissionReviewList(rows) {
     const actionButtons = reviewActionButtons(sub, true);
     return `<tr>
       <td class="review-list-main"><div>${thumbnail}<div><strong>${escapeHtml(sub.title || "Review submission")}</strong><span class="submission-rating">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</span><p>${escapeHtml(excerpt)}</p><small>${escapeHtml(reviewer)}${sub.reviewerLocation ? ` · ${escapeHtml(sub.reviewerLocation)}` : ""}</small></div></div></td>
-      <td><strong>${escapeHtml(sourceLabel)}</strong><small>${escapeHtml(sub.submittedAt ? new Date(sub.submittedAt).toLocaleDateString() : "Date pending")}</small></td>
+      <td><strong>${escapeHtml(sourceLabel)}</strong><small>${escapeHtml(sub.submittedAt ? formatDate(sub.submittedAt) : "Date pending")}</small></td>
       <td><span class="status ${submissionStatusClass(sub.status)}">${escapeHtml(sub.status || "Pending")}</span></td>
       <td><textarea class="review-list-note" data-submission-note="${escapeHtml(sub.id)}" placeholder="Office note...">${escapeHtml(sub.officeNote || sub.note || "")}</textarea></td>
       <td><div class="review-list-actions">${actionButtons}<button class="btn btn-outline btn-small" type="button" data-open-submission-detail="${escapeHtml(sub.id)}">Open</button></div>${reviewFrameControl(sub)}</td>
@@ -11671,7 +11714,7 @@ function submissionReviewCard(sub, admin) {
     <div class="submission-review-body">
       <div class="submission-review-meta"><span class="submission-type">${escapeHtml(sub.type)}</span><span class="status ${submissionStatusClass(sub.status)}">${escapeHtml(sub.status)}</span></div>
       <h3>${escapeHtml(sub.title)}</h3>
-      <p class="submission-trainer">Source: <strong>${escapeHtml(sourceLabel)}</strong>${sub.submittedAt ? ` · ${escapeHtml(new Date(sub.submittedAt).toLocaleDateString())}` : ""}</p>
+      <p class="submission-trainer">Source: <strong>${escapeHtml(sourceLabel)}</strong>${sub.submittedAt ? ` · ${escapeHtml(formatDate(sub.submittedAt))}` : ""}</p>
       <div class="submission-rating" aria-label="${rating} star review">${"★".repeat(rating)}${"☆".repeat(5 - rating)}</div>
       ${reviewerDetails ? `<div class="submission-reviewer-details">${reviewerDetails}</div>` : ""}
       ${writtenContent}
@@ -12764,7 +12807,7 @@ function recordTrainerPageView(trainer) {
 
 function statusClass(status) {
   if (conversionStatuses().includes(status)) return "won";
-  if (status.startsWith("Lost") || status === "Bad Lead" || status === "Do Not Contact") return "lost";
+  if (status.startsWith("Lost") || status.startsWith("Canceled") || status === "Bad Lead" || status === "Do Not Contact") return "lost";
   if (status === "Engaged Lead: No Outcome") return "offered";
   if (status.includes("Follow")) return "follow";
   // A cancelled evaluation is still an open lead that needs a call back, so it
@@ -12792,10 +12835,12 @@ function initials(name) {
   return String(name).split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
+// Meeting 2026-09-16: every date the office and trainers see reads mm/dd/yyyy (09/17/2026). Times unchanged.
 function formatDate(value) {
   if (!value) return "—";
-  const date = new Date(`${value}T12:00:00`);
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const date = value instanceof Date ? value : new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? `${value}T12:00:00` : value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
 }
 
 function parseTimestamp(value) {

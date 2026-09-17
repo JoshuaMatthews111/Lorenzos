@@ -39,7 +39,7 @@ function stubFetch(calls) {
   };
 }
 
-test("office button: Tim's follow-up posts to pathway 1 as a follow-up with the rendered words", async () => {
+test("office button: Lorenzo's follow-up posts to pathway 1 as a follow-up with the rendered words", async () => {
   const calls = [];
   stubFetch(calls);
   const P = load(true);
@@ -55,7 +55,7 @@ test("office button: Tim's follow-up posts to pathway 1 as a follow-up with the 
   assert.equal(hook.body.phone, TESTER);
   assert.equal(hook.body.customer_phone, TESTER);
   assert.equal(hook.body.practice, true);
-  assert.ok(String(hook.body.message).startsWith("Hi Sam, this is Tim"), hook.body.message);
+  assert.ok(String(hook.body.message).startsWith("Hi Sam, this is Lorenzo with Lorenzo's Dog Training Team"), hook.body.message);
 
   const link = await P.sendFollowUpText({ lead, step: "link" });
   assert.equal(link.status, "sent", JSON.stringify(link));
@@ -91,7 +91,7 @@ test("the office lead panel draws the buttons, gated to office admins on the pra
   assert.match(fn, /if \(!window\.LDTT_IS_SANDBOX \|\| session\.role !== "admin"\) return "";/);
   assert.match(fn, /lead\.smsConsent === "Yes" \|\| lead\.smsConsent === true/);
   assert.match(fn, /!lead\?\.phone/);
-  assert.match(fn, /Send Tim's follow-up text/);
+  assert.match(fn, /Send Lorenzo's follow-up text/);
   assert.match(fn, /Send the booking link again/);
   // Drawn only from the office lead panel's booking block (leadBookingBlock), never from a trainer screen.
   const drawnAt = [...app.matchAll(/leadFollowUpTextBlock\(/g)].length;

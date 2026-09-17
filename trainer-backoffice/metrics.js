@@ -42,6 +42,9 @@
     "Lost / Chose Another Provider": "lost_chose_another_provider",
     "Lost: Client Complaint": "lost_client_complaint",
     "Lost: No Trainer in the Area": "lost_no_trainer_area",
+    // Meeting 2026-09-16: two closed statuses for a sale that came apart. They count with Lost, never as sold.
+    "Canceled / Refunded": "canceled_refunded",
+    "Canceled / Write off": "canceled_write_off",
     "Bad Lead": "bad_lead",
     "Do Not Contact": "do_not_contact",
     "Archived": "archived"
@@ -86,7 +89,7 @@
     // Label only (meeting 2026-09-11): renamed from the old trainer-hands wording. Key and statuses unchanged (rule 10).
     ["evaluated", "Eval Completed",         "sales",     ["evaluation_complete"]],
     ["won",       "Won",                    "won",       ["became_client"]],
-    ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead"]],
+    ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead", "canceled_refunded", "canceled_write_off"]],
     ["winback",   "Win-back",               "winback",   ["lost_no_response", "follow_up_call_needed", "evaluation_cancelled", "lost_no_trainer_area"]]
   ];
 
@@ -207,7 +210,7 @@
   const submittedLeadRows = rows => list(rows).filter(lead => lead.submitted !== false);
   const countByStatus = (rows, status) => list(rows).filter(row => row.status === status).length;
   const leadStatusCounts = (rows, statuses = LEAD_STATUS_COUNT_ORDER) => statuses.map(status => [status, countByStatus(rows, status)]);
-  const boardStatus = status => (/^(Lost|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status);
+  const boardStatus = status => (/^(Lost|Canceled|Bad Lead|Do Not Contact|Archived)/.test(status) ? "Lost" : status);
   const lostLeadRows = rows => list(rows).filter(lead => boardStatus(lead.status) === "Lost");
   const newInquiryCount = rows => list(rows).filter(lead => (lead.status || "New Inquiry") === "New Inquiry").length;
 
@@ -461,7 +464,7 @@
   ];
   function trainerStageFor(lead) {
     const raw = String((lead && lead.status) || "New Inquiry");
-    const status = /^Lost/.test(raw) ? "Lost" : raw;
+    const status = /^(Lost|Canceled)/.test(raw) ? "Lost" : raw; // Canceled / Refunded and Canceled / Write off sit with Lost
     const found = TRAINER_PIPELINE_STAGES.find(([, , statuses]) => statuses.includes(status));
     return found ? found[0] : null;
   }

@@ -384,7 +384,7 @@ test("phone consultation: customer-care text only through its own Make route, ne
     const care = hooks(calls, "/testhookcare");
     assert.equal(care.length, 1, "one text, and none without SMS consent");
     assert.equal(care[0].body.phone, TESTER);
-    assert.match(care[0].body.message, /Our office will call you shortly\./);
+    assert.match(care[0].body.message, /Our office will call you shortly from \(216\) 475-5999\. Reply STOP to opt out\.$/);
     assert.equal(hooks(calls, "/testhookone").length, 0);
     assert.equal(db.leads.find(l => l.id === b.id).raw_payload.pipeline.care_text.status, "sent");
     assert.match(db.leads.find(l => l.id === noConsent.id).raw_payload.pipeline.care_text.reason, /No SMS consent/);

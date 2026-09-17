@@ -19,7 +19,7 @@ const read = path => readFileSync(resolve(import.meta.dirname, "..", path), "utf
 // trainer_new_eval gains {appointment_date} ("day of week, date and time"), and pre_eval_answers is now
 // in use (the trainer's "eval questions completed" text with a portal prompt).
 const MAKE_WORDS = {
-  booking_link: "Hi {first_name}, this is Lorenzo’s Dog Training Team. We received your request for help with {problem}.\n\nYou can schedule your complimentary evaluation here:\n{booking_link}\n\nIf you have a question first, just reply to this message. Reply STOP to opt out.",
+  booking_link: "Hi {first_name}, this is Lorenzo’s Dog Training Team. We received your request for help with {problem}.\n\nYou can schedule your complimentary evaluation here:\n{booking_link}\n\nReply STOP to opt out.", // meeting 2026-09-16: no "reply to this message" (replies go nowhere)
   booking_confirmation: "Hi {first_name} — you’re confirmed with {trainer_first_name} from Lorenzo’s Dog Training Team.\n\n📅 {appointment_day}, {appointment_date} at {appointment_time}\n📍 {service_address}\n\nBefore your trainer arrives, please complete these quick questions about {dog_name} so we can make the most of your evaluation:\n{pre_eval_link}\n\nWe look forward to meeting you.",
   trainer_new_eval: "🔔 NEW LDTT EVALUATION\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\nDog: {dog_name}\nPrimary concern: {problem}\n{safety_flag}\nPlease call the client today to introduce yourself, then mark CONTACTED: {trainer_portal_link}",
   ops_new_lead: "New LDTT lead: {client_name}, ZIP {zip}, {problem}. From: {source}. {next_step} {link}",
@@ -136,7 +136,7 @@ test("service-dog leads wear a gold tag on office, Sales and trainer cards and i
   assert.match(read("trainer-backoffice/styles.css"), /\.lead-tag-service-dog \{/);
 });
 
-test("follow-up plan: Tim's text first, then the booking link at 30 min and 24 h (still not sending; Joshua 2026-09-16)", () => {
+test("follow-up plan: Lorenzo's text first, then the booking link at 30 min and 24 h (still not sending; Joshua 2026-09-16)", () => {
   assert.deepEqual(R.STEPS.map(s => s.kind), ["tim", "link", "link"]);
   assert.equal(R.SENDING_ENABLED, false);
   assert.equal(R.linkTextFor({ first_name: "Angela Marie" }, "https://x/book"), "Hi Angela, it's Lorenzo's Dog Training Team. Here is your link to book your free evaluation:\nhttps://x/book\n\nReply STOP to opt out.");

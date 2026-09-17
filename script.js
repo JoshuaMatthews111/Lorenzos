@@ -680,6 +680,29 @@ const enterPracticePipeline=async(canonical,entries)=>{
   }
 };
 const practiceEsc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+// Meeting 2026-09-16 (Lorenzo, Missy, Rachel): on the PRACTICE COPY a Contact Us submit whose "I want to..."
+// answer is a booking lane does not stop at "the office will contact you" - it goes straight into the same
+// booking flow the 2.0 ad pages use (/book?lead=&zip=: ZIP -> trainer within 50 miles -> time -> questions).
+// The phone-consultation and become-a-trainer answers keep today's thank-you (the office calls / recruiting).
+// Live never runs this: the capture listener below only exists when /api/environment says sandbox, and the
+// helper checks window.LDTT_IS_SANDBOX again on top of that.
+const CONTACT_BOOKING_ANSWERS=[
+  'Schedule an in person evaluation with a trainer in my area',
+  'Schedule a virtual evaluation',
+  'Schedule a training session with my dog trainer'
+];
+const contactAnswerBooks=answer=>CONTACT_BOOKING_ANSWERS.includes(String(answer||'').replace(/\s+/g,' ').trim());
+const practiceBookingUrl=(form,entries,canonical,pipeline)=>{
+  if(!window.LDTT_IS_SANDBOX) return '';
+  if(!form?.matches?.('.contact-intake')) return '';
+  if(!canonical?.lead_id) return '';
+  if(!contactAnswerBooks(entries?.i_want_to)) return '';
+  if(pipeline?.lane&&pipeline.lane!=='booking') return ''; // the server's lane table wins when it disagrees
+  if(pipeline?.skipped) return '';
+  if(pipeline?.book_url) return String(pipeline.book_url);
+  const zip=String(entries?.zip||'').replace(/\D/g,'').slice(0,5);
+  return `/book?lead=${encodeURIComponent(canonical.lead_id)}${zip?`&zip=${encodeURIComponent(zip)}`:''}`;
+};
 const practiceContactEntries=form=>{
   const data=new FormData(form);
   const params=new URLSearchParams(window.location.search);
@@ -719,6 +742,13 @@ const submitPracticeContact=async form=>{
     const canonical=await submitPublicFormToSupabase('submit-contact',entries);
     if(canonical?.skipped||(!canonical?.lead_id&&!canonical?.application_id)) throw new Error('The practice record could not be confirmed. Please try again.');
     const {pipeline}=await enterPracticePipeline(canonical,entries);
+    const bookingUrl=practiceBookingUrl(form,entries,canonical,pipeline);
+    if(bookingUrl){
+      // Booking lane: the details are saved and in the pipeline; go pick a trainer and a time (prefilled).
+      say('Saved. Taking you to pick your trainer and time…','success');
+      window.location.assign(bookingUrl);
+      return;
+    }
     const message=form.dataset.successMessage||"Thank you, your request was submitted. Lorenzo's office has your details and will follow up with the next step.";
     const link=pipeline?.book_url?` <a href="${practiceEsc(pipeline.book_url)}">Pick your evaluation time</a>`:'';
     say(`PRACTICE COPY: ${practiceEsc(message)}${link}`,'success');

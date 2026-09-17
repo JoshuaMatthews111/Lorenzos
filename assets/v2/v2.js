@@ -77,6 +77,30 @@
     email: "Please add an email address that looks like name@example.com."
   };
 
+  // Meeting 2026-09-16: every required box wears a red asterisk, placed right after the label's words.
+  function markRequired(root) {
+    root.querySelectorAll("label").forEach(function (label) {
+      var control = null;
+      for (var i = 0; i < label.children.length; i += 1) {
+        var c = label.children[i];
+        if ((c.tagName === "INPUT" || c.tagName === "SELECT" || c.tagName === "TEXTAREA") && c.required && c.type !== "checkbox" && c.type !== "radio") { control = c; break; }
+      }
+      if (!control || label.querySelector(".required-mark")) return;
+      var text = null;
+      for (var j = 0; j < label.childNodes.length; j += 1) {
+        var n = label.childNodes[j];
+        if (n.nodeType === 3 && n.textContent.trim()) { text = n; break; }
+      }
+      if (!text) return;
+      var mark = document.createElement("span");
+      mark.className = "required-mark";
+      mark.setAttribute("aria-hidden", "true");
+      mark.textContent = "*";
+      text.parentNode.insertBefore(mark, text.nextSibling);
+    });
+  }
+  markRequired(document);
+
   function validate(form, status) {
     var bad = null;
     form.querySelectorAll("[required]").forEach(function (el) {

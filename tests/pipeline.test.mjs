@@ -214,6 +214,23 @@ test("a trainer-page lead stays with its trainer; the free ebook opt-in is left 
   assert.equal(hookCalls(calls, 1).length, 1, "only Lorenzo's page lead is texted");
 });
 
+// Meeting 2026-09-16: the ops text's {source} names the page; a 2.0 ad page never reads "website".
+test("ops text source: Ad page 2.0 / Ad page / Trainer page / Website", () => {
+  const { P } = load(true);
+  const s = (over, via = "website-form", trainer = null) => P.sourceWords({ raw_payload: {}, ...over }, via, trainer);
+  assert.equal(s({ source_page: "ads-v2/pensacola" }, "booking-lead"), "Ad page 2.0: Pensacola, FL");
+  assert.equal(s({ source_page: "ldtt-ads-v2/cleveland" }, "booking-lead"), "Ad page 2.0: Cleveland / Akron, OH");
+  assert.equal(s({ source_page: "https://ldtt-ads-v2-sandbox.vercel.app/miramar-beach" }, "booking-lead"), "Ad page 2.0: Miramar Beach, FL");
+  assert.equal(s({ source_page: "ldtt-ads-v2" }, "booking-lead"), "Ad page 2.0");
+  assert.equal(s({ source_page: "dog-training-cleveland-oh.html" }), "Ad page: Cleveland / Akron, OH");
+  assert.equal(s({ source_page: "dog-training-boise-id" }), "Ad page: Boise, ID");
+  assert.equal(s({ source_page: "trainer landing page: Fred Harris", trainer_slug: "fred-harris" }, "website-form", { full_name: "Fred Harris" }), "Trainer page: Fred Harris");
+  assert.equal(s({ source_page: "Fred Harris | LDTT", trainer_slug: "fred-harris" }), "Trainer page: Fred Harris");
+  assert.equal(s({ source_page: "contact.html", raw_payload: { source_page: "contact.html" } }), "Website: Contact Us");
+  assert.equal(s({ source_page: "get-started.html" }), "Website: get-started.html");
+  assert.doesNotMatch(s({ source_page: "ads-v2/atlanta" }, "booking-lead"), /website/i);
+});
+
 test("booking-lead (2.0 pages): texts once, a double submit never texts twice", async () => {
   const { leadApi } = load(true);
   const { db, calls } = fakeWorld();

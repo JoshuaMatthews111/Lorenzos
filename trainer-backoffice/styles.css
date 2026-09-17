@@ -5848,6 +5848,12 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 }
 @media (prefers-reduced-motion: reduce) { .ptx-chip { transition: none; } }
 /* Rule 87: Track 500 tag + the real lead timeline (sent / not sent / built-but-off, words in use). */
+/* Meeting 2026-09-16: required boxes wear a red asterisk. app.js markRequiredLabels() adds the span after
+   the label's words; the :has rule catches any label it did not reach (asterisk before the words there). */
+.required-mark { color: #c8102e; font-weight: 900; margin-left: 3px; }
+label:has(> input[required]):not(:has(.required-mark))::before,
+label:has(> select[required]):not(:has(.required-mark))::before,
+label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* "; color: #c8102e; font-weight: 900; }
 .lead-tag-track500 { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #fff; background: #071f46; border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 1px; }
 .lead-journey h3 .lead-tag-track500 { font-size: 12px; vertical-align: 3px; }
 .journey-step.skipped { border-color: #f1c2ca; }
@@ -5890,3 +5896,6 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
   .row-actions { flex-wrap: wrap; gap: 8px; }
   .portal-access-table .btn { width: 100%; }
 }
+
+/* Meeting 2026-09-16 (Lorenzo, Missy): the lead's name on every card is bigger, black and bold. */
+.lead-card .lead-card-who strong, .lead-card-top strong, .sales-card header strong, .trainer-lead-card h3, .trainer-lead-card .lead-owner, .lead-card > strong, .lead-card h3 { font-size: 1.05rem !important; font-weight: 900 !important; color: #000 !important; letter-spacing: -.01em; white-space: normal !important; }

@@ -36,7 +36,7 @@ const LOST_REASONS = {
 };
 // Same funnel words as api/operational-mutation.js LIFECYCLE_STATUS_EVENTS.
 const LIFECYCLE = { evaluation_complete: "evaluation_completed", lost_no_response: "lost_no_response" };
-const CLOSED = new Set(["became_client", "archived", "do_not_contact", "bad_lead", "lost_no_trainer_area", ...Object.values(LOST_REASONS)]);
+const CLOSED = new Set(["became_client", "archived", "do_not_contact", "bad_lead", "lost_no_trainer_area", "canceled_refunded", "canceled_write_off", ...Object.values(LOST_REASONS)]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Same table as lib/booking.js US_STATE_CODES (not exported there): full name -> code, so "Ohio" == "OH".
 const STATE_CODES = {"alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC", "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA", "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY"};

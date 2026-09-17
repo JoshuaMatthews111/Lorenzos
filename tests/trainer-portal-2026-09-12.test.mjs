@@ -127,9 +127,14 @@ test("Submit a Deal: Program dropdown keeps any program; picking a lead fills an
   const known = ctx.dealProgramField({ program: "Behavior Modification", program_choice: "" });
   assert.match(known, /<option value="Behavior Modification" selected>/);
   assert.doesNotMatch(known, /data-deal-field="program"/, "no typing box for a listed program");
-  const old = ctx.dealProgramField({ program: "Basic Obedience", program_choice: "" });
+  // Meeting 2026-09-16: the real program list. Puppy training and Service Dog Training left it; an older
+  // deal that named one keeps its words under Other.
+  assert.deepEqual(Array.from(ctx.DEAL_PROGRAM_CHOICES), ["Board and Train", "Basic Obedience", "Basic Obedience Plus", "Obedience On Leash", "Obedience Off Leash", "Behavior Modification"]);
+  assert.match(known, /<option value="Basic Obedience Plus" >/);
+  assert.match(known, /<option value="__other"[^>]*>Other \(type it\)<\/option>/);
+  const old = ctx.dealProgramField({ program: "Puppy Training & Socialization", program_choice: "" });
   assert.match(old, /value="__other" selected/);
-  assert.match(old, /data-deal-field="program" value="Basic Obedience"/, "an older deal keeps its words");
+  assert.match(old, /data-deal-field="program" value="Puppy Training &amp; Socialization"/, "an older deal keeps its words");
   const xss = ctx.dealProgramField({ program: '<img src=x onerror=alert(1)>', program_choice: "" });
   assert.doesNotMatch(xss, /<img/);
   assert.match(app, /if \(key === "lead_id"\) \{\n      const lead = value \? trainerLeads\(currentTrainerId\(\)\)\.find/);

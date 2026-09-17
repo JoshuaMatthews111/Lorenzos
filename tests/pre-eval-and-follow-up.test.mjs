@@ -89,7 +89,9 @@ test("follow-up texts: saved wording, 15 / 30 min / 24 h, sending OFF and no sen
   assert.equal(R.SENDING_ENABLED, false);
   assert.deepEqual(R.STEPS.map(s => s.minutes), [15, 30, 1440]);
   assert.match(R.FOLLOW_UP_TEXT, /^Hi \{\{first_name\}\}, this is \{\{sender_name\}\} with Lorenzo's Dog Training Team\. You reached out to us through our website for help with your dog, and I wanted to connect with you\.\n\nAre you looking for help with training your dog\? If so, reply YES and I will help you get started\.$/);
-  assert.equal(R.textFor(lead()), R.FOLLOW_UP_TEXT.replace("{{first_name}}", "Angela").replace("{{sender_name}}", "Tim") + "\n\nReply STOP to opt out.");
+  assert.equal(R.textFor(lead()), R.FOLLOW_UP_TEXT.replace("{{first_name}}", "Angela").replace("{{sender_name}}", "Lorenzo") + "\n\nReply STOP to opt out.");
+  assert.equal(R.SENDER_NAME, "Lorenzo", "meeting 2026-09-16: the follow-up is signed Lorenzo");
+  assert.match(R.textFor(lead()), /^Hi Angela, this is Lorenzo with Lorenzo's Dog Training Team\./);
   const src = read("lib/reengage.js").replace(/\/\/[^\n]*/g, "");
   assert.doesNotMatch(src, /fetch\(|postHook|make\.com|twilio|require\(/i, "the planner cannot send anything");
   const followupBlock = read("api/pipeline.js").match(/if \(op === "followup"\) \{[\s\S]*?\n      \}/)[0].replace(/\/\/[^\n]*/g, "");
