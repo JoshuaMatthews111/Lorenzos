@@ -101,6 +101,32 @@
   }
   markRequired(document);
 
+  // Joshua 2026-09-17: every box that is NOT required says "(optional)" after the label's words.
+  // Skips checkboxes, radios, hidden/submit controls, and labels that already say "optional".
+  function markOptional(root) {
+    root.querySelectorAll("label").forEach(function (label) {
+      var control = null;
+      for (var i = 0; i < label.children.length; i += 1) {
+        var c = label.children[i];
+        if (c.tagName === "INPUT" || c.tagName === "SELECT" || c.tagName === "TEXTAREA") { control = c; break; }
+      }
+      if (!control || control.required || control.disabled) return;
+      if (/^(checkbox|radio|hidden|submit|button|reset|file|image|range|color)$/.test(control.type || "")) return;
+      if (label.querySelector(".required-mark, .optional-mark") || /optional/i.test(label.textContent)) return;
+      var text = null;
+      for (var j = 0; j < label.childNodes.length; j += 1) {
+        var n = label.childNodes[j];
+        if (n.nodeType === 3 && n.textContent.trim()) { text = n; break; }
+      }
+      if (!text) return;
+      var mark = document.createElement("span");
+      mark.className = "optional-mark";
+      mark.textContent = "(optional)";
+      text.parentNode.insertBefore(mark, text.nextSibling);
+    });
+  }
+  markOptional(document);
+
   function validate(form, status) {
     var bad = null;
     form.querySelectorAll("[required]").forEach(function (el) {

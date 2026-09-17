@@ -51,7 +51,7 @@ test("the office email spells out the zone, local received time and Track 500", 
   const M = require("../lib/office-email.js");
   const email = M.buildBookingEmail({ lead: { id: "l1", created_at: "2026-09-15T13:05:00Z", raw_payload: { pipeline: { entered_at: "x" } } }, booking: { when_label: "Thu, Sep 17, 8:00 AM CDT", slot_start: "2026-09-17T13:00:00Z", local_time_zone: "America/Chicago", trainer_name: "Lorenzo Miller", client: { first_name: "Sam", last_name: "Carter", address: "12 Main St, Destin, FL 32541" }, dogs: [] } });
   assert.match(email.text, /Time zone: Central Daylight Time/);
-  assert.match(email.text, /Request received: Sep 15, 2026, 8:05 AM CDT/);
+  assert.match(email.text, /Request received: Tuesday, September 15, 2026, 8:05 AM Central/);
   assert.match(email.text, /Track 500: Yes/);
   assert.match(email.text, /Physical address: 12 Main St, Destin, FL 32541/);
 });

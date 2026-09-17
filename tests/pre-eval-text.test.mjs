@@ -34,12 +34,12 @@ test("the trainer text renders with day, date, time, address and the portal prom
   const words = T.wordsFor(null, "pre_eval_answers");
   const rendered = T.render(words, {
     first_name: "Angela", last_name: "Simonton",
-    appointment_day: "Thursday", appointment_date: "September 17", appointment_time: "10:00 AM EDT",
+    appointment_day: "Thursday", appointment_date: "September 17, 2026", appointment_time: "10:00 AM EDT",
     service_address: "123 Main St, Cleveland, OH 44105",
     safety_flag: "", answers_summary: "• #1 behavior: pulling on the leash",
     trainer_portal_link: "https://ldtt-sandbox.vercel.app/staff?view=leads&lead=x"
   });
-  assert.match(rendered, /Thursday, September 17 at 10:00 AM EDT/);
+  assert.match(rendered, /Thursday, September 17, 2026 at 10:00 AM EDT/);
   assert.match(rendered, /123 Main St/);
   assert.match(rendered, /Log in to the trainer portal/);
   assert.doesNotMatch(rendered, /Track 500/, "trainer answer texts carry no internal code words");

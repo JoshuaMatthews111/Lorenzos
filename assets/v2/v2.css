@@ -501,8 +501,10 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 .lead .wide{grid-column:1/-1}
 .lead label small{font-weight:400;color:#5b6883}
 /* Meeting 2026-09-16: required boxes wear a red asterisk. v2.js puts the span after the words; the :has rule covers a label it did not reach. */
-.required-mark{color:#c8102e;font-weight:900;margin-left:3px}
-.lead label:has(> input[required]):not(:has(.required-mark))::before,.lead label:has(> select[required]):not(:has(.required-mark))::before{content:"* ";color:#c8102e;font-weight:900}
+.required-mark{color:#c8102e!important;font-weight:900;margin-left:3px}
+.lead label:has(> input[required]):not(:has(.required-mark))::before,.lead label:has(> select[required]):not(:has(.required-mark))::before,.lead label:has(> textarea[required]):not(:has(.required-mark))::before{content:"* ";color:#c8102e!important;font-weight:900}
+/* Joshua 2026-09-17: boxes that are not required say "(optional)" after the words (v2.js markOptional). */
+.optional-mark{color:#5b6a83;font-weight:400;font-size:.8em;margin-left:4px}
 .lead .consent{flex-direction:row;align-items:flex-start;gap:10px;font-weight:400;font-size:11.5px;line-height:1.45;color:#44536f}
 .lead .consent input{width:20px;height:20px;flex:none;margin:1px 0 0;padding:0;accent-color:var(--red)}
 .lead .consent a{color:var(--ink)}

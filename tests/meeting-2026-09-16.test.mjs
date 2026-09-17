@@ -66,16 +66,20 @@ test("3. required boxes wear a red asterisk: portal pass + CSS, 2.0 pages, /book
   assert.match(mark, /control\.type === "checkbox" \|\| control\.type === "radio"/, "a consent checkbox gets no asterisk");
   assert.match(mark, /mark\.className = "required-mark"/);
   const portalCss = read("trainer-backoffice/styles.css");
-  assert.match(portalCss, /\.required-mark \{ color: #c8102e;/);
+  assert.match(portalCss, /\.required-mark \{ color: #c8102e !important;/);
+  assert.match(portalCss, /\.optional-mark \{ color: #5b6a83;/);
+  assert.match(app, /\n  markRequiredLabels\(document\);\n  markOptionalLabels\(document\);/, "optional pass runs right after the required pass");
   assert.match(portalCss, /label:has\(> input\[required\]\):not\(:has\(\.required-mark\)\)::before/);
   const v2css = read("assets/v2/v2.css");
-  assert.match(v2css, /\.required-mark\{color:#c8102e;/);
+  assert.match(v2css, /\.required-mark\{color:#c8102e!important;/);
+  assert.match(v2css, /\.optional-mark\{color:#5b6a83;/);
+  assert.match(read("assets/v2/v2.js"), /markOptional\(document\);/);
   assert.match(v2css, /\.lead label:has\(> input\[required\]\):not\(:has\(\.required-mark\)\)::before/);
   const v2js = read("assets/v2/v2.js");
   assert.match(v2js, /function markRequired\(root\)/);
   assert.match(v2js, /markRequired\(document\);/);
   const T = require("../lib/ad2-page-template.js");
-  assert.match(T.renderPage(T.STARTERS[0], { practice: true }), /v2\.css\?v=20260917ad12/, "the browsers fetch the new css + js");
+  assert.match(T.renderPage(T.STARTERS[0], { practice: true }), /v2\.css\?v=20260917ad13/, "the browsers fetch the new css + js");
   const book = read("lib/booking-page.js");
   assert.match(book, /label:has\(> input\[required\]\):not\(:has\(\.req\)\)::before/);
   const contact = read("contact.html");
@@ -86,15 +90,15 @@ test("3. required boxes wear a red asterisk: portal pass + CSS, 2.0 pages, /book
   assert.match(read("styles.css"), /label:has\(> input\[required\]\):not\(:has\(\.required-mark\)\)::before/);
 });
 
-test("4. dates read mm/dd/yyyy; times unchanged", () => {
+test("4. dates read \"September 17, 2026\" (Joshua 2026-09-17); times unchanged", () => {
   const ctx = {};
   vm.runInNewContext(`${fn("formatDate")}\n${fn("parseTimestamp")}\n${fn("formatDateTime")}`, ctx);
-  assert.equal(ctx.formatDate("2026-09-17"), "09/17/2026");
-  assert.equal(ctx.formatDate("2026-01-05"), "01/05/2026");
+  assert.equal(ctx.formatDate("2026-09-17"), "September 17, 2026");
+  assert.equal(ctx.formatDate("2026-01-05"), "January 5, 2026");
   assert.equal(ctx.formatDate(""), "—");
   assert.equal(ctx.formatDate("not a date"), "not a date");
-  assert.match(ctx.formatDate("2026-09-17T14:05:00"), /^09\/17\/2026$/);
-  assert.match(ctx.formatDateTime("2026-09-17T14:05:00"), /^09\/17\/2026, 2:05 PM$/);
+  assert.match(ctx.formatDate("2026-09-17T14:05:00"), /^September 17, 2026$/);
+  assert.match(ctx.formatDateTime("2026-09-17T14:05:00"), /^September 17, 2026, 2:05 PM$/);
   assert.ok(!/toLocaleDateString\(\)/.test(app), "no bare toLocaleDateString() left in the portal");
   assert.ok(!/toLocaleDateString\(\[\], \{ month: "short"/.test(app));
   assert.match(app, /<td>\$\{escapeHtml\(formatDate\(d\.sold_on\)\)\}<\/td>/, "Clients table: date of sale");

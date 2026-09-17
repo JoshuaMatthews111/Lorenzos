@@ -296,8 +296,8 @@ test("office emails: request + callback wording; the booked-time email is unchan
   assert.match(req.text, /Breed: Lab/);
   const cb = M.buildBookingEmail({ lead, booking: { callback: { zip: "59101", phone: "4065550100" } }, kind: "no_trainer" });
   assert.match(cb.subject, /^Track 500 · Callback needed: Pat Tester, no trainer within 50 miles of ZIP 59101/);
-  const booked = M.buildBookingEmail({ lead, booking: { when_label: "Mon, Sep 14, 8:00 AM EDT", trainer_name: "Lorenzo Miller" } });
-  assert.match(booked.subject, /^Track 500 · Eval booked: Pat Tester with Lorenzo Miller, Mon, Sep 14, 8:00 AM EDT/);
+  const booked = M.buildBookingEmail({ lead, booking: { when_label: "Monday, September 14, 2026, 8:00 AM EDT", trainer_name: "Lorenzo Miller" } });
+  assert.match(booked.subject, /^Track 500 · Eval booked: Pat Tester with Lorenzo Miller, Monday, September 14, 2026, 8:00 AM EDT/);
   assert.match(booked.text, /Log this client into Alpha/);
 });
 

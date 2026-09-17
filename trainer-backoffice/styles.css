@@ -5850,10 +5850,12 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 /* Rule 87: Track 500 tag + the real lead timeline (sent / not sent / built-but-off, words in use). */
 /* Meeting 2026-09-16: required boxes wear a red asterisk. app.js markRequiredLabels() adds the span after
    the label's words; the :has rule catches any label it did not reach (asterisk before the words there). */
-.required-mark { color: #c8102e; font-weight: 900; margin-left: 3px; }
+.required-mark { color: #c8102e !important; font-weight: 900; margin-left: 3px; }
 label:has(> input[required]):not(:has(.required-mark))::before,
 label:has(> select[required]):not(:has(.required-mark))::before,
-label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* "; color: #c8102e; font-weight: 900; }
+label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* "; color: #c8102e !important; font-weight: 900; }
+/* Joshua 2026-09-17: boxes that are not required say "(optional)" after the words (app.js markOptionalLabels). */
+.optional-mark { color: #5b6a83; font-weight: 400; font-size: .8em; margin-left: 4px; }
 .lead-tag-track500 { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #fff; background: #071f46; border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 1px; }
 .lead-journey h3 .lead-tag-track500 { font-size: 12px; vertical-align: 3px; }
 .journey-step.skipped { border-color: #f1c2ca; }

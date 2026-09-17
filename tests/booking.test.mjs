@@ -299,3 +299,9 @@ test("the only Google call is ListAvailableSlots (source + runtime guard)", () =
   assert.throws(() => B.assertReadOnlyGoogleCall("https://calendar-pa.clients6.google.com/$rpc/google.internal.calendar.v1.AppointmentBookingService/CreateBooking?x"));
   assert.doesNotThrow(() => B.assertReadOnlyGoogleCall(`${B.LIST_SLOTS_URL}?x`));
 });
+
+test("formatWhen reads \"Thursday, September 17, 2026, 8:00 AM CDT\" (Joshua 2026-09-17: full weekday and month, with the year)", () => {
+  const { B } = load();
+  assert.equal(B.formatWhen("2026-09-17T13:00:00Z", "America/Chicago"), "Thursday, September 17, 2026, 8:00 AM CDT");
+  assert.equal(B.formatWhen(Math.floor(Date.parse("2026-09-17T12:00:00Z") / 1000), "America/New_York"), "Thursday, September 17, 2026, 8:00 AM EDT");
+});

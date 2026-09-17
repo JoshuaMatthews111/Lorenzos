@@ -26,6 +26,6 @@ test("the timeline shows real sends and the words in use; no more 'wording not s
 
 test("office emails say Track 500", () => {
   const M = require("../lib/office-email.js");
-  const email = M.buildBookingEmail({ lead: { id: "l1", raw_payload: {} }, booking: { when_label: "Thu, Sep 17, 8:00 AM CDT", trainer_name: "Lorenzo Miller", client: { first_name: "Sam", last_name: "Carter" }, dogs: [] } });
-  assert.match(email.subject, /^(\[PRACTICE COPY\] )?Track 500 · Eval booked: Sam Carter with Lorenzo Miller, Thu, Sep 17, 8:00 AM CDT/);
+  const email = M.buildBookingEmail({ lead: { id: "l1", raw_payload: {} }, booking: { when_label: "Thursday, September 17, 2026, 8:00 AM CDT", trainer_name: "Lorenzo Miller", client: { first_name: "Sam", last_name: "Carter" }, dogs: [] } });
+  assert.match(email.subject, /^(\[PRACTICE COPY\] )?Track 500 · Eval booked: Sam Carter with Lorenzo Miller, Thursday, September 17, 2026, 8:00 AM CDT/);
 });

@@ -4613,6 +4613,7 @@ function render() {
   renderTopbar();
   renderView();
   markRequiredLabels(document);
+  markOptionalLabels(document);
   requestAnimationFrame(() => enhancePasswordFields(document));
   requestAnimationFrame(enhanceHorizontalScrollers);
   requestAnimationFrame(refreshTemplatePreview);
@@ -4642,6 +4643,26 @@ function markRequiredLabels(root) {
     mark.textContent = "*";
     text.after(mark);
     label.classList.add("has-required-mark");
+  });
+}
+
+// Joshua 2026-09-17: every box that is NOT required says "(optional)" after its words, so a lead, deal or
+// trainer form never leaves the reader guessing. Skips checkboxes, radios, hidden/submit controls, and any
+// label whose words already say "optional".
+function markOptionalLabels(root) {
+  if (!root || typeof root.querySelectorAll !== "function") return;
+  root.querySelectorAll("label:not(.has-optional-mark)").forEach(label => {
+    const control = Array.from(label.children).find(child => child.matches?.("input, select, textarea"));
+    if (!control || control.required || control.disabled || control.readOnly) return;
+    if (/^(checkbox|radio|hidden|submit|button|reset|file|image|range|color)$/.test(control.type || "")) return;
+    if (label.querySelector(".required-mark, .optional-mark") || /optional/i.test(label.textContent)) { label.classList.add("has-optional-mark"); return; }
+    const text = Array.from(label.childNodes).find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+    if (!text) return;
+    const mark = document.createElement("span");
+    mark.className = "optional-mark";
+    mark.textContent = "(optional)";
+    text.after(mark);
+    label.classList.add("has-optional-mark");
   });
 }
 
@@ -12835,12 +12856,12 @@ function initials(name) {
   return String(name).split(" ").map(part => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
-// Meeting 2026-09-16: every date the office and trainers see reads mm/dd/yyyy (09/17/2026). Times unchanged.
+// Joshua 2026-09-17: every date the office and trainers see reads "September 17, 2026" (full month name). Times unchanged.
 function formatDate(value) {
   if (!value) return "—";
   const date = value instanceof Date ? value : new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(value)) ? `${value}T12:00:00` : value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
 function parseTimestamp(value) {
@@ -12860,14 +12881,8 @@ function timestampValue(value) {
 function formatDateTime(value) {
   const date = parseTimestamp(value);
   if (!date) return value ? String(value) : "—";
-  return date.toLocaleString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true
-  });
+  // Joshua 2026-09-17: "September 17, 2026, 3:15 PM" (a comma, never ICU's " at ").
+  return `${date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}, ${date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
 }
 
 function formatPhoneNumber(value) {

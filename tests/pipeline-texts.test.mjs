@@ -144,3 +144,11 @@ test("follow-up plan: Lorenzo's text first, then the booking link at 30 min and 
   assert.deepEqual([p.next.step, p.next.kind], [2, "link"]);
   assert.equal(R.eligibility({ first_name: "A", phone: "1", sms_consent: true, status: "new_inquiry", raw_payload: { lead_type: "pdf_download" } }).ok, false, "booklet leads stay out (Joshua: No)");
 });
+
+test("appointment_date reads \"September 15, 2026\" (Joshua 2026-09-17): the sample and the real slotParts carry the year", () => {
+  assert.equal(X.SAMPLE.appointment_date, "September 15, 2026");
+  assert.equal(X.SAMPLE.appointment_day, "Tuesday");
+  const src = readFileSync(resolve(import.meta.dirname, "../lib/pipeline.js"), "utf8");
+  assert.match(src, /date: date\.toLocaleDateString\("en-US", \{ \.\.\.opts, month: "long", day: "numeric", year: "numeric" \}\)/);
+  assert.match(src, /day: date\.toLocaleDateString\("en-US", \{ \.\.\.opts, weekday: "long" \}\)/, "appointment_day stays the weekday name");
+});

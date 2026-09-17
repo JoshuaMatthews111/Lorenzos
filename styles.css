@@ -591,9 +591,11 @@ body.bio-open{overflow:hidden}
 .form-success-card p{color:var(--muted);font-weight:750;font-size:1rem;margin:0 0 22px}
 body.form-modal-open{overflow:hidden}
 @media(max-width:760px){.form-success-modal{padding:14px;align-items:flex-end}.form-success-card{padding:30px 22px 24px;border-radius:22px}.form-success-card h2{font-size:2.05rem}.form-success-card .btn{width:100%}}
-.required-mark{color:#d80d36;font-weight:900}
+.required-mark{color:#c8102e!important;font-weight:900;margin-left:3px}
 /* Meeting 2026-09-16: every required box wears a red asterisk. contact.html carries the span; this rule catches any other label holding a required control. */
-label:has(> input[required]):not(:has(.required-mark))::before,label:has(> select[required]):not(:has(.required-mark))::before,label:has(> textarea[required]):not(:has(.required-mark))::before{content:"* ";color:#d80d36;font-weight:900}
+label:has(> input[required]):not(:has(.required-mark))::before,label:has(> select[required]):not(:has(.required-mark))::before,label:has(> textarea[required]):not(:has(.required-mark))::before{content:"* ";color:#c8102e!important;font-weight:900}
+/* Joshua 2026-09-17: boxes that are not required say "(optional)" after the words. */
+.optional-mark{color:#5b6a83;font-weight:400;font-size:.8em;margin-left:4px}
 .field-invalid{border-color:#d80d36!important;box-shadow:0 0 0 3px rgba(216,13,54,.14)!important;background:#fff7f8!important}
 .field-invalid-wrap{color:#a80729!important}
 
