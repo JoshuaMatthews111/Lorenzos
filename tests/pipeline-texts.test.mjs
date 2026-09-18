@@ -26,6 +26,8 @@ const MAKE_WORDS = {
   ops_eval_booked: "Evaluation booked: {client_name} with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. It is now in Eval Scheduled. {link}",
   // Joshua 2026-09-16: "instruct them to log in and log the deal in the portal using this link" (after Eval completed).
   trainer_log_deal: "🚨🚨 Track 500 - Eval completed 🚨🚨\n{first_name} {last_name} ({dog_name}).\nPlease log in to the trainer portal and log the deal here: {trainer_portal_link}",
+  // Joshua 2026-09-17: the trainer's new-inquiry text (pathway 2, trainer branch, pathway "new_inquiry").
+  trainer_new_inquiry: "🚨🚨 New Track 500 inquiry 🚨🚨\n{first_name} {last_name}, ZIP {zip}\nConcern: {problem}\nThey just got your booking link. Watch for the booking, or call to help them pick a time: {trainer_portal_link}",
   pre_eval_answers: "📝 EVAL QUESTIONS COMPLETED\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\n{safety_flag}\n{answers_summary}\n\nLog in to the trainer portal to view the full answers and lead details: {trainer_portal_link}"
 };
 

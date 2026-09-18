@@ -206,7 +206,7 @@ test("text wording + pipeline roles live under Sales Pipeline (Super Admin only)
   const list = app.slice(app.indexOf("const PIPELINE_TEST_SCENARIOS = ["), app.indexOf("function pipelineTestScenariosPanel("));
   const texts = readFileSync(new URL("../lib/pipeline-texts.js", import.meta.url), "utf8");
   for (const label of ["New lead (Cleveland 44118)", "New lead, nobody in range (10001)", "Evaluation booked", "Pre-eval answered", "Eval completed → log the deal"]) assert.ok(list.includes(`label: "${label}"`), `scenario ${label}`);
-  const expected = { new_lead_cleveland: ["booking_link", null, "ops_new_lead"], new_lead_nobody: [null, null, "ops_new_lead"], eval_booked: ["booking_confirmation", "trainer_new_eval", "ops_eval_booked"], pre_eval_answered: [null, "pre_eval_answers", null], eval_completed: [null, "trainer_log_deal", null] };
+  const expected = { new_lead_cleveland: ["booking_link", "trainer_new_inquiry", "ops_new_lead"], new_lead_nobody: [null, null, "ops_new_lead"], eval_booked: ["booking_confirmation", "trainer_new_eval", "ops_eval_booked"], pre_eval_answered: [null, "pre_eval_answers", null], eval_completed: [null, "trainer_log_deal", null] };
   for (const [id, [client, trainer, operations]] of Object.entries(expected)) {
     const row = list.slice(list.indexOf(`id: "${id}"`), list.indexOf("email:", list.indexOf(`id: "${id}"`)));
     assert.ok(row.includes(`client: ${client ? `"${client}"` : "null"}`), `${id} client text`);

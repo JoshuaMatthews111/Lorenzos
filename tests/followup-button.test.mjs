@@ -77,10 +77,13 @@ test("office button: not a tester phone, no consent, or a live copy = skipped, n
 
   const live = load(false);
   const before = calls.length;
+  // 2026-09-17: live texts the lead's own phone, but only once the pathway 1 hook exists on Production.
+  delete process.env.LDTT_MAKE_HOOK_PATHWAY1;
   const off = await live.sendFollowUpText({ lead, step: "tim" });
+  process.env.LDTT_MAKE_HOOK_PATHWAY1 = "https://hook.us2.make.com/abc123followup";
   assert.equal(off.status, "skipped");
-  assert.match(off.reason, /practice copy only/);
-  assert.equal(calls.length, before, "off the practice copy nothing is fetched at all");
+  assert.match(off.reason, /pathway 1 address is not set/);
+  assert.equal(calls.length, before, "with no live hook nothing is fetched at all (no tester list on live)");
 });
 
 test("the office lead panel draws the buttons, gated to office admins on the practice copy; trainer screens never do", () => {

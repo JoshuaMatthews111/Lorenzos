@@ -15,8 +15,10 @@ test("texts go only to active tester phones, by role; Send test stays with Joshu
   assert.match(fn, /communications_testers\?active=eq\.true/);
   assert.match(fn, /return new Set\(\); \/\/ fail closed/);
   assert.match(src, /if \(!testers\.has\(phone\)\) return \{ \.\.\.base, status: "skipped"/, "Operations: tester phones only");
-  assert.match(src, /const trainerOk = Boolean\(trainerPhone && testers\.has\(trainerPhone\)\);/);
-  assert.match(src, /const customerOk = Boolean\(customer && testers\.has\(customer\)\);/);
+  // 2026-09-17: one helper each decides the phone; on the practice copy both still demand an active tester.
+  assert.match(src, /if \(isSandbox\(\) && !\(testers && testers\.has\(phone\)\)\) return \{ ok: false, phone, reason: `Practice copy: /, "client: tester phones only on the practice copy");
+  assert.match(src, /if \(testers && !testers\.has\(phone\)\) return \{ ok: false, phone, reason: `Trainer alert: /, "trainer: tester phones only on the practice copy");
+  assert.match(src, /const trainerPick = trainerPhoneFor\(lead, trainerRow, settings, testers\);/);
   const sendTest = src.match(/async function sendTextTest\(key, draftWords\) \{[\s\S]*?\n\}\n/)[0];
   assert.match(sendTest, /const phone = SEND_TEST_PHONE;/);
   assert.match(read("trainer-backoffice/app.js"), /<h3 style="margin:18px 0 4px">Who gets each practice text<\/h3>/);

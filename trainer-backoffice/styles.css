@@ -5769,6 +5769,12 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .trainer-team-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; border-top: 1px solid rgba(148, 163, 184, .3); padding: 8px 0; }
 .trainer-team-list li:first-child { border-top: 0; }
 .trainer-team-list li span { color: #64748b; font-size: .9rem; }
+/* Meeting 2026-09-16: "My calendar" on the trainer dashboard - upcoming booked evaluations. */
+.trainer-calendar-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.trainer-calendar-list li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; border-top: 1px solid rgba(148, 163, 184, .3); padding: 8px 0; }
+.trainer-calendar-list li:first-child { border-top: 0; }
+.trainer-calendar-list li span { color: #0f172a; font-size: .9rem; font-weight: 700; text-align: right; }
+.trainer-calendar-list li small { grid-column: 1 / -1; color: #64748b; font-size: .85rem; }
 /* Joshua 2026-09-14: service-dog leads wear a gold tag (office, Sales and trainer cards, lead details). */
 .lead-tag-service-dog { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #6b4a00; background: #ffe7a3; border: 1px solid #e8b931; border-radius: 999px; padding: 1px 7px; margin-left: 4px; vertical-align: 1px; }
 /* Rule 84: Text messages editor (Settings). */

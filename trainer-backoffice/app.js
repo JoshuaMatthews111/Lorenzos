@@ -5147,7 +5147,7 @@ function typedFieldKey(field) {
     // onboarding: the trainer editor boxes were missing here — the page editor
     // (data-editor-field), the profile editor (data-profile-field), the trainer's
     // social links, video links and the Send-to-live name box.
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-pipeline-(email|label|trainer-phone|practice-email|ops-phone|alpha-email)=/.test(pair) || /^data-lf-(label|choices|new-label|placeholder|name)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72/73: the office email box; rule 75: the form editor boxes
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-pipeline-(email|label|trainer-phone|practice-email|ops-phone|live-ops-phone|client-phone|alpha-email)=/.test(pair) || /^data-lf-(label|choices|new-label|placeholder|name)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72/73: the office email box; rule 75: the form editor boxes
   if (own) return `${formKey}::${own}`;
   // Safety net (Joshua 2026-09-11, the password box that emptied while typing): a box
   // with none of the attributes above is no longer left with an empty key. Its key is
@@ -6568,7 +6568,7 @@ const trainerScreens = {
         ["trophy", "Sold", figures.won, "Became a client", figures.won ? "up" : ""],
         ["message", "Lost", figures.lost, figures.lost ? "Call these back" : "None right now", figures.lost ? "down" : ""],
         ["star", "Clients", clientFigures.clients, `Track 500 · ${clientFigures.clientsToGo} to go`, clientFigures.clients ? "up" : ""]
-      ])}</div>${trainerTeamPanel()}`;
+      ])}</div>${trainerCalendarPanel()}${trainerTeamPanel()}`;
   },
   deals() {
     return trainerDealsView();
@@ -6984,7 +6984,7 @@ function pipelineSettingsPanel() {
     ? `<strong>Resend: ready.</strong> Booking emails go out through Resend from ${escapeHtml(mail.from || "")}.`
     : `<strong>Office email waiting for the Resend key.</strong> Every booking email is saved on its lead and goes out automatically once the key is added.`;
   const queuedLine = mail.queued ? ` ${mail.queued} lead${mail.queued === 1 ? " has" : "s have"} an email waiting. <button class="btn btn-outline btn-small" type="button" data-pipeline-send-queued>Send queued office emails now</button>` : "";
-  return panel(title, "", `<p class="panel-copy">When a customer books an evaluation online, everyone below gets an email with the booked time, the trainer, every answer from the form, and the step: <strong>Log this client into Alpha, then mark the lead "Added to Alpha"</strong>. Type or change an address and press Save. Clear a box to stop that person's emails. The new-lead emails you get today do not change: they still come from the website forms exactly as before.</p><p class="field-hint">${resendLine}${queuedLine}</p><h3 style="margin:14px 0 4px">Team</h3>${inputs}<h3 style="margin:18px 0 4px">Production (Alpha intake)</h3><p class="field-hint">Not part of the team list. This address gets a <strong>New lead</strong> email for every lead from the 2.0 pages, ad pages and trainer pages, so it can be logged into Alpha, and a copy of every booking email. Contact Us leads already reach it through the website form.</p><label style="display:block;margin:8px 0"><input type="email" data-pipeline-alpha-email value="${escapeHtml(s.alpha_email || "")}" placeholder="production@lorenzosdogtrainingteam.com" maxlength="160" style="display:block;max-width:320px"></label><label style="display:block;margin:12px 0 8px"><span>Practice copy only: booking emails go to this ONE test address instead of the list above (clear it to send practice emails to the list)</span><input type="email" data-pipeline-practice-email value="${escapeHtml(s.practice_email_to || "")}" placeholder="tester@example.com" maxlength="160" style="display:block;margin-top:4px;max-width:320px"></label><h3 style="margin:18px 0 4px">Who gets each practice text</h3><p class="field-hint"><strong>Client:</strong> the phone typed on the form (tick the texting box). <strong>Trainer</strong> and <strong>Operations:</strong> the two boxes below. A phone gets texts only when it is on <strong>Communications → Testers</strong>; a brand-new number must also be added to the Make tester filters first.</p><label style="display:block;margin:12px 0 8px"><span>Client test phone: the number you type on a landing page or Contact form during a test (saved as a tester so its texts go out)</span><input type="tel" data-pipeline-client-phone value="${escapeHtml(s.practice_client_phone || "")}" placeholder="+1 440 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><label style="display:block;margin:12px 0 8px"><span>Practice copy only: trainer alert texts go to this tester phone (never the real trainer)</span><input type="tel" data-pipeline-trainer-phone value="${escapeHtml(s.practice_trainer_phone || "")}" placeholder="+1 440 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><label style="display:block;margin:12px 0 8px"><span>Practice copy only: Operations texts (new lead + evaluation booked) go to this tester phone</span><input type="tel" data-pipeline-ops-phone value="${escapeHtml(s.practice_operations_phone || "")}" placeholder="+1 216 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><button class="btn btn-red" type="button" data-pipeline-save>Save the email list</button><p class="field-hint">${saved}</p>`, "pad");
+  return panel(title, "", `<p class="panel-copy">When a customer books an evaluation online, everyone below gets an email with the booked time, the trainer, every answer from the form, and the step: <strong>Log this client into Alpha, then mark the lead "Added to Alpha"</strong>. Type or change an address and press Save. Clear a box to stop that person's emails. The new-lead emails you get today do not change: they still come from the website forms exactly as before.</p><p class="field-hint">${resendLine}${queuedLine}</p><h3 style="margin:14px 0 4px">Team</h3>${inputs}<h3 style="margin:18px 0 4px">Production (Alpha intake)</h3><p class="field-hint">Not part of the team list. This address gets a <strong>New lead</strong> email for every lead from the 2.0 pages, ad pages and trainer pages, so it can be logged into Alpha, and a copy of every booking email. Contact Us leads already reach it through the website form.</p><label style="display:block;margin:8px 0"><input type="email" data-pipeline-alpha-email value="${escapeHtml(s.alpha_email || "")}" placeholder="production@lorenzosdogtrainingteam.com" maxlength="160" style="display:block;max-width:320px"></label><label style="display:block;margin:12px 0 8px"><span>Practice copy only: booking emails go to this ONE test address instead of the list above (clear it to send practice emails to the list)</span><input type="email" data-pipeline-practice-email value="${escapeHtml(s.practice_email_to || "")}" placeholder="tester@example.com" maxlength="160" style="display:block;margin-top:4px;max-width:320px"></label><h3 style="margin:18px 0 4px">Who gets each practice text</h3><p class="field-hint"><strong>Client:</strong> the phone typed on the form (tick the texting box). <strong>Trainer</strong> and <strong>Operations:</strong> the two boxes below. A phone gets texts only when it is on <strong>Communications → Testers</strong>; a brand-new number must also be added to the Make tester filters first.</p><label style="display:block;margin:12px 0 8px"><span>Client test phone: the number you type on a landing page or Contact form during a test (saved as a tester so its texts go out)</span><input type="tel" data-pipeline-client-phone value="${escapeHtml(s.practice_client_phone || "")}" placeholder="+1 440 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><label style="display:block;margin:12px 0 8px"><span>Practice copy only: trainer alert texts go to this tester phone (never the real trainer)</span><input type="tel" data-pipeline-trainer-phone value="${escapeHtml(s.practice_trainer_phone || "")}" placeholder="+1 440 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><label style="display:block;margin:12px 0 8px"><span>Practice copy only: Operations texts (new lead + evaluation booked) go to this tester phone</span><input type="tel" data-pipeline-ops-phone value="${escapeHtml(s.practice_operations_phone || "")}" placeholder="+1 216 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><label style="display:block;margin:12px 0 8px"><span>Operations phone on live (Lorenzo): on the live site the Operations texts (new lead + evaluation booked) go here. Empty = no Operations text on live.</span><input type="tel" data-pipeline-live-ops-phone value="${escapeHtml(s.operations_phone || "")}" placeholder="+1 216 555 0100" maxlength="40" style="display:block;margin-top:4px;max-width:260px"></label><button class="btn btn-red" type="button" data-pipeline-save>Save the email list</button><p class="field-hint">${saved}</p>`, "pad");
 }
 
 async function savePipelineSettings() {
@@ -6995,13 +6995,14 @@ async function savePipelineSettings() {
   const practicePhone = document.querySelector("[data-pipeline-trainer-phone]")?.value.trim() || "";
   const practiceEmail = document.querySelector("[data-pipeline-practice-email]")?.value.trim() || "";
   const opsPhone = document.querySelector("[data-pipeline-ops-phone]")?.value.trim() || "";
+  const liveOpsPhone = document.querySelector("[data-pipeline-live-ops-phone]")?.value.trim() || "";
   const clientPhone = document.querySelector("[data-pipeline-client-phone]")?.value.trim() || "";
   const alphaEmail = document.querySelector("[data-pipeline-alpha-email]")?.value.trim() || "";
   const token = await window.LDTT_PORTAL?.accessToken?.();
   const response = await fetch("/api/pipeline", {
     method: "POST", cache: "no-store",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` },
-    body: JSON.stringify({ op: "save_settings", recipients, alpha_email: alphaEmail, practice_trainer_phone: practicePhone, practice_operations_phone: opsPhone, practice_client_phone: clientPhone, practice_email_to: practiceEmail })
+    body: JSON.stringify({ op: "save_settings", recipients, alpha_email: alphaEmail, practice_trainer_phone: practicePhone, practice_operations_phone: opsPhone, operations_phone: liveOpsPhone, practice_client_phone: clientPhone, practice_email_to: practiceEmail })
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
@@ -7272,7 +7273,7 @@ const PIPELINE_TEST_SCENARIO_ROLES = [["client", "Client"], ["trainer", "Trainer
 const PIPELINE_TEST_SCENARIOS = [
   {
     id: "new_lead_cleveland", label: "New lead (Cleveland 44118)", when: "A website form with SMS consent; a trainer with a calendar is within 50 miles, so the booking link goes out.",
-    client: "booking_link", trainer: null, operations: "ops_new_lead", email: "New-lead email to the office list: booking link ready."
+    client: "booking_link", trainer: "trainer_new_inquiry", operations: "ops_new_lead", email: "New-lead email to the office list: booking link ready."
   },
   {
     id: "new_lead_nobody", label: "New lead, nobody in range (10001)", when: "No trainer within 50 miles of the ZIP: office follow-up, no booking link, no client text.",
@@ -9581,6 +9582,66 @@ function trainerTeamPanel() {
   else if (!trainerTeam.trainers.length) body = `<p class="panel-copy">No other Lorenzo's trainer in ${escapeHtml(trainerTeamStateLabel())} yet. When one joins, they show up here and you can hand leads to them.</p>`;
   else body = `<ul class="trainer-team-list">${trainerTeam.trainers.map(t => `<li><strong>${escapeHtml(t.full_name)}</strong><span>${escapeHtml(t.market || t.state || "")}</span></li>`).join("")}</ul>`;
   return panel(`Your team in ${escapeHtml(trainerTeamStateLabel())}`, "", `${body}${note}`, "pad");
+}
+
+// ---- My calendar (meeting 2026-09-16) ---------------------------------------
+// Trainers see their own Google booking calendar and their upcoming booked evaluations on the dashboard.
+// GET /api/trainer-calendar answers the Google appointment page (built server-side; the schedule id never comes
+// here on its own), the trainer's time zone and the booked list. Loaded once per session, same as loadTrainerTeam.
+let trainerCalendar = null;          // { has_calendar, time_zone, google_page_url, booked: [...], error? } once loaded
+let trainerCalendarPromise = null;   // the one in-flight load
+
+function loadTrainerCalendar() {
+  if (trainerCalendar || trainerCalendarPromise || session.role === "admin") return trainerCalendarPromise;
+  if (!remoteReady || !window.LDTT_PORTAL?.accessToken) return null;
+  trainerCalendarPromise = (async () => {
+    try {
+      const token = await window.LDTT_PORTAL.accessToken();
+      const response = await fetch("/api/trainer-calendar", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
+      const payload = await response.json().catch(() => ({}));
+      if (response.status === 404 && payload.has_calendar === false) { trainerCalendar = { has_calendar: false, booked: [] }; return; }
+      if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load your calendar (${response.status}).`);
+      trainerCalendar = {
+        has_calendar: payload.has_calendar !== false,
+        time_zone: payload.time_zone || "",
+        google_page_url: /^https:\/\/calendar\.google\.com\//.test(String(payload.google_page_url || "")) ? payload.google_page_url : "",
+        booked: Array.isArray(payload.booked) ? payload.booked : []
+      };
+    } catch (error) {
+      trainerCalendar = { has_calendar: false, booked: [], error: error.message || "Could not load your calendar." };
+    } finally {
+      trainerCalendarPromise = null;
+      if (typeof render === "function") render();
+    }
+  })();
+  return trainerCalendarPromise;
+}
+
+// Dashboard panel: the Google calendar button, the trainer's time zone and the upcoming booked evaluations.
+function trainerCalendarPanel() {
+  if (session.role === "admin") return "";
+  loadTrainerCalendar();
+  let body;
+  if (!trainerCalendar) body = `<p class="panel-copy">${remoteReady ? "Loading your calendar…" : "Sign in to the live portal to see your calendar."}</p>`;
+  else if (trainerCalendar.error) body = `<p class="panel-copy">${escapeHtml(trainerCalendar.error)}</p><button type="button" class="btn btn-outline btn-small" data-trainer-calendar-reload>Try again</button>`;
+  else if (!trainerCalendar.has_calendar) body = `<p class="panel-copy">No booking calendar on file yet. Ask the office to send your Google booking link.</p>`;
+  else {
+    const zone = trainerCalendar.time_zone ? `<p class="field-hint">Times shown in ${escapeHtml(trainerCalendar.time_zone.replace(/_/g, " "))}.</p>` : "";
+    const button = trainerCalendar.google_page_url
+      ? `<p><a class="btn btn-red" href="${escapeHtml(trainerCalendar.google_page_url)}" target="_blank" rel="noopener noreferrer">Open my Google booking calendar</a></p>`
+      : "";
+    const items = trainerCalendar.booked.map(b => {
+      // The lead panel opens by the local lead id; the API answers the database id (lead.remoteId).
+      const local = (state.leads || []).find(l => l.remoteId === b.lead_id);
+      const name = escapeHtml(b.client || "Client");
+      const link = local ? `<button type="button" class="link-button" data-open-lead="${escapeHtml(local.id)}">${name}</button>` : `<strong>${name}</strong>`;
+      const where = [b.location, b.address].filter(Boolean).map(escapeHtml).join(" · ");
+      return `<li>${link}<span>${escapeHtml(b.when_label || "")}</span>${where ? `<small>${where}</small>` : ""}</li>`;
+    }).join("");
+    const list = items ? `<ul class="trainer-calendar-list">${items}</ul>` : `<p class="panel-copy">No upcoming booked evaluations yet.</p>`;
+    body = `${button}${zone}${list}`;
+  }
+  return panel("My calendar", "", body, "pad");
 }
 
 async function trainerLeadAction(button) {
@@ -13735,6 +13796,7 @@ document.addEventListener("click", async event => {
   const trainerAction = event.target.closest("[data-trainer-lead-action]");
   if (trainerAction) { trainerLeadAction(trainerAction); return; }
   if (event.target.closest("[data-trainer-team-reload]")) { trainerTeam = null; loadTrainerTeam(); render(); return; }
+  if (event.target.closest("[data-trainer-calendar-reload]")) { trainerCalendar = null; loadTrainerCalendar(); render(); return; }
   const dealEdit = event.target.closest("[data-deal-edit]");
   if (dealEdit) { startDealEdit(dealEdit.dataset.dealEdit); return; }
   if (event.target.closest("[data-deal-cancel-edit]")) { state.dealForm = {}; render(); return; }
