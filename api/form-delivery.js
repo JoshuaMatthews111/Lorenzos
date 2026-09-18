@@ -259,6 +259,10 @@ module.exports = async function handler(req, res) {
     const entries = body.entries && typeof body.entries === "object" ? body.entries : {};
     if (clean(entries.company_website, 200)) return res.status(200).json({ ok: true, canonical: false, spam_filtered: true });
     if (JSON.stringify(entries).length > 220000) return res.status(413).json({ ok: false, message: "Form payload is too large." });
+    // Rachel 2026-09-16/18: every e-book / PDF opt-in must carry a phone number.
+    if (clean(entries.lead_type, 40) === "pdf_download" && String(entries.phone || "").replace(/\D/g, "").length < 7) {
+      return res.status(400).json({ ok: false, message: "A phone number is required to receive the free guide." });
+    }
     const submissionId = clean(entries.submission_id, 160);
     const canonical = await verifyCanonical(submissionId, body.canonical);
     if (!canonical) return res.status(409).json({ ok: false, message: "The canonical Supabase form record could not be verified." });

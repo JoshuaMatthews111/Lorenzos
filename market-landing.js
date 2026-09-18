@@ -228,6 +228,7 @@
 	      <form class="market-guide-form pdf-optin" novalidate>
 	        <label><span>First name</span><input name="first_name" autocomplete="given-name" placeholder="First name" required></label>
 	        <label><span>Email address</span><input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
+	        <label><span>Phone number</span><input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="Phone number" required></label>
         <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my inquiry, scheduling and confirming my free consultation or evaluation, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
         <a class="market-guide-download" href="assets/calm-dog-blueprint-final.pdf" download aria-hidden="true" tabindex="-1">Download the Free Guide</a>
         <button class="btn" type="submit">Download the Free Guide</button>
@@ -290,14 +291,14 @@
 	      first_name: firstName,
 	      last_name: lastName || "Ebook Lead",
 	      email: String(formData.get("email") || "").trim(),
-	      phone: String(formData.get("phone") || "").trim() || "Not provided - PDF opt-in",
+	      phone: String(formData.get("phone") || "").trim(),
 	      zip: String(formData.get("zip") || "").trim(),
 	      i_want_to: "Download the free 5-step calm dog blueprint",
 	      service_interest: "Free ebook download",
 	      lead_type: "pdf_download",
 	      heard_about_us: "Paid ads market page",
 	      vet_or_previous_client: "Free ebook landing page",
-	      comments: `Requested immediate download of The 5-Step Calm Dog Blueprint from ${marketName}. This PDF opt-in collected first name and email only.${additionalInterest ? ` Additional interest: ${additionalInterest}.` : ""}`,
+	      comments: `Requested immediate download of The 5-Step Calm Dog Blueprint from ${marketName}. This PDF opt-in collected first name, email and phone.${additionalInterest ? ` Additional interest: ${additionalInterest}.` : ""}`,
       additional_interest: additionalInterest,
       trainer_name: document.querySelector('[name="trainer_name"]')?.value || "",
       assigned_trainer: document.querySelector('[name="assigned_trainer"]')?.value || "Office market page",

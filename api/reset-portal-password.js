@@ -59,7 +59,7 @@ module.exports = async function handler(req, res) {
     const userId = clean(payload.user_id, 120);
     const password = String(payload.password || "");
     if (!userId) return res.status(400).json({ ok: false, message: "User ID is required." });
-    if (password.length < 8) return res.status(400).json({ ok: false, message: "Password must be at least 8 characters." });
+    if (password.length < 6) return res.status(400).json({ ok: false, message: "Password must be at least 6 characters." });
 
     const targetRows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,email,display_name,first_name,last_name&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
     const target = targetRows?.[0];

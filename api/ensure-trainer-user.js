@@ -2,7 +2,41 @@ const { isSandbox, supabaseRequest } = require("../lib/sandbox");
 const { authorizeRequest } = require("../lib/portal-auth");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
-const TRAINER_TEMP_PASSWORD = process.env.LDTT_TRAINER_TEMP_PASSWORD || "doglovers26";
+const crypto = require("crypto");
+
+// 2026-09-18 (Rachel): Supabase Auth's leaked-password check refused the shared
+// temporary password ("Password is known to be weak and easy to guess"), so
+// Publish failed for every new trainer. The temporary password is now a strong
+// random one per trainer (16 chars, letters + digits + symbols) that the office
+// sees once in the publish result and the invite message. A configured
+// LDTT_TRAINER_TEMP_PASSWORD is only honoured when it is strong enough itself.
+function strongEnough(value) {
+  const text = String(value || "");
+  return text.length >= 12 && /[a-z]/.test(text) && /[A-Z]/.test(text) && /\d/.test(text) && /[^A-Za-z0-9]/.test(text);
+}
+
+function generateTemporaryPassword() {
+  const sets = [
+    "ABCDEFGHJKLMNPQRSTUVWXYZ",
+    "abcdefghijkmnopqrstuvwxyz",
+    "23456789",
+    "!@#$%&*?"
+  ];
+  const all = sets.join("");
+  const pick = pool => pool[crypto.randomInt(0, pool.length)];
+  const chars = sets.map(pick);
+  while (chars.length < 16) chars.push(pick(all));
+  for (let i = chars.length - 1; i > 0; i -= 1) {
+    const j = crypto.randomInt(0, i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+function temporaryPassword() {
+  const configured = process.env.LDTT_TRAINER_TEMP_PASSWORD || "";
+  return strongEnough(configured) ? configured : generateTemporaryPassword();
+}
 
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -73,16 +107,17 @@ async function createOrEnableAuthUser(email, displayName) {
     }
     return { userId: existing.id, created: false };
   }
+  const password = temporaryPassword();
   const created = await supabaseFetch("/auth/v1/admin/users", {
     method: "POST",
     body: JSON.stringify({
       email,
-      password: TRAINER_TEMP_PASSWORD,
+      password,
       email_confirm: true,
       user_metadata: { display_name: displayName, portal_role: "trainer" }
     })
   });
-  return { userId: created?.id, created: true };
+  return { userId: created?.id, created: true, password };
 }
 
 module.exports = async function handler(req, res) {
@@ -172,7 +207,7 @@ module.exports = async function handler(req, res) {
       user_id: authResult.userId,
       created: authResult.created,
       trainer: updatedTrainer ? { version: updatedTrainer.version || null, updated_at: updatedTrainer.updated_at || null } : null,
-      temporary_password: authResult.created ? TRAINER_TEMP_PASSWORD : "",
+      temporary_password: authResult.created ? authResult.password || "" : "",
       ...(isSandbox() ? { message: authResult.practiceNoLogin
         ? "Practice copy: the trainer is enabled and their page can be published here, but no login was created — logins are real and shared with live. Create the login on the live portal when the trainer is real."
         : "Practice copy: the trainer is enabled here and can sign in to the practice copy with the password that email already has. No login was created or changed." } : {})

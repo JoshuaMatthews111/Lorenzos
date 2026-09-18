@@ -1777,7 +1777,17 @@ function trainerDisplaySlug(trainer) {
   }
   if (placeholderName && /^office-draft-\d+$/.test(current)) return current;
   if (placeholderName && !current) return `office-draft-${Date.now()}`;
-  return current || nameSlug || `office-draft-${Date.now()}`;
+  return safeTrainerSlug(current || nameSlug || `office-draft-${Date.now()}`, nameSlug);
+}
+
+// 2026-09-18: Shantelle Tuck went live at /s because a one-letter name was typed
+// first and the address stuck. A trainer address is never shorter than 3
+// characters: prefer first-last from the full name, then pad the short one.
+function safeTrainerSlug(candidate, nameSlug) {
+  const slug = slugify(candidate);
+  if (slug.length >= 3) return slug;
+  if (nameSlug && nameSlug.length >= 3) return nameSlug;
+  return slug ? `${slug}-trainer` : `office-draft-${Date.now()}`;
 }
 
 function trainerPublicSlug(trainer) {
@@ -2158,12 +2168,20 @@ async function ensureTrainerPortalAccount(trainer) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok || !result.ok) {
-    throw new Error(result.message || "Trainer portal account could not be activated.");
+    const error = new Error(result.message || "Trainer portal account could not be activated.");
+    // A 409 is a wrong email (a staff login, or another trainer's) — that still
+    // stops the publish. Anything else (auth refused the password, a network
+    // blip) must never block the page going live (Rachel 2026-09-18).
+    error.blocksPublish = response.status === 409;
+    throw error;
   }
   trainer.accessStatus = "Active";
   trainer.email = email;
   trainer.username = email;
-  trainer.temporaryPassword = TRAINER_TEMP_PASSWORD_NOTICE;
+  // The temporary password is random per trainer now; it is shown once (invite
+  // message + toast) and never stored. Reset it from Portal Access if lost.
+  trainer.temporaryPassword = result.created && result.temporary_password ? result.temporary_password : TRAINER_TEMP_PASSWORD_NOTICE;
+  if (result.created && result.temporary_password) showToast(`Trainer login created. Temporary password: ${result.temporary_password} — copy it from the invite message now; it is not shown again.`, 20000);
   // onboarding: the API just changed the trainers row; keep our version in step so
   // the publish save that follows is not refused as "updated by another staff member".
   if (result.trainer?.version) trainer.version = Number(result.trainer.version);
@@ -2184,13 +2202,20 @@ async function publishTrainerPageWorkflow(trainer, publish) {
   // onboarding: the login check runs BEFORE the page goes public. It used to run
   // after the publish RPC, so a refused login (staff email, someone else's email)
   // left the page published while the office saw "Could not save".
+  let loginProblem = "";
   if (publish && trainer?.remoteId) {
     try {
       await ensureTrainerPortalAccount(trainer);
     } catch (error) {
-      trainer.pageStatus = "Draft";
-      trainer.locked = false;
-      throw error;
+      if (error.blocksPublish) {
+        trainer.pageStatus = "Draft";
+        trainer.locked = false;
+        throw error;
+      }
+      // Rachel 2026-09-18: "Could not save: Password is known to be weak" stopped
+      // every publish. The page still goes live; the office is told to create
+      // the login from Portal Access instead.
+      loginProblem = error.message || "unknown error";
     }
   }
   // Missy 2026-09-09: one bio. The Story & Local SEO bio becomes the public
@@ -2209,8 +2234,17 @@ async function publishTrainerPageWorkflow(trainer, publish) {
     }
   }
   if (publish) {
-    if (!trainer.remoteId) await ensureTrainerPortalAccount(savedTrainer || trainer);
-    else if (savedTrainer && savedTrainer !== trainer) savedTrainer.portalInviteStatus = trainer.portalInviteStatus;
+    if (!trainer.remoteId) {
+      try {
+        await ensureTrainerPortalAccount(savedTrainer || trainer);
+      } catch (error) {
+        if (error.blocksPublish) throw error;
+        loginProblem = error.message || "unknown error";
+      }
+    } else if (savedTrainer && savedTrainer !== trainer) {
+      savedTrainer.portalInviteStatus = trainer.portalInviteStatus;
+      if (trainer.temporaryPassword) savedTrainer.temporaryPassword = trainer.temporaryPassword;
+    }
     const published = await window.LDTT_PORTAL.loadPublishedTrainer((savedTrainer || trainer).slug, { includeDraft: false });
     if (!published?.page?.published_content || Number(published.page.published_revision || 0) < 1) {
       throw new Error("The public trainer revision could not be confirmed after publishing.");
@@ -2222,6 +2256,13 @@ async function publishTrainerPageWorkflow(trainer, publish) {
     if (!shell.includes("/trainer-backoffice/app.js")) throw new Error("The published trainer URL did not load the current trainer-page application shell.");
     const bioResponse = await fetch(new URL(trainerBioHref(savedTrainer || trainer), window.location.origin), { method: "HEAD", cache: "no-store" });
     if (!bioResponse.ok) throw new Error(`The published trainer bio returned ${bioResponse.status}.`);
+    if (loginProblem) {
+      const note = `Page published. The trainer login could not be created: ${loginProblem}. Create it from Portal Access.`;
+      (savedTrainer || trainer).portalInviteStatus = "Login not created — create it from Portal Access";
+      // After runRemoteMutation's own "Saved live" toast so the note is what stays on screen.
+      setTimeout(() => showToast(note, 20000), 400);
+      console.warn("LDTT trainer login not created", loginProblem);
+    }
   }
   return savedTrainer || trainer;
 }
@@ -7434,7 +7475,7 @@ function portalAccessScreen() {
       <label>First name<input name="first_name" placeholder="Jasmine"></label>
       <label>Last name<input name="last_name" placeholder="Smith"></label>
       <label class="wide">Email they will sign in with<input required type="email" name="email" placeholder="jasmine@lorenzosdogtrainingteam.com"></label>
-      <label class="wide">Password<input required name="password" minlength="10" placeholder="At least 10 characters"><small class="field-help">Write it down and give it to them. They are asked to change it the first time they sign in.</small></label>
+      <label class="wide">Password<input required name="password" minlength="6" placeholder="At least 6 characters"><small class="field-help">Write it down and give it to them. They are asked to change it the first time they sign in.</small></label>
       <label>What can they do?<select name="permission_level">
         <option value="office_admin">Office Admin — day-to-day work, messaging, leads</option>
         <option value="super_admin">Super Admin — everything, including settings</option>
@@ -7570,7 +7611,7 @@ function trainerSocialSettingsForm(trainer) {
 function passwordSetupForm() {
   const [firstName = "", ...rest] = String(portalUser?.display_name || "").replace(/\([^)]*\)/g, "").trim().split(/\s+/).filter(Boolean);
   const lastName = rest.join(" ");
-  return `<form id="changePasswordForm" class="password-change-form"><h3>Create your permanent password</h3><p class="panel-copy">Your temporary password worked. Confirm your name and choose a permanent password before continuing.</p><div class="form-grid-two"><label>First Name<input required name="firstName" autocomplete="given-name" value="${escapeHtml(firstName || "")}"></label><label>Last Name<input required name="lastName" autocomplete="family-name" value="${escapeHtml(lastName || "")}"></label></div><label>New Password<input required minlength="10" name="password" type="password" autocomplete="new-password"></label><label>Confirm Password<input required minlength="10" name="confirmation" type="password" autocomplete="new-password"></label><button class="btn btn-red" type="submit">Save Permanent Password</button><div id="passwordStatus" role="status" aria-live="polite"></div></form>`;
+  return `<form id="changePasswordForm" class="password-change-form"><h3>Create your permanent password</h3><p class="panel-copy">Your temporary password worked. Confirm your name and choose a permanent password before continuing.</p><div class="form-grid-two"><label>First Name<input required name="firstName" autocomplete="given-name" value="${escapeHtml(firstName || "")}"></label><label>Last Name<input required name="lastName" autocomplete="family-name" value="${escapeHtml(lastName || "")}"></label></div><label>New Password<input required minlength="6" name="password" type="password" autocomplete="new-password"></label><label>Confirm Password<input required minlength="6" name="confirmation" type="password" autocomplete="new-password"></label><button class="btn btn-red" type="submit">Save Permanent Password</button><div id="passwordStatus" role="status" aria-live="polite"></div></form>`;
 }
 
 // People were locking themselves out by mistyping a password they could not see.
@@ -10367,7 +10408,7 @@ function trainerAdminForm() {
   const finalActions = t.locked
     ? `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft Copy</button><a class="btn btn-red" href="${escapeHtml(trainerPublicUrl(t))}" target="_blank" rel="noopener">Open Live Landing Page</a>`
     : `<button class="btn btn-outline" id="saveTrainerProfile">Save Draft</button><button class="btn btn-red" data-toggle-lock="${escapeHtml(t.id)}">Publish Landing Page</button>`;
-  return `<div class="trainer-onboarding"><aside class="onboarding-rail"><p class="portal-tag">Office Setup</p><h2>${escapeHtml(t.name)}</h2><p>Imported trainer details are already loaded. Complete, review, and publish the office-controlled page.</p>${steps.map(([number, title, sub]) => `<button class="onboarding-step ${step === number ? "active" : ""} ${step > number ? "complete" : ""}" data-onboarding-step="${number}"><span>${step > number ? "✓" : number}</span><div><strong>${title}</strong><small>${sub}</small></div></button>`).join("")}</aside><section class="onboarding-workspace"><div class="onboarding-heading"><div><span>Step ${step} of 7</span><h2>${steps[step - 1][1]}</h2><p>${steps[step - 1][2]}. Changes save to this office-controlled trainer profile.</p></div><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Landing Page</a></div>${content}<footer class="onboarding-footer"><button class="btn btn-outline" data-onboarding-step="${Math.max(1, step - 1)}" ${step === 1 ? "disabled" : ""}>Back</button><span>Saved to the shared office database</span>${step < 7 ? `<button class="btn btn-red" data-onboarding-step="${step + 1}">Save & Continue</button>` : `<div class="onboarding-final-actions">${finalActions}</div>`}</footer></section></div>${trainerProfileEditor(t)}`;
+  return `<div class="trainer-onboarding"><aside class="onboarding-rail"><p class="portal-tag">Office Setup</p><h2>${escapeHtml(t.name)}</h2><p>Imported trainer details are already loaded. Complete, review, and publish the office-controlled page.</p>${steps.map(([number, title, sub]) => `<button class="onboarding-step ${step === number ? "active" : ""} ${step > number ? "complete" : ""}" data-onboarding-step="${number}"><span>${step > number ? "✓" : number}</span><div><strong>${title}</strong><small>${sub}</small></div></button>`).join("")}</aside><section class="onboarding-workspace"><div class="onboarding-heading"><div><span>Step ${step} of 7</span><h2>${steps[step - 1][1]}</h2><p>${steps[step - 1][2]}. Changes save to this office-controlled trainer profile.</p></div><a class="btn btn-outline" href="${trainerPageHref(t)}" target="_blank" rel="noopener">Preview Landing Page</a></div><p class="panel-copy onboarding-address">Web address when published: <strong>${escapeHtml(trainerPublicUrl(t))}</strong> (from the trainer's first and last name)</p>${content}<footer class="onboarding-footer"><button class="btn btn-outline" data-onboarding-step="${Math.max(1, step - 1)}" ${step === 1 ? "disabled" : ""}>Back</button><span>Saved to the shared office database</span>${step < 7 ? `<button class="btn btn-red" data-onboarding-step="${step + 1}">Save & Continue</button>` : `<div class="onboarding-final-actions">${finalActions}</div>`}</footer></section></div>${trainerProfileEditor(t)}`;
 }
 
 function pageEditorPreviewDocument(trainer) {
@@ -10720,7 +10761,7 @@ Your Lorenzo's Dog Training Team trainer portal and landing page are ready.
 
 Trainer portal: ${staffUrl}
 Username: ${username}
-Temporary password: ${TRAINER_TEMP_PASSWORD_NOTICE}
+Temporary password: ${trainer.temporaryPassword && trainer.temporaryPassword !== TEMP_PASSWORD ? trainer.temporaryPassword : TRAINER_TEMP_PASSWORD_NOTICE}
 
 Your landing page: ${landingUrl}
 
@@ -13994,8 +14035,8 @@ document.addEventListener("click", async event => {
       const suggestion = suggestedPortalPassword();
       const password = window.prompt(`Enter a new permanent password for ${portalDisplayName(user)}.\n\nLeave this exactly as it is to use the suggested password below, or type your own.`, suggestion);
       if (!password) return;
-      if (password.length < 8) {
-        showToast("Password must be at least 8 characters.");
+      if (password.length < 6) {
+        showToast("Password must be at least 6 characters.");
         return;
       }
       try {
@@ -16196,7 +16237,7 @@ document.addEventListener("submit", async event => {
     const data = new FormData(event.target);
     const email = String(data.get("email") || "").trim().toLowerCase();
     const password = String(data.get("password") || "");
-    if (password.length < 10) { showToast("The password needs to be at least 10 characters."); return; }
+    if (password.length < 6) { showToast("The password needs to be at least 6 characters."); return; }
     const session = window.LDTT_PORTAL?.readSession?.();
     try {
       const response = await fetch("/api/manage-portal-user", {

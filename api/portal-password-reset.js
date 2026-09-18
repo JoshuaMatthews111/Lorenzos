@@ -169,8 +169,8 @@ async function setPassword(body) {
   if (Date.now() > expiresAt) {
     return { status: 400, body: { ok: false, message: "This reset link has expired. Ask for a new one." } };
   }
-  if (password.length < 10) {
-    return { status: 400, body: { ok: false, message: "Choose a password with at least 10 characters." } };
+  if (password.length < 6) {
+    return { status: 400, body: { ok: false, message: "Choose a password with at least 6 characters." } };
   }
 
   // Exchange the one-time recovery code for a real session, then change the

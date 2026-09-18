@@ -112,8 +112,8 @@ module.exports = async function handler(req, res) {
       if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(newEmail)) {
         return res.status(400).json({ ok: false, message: "Enter a valid email address for the new account." });
       }
-      if (password.length < 10) {
-        return res.status(400).json({ ok: false, message: "The password must be at least 10 characters." });
+      if (password.length < 6) {
+        return res.status(400).json({ ok: false, message: "The password must be at least 6 characters." });
       }
       const existing = await findAuthUserByEmail(newEmail);
       if (existing?.id) {

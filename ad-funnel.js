@@ -128,13 +128,13 @@
 	      first_name: String(data.get("first_name") || "").trim(),
 	      last_name: String(data.get("last_name") || "").trim() || "Ebook Lead",
 	      email: String(data.get("email") || "").trim(),
-	      phone: String(data.get("phone") || "").trim() || "Not provided - PDF opt-in",
+	      phone: String(data.get("phone") || "").trim(),
 	      zip: String(data.get("zip") || "").trim(),
 	      additional_interest: data.getAll("additional_interest").map(value => String(value).trim()).filter(Boolean).join(", "),
 	      i_want_to: `Send me ${ebookTitle}`,
 	      lead_type: "pdf_download",
 	      heard_about_us: "Paid Advertising",
-	      comments: `${source} from ${marketName}. This PDF opt-in collected first name and email only${data.getAll("additional_interest").length ? `. Additional interest: ${data.getAll("additional_interest").join(", ")}.` : "."}`,
+	      comments: `${source} from ${marketName}. This PDF opt-in collected first name, email and phone${data.getAll("additional_interest").length ? `. Additional interest: ${data.getAll("additional_interest").join(", ")}.` : "."}`,
       address_line_1: "Free Ebook Request",
       address_line_2: "",
       city: marketCity,
@@ -286,6 +286,7 @@
 	          <form class="market-guide-form ad-exit-form pdf-optin" novalidate>
 	            <label><span>First name</span><input required name="first_name" autocomplete="given-name" placeholder="First name"></label>
 	            <label><span>Email address</span><input required type="email" name="email" autocomplete="email" placeholder="you@example.com"></label>
+	            <label><span>Phone number</span><input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="Phone number" required></label>
             <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my inquiry, scheduling and confirming my free consultation or evaluation, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
           <button class="btn" type="submit">Download the Free Guide</button>
             <p class="market-guide-status" role="status" aria-live="polite"></p>

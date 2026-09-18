@@ -45,6 +45,45 @@
     return readStoredSession(localStorage) || readStoredSession(sessionStorage) || memorySession;
   }
 
+  // 2026-09-18 (Rachel): "Preview Draft" opened a new tab that said "Trainer page
+  // temporarily unavailable" whenever the office had signed in WITHOUT "keep me
+  // signed in": that session lives in sessionStorage, which a new tab does not
+  // share, so the preview asked the database as an anonymous visitor and row
+  // security (rightly) hid the unpublished draft. A draft preview now asks the
+  // open portal tab for its session over a same-origin BroadcastChannel and
+  // keeps the copy in memory only (nothing is written to storage, the
+  // "keep me signed in" choice is untouched). No portal tab open → the old
+  // anonymous behaviour, which still serves published pages.
+  const PREVIEW_SESSION_CHANNEL = "ldtt-portal-session";
+  const isDraftPreviewPage = Boolean(document.body?.classList.contains("public-site")) && new URLSearchParams(window.location.search).get("preview") === "1";
+  let sessionHandoff = Promise.resolve();
+  if (typeof BroadcastChannel === "function") {
+    try {
+      const channel = new BroadcastChannel(PREVIEW_SESSION_CHANNEL);
+      if (isDraftPreviewPage && !readSession()) {
+        sessionHandoff = new Promise(resolve => {
+          const timer = setTimeout(resolve, 1500);
+          channel.onmessage = event => {
+            const offered = event.data?.type === "session" ? event.data.session : null;
+            if (!offered?.access_token) return;
+            memorySession = offered;
+            clearTimeout(timer);
+            resolve();
+          };
+          channel.postMessage({ type: "request" });
+        });
+      } else {
+        channel.onmessage = event => {
+          if (event.data?.type !== "request") return;
+          const current = readSession();
+          if (current?.access_token) channel.postMessage({ type: "session", session: current });
+        };
+      }
+    } catch {
+      // No channel: the preview behaves as before.
+    }
+  }
+
   function readStoredSession(storage) {
     try {
       return JSON.parse(storage.getItem(STORAGE_KEY) || "null");
@@ -153,6 +192,7 @@
       ...fetchOptions
     } = options;
     await environmentReady;
+    await sessionHandoff;
     const currentSession = readSession();
     if (
       requestedSession !== null &&

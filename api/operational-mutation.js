@@ -365,6 +365,16 @@ async function writeLifecycle(admin, entityType, record, previousStatus, request
   });
 }
 
+// 2026-09-18: a trainer web address can never be a single letter again ("/s").
+// The office is told to use the trainer's first and last name.
+function slugTooShort(entityType, changes) {
+  if (!["trainer", "trainer_page"].includes(entityType)) return null;
+  if (!Object.prototype.hasOwnProperty.call(changes, "slug")) return null;
+  const slug = String(changes.slug || "").trim().toLowerCase();
+  if (slug.length >= 3) return null;
+  return { status: 400, body: { ok: false, message: `The web address "${slug}" is too short. A trainer address needs at least 3 characters — use the trainer's first and last name (for example shantelle-tuck).` } };
+}
+
 async function updateRecord(admin, body, requestId) {
   const entityType = clean(body.entity_type, 40);
   const config = ENTITY_CONFIG[entityType];
@@ -403,6 +413,8 @@ async function updateRecord(admin, body, requestId) {
   if (kept.draftOnly) { for (const key of Object.keys(changes)) delete changes[key]; Object.assign(changes, kept.changes); }
   const guard = publishGuardViolation(entityType, before, changes); // publish-guard
   if (guard) return guard;
+  const shortSlug = slugTooShort(entityType, changes);
+  if (shortSlug) return shortSlug;
   await assertTrainerEmailFree(entityType, changes, id); // onboarding
   const rows = await supabaseFetch(`/rest/v1/${config.table}?${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -437,6 +449,8 @@ async function createRecord(admin, body, requestId) {
   const config = ENTITY_CONFIG[entityType];
   if (!config) return { status: 400, body: { ok: false, message: "Unsupported operational record." } };
   const changes = filterChanges(config, body.changes);
+  const shortSlug = slugTooShort(entityType, changes);
+  if (shortSlug) return shortSlug;
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No valid fields were supplied." } };
   if (entityType === "trainer" && "base_zip" in changes) { // rule 74
     const zipCheck = cleanBaseZip(changes.base_zip);
