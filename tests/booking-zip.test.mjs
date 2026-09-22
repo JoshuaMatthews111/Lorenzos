@@ -320,3 +320,27 @@ test("the portal saves Base ZIP as 5 digits or empty (server check on create and
   assert.match(app, /if \(last\.kind === "trainer_request"\) lines\.push\("Trainer requested online: no time booked, no texts\./);
   assert.match(app, /else if \(last\.kind === "no_trainer"\) lines\.push\(/);
 });
+
+test("starts_on / ends_on (Missy 2026-09-21): a calendar that has not started is not a card; on and after its date it is; ends_on closes it", () => {
+  const { B } = load(true);
+  const row = { slug: "michael-king", active: true, time_zone: "America/Chicago", trainer_id: "aaaaaaaa-0000-4000-8000-000000000003", schedule_id: `AcZssZ${"k".repeat(40)}`, slot_minutes: 60, zip_prefixes: ["325"], location_mode: "in_home", training_center_address: "", starts_on: "2026-09-26" };
+  const settings = B.mergeSettings([row, { slug: "daniel-bainbridge", active: false }]);
+  const king = settings.find(s => s.slug === "michael-king");
+  assert.equal(king.starts_on, "2026-09-26");
+  assert.equal(king.ends_on, "");
+  const slugs = today => B.nearbyTrainers("32566", TRAINERS(), settings, B.RADIUS_MILES, today).map(c => c.slug);
+  assert.deepEqual(slugs("2026-09-25"), [], "before starts_on: not a card");
+  assert.equal(B.settingBySlug(settings, "michael-king", "2026-09-25"), null);
+  assert.equal(B.trainerForZip("32566", settings, "2026-09-25"), null);
+  assert.deepEqual(slugs("2026-09-26"), ["michael-king"], "on starts_on: a card");
+  assert.deepEqual(slugs("2026-10-15"), ["michael-king"]);
+  assert.equal(B.trainerForZip("32566", settings, "2026-09-26").slug, "michael-king");
+  const ended = B.mergeSettings([{ ...row, starts_on: undefined, ends_on: "2027-01-01" }, { slug: "daniel-bainbridge", active: false }]);
+  assert.ok(B.settingBySlug(ended, "michael-king", "2026-12-31"));
+  assert.equal(B.settingBySlug(ended, "michael-king", "2027-01-01"), null, "ends_on is exclusive");
+  // Malformed dates are dropped, not trusted; today is the New York date.
+  assert.equal(B.normalizeTrainerSetting({ ...row, starts_on: "2026-02-30" }).starts_on, "");
+  assert.equal(B.normalizeTrainerSetting({ ...row, starts_on: "9/26/26" }).starts_on, "");
+  assert.equal(B.bookingToday(new Date("2026-09-26T03:30:00Z")), "2026-09-25");
+  assert.equal(B.bookingToday(new Date("2026-09-26T04:30:00Z")), "2026-09-26");
+});
