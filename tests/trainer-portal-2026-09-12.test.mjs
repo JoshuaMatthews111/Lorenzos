@@ -201,7 +201,9 @@ test("text wording + pipeline roles live under Sales Pipeline (Super Admin only)
   const scenarios = fn("pipelineTestScenariosPanel");
   assert.match(scenarios, /^function pipelineTestScenariosPanel\(\) \{\n  if \(!window\.LDTT_IS_SANDBOX \|\| !isSuperAdmin\(\)\) return "";/);
   assert.match(scenarios, /data-ptx-test="\$\{escapeHtml\(keys\.join\(","\)\)\}"/, "a row sends every text of the scenario");
-  assert.match(scenarios, /takes no phone or role choice/, "says the test API only knows the locked tester phone");
+  // Rule 95: a test now follows the same rules as the real text; the note says which handset each role reaches.
+  assert.match(scenarios, /A test follows the same rules as the real text \(rule 95\)/, "says how a test is routed");
+  assert.match(scenarios, /a test never reaches a real trainer/, "a trainer test can never reach a real trainer");
   assert.match(fn("pipelineTextClick"), /if \(keys\.length > 1\) ptextSendTests\(keys\); else ptextPost\(\{ op: "text_test", key, words \}\);/);
   const list = app.slice(app.indexOf("const PIPELINE_TEST_SCENARIOS = ["), app.indexOf("function pipelineTestScenariosPanel("));
   const texts = readFileSync(new URL("../lib/pipeline-texts.js", import.meta.url), "utf8");

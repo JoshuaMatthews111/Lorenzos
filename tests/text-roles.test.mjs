@@ -18,8 +18,9 @@ test("texts go only to active tester phones, by role; Send test stays with Joshu
   // 2026-09-17: one helper each decides the phone; on the practice copy both still demand an active tester.
   assert.match(src, /if \(isSandbox\(\) && !\(testers && testers\.has\(phone\)\)\) return \{ ok: false, phone, reason: `Practice copy: /, "client: tester phones only on the practice copy");
   assert.match(src, /if \(testers && !testers\.has\(phone\)\) return \{ ok: false, phone, reason: `Trainer alert: /, "trainer: tester phones only on the practice copy");
-  assert.match(src, /const trainerPick = trainerPhoneFor\(lead, trainerRow, settings, testers\);/);
+  assert.match(src, /const trainerPick = await trainerTextPhone\(lead, trainerRow, settings, testers\);/, "rule 95: the async door that also registers a real number as a tester");
   const sendTest = src.match(/async function sendTextTest\(key, draftWords\) \{[\s\S]*?\n\}\n/)[0];
-  assert.match(sendTest, /const phone = SEND_TEST_PHONE;/);
-  assert.match(read("trainer-backoffice/app.js"), /<h3 style="margin:18px 0 4px">Who gets each practice text<\/h3>/);
+  assert.match(sendTest, /const \{ phone, role \} = sendTestPhoneFor\(key, settings\);/);
+  assert.match(src, /return \{ role: "client", phone: SEND_TEST_PHONE \};/, "a client test still goes only to the locked phone");
+  assert.match(read("trainer-backoffice/app.js"), /<h3 style="margin:18px 0 4px">Who gets the texts on the practice copy<\/h3>/);
 });

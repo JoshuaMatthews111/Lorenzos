@@ -1627,3 +1627,65 @@ COLLECTED; service-dog gold tag YES; milestones later.
     - A lead from `/ads/<market>` or the 2.0 ad site is labeled "Ad landing page 2.0" (`leadOriginLabel`), using the same
       `isAdPageAddress` rule as its Track 500 badge.
     Tests: `tests/sandbox-fixes-2026-09-22.test.mjs` (5), `tests/office-email.test.mjs` care test, `tests/trainer-handoff.test.mjs`.
+
+## Real trainer numbers on the practice copy (added 2026-09-22; practice copy + practice Make only)
+
+95. **`practice_real_numbers` is the one switch that lets the practice copy text REAL trainers. It is OFF by
+    default, the client text is never freed by it, and live never reads it.**
+    Joshua 2026-09-22: "Make it fully ready for testing everything real in the sandbox with real trainer numbers,
+    and still allow me to edit roles if necessary or type a number."
+    - Two new keys in `site_settings.pipeline_office_emails` (`lib/pipeline.js` `normalizeSettings` /
+      `defaultSettings`): `practice_real_numbers` (boolean, default **false**; only a real `true` turns it on, so a
+      row saved before today stays off) and `practice_trainer_override_phone` (10 digits or a plain error).
+      Both save through the existing `save_settings` op; nothing else about the settings row changed.
+    - **Switch OFF = today's behaviour, unchanged.** Trainer texts go to `practice_trainer_phone`, trainer and
+      Operations email twins only to `practice_email_to`, Operations texts to `practice_operations_phone`, and
+      `sendTextTwinEmail` still refuses any other address.
+    - **Switch ON (practice copy only)**: trainer texts go to the assigned trainer's OWN `trainers.phone` and
+      trainer emails to their ACTIVE `portal_users` login (else `trainers.email`) — the same resolution live uses,
+      so trainers rehearse on their own handsets. Operations texts go to `operations_phone` when it is filled in,
+      else `practice_operations_phone`; Operations emails to `operations_email` when it is filled in, else
+      `practice_email_to` (a row that never touched that box still holds the starting address, so CLEAR the box to
+      keep practice emails off it). Subjects still start "[PRACTICE COPY]" and every email twin still carries the
+      "PRACTICE COPY" line.
+    - **`practice_trainer_override_phone` beats everything**, switch on or off: every trainer text lands on that one
+      handset. Live ignores it (`trainerOverridePhone` returns "" off the practice copy).
+    - **The client text is NEVER freed.** `clientPhoneFor` is untouched: on the practice copy a client text still
+      needs an ACTIVE `communications_testers` row, so the practice copy can never text a stranger. The portal box
+      says so in plain words. Same for `newLeadTextPlan`, `careTextPlan` and `sendFollowUpText`.
+    - **Every number the practice copy texts this way becomes an ACTIVE tester** (`registerTesterPhones`, the write
+      half of the old `registerRolePhonesAsTesters`): on save, and again just before a send through
+      `trainerTextPhone` / `sendOpsText` / `sendTextTest`. A failed registration never stops a text — the code gate
+      is the resolved number itself, not the tester list.
+    - `trainerWithPhone(lead, trainer, settings)` now loads the real trainer row on the practice copy too, but ONLY
+      while the switch is on; with it off it still short-circuits exactly as before.
+    - **Live is untouched**: `practiceRealNumbers()` and `trainerOverridePhone()` both answer false/"" when
+      `LDTT_SANDBOX` is unset, whatever the saved row says. `trainerPhoneFor` keeps its `{ ok, phone, reason }`
+      shape.
+    - **Portal (Sales → "Text settings & test scenarios" → "Who gets the texts on the practice copy")**: the switch,
+      a one-line "Right now:" summary of who gets what (`practiceRecipientSummary`, served on
+      `GET /api/pipeline?op=settings` and on the save answer as `recipient_summary`), the new override box, and the
+      role boxes — Client test phone, Trainer phone (used when the switch is off), Operations phone (practice),
+      Operations phone on live, Operations email on live, Practice email inbox. Every box is on the rule-14
+      `typedFieldKey` whitelist, so typing survives a redraw.
+    - **Send test follows the same rules** (`sendTestPhoneFor`): a CLIENT test still goes only to the locked phone
+      (rule 82/84); a TRAINER test goes to the override, else the trainer test phone — **a test can never reach a
+      real trainer**, because a test has no lead behind it; an OPERATIONS test goes to the Operations phone in use.
+      All three still have to be an ACTIVE tester, and Send test still waits for `LDTT_TEXTS_FROM_PORTAL=1`.
+    - **Make (practice scenarios only).** So a real trainer number is never dropped by a tester list:
+      pathway 2 (6237333) TRAINER route filter is now "Trainer: phone is not empty"
+      (`{{1.trainer_phone}}` `text:notequal` ""), and the ops scenario (6254549) keeps its stage conditions with the
+      phone condition changed to `{{1.operations_phone}}` `text:notequal` "". Pathway 2's CLIENT route and pathway 1
+      (6237328) stay tester-filtered on the 3 tester phones. Both scenarios stay active, scheduling "immediately".
+      Backups of the pre-change blueprints:
+      `~/Desktop/LDTT Meeting Changes 2026-09-13/make-backup-{pathway1,pathway2,ops}-2026-09-22b.json`
+      (restore = `scenarios_update` with the file's contents as `blueprint`).
+    - **Practice data.** Missy's 2026-09-16 list has "Carolina Don (619) 213-7240" = Carolina Perez (Joshua
+      confirmed); her `practice.trainers` row held the shared office placeholder and now holds that number
+      (migration `practice_carolina_perez_real_phone`, practice schema only, guarded so it only writes over a blank
+      or the placeholder). The only ACTIVE practice trainers still on the placeholder, and the only two with no
+      active portal login, are `arion-goble` and `sean-urena`: with the switch on their trainer texts and emails are
+      skipped with the plain "trainer has no phone on file" / "trainer has no portal email" reason.
+    Tests: `tests/practice-real-numbers.test.mjs` (12). Check on the practice copy: with the switch OFF a booking
+    still texts only the tester phone; with it ON the assigned trainer's own phone gets the alert, the lead's
+    non-tester phone still gets nothing, and the number shows up as an active row under Communications → Testers.

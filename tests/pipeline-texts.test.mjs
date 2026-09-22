@@ -118,7 +118,12 @@ test("every Make send carries the portal's finished words; the test text goes on
   assert.match(src, /const words = key => \{ const saved = T\.wordsFor\(state, key\); return T\.check\(key, saved\)\.error \? T\.wordsFor\(null, key\) : saved; \};/, "words that fail the checks are never sent");
   assert.match(read("supabase/migrations/20260914120000_practice_pipeline_texts_server_only.sql"), /as restrictive for all to authenticated, anon\n  using \(key <> 'pipeline_texts'\)\n  with check \(key <> 'pipeline_texts'\);/, "no browser login can read or write the texts row");
   const test = src.match(/async function sendTextTest\(key, draftWords\) \{[\s\S]*?\n\}\n/)[0];
-  assert.match(test, /const phone = SEND_TEST_PHONE;/, "rule 84: Send test goes only to Joshua");
+  // Rule 95: the phone comes from sendTestPhoneFor (client = the locked phone, trainer = override / test phone,
+  // Operations = the Operations phone in use) and must still be an ACTIVE tester.
+  assert.match(test, /const \{ phone, role \} = sendTestPhoneFor\(key, settings\);/, "rule 95: a test is routed by role");
+  assert.match(test, /if \(!phone \|\| !testers\.has\(phone\)\) return \{ ok: false, message: "The test phone is not an active tester phone\." \};/, "rule 84: a test still needs an active tester phone");
+  assert.match(src, /if \(role === "trainer"\) return \{ role, phone: trainerOverridePhone\(s\) \|\| e164\(s\.practice_trainer_phone \|\| ""\) \|\| SEND_TEST_PHONE \};/, "a trainer test never reaches a real trainer");
+  assert.match(src, /return \{ role: "client", phone: SEND_TEST_PHONE \};/, "rule 84: a client test still goes only to Joshua");
   assert.match(test, /message = `\[TEST\] \$\{T\.render\(ok\.value, T\.SAMPLE\)\}`/);
   const api = read("api/pipeline.js");
   assert.match(api, /if \(process\.env\.LDTT_TEXTS_FROM_PORTAL !== "1"\) return res\.status\(409\)/, "Send test waits for the Make switch");

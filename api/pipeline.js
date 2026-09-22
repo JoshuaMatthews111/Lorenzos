@@ -39,8 +39,11 @@ module.exports = async function handler(req, res) {
       if (!access) return;
       if (op === "settings") {
         const config = await M.officeResendConfig();
+        const settings = await P.loadSettings();
         return res.status(200).json({
-          ok: true, settings: await P.loadSettings(), defaults: P.defaultSettings(),
+          ok: true, settings, defaults: P.defaultSettings(),
+          // Rule 95: the plain line the office reads under the "real trainer numbers" switch.
+          recipient_summary: P.practiceRecipientSummary(settings),
           email: { resend_ready: config.ready, from: config.from, queued: await P.queuedOfficeEmailCount() }
         });
       }
@@ -80,7 +83,8 @@ module.exports = async function handler(req, res) {
       if (!access) return;
       const result = await P.saveSettings(body, actorLabel(access));
       if (!result.ok) return res.status(400).json({ ok: false, message: result.errors.join(" "), errors: result.errors });
-      return res.status(200).json(result);
+      // Rule 95: the saved answer carries the same plain line, so the box updates without a reload.
+      return res.status(200).json({ ...result, recipient_summary: P.practiceRecipientSummary(result.settings) });
     }
     if (["text_template_save", "text_template_delete", "text_activate"].includes(op)) {
       // Rule 84: SUPER ADMIN only. Putting a template in use needs the person's full name (rule 19 pattern).
