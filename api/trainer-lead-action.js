@@ -43,6 +43,14 @@ const STATE_CODES = {"alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas
 const STATE_CODE_SET = new Set(Object.values(STATE_CODES));
 const DRAFT_NAMES = new Set(["new trainer draft", "new trainer"]);
 const DRAFT_STATES = new Set(["state pending"]);
+// 2026-09-22 safety net: practice test rows ("Test …", "O'Brien Test 🐶 …") and office drafts (slug office-draft-…)
+// never show in a hand-off list, even while still marked active.
+function isTestOrDraftTrainer(row) {
+  const name = clean(row?.full_name, 80);
+  const slug = clean(row?.slug, 120).toLowerCase();
+  return /^test\b/i.test(name) || /\btest\b/i.test(name) || /^draft\b/i.test(name) || /\bdraft$/i.test(name)
+    || slug.startsWith("office-draft-") || /(^|-)test(-|$)/.test(slug);
+}
 // Trainer-name columns a leads row MAY carry; only the ones present on the row are written (checked on the row read first).
 const TRAINER_NAME_COLUMNS = ["assigned_trainer_name", "trainer_name", "assigned_trainer"];
 
@@ -91,6 +99,7 @@ async function sameStateTeam(trainerId) {
     && String(row.status || "") === "active"
     && !DRAFT_NAMES.has(clean(row.full_name, 80).toLowerCase())
     && !DRAFT_STATES.has(clean(row.state, 60).toLowerCase())
+    && !isTestOrDraftTrainer(row)
     && stateCode(row.state) === state
   ).map(teamRow);
   return { trainer: teamRow(self), state, trainers };

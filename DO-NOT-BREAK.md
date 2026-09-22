@@ -995,9 +995,12 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       uses the table: ad pages, 2.0 pages, market pages and trainer pages always take `booking`. The lane is logged in
       `raw_payload.pipeline.lane` and shown in the lead panel. The FormSubmit office email goes out in EVERY case (live),
       untouched. Texts still need SMS consent and an active tester phone (rule 72).
-    - **The customer-care text has its OWN Make route** (`LDTT_MAKE_HOOK_CARE`, never equal to pathway 1's hook: pathway 1's
-      scenario has one Twilio module with the booking-link wording and no pathway filter). Until that route exists (needs
-      Joshua's OK to create or change a Make scenario) the text is recorded as not sent with that reason.
+    - **The customer-care text uses its own Make route when `LDTT_MAKE_HOOK_CARE` is set, else the pathway 1 hook**
+      (REVISED 2026-09-22, sandbox fix pass). The old "never pathway 1" reason is gone: since 2026-09-14 pathway 1's
+      Twilio body is `{{1.message}}` (its only filter is the phone tester filter, no pathway filter; checked 2026-09-22) and
+      `withTextMessages()` fills `message` with the `care_call` words for pathway `customer_care`, exactly like the
+      office's care button. Payload: `pathway:"customer_care"`, `phone` = `customer_phone` = the lead's phone. Consent and
+      the practice tester rules are unchanged (`clientPhoneFor`). `care_call` status is `in_use`.
     Tests: `tests/office-email.test.mjs` (12). Audit: the rule 73 check.
 
 ## Booking page redesign: ZIP first, pick a trainer (added 2026-09-12, Claude, portal chain step 3c)
@@ -1601,3 +1604,26 @@ COLLECTED; service-dog gold tag YES; milestones later.
     review box ticked "Show on page" (a real `true`; placeholder copy never counts). With none, the button and the
     `#reviews` section are absent. Text reviews only (a photo-only review is skipped); every value is escaped.
     Tests: `tests/trainer-bio-reviews.test.mjs` (6).
+
+## Sandbox fix pass (added 2026-09-22, from CRITICAL-AUDIT-2026-09-22; practice copy + practice Make only)
+
+94. **Make pathway 2 (6237333) is webhook -> Router -> two routes; a failed client filter never stops the trainer text.**
+    - Route 1 "Client: tester phones only (text:equal)" -> the customer Twilio module (`{{1.customer_phone}}`,
+      `{{1.customer_message}}`); route 2 "Trainer: tester phones only (text:equal)" -> the trainer Twilio module
+      (`{{1.trainer_phone}}`, `{{1.trainer_message}}`). Same filters (the 3 tester phones, `text:equal`), same connection,
+      same from-number as before; only the structure changed. Scenario stays active, scheduling "immediately".
+      Backup of the old straight chain: `~/Desktop/LDTT Meeting Changes 2026-09-13/make-backup-pathway2-2026-09-22.json`
+      (restore = `scenarios_update` with its `blueprint`). Trainer-only sends (new inquiry, pre-eval answers, log the
+      deal, phone changed) should now show 2 operations in Make history, not 1.
+    - Pathway 1 (6237328) unchanged: webhook -> one Twilio module, phone tester filter only.
+    - The trainer one-page portal ignores `must_change_password` on the practice copy only (`trainerOnePageActive`,
+      `!window.LDTT_IS_SANDBOX` gate, like the menu/topbar); live still sends a flagged trainer to Settings first.
+    - The same-state hand-off list (`api/trainer-lead-action.js` `sameStateTeam`) also drops test rows (a whole-word
+      "Test" in the name, a `-test-` slug) and office drafts (`office-draft-` slug), even while active.
+    - Practice rows set `inactive` (not public): clark-patton, john-delbane, emilio-marotta, donal-duck,
+      o-brien-test-mto7wcs1 and the two office-draft "New Trainer Draft" rows. A `practice.reset_from_live()` brings
+      them back as active until live is cleaned too.
+    - Eval dates on Sales/trainer cards are long: "Tuesday, September 15, 2026, 10:00 AM EDT" (`leadEvalLabel`).
+    - A lead from `/ads/<market>` or the 2.0 ad site is labeled "Ad landing page 2.0" (`leadOriginLabel`), using the same
+      `isAdPageAddress` rule as its Track 500 badge.
+    Tests: `tests/sandbox-fixes-2026-09-22.test.mjs` (5), `tests/office-email.test.mjs` care test, `tests/trainer-handoff.test.mjs`.

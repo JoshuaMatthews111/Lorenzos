@@ -107,7 +107,7 @@ test("4. dates read \"September 17, 2026\" (Joshua 2026-09-17); times unchanged"
 
 test("5. Track 500 badge: ad landing pages and 2.0 pages only", () => {
   const ctx = { state: { leads: [] }, isPaidAdLandingPageLead: () => false };
-  vm.runInNewContext(`${fn("escapeHtml")}\n${fn("leadRawPayload")}\n${fn("leadCameFromAdPage")}\n${fn("isTrack500Lead")}\n${fn("track500Tag")}\n${fn("dealTrack500Tag")}`, ctx);
+  vm.runInNewContext(`${fn("escapeHtml")}\n${fn("leadRawPayload")}\n${fn("isAdPageAddress")}\n${fn("leadCameFromAdPage")}\n${fn("isTrack500Lead")}\n${fn("track500Tag")}\n${fn("dealTrack500Tag")}`, ctx);
   const pipeline = { entered_at: "2026-09-17T12:00:00Z", lane: "booking" };
   // 2.0 page: the form sends the page address.
   assert.equal(ctx.isTrack500Lead({ rawPayload: { source_page: "https://lorenzosdogtrainingteam.com/ads/miramar-beach", pipeline } }), true);

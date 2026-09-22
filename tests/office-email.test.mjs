@@ -359,7 +359,7 @@ test("lanes: the Contact Us answer picks the lane; ad pages and the Site Builder
   assert.equal(P.normalizeLanes({ lanes: [{ answer: "Schedule a virtual evaluation", lane: "office_call" }, { answer: "x", lane: "made_up" }] }).length, 1, "an office override is read; unknown lanes are ignored");
 });
 
-test("phone consultation: customer-care text only through its own Make route, never the pathway 1 hook; lane logged; not on Sales", async () => {
+test("phone consultation: customer-care text through the pathway 1 hook (or its own route when set); lane logged; not on Sales", async () => {
   delete process.env.LDTT_MAKE_HOOK_CARE;
   let { pipelineApi } = load();
   const { db, calls } = fakeWorld();
@@ -368,12 +368,24 @@ test("phone consultation: customer-care text only through its own Make route, ne
   assert.equal(r1.statusCode, 200);
   assert.equal(r1.payload.lane, "office_call");
   assert.equal(r1.payload.book_url, null);
-  assert.equal(hooks(calls, "/testhookone").length, 0, "the booking-link text is never sent for this lane");
+  // 2026-09-22: no LDTT_MAKE_HOOK_CARE -> the care words go through pathway 1 (Make sends {{1.message}}).
+  const viaOne = hooks(calls, "/testhookone");
+  assert.equal(viaOne.length, 1, "one care text through pathway 1, and never the booking-link text");
+  assert.equal(viaOne[0].body.pathway, "customer_care");
+  assert.equal(viaOne[0].body.phone, TESTER);
+  assert.equal(viaOne[0].body.customer_phone, TESTER);
+  assert.match(viaOne[0].body.message, /Our office will call you shortly from \(216\) 475-5999\. Reply STOP to opt out\.$/);
+  assert.doesNotMatch(viaOne[0].body.message, /schedule your complimentary evaluation/i, "not the booking-link words");
   const saved = db.leads[0];
   assert.equal(saved.raw_payload.pipeline.lane.key, "office_call");
-  assert.match(saved.raw_payload.pipeline.care_text.reason, /LDTT_MAKE_HOOK_CARE is not set/);
+  assert.equal(saved.raw_payload.pipeline.care_text.status, "sent");
   assert.equal(saved.raw_payload.sales_pipeline, undefined, "stays in the office's normal follow-up");
   assert.equal(saved.trainer_slug, null);
+  // A non-tester phone on the practice copy still gets nothing.
+  const stranger = contactLead(db, "Schedule a free phone consultation to receive more information", { phone: "(330) 555-0199" });
+  await call(pipelineApi, { body: { op: "enter", lead_id: stranger.id } });
+  assert.equal(hooks(calls, "/testhookone").length, 1, "tester rules unchanged");
+  assert.notEqual(db.leads.find(l => l.id === stranger.id).raw_payload.pipeline.care_text.status, "sent");
   process.env.LDTT_MAKE_HOOK_CARE = "https://hook.us2.make.com/testhookcare";
   try {
     ({ pipelineApi } = load());
@@ -382,15 +394,12 @@ test("phone consultation: customer-care text only through its own Make route, ne
     await call(pipelineApi, { body: { op: "enter", lead_id: b.id } });
     await call(pipelineApi, { body: { op: "enter", lead_id: noConsent.id } });
     const care = hooks(calls, "/testhookcare");
-    assert.equal(care.length, 1, "one text, and none without SMS consent");
+    assert.equal(care.length, 1, "own route when set, and none without SMS consent");
     assert.equal(care[0].body.phone, TESTER);
     assert.match(care[0].body.message, /Our office will call you shortly from \(216\) 475-5999\. Reply STOP to opt out\.$/);
-    assert.equal(hooks(calls, "/testhookone").length, 0);
+    assert.equal(hooks(calls, "/testhookone").length, 1, "nothing more on pathway 1 while the care route is set");
     assert.equal(db.leads.find(l => l.id === b.id).raw_payload.pipeline.care_text.status, "sent");
     assert.match(db.leads.find(l => l.id === noConsent.id).raw_payload.pipeline.care_text.reason, /No SMS consent/);
-    // The care route can never be the pathway 1 hook.
-    process.env.LDTT_MAKE_HOOK_CARE = process.env.LDTT_MAKE_HOOK_PATHWAY1;
-    assert.equal(load().P.careHookUrl(), "");
   } finally {
     delete process.env.LDTT_MAKE_HOOK_CARE;
   }

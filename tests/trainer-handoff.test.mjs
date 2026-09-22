@@ -30,7 +30,11 @@ const TRAINERS = [
   { id: "t-4", full_name: "New Trainer Draft", market: "", state: "State Pending", base_zip: "", slug: "new-trainer-draft", status: "active" },
   { id: "t-5", full_name: "Retired Ohioan", market: "Toledo, OH", state: "ohio", base_zip: "43601", slug: "retired-ohioan", status: "inactive" },
   { id: "t-6", full_name: "Pat Dayton", market: "Dayton, OH", state: " oh ", base_zip: "45401", slug: "pat-dayton", status: "active" },
-  { id: "t-7", full_name: "Sam Houston", market: "Houston, TX", state: "TX", base_zip: "77001", slug: "sam-houston", status: "active" }
+  { id: "t-7", full_name: "Sam Houston", market: "Houston, TX", state: "TX", base_zip: "77001", slug: "sam-houston", status: "active" },
+  // 2026-09-22: practice test rows and office drafts still marked active never show in the downline.
+  { id: "t-8", full_name: "O'Brien Test 🐶 mto7wcs1", market: "Cleveland, OH", state: "Ohio", base_zip: "44101", slug: "o-brien-test-mto7wcs1", status: "active" },
+  { id: "t-9", full_name: "Test Trainer Ohio", market: "Akron, OH", state: "OH", base_zip: "44301", slug: "test-trainer-ohio", status: "active" },
+  { id: "t-10", full_name: "Office Draft", market: "Akron, OH", state: "OH", base_zip: "44301", slug: "office-draft-1788965328468", status: "active" }
 ];
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 

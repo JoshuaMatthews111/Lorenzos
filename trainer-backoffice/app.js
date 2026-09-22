@@ -1078,6 +1078,9 @@ function leadOriginLabel(row, raw) {
   const leadType = String(raw?.lead_type || "").toLowerCase();
   if (leadType === "pdf_download") return "Ebook landing page";
   if (landingType.includes("paid ad") || /^dog-training-/.test(sourcePage)) return "Paid ad landing page";
+  // 2026-09-22: a 2.0 ad page (/ads/<market> or the 2.0 site) was labeled "Website contact form" while its card
+  // correctly wore the Track 500 badge (leadCameFromAdPage). Same address rule for both now.
+  if ([sourcePage, raw?.page_url, raw?.landing_url, raw?.page_path].some(isAdPageAddress)) return "Ad landing page 2.0";
   if (sourcePage.includes("trainer landing page")) return "Trainer landing page";
   if (sourcePage) return "Website contact form";
   return "Website contact form";
@@ -6168,7 +6171,7 @@ function flowStepText() {
     <div class="communications-token-row"><span>Add client details:</span>${MERGE_TOKENS.map(([token, label]) => `<button class="btn btn-outline btn-small" type="button" data-design-token="${token}">${label}</button>`).join("")}<small>Each person sees their own name and city here.</small></div>
     <label class="wide">Message<textarea class="communications-writing-box" data-design-body-text rows="7" placeholder="Hi {{first_name}}, ...">${escapeHtml(draft.body_text || "")}</textarea></label>
     <p class="flow-hint">${smsCostLine(draft.body_text)}.</p>
-    <label class="wide upload-field">Add a picture to the text — optional<input type="file" accept="image/png,image/jpeg,image/gif" data-sms-media-upload><small class="field-help"><strong>Only add a picture if you want one.</strong> A plain text with a link works perfectly well and costs the least. Adding a picture turns it into a picture message, which SimpleTexting charges at a higher rate than a plain text — your SimpleTexting account shows the exact rate and your remaining credits. Keep the picture under about 600 KB so phone networks accept it.</small></label>
+    <label class="wide upload-field">Add a picture to the text (optional)<input type="file" accept="image/png,image/jpeg,image/gif" data-sms-media-upload><small class="field-help"><strong>Only add a picture if you want one.</strong> A plain text with a link works perfectly well and costs the least. Adding a picture turns it into a picture message, which SimpleTexting charges at a higher rate than a plain text — your SimpleTexting account shows the exact rate and your remaining credits. Keep the picture under about 600 KB so phone networks accept it.</small></label>
     ${draft.media_url ? `<div class="design-current-image"><img src="${escapeHtml(draft.media_url)}" alt=""><span>Picture attached</span><button class="btn btn-outline btn-small" type="button" data-sms-media-clear>Remove picture</button></div>` : ""}
     <div class="flow-actions"><button class="btn btn-outline" type="button" data-flow-back>Back</button><button class="btn btn-red" type="button" data-flow-next ${String(draft.body_text || "").trim() ? "" : "disabled"}>See how it looks</button></div>`, "pad");
 }
@@ -9047,11 +9050,18 @@ async function loadJourneyTexts() {
 // ad landing page (the old /ads/<slug> pages, whose form sends the page slug) or a 2.0 page (whose form
 // sends the page address, .../ads/<slug>). Website forms, the Contact page, trainer pages and vet referrals
 // wear no badge, even when the pipeline carried them.
+// An ad page address: /ads/<market> (or /ads-v2/) on our site, or any page on the 2.0 ad site (ldtt-ads-v2…).
+function isAdPageAddress(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return false;
+  return /^\/?ads(-v2)?\//.test(text) || /^https?:\/\/[^/]+\/ads(-v2)?\//.test(text) || /^https?:\/\/ldtt-ads-v2[a-z0-9-]*\.vercel\.app(\/|$)/.test(text);
+}
+
 function leadCameFromAdPage(lead = {}) {
   const raw = leadRawPayload(lead);
   const values = [raw.source_page, lead.source_page, lead.sourcePage, raw.page_url, raw.landing_url, raw.page_path]
     .map(value => String(value || "").trim().toLowerCase()).filter(Boolean);
-  if (values.some(value => /^\/?ads(-v2)?\//.test(value) || /^https?:\/\/[^/]+\/ads(-v2)?\//.test(value))) return true;
+  if (values.some(isAdPageAddress)) return true;
   return isPaidAdLandingPageLead(lead);
 }
 
@@ -9233,7 +9243,7 @@ function dealFormMarkup() {
   // Editing a logged deal: the lead link stays as it was (a closed lead is no longer in the open list).
   const leadField = editing
     ? `<label>Lead this deal closes<input type="text" value="${escapeHtml(f.lead_id ? (dealLeadFor(f.lead_id)?.owner || "Linked lead") : "Not from a lead")}" readonly></label>`
-    : `<label>Lead this deal closes <span class="hint">optional &mdash; marks them Became a Client</span><select data-deal-field="lead_id">${leadOptions}</select></label>`;
+    : `<label>Lead this deal closes <span class="hint">(optional) &mdash; marks them Became a Client</span><select data-deal-field="lead_id">${leadOptions}</select></label>`;
   return `<form class="deal-form" data-deal-form>
     ${editing ? `<p class="deal-editing">Editing the deal for <strong>${escapeHtml(f.client_name || "this client")}</strong>. ${f.money_locked ? "A payment is already marked paid, so the amounts and plan are locked; you can change the names, program and notes." : "Change anything, then Save changes. The payment plan is rebuilt from the new amounts."} <button type="button" class="btn btn-outline btn-small" data-deal-cancel-edit>Cancel editing</button></p>` : ""}
     <div class="grid-2">
@@ -9243,7 +9253,7 @@ function dealFormMarkup() {
     ${dealLeadSummary(f.lead_id)}
     <div class="grid-3">
       <label>Client name ${f.lead_id ? `<span class="hint">from the lead</span>` : ""}<input type="text" data-deal-field="client_name" value="${escapeHtml(f.client_name)}" required placeholder="e.g. Kathy Robinson" ${f.lead_id ? "readonly" : ""}></label>
-      <label>Dog name <span class="hint">${f.lead_id ? "from the lead" : "optional"}</span><input type="text" data-deal-field="dog_name" value="${escapeHtml(f.dog_name)}" ${f.lead_id ? "readonly" : ""}></label>
+      <label>Dog name <span class="hint">${f.lead_id ? "from the lead" : "(optional)"}</span><input type="text" data-deal-field="dog_name" value="${escapeHtml(f.dog_name)}" ${f.lead_id ? "readonly" : ""}></label>
       ${dealProgramField(f)}
     </div>
     <div class="grid-2">
@@ -9251,7 +9261,7 @@ function dealFormMarkup() {
       <label>Collected today<input type="number" step="0.01" min="0" inputmode="decimal" data-deal-field="collected_amount" value="${escapeHtml(String(f.collected_amount))}" placeholder="e.g. 1250.00" ${lockMoney}></label>
     </div>
     <div data-deal-derived>${dealFormDerived(f)}</div>
-    <label>Notes for the office <span class="hint">optional</span><textarea data-deal-field="notes">${escapeHtml(f.notes)}</textarea></label>
+    <label>Notes for the office <span class="hint">(optional)</span><textarea data-deal-field="notes">${escapeHtml(f.notes)}</textarea></label>
     ${f.error ? `<p class="deal-error">${escapeHtml(f.error)}</p>` : ""}${f.ok ? `<p class="deal-ok">${escapeHtml(f.ok)}</p>` : ""}
     <div class="row-actions"><button class="btn btn-red" type="submit" data-deal-submit ${f.busy || over ? "disabled" : ""}>${f.busy ? "Saving\u2026" : editing ? "Save changes" : "Submit deal"}</button></div>
   </form>`;
@@ -9489,7 +9499,10 @@ function trainerOnePageViews() {
 }
 
 function trainerOnePageActive() {
-  return session.role !== "admin" && !portalUser?.must_change_password && !portalProfileNeedsCompletion()
+  // 2026-09-22: the practice copy cannot save a password (rule 5), so it ignores must_change_password here too,
+  // like the menu/topbar gates; otherwise a flagged trainer sees only the Dashboard. Live unchanged.
+  const passwordGate = !window.LDTT_IS_SANDBOX && Boolean(portalUser?.must_change_password);
+  return session.role !== "admin" && !passwordGate && !portalProfileNeedsCompletion()
     && trainerOnePageViews().includes(state.activeView);
 }
 
@@ -9556,7 +9569,7 @@ function trainerLeadActionsBox(lead) {
     </div>
     ${closed ? `<p class="field-hint">This lead is closed (${escapeHtml(lead.status)}). Ask the office to reopen it.</p>` : `<div class="trainer-lost-box">
       <label>Lost? Why<select data-trainer-lost-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${reasons}</select></label>
-      <label>Note for the office <span class="hint">optional</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
+      <label>Note for the office <span class="hint">(optional)</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
       <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="lost" data-lead-ref="${escapeHtml(lead.id)}">Mark lost</button>
     </div>`}
     ${closed ? "" : trainerHandoffBox(lead)}
@@ -11582,8 +11595,14 @@ function leadZoneHint(lead) {
 function leadEvalLabel(value, timeZone) {
   const date = parseTimestamp(value);
   if (!date) return "";
-  const opts = { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" };
-  try { return date.toLocaleString("en-US", timeZone ? { ...opts, timeZone } : opts); } catch { return date.toLocaleString("en-US", opts); }
+  // 2026-09-22: long dates everywhere (Sales and trainer cards too): "Tuesday, September 15, 2026, 10:00 AM EDT".
+  const build = zone => {
+    const withZone = extra => (zone ? { ...extra, timeZone: zone } : extra);
+    const day = date.toLocaleDateString("en-US", withZone({ weekday: "long", month: "long", day: "numeric", year: "numeric" }));
+    const time = date.toLocaleTimeString("en-US", withZone({ hour: "numeric", minute: "2-digit", timeZoneName: "short" }));
+    return `${day}, ${time}`;
+  };
+  try { return build(timeZone); } catch { return build(undefined); }
 }
 
 // Online booking (rule 71): the time the customer booked on /book/<trainer> and every eval answer.
@@ -11868,7 +11887,7 @@ function submissionForm(kind = "media") {
   const options = kind === "review" ? ["Review", "Testimonial"] : ["Photo", "Training Video"];
   const placeholder = kind === "review" ? "Example: Google review screenshot" : "Example: Loose leash training video";
   const contentField = kind === "review"
-    ? `<div class="field wide"><label>Review or Testimonial Text<textarea name="submission-review-text" placeholder="Paste the complete client review or testimonial here."></textarea></label></div><div class="field wide"><label>Optional Review Photo or Video<input type="file" name="submission-file" accept="image/*,video/*"></label></div><div class="field wide"><label>Or paste a review video link<input name="submission-video-url" type="url" placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM"></label><p class="panel-copy">Add written feedback, an image/video upload, a supported video link, or a combination for office approval.</p></div>`
+    ? `<div class="field wide"><label>Review or Testimonial Text<textarea name="submission-review-text" placeholder="Paste the complete client review or testimonial here."></textarea></label></div><div class="field wide"><label>Review Photo or Video (optional)<input type="file" name="submission-file" accept="image/*,video/*"></label></div><div class="field wide"><label>Or paste a review video link<input name="submission-video-url" type="url" placeholder="YouTube, Vimeo, Loom, Google Drive, Dropbox, or direct MP4/WebM"></label><p class="panel-copy">Add written feedback, an image/video upload, a supported video link, or a combination for office approval.</p></div>`
     : `<div class="field wide"><label>Upload Photo or Video<input type="file" name="submission-file" accept="image/*,video/*" required></label><p class="panel-copy">Images and short videos are stored privately for office review before approval.</p></div>`;
   return `<div class="form-grid"><div class="field"><label>Submission Type<select name="submission-type">${options.map(option => `<option>${option}</option>`).join("")}</select></label></div><div class="field"><label>Title<input name="submission-title" placeholder="${placeholder}" required></label></div>${contentField}<div class="field wide"><label>Notes For The Office<textarea name="submission-note" placeholder="Tell the office where this should be used and confirm client permission when applicable."></textarea></label></div></div>`;
 }
