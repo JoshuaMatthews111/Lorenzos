@@ -31,7 +31,7 @@ const read = path => readFileSync(resolve(import.meta.dirname, "..", path), "utf
 const TESTER = "+14402142915";
 const LORENZO_PHONE = "+12165550111"; // fake
 const TRAINER_PHONE = "+13305550123"; // fake
-const LORENZO_EMAIL = "lorenzo@lorenzosdogtrainingteam.com"; // the default in lib/pipeline.js
+const LORENZO_EMAIL = "production@lorenzosdogtrainingteam.com, lorenzo@lorenzosdogtrainingteam.com"; // the default in lib/pipeline.js: the office inbox AND Lorenzo
 const PRACTICE_TO = "practice-test@example.test"; // fake practice test address
 const TRAINER_LOGIN = "trainer.login@example.test"; // fake portal login email
 const TRAINER_ROW_EMAIL = "trainer.row@example.test"; // fake trainers.email
@@ -124,9 +124,9 @@ test("live: the Operations text and its email fire together with the SAME words,
   assert.ok(post.message && post.message.includes("Pat Client"));
   assert.equal(r.email.status, "sent", r.email.reason);
   assert.equal(r.email.resend_id, "re-twin-1");
-  assert.equal(r.email.to_masked, "lo***@lorenzosdogtrainingteam.com");
+  assert.equal(r.email.to_masked, "pr***@lorenzosdogtrainingteam.com, lo***@lorenzosdogtrainingteam.com", "production@ AND Lorenzo");
   const [mail] = twinEmails(calls);
-  assert.deepEqual(mail.to, [LORENZO_EMAIL]);
+  assert.deepEqual(mail.to, LORENZO_EMAIL.split(",").map(x => x.trim()), "one email, both office addresses");
   assert.equal(mail.subject, "Track 500 · New lead: Pat Client");
   assert.ok(mail.text.startsWith(post.message), "the email carries the exact words of the text");
   assert.match(mail.text, new RegExp(`Open the lead in the portal: https://lorenzosdogtrainingteam\\.com/staff\\?view=leads&lead=${LEAD_ID}`));
@@ -144,7 +144,7 @@ test("live: the Operations email still goes when the text is skipped (no Operati
     assert.equal(hookPosts(calls, "twinhookops").length, 0, "no text");
     assert.equal(r.email.status, "sent", r.email.reason);
     const [mail] = twinEmails(calls);
-    assert.deepEqual(mail.to, [LORENZO_EMAIL]);
+    assert.deepEqual(mail.to, LORENZO_EMAIL.split(",").map(x => x.trim()), "one email, both office addresses");
     assert.equal(mail.subject, "Track 500 · Evaluation booked: Pat Client");
     assert.equal(mail.key, `${LEAD_ID}:ops_eval_booked:hold-9`, "a rebooking is a new booking: its hold is in the key");
     assert.match(mail.text, /Pat Client/);
@@ -336,7 +336,7 @@ test("a Resend failure is recorded with its reason and never breaks the text", w
   assert.equal(hookPosts(calls, "twinhookops").length, 1);
 }));
 
-test("settings: operations_email defaults to Lorenzo, is validated, and the portal box sits next to the live Operations phone", () => {
+test("settings: operations_email defaults to production@ and Lorenzo, is validated, and the portal box sits next to the live Operations phone", () => {
   fakeWorld();
   const P = load(false);
   assert.equal(P.DEFAULT_OPERATIONS_EMAIL, LORENZO_EMAIL);

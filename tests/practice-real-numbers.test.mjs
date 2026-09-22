@@ -147,7 +147,8 @@ test("switch ON: the trainer's own phone and portal login, Operations on the liv
 
   const tmail = await P.trainerEmailFor(lead, { id: T1, full_name: "Lorenzo Miller" }, settings);
   assert.deepEqual(tmail, { ok: true, email: TRAINER_LOGIN, source: "portal_users", reason: "" }, "the trainer's portal login, like live");
-  assert.deepEqual(P.opsEmailFor(settings), { ok: true, email: "lorenzo@example.com", reason: "" });
+  // Joshua 2026-09-22 (option B): the practice copy always emails the practice inbox, never a real one.
+  assert.deepEqual(P.opsEmailFor(settings), { ok: true, email: PRACTICE_INBOX, reason: "" });
 
   const rows = testerRows(db);
   assert.ok(rows.some(r => r.phone === TRAINER_REAL && r.active), "the trainer's number is now an ACTIVE tester");
@@ -162,10 +163,10 @@ test("switch ON with the live Operations boxes empty: it falls back to the pract
   assert.equal(ops.status, "sent", ops.reason);
   assert.equal(hookPosts(calls, "realnumbershookops")[0].operations_phone, TESTER, "the practice Operations phone");
   assert.deepEqual(P.opsEmailFor(settings), { ok: true, email: PRACTICE_INBOX, reason: "" }, "an empty Operations email box falls back to the practice inbox");
-  // A row that never touched the Operations email box keeps the starting address, so with the switch ON the
-  // practice copy emails it (clearly marked "[PRACTICE COPY]"). Clearing the box is how the office stops that.
+  // Joshua 2026-09-22 (option B): on the practice copy the Operations email ALWAYS goes to the practice inbox,
+  // even when the Operations email box holds the live office address. No real inbox gets a rehearsal email.
   const kept = await (async () => { fakeWorld({ settings: { practice_real_numbers: true } }); return (load(true)).loadSettings(); })();
-  assert.equal(load(true).opsEmailFor(kept).email, "lorenzo@lorenzosdogtrainingteam.com");
+  assert.equal(load(true).opsEmailFor(kept).email, PRACTICE_INBOX);
 });
 
 test("switch ON, trainer with no phone on file: the trainer branch is skipped with the plain reason, nothing else changes", async () => {
@@ -229,10 +230,14 @@ test("the email twin obeys the same switch: locked to the practice inbox when of
     const P = load(true);
     const settings = await P.loadSettings();
     const sent = await P.sendTextTwinEmail({ to: TRAINER_LOGIN, subject: "s", words: "w", leadId: lead.id, kind: "trainer_new_eval", settings });
-    assert.equal(sent.status, "sent", sent.reason);
+    // Joshua 2026-09-22 (option B): on the practice copy every twin email goes to the practice inbox only.
+    assert.equal(sent.status, "skipped", "the practice copy never emails a real trainer inbox");
+    assert.match(sent.reason, /practice test address/i);
+    assert.equal(calls.filter(c => c.host === "api.resend.com").length, 0);
+    const toInbox = await P.sendTextTwinEmail({ to: PRACTICE_INBOX, subject: "s", words: "w", leadId: lead.id, kind: "trainer_new_eval", settings });
+    assert.equal(toInbox.status, "sent", toInbox.reason);
     const [mail] = calls.filter(c => c.host === "api.resend.com");
-    assert.deepEqual(mail.body.to, [TRAINER_LOGIN]);
-    assert.match(mail.body.text, /PRACTICE COPY/, "a real trainer is still told plainly that this is the practice copy");
+    assert.match(mail.body.text, /PRACTICE COPY/, "the practice inbox copy is still marked plainly");
   }
 });
 
