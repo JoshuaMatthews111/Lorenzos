@@ -137,6 +137,23 @@ test("every Make send carries the portal's finished words; the test text goes on
   assert.match(app, /data-ptx-role=/); assert.match(app, /class="ptx-timeline"/); assert.match(app, /data-ptx-activate=/);
 });
 
+test("reengage_invite (Joshua 2026-09-23): a client TEMPLATE only — exact words, editable like the others, wired to no trigger and no scheduler", () => {
+  const t = X.TEXTS.find(x => x.key === "reengage_invite");
+  assert.ok(t, "the template exists");
+  assert.equal(t.role, "client");
+  assert.equal(t.stage, "not_booked");
+  assert.equal(t.status, "not_yet", "it never claims to be sending");
+  assert.equal(t.words, "Hi {first_name}, it's Lorenzo's Dog Training Team. We spoke about training for {dog_name}. We would love to help. Pick a free evaluation time here: {booking_link}. Or call us at (216) 475-5999.");
+  assert.deepEqual(t.fields, ["first_name", "dog_name", "booking_link"]);
+  assert.equal(X.check("reengage_invite", t.words).value, t.words, "the default words pass the editor's own checks");
+  assert.equal(X.render(X.wordsFor(null, "reengage_invite"), { first_name: "Sam", dog_name: "Max", booking_link: "https://x/book" }),
+    "Hi Sam, it's Lorenzo's Dog Training Team. We spoke about training for Max. We would love to help. Pick a free evaluation time here: https://x/book. Or call us at (216) 475-5999.");
+  // TEMPLATE ONLY: nothing sends it. Neither the pipeline's send code nor the follow-up scheduler names the key.
+  assert.ok(!read("lib/pipeline.js").includes("reengage_invite"), "lib/pipeline.js never sends it");
+  assert.ok(!read("lib/reengage.js").includes("reengage_invite"), "the follow-up scheduler never reads it");
+  assert.equal(R.SENDING_ENABLED, false, "the scheduler itself is still off");
+});
+
 test("service-dog leads wear a gold tag on office, Sales and trainer cards and in the lead details", () => {
   const app = read("trainer-backoffice/app.js");
   const fn = app.match(/function isServiceDogLead\(lead = \{\}\) \{[\s\S]*?\n\}\n/)[0];
