@@ -6530,7 +6530,7 @@ const adminScreens = {
       : `${trainerAdminForm()}<br>${panel("Existing Trainer Profiles", `<button class="btn btn-red" id="addTrainer">+ Add New Trainer</button>`, trainerSelectList(), "pad")}`);
   },
   leads() {
-    return `${leadSourceRecordNotice()}${testLeadNotice()}${panel("Office Lead Pipeline", leadPanelActions(), `${sourceLegend()}${leadPipelineTable(true)}`, "pad")}`;
+    return `${leadSourceRecordNotice()}${testLeadNotice()}${panel("Office Lead Pipeline", leadPanelActions(), `${sourceLegend()}${badgeLegend()}${leadPipelineTable(true)}`, "pad")}`;
   },
   sales() {
     return salesPipelineView();
@@ -9010,6 +9010,20 @@ function sourceLegend() {
     const mark = SOURCE_MARKS[key];
     return `<span class="source-legend-item" role="listitem"><span class="source-badge ${mark.tone}" aria-hidden="true">${mark.svg}</span>${escapeHtml(mark.label)}</span>`;
   }).join("")}</div>`;
+}
+
+// Joshua 2026-09-23 (go-live): a compact key on the Leads screen explaining every card badge and icon,
+// folded shut so it takes one line. Words only — it draws the same markup the cards draw.
+function badgeLegend() {
+  const items = [
+    [`<span class="lead-tag-track500">Track 500</span>`, "Ad-page lead"],
+    [`<span class="lead-tag-needs-call">Needs a call</span>`, "No trainer calendar"],
+    [`<span class="lead-tag-service-dog">★ Service dog</span>`, "Service-dog request"],
+    [`<span class="lead-card-eval badge-legend-eval"><span>Eval</span> <strong>date + time</strong></span>`, "Booked evaluation"],
+    [`<span class="lead-alpha-toggle">Logged in Alpha?</span>`, "Answer on the card"],
+    [`<strong class="lead-card-market">Market</strong>`, "Lead's market"]
+  ];
+  return `<details class="badge-legend"><summary>What the badges mean</summary><div class="badge-legend-items" role="list">${items.map(([mark, words]) => `<span class="badge-legend-item" role="listitem">${mark} ${escapeHtml(words)}</span>`).join("")}</div></details>`;
 }
 
 // The Sales board only holds leads the bot carried, plus every trainer deal.
@@ -11809,7 +11823,7 @@ function applicationPipelineBoard() {
 function applicationPipelineCard(app) {
   const name = applicationDisplayName(app);
   return `<article class="lead-card application-card" draggable="true" data-application-card="${escapeHtml(app.id)}" data-open-application="${escapeHtml(app.id)}">
-    <div class="lead-card-top"><strong>${escapeHtml(name)}</strong><span>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</span></div>
+    <div class="lead-card-top"><span class="lead-card-who"><strong>${escapeHtml(name)}</strong></span><span>${escapeHtml(formatApplicationDate(app.receivedAt || app.createdAt))}</span></div>
     ${(() => { /* Rachel 2026-09-10: no "pending" fillers on application cards either — show only what is known. */
       const place = [app.city, app.state, app.zip].filter(Boolean).join(", ");
       const contact = [app.email, app.phone].filter(Boolean).join(" · ");

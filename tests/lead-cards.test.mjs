@@ -129,3 +129,27 @@ test("Sales stage label is Eval Completed; key and statuses unchanged (rule 10)"
   assert.deepEqual(stage[3], ["evaluation_complete"]);
   assert.equal(metrics.SALES_STAGES.some(([, label]) => /trainer'?s hands/i.test(label)), false);
 });
+
+test("go-live 2026-09-23: the Leads screen carries the badge key (What the badges mean) listing every card badge", () => {
+  const { readFileSync } = require("node:fs");
+  const app = readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../trainer-backoffice/styles.css", import.meta.url), "utf8");
+  const legend = app.match(/function badgeLegend\(\) \{[\s\S]*?\n\}\n/)?.[0] || "";
+  assert.ok(legend, "badgeLegend() exists");
+  for (const mark of ["lead-tag-track500", "lead-tag-needs-call", "lead-tag-service-dog", "lead-card-eval", "lead-alpha-toggle", "lead-card-market"]) {
+    assert.ok(legend.includes(mark), `the key explains ${mark}`);
+  }
+  assert.match(legend, /What the badges mean/);
+  assert.match(app, /\$\{sourceLegend\(\)\}\$\{badgeLegend\(\)\}\$\{leadPipelineTable\(true\)\}/, "the key sits on the Leads screen");
+  assert.match(css, /\.badge-legend summary \{/, "the key has its compact styling");
+});
+
+test("go-live 2026-09-23: application cards share the lead cards' structure and big bold black name (appearance only)", () => {
+  const { readFileSync } = require("node:fs");
+  const app = readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../trainer-backoffice/styles.css", import.meta.url), "utf8");
+  const card = app.match(/function applicationPipelineCard\(app\) \{[\s\S]*?\n\}\n/)?.[0] || "";
+  assert.match(card, /class="lead-card application-card"/, "an application card IS a lead card visually");
+  assert.match(card, /<div class="lead-card-top"><span class="lead-card-who"><strong>/, "same name structure as a lead card");
+  assert.match(css, /\.lead-card \.lead-card-who strong, \.lead-card-top strong,[^{]*\{ font-size: 1\.05rem !important; font-weight: 900 !important; color: #000 !important;/, "the big bold black name rule covers both card families");
+});

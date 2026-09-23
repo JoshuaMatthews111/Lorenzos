@@ -5914,3 +5914,12 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
 
 /* Meeting 2026-09-16 (Lorenzo, Missy): the lead's name on every card is bigger, black and bold. */
 .lead-card .lead-card-who strong, .lead-card-top strong, .sales-card header strong, .trainer-lead-card h3, .trainer-lead-card .lead-owner, .lead-card > strong, .lead-card h3 { font-size: 1.05rem !important; font-weight: 900 !important; color: #000 !important; letter-spacing: -.01em; white-space: normal !important; }
+
+/* 2026-09-23 go-live: the Leads screen's compact badge key ("What the badges mean"). One line folded shut. */
+.badge-legend { margin: 4px 0 12px; }
+.badge-legend summary { cursor: pointer; color: #12345f; font-size: .78rem; font-weight: 900; }
+.badge-legend-items { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 8px; font-size: .78rem; color: #53657e; }
+.badge-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.badge-legend-item .lead-alpha-toggle { display: inline-flex; align-items: center; border: 1px solid #cbd8e8; border-radius: 999px; background: #fff; color: #53657e; font-size: .72rem; font-weight: 700; padding: 2px 9px; }
+.badge-legend-item .badge-legend-eval { display: inline-flex; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #eef4ff; color: #082754; font-size: .74rem; }
+.badge-legend-item .badge-legend-eval span { text-transform: uppercase; letter-spacing: .06em; font-size: .66rem; font-weight: 800; color: #53657e; }
