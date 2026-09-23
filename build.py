@@ -36,7 +36,7 @@ SEO={
 TRAINER_APPLICATION_FORM_EMBED="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform?embedded=true"
 TRAINER_APPLICATION_FORM_LINK="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform"
 TRAINER_APPLICATION_FORM_RESPONSE="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/formResponse"
-SITE_ASSET_VERSION="20260923sb40"
+SITE_ASSET_VERSION="20260923sb41"
 PORTAL_ASSET_VERSION="20260819media"
 GOOGLE_ADS_ID="AW-11463464040"
 CONTACT_CONVERSION_ID="AW-11463464040/WIE3CMK0kr0aEOiomtoq"
@@ -161,6 +161,7 @@ trainers=[
 ("Victoria Bayleigh Morris","Milton, FL","Florida","assets/trainer-headshots/Victoria Morris ETT 360_x_360.jpg","victoria-bayleigh-morris","Bayleigh's veterinary technician background and love of animals led her into LDTT training after seeing what professional structure could do."),
 ("Michael King","Navarre, FL","Florida","assets/trainer-headshots/Michael King_TC 360_x_360.jpg","michael-king","Michael combines Air Force service, people skills, and personal experience with an aggressive dog to help families achieve better results."),
 ("Clark Patton","Pensacola, FL","Florida","assets/trainer-headshots/Clark Patton ETT 360_x_360.jpg","clark-patton","Clark brings real estate, marketing, and client-service experience to dog training, with a focus on building reliable dogs and confident owners."),
+("Tabatha Shelley","Panama City, FL","Florida","https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/3fe499f7-a492-4248-8f9f-212189659307/profilePhoto-1785346963998.jpg","tabatha-shelley","Tabatha helps Panama City families keep dogs in loving homes by building the communication, trust, and confidence behind a well-trained dog."),
 ("Shavon Striggles","Atlanta, GA","Georgia","assets/trainer-headshots/Shavon Striggles RD 360_x_360.jpg","shavon-striggles","Shavon grew up around dogs and is driven by changing the way people understand misunderstood breeds and canine relationships."),
 ("Christopher Almonte","Atlanta, GA","Georgia","assets/trainer-headshots/Christopher Almonte 360_x_360.jpg","christopher-almonte","Christopher's breeder background and powerful LDTT evaluation experience pushed him toward professional training and family impact."),
 ("Aryson Whorley","Atlanta, GA","Georgia","assets/trainer-headshots/Aryson Whorley 360_x_360.jpg","aryson-whorley","Aryson brings veterinary clinic and dog daycare experience, plus a passion for helping owners see what training can change."),
@@ -180,6 +181,7 @@ trainers=[
 ("Brady DeRemer","Streetsboro, OH","Ohio","https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/15580a72-b9dc-4220-8975-677bbabb3902/profilePhoto-1785347165713.jpg","brady-deremer","Brady is a Lorenzo's Certified Dog Trainer serving Streetsboro and surrounding Ohio communities with obedience training and behavior modification support."),
 ("Karemela Sefferin","San Diego, CA","California","assets/trainer-headshots/Karemela Sefferin 360_x_360.jpg","karemela-sefferin","Karemela helps families build trust, improve communication, and create lasting relationships between dogs and their owners."),
 ("Jacob Perez","San Antonio, TX","Texas","assets/trainer-headshots/Jacob Perez_TC 360_x_360.jpg","jacob-perez","Jacob brings Marine Corps discipline, sports medicine, personal training, and dog-industry experience into his LDTT work."),
+("Giovanni Gutierrez","San Antonio, TX","Texas","https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/8517c49a-c470-4e58-8f0c-ca6e33379b99/profilePhoto-1785442284018.jpg","giovanni-gutierrez","Giovanni pairs a lifelong love of animals with strong communication and relationship-building skills to help San Antonio families get real results with their dogs."),
 ("Eric Hardaway","Fort Worth, TX","Texas","assets/trainer-headshots/eric-hardaway-360.jpg","eric-hardaway","Eric's psychology background, wildlife work, and experience training his own German Shepherd led him to serve the Dallas/Fort Worth area."),
 ("Carolina Perez","San Antonio, TX","Texas","assets/trainer-headshots/Carolina Perez tc 360_x_360.jpg","carolina-perez","Carolina combines sales, personal training, and a love for animals to help dogs and families live together more happily.")]
 trainer_bio_records={}
