@@ -143,11 +143,11 @@ test("reengage_invite (Joshua 2026-09-23, amended same night): exact words, edit
   assert.equal(t.role, "client");
   assert.equal(t.stage, "not_booked");
   assert.equal(t.status, "not_yet", "it never claims to be sending");
-  assert.equal(t.words, "Hi {first_name}, it's Lorenzo's Dog Training Team. We spoke about training for {dog_name}. We would love to help. Pick a free evaluation time here: {booking_link}. Or call us at (216) 475-5999.");
+  assert.equal(t.words, "Hi {first_name}, it's Lorenzo's Dog Training Team. We spoke about training for {dog_name}. We would love to help. Pick a free evaluation time here: {booking_link}. Or call us at (866) 436-4959.");
   assert.deepEqual(t.fields, ["first_name", "dog_name", "booking_link"]);
   assert.equal(X.check("reengage_invite", t.words).value, t.words, "the default words pass the editor's own checks");
   assert.equal(X.render(X.wordsFor(null, "reengage_invite"), { first_name: "Sam", dog_name: "Max", booking_link: "https://x/book" }),
-    "Hi Sam, it's Lorenzo's Dog Training Team. We spoke about training for Max. We would love to help. Pick a free evaluation time here: https://x/book. Or call us at (216) 475-5999.");
+    "Hi Sam, it's Lorenzo's Dog Training Team. We spoke about training for Max. We would love to help. Pick a free evaluation time here: https://x/book. Or call us at (866) 436-4959.");
   // Joshua 2026-09-23 (brief, same night as go-live): the 9:30 AM re-engage sender exists in lib/pipeline.js —
   // the Super-Admin office door (api/pipeline reengage_send) and the batch runner behind site_settings key
   // "reengage_batch", shipped DISARMED with no send_at. The senders' own pins (idempotency, consent, kill
