@@ -1689,3 +1689,45 @@ COLLECTED; service-dog gold tag YES; milestones later.
     Tests: `tests/practice-real-numbers.test.mjs` (12). Check on the practice copy: with the switch OFF a booking
     still texts only the tester phone; with it ON the assigned trainer's own phone gets the alert, the lead's
     non-tester phone still gets nothing, and the number shows up as an active row under Communications → Testers.
+
+## Plain-message mode on the practice copy (added 2026-09-22; practice copy only)
+
+96. **The practice copy marks what people RECEIVE only while `practice_real_numbers` is OFF. With the switch
+    ON the wording is plain, exactly like live.**
+    Joshua 2026-09-22: "don't write rehearsal/practice wording for now; at this last stage it needs to work
+    like it's live."
+    - One helper decides it: `practiceMarking(settings)` in `lib/pipeline.js` = `isSandbox() && !practiceRealNumbers(settings)`.
+      Three call sites and no others: `twinSubject()` (the "[PRACTICE COPY] " subject prefix),
+      the `practiceLine` in `sendTextTwinEmail()` (the yellow notice in the text-twin email), and the
+      `practice:` flag handed to `M.buildBookingEmail()` for the office emails.
+    - `twinSubject(kind, clientName, settings)` takes a third argument now. Called with no settings it marks,
+      so nothing that has not been updated goes quiet by surprise.
+    - **`lib/office-email.js` did not change.** It stays a pure renderer of its `practice` flag (subject prefix
+      + the yellow notice, both branches intact). Only the ONE caller decides the flag. Do not move the switch
+      into office-email.js.
+    - **Where an email GOES never changes with the switch.** `emailRecipients(settings, isSandbox(), kind)` and
+      `opsEmailFor` / `trainerEmailFor` still send every practice email to `practice_email_to` only
+      (rule 95, Joshua's option B). The switch changes the WORDS, never the address.
+    - **The text messages themselves were never marked** and still are not — the marking only ever lived on the
+      email side. `lib/pipeline-texts.js` carries no practice wording in any template.
+    - **The machine-readable practice flag in the Make payload is untouched** (`practice: isSandbox()` on every
+      `postHook`). Verified 2026-09-22: none of the three practice scenarios (6237328, 6237333, 6254549) filters
+      on it, so it is informational — but keep sending it.
+    - **Live is unaffected**: `practiceMarking()` is false when `LDTT_SANDBOX` is unset, whatever the saved row
+      says, so live is plain either way exactly as before.
+    - **Leave the two on-screen banners alone.** The booking page's PRACTICE COPY bar (`lib/booking-page.js`)
+      and the portal banner (`api/environment.js` label, `app.js`) are the WEBSITE saying where you are, not a
+      message someone receives. They stay marked at all times.
+    Tests: `tests/practice-real-numbers.test.mjs` — "rule 96: the practice marking follows the real-numbers
+    switch (marked when off, plain when on)" plus the twin-email test, which now pins PLAIN with the switch on.
+    Every other marker test runs with the switch off and still pins the marker. Full suite 373, audit 199.
+
+    **Settings in force on the practice copy from 2026-09-22** (migration
+    `practice_real_numbers_on_and_ops_phone_lorenzo`, practice schema only):
+    `practice_real_numbers` = true, `operations_phone` = Lorenzo Miller's own number from
+    `practice.trainers` (slug lorenzo-miller), `practice_operations_phone` unchanged as the fallback,
+    `practice_email_to` unchanged. NOTE: `practice_email_to` is
+    `production@lorenzosdogtrainingteam.com` — a real company inbox, not a throwaway address. With rule 96
+    ON, practice emails land there with no marker at all. If the office ever needs to tell a rehearsal
+    email from a real one again, turn `practice_real_numbers` OFF or point `practice_email_to` at a
+    separate test address.

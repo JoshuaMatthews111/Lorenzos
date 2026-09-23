@@ -237,7 +237,38 @@ test("the email twin obeys the same switch: locked to the practice inbox when of
     const toInbox = await P.sendTextTwinEmail({ to: PRACTICE_INBOX, subject: "s", words: "w", leadId: lead.id, kind: "trainer_new_eval", settings });
     assert.equal(toInbox.status, "sent", toInbox.reason);
     const [mail] = calls.filter(c => c.host === "api.resend.com");
-    assert.match(mail.body.text, /PRACTICE COPY/, "the practice inbox copy is still marked plainly");
+    // Rule 96 (Joshua 2026-09-22): with the switch ON the wording is plain, exactly like live.
+    assert.ok(!/PRACTICE COPY/.test(mail.body.text), "with the switch on the inbox copy reads like the real thing");
+    assert.ok(!/PRACTICE COPY/.test(mail.body.html), "and the HTML carries no practice notice either");
+  }
+});
+
+// Rule 96: marked when the switch is OFF, plain when it is ON. Live is never marked either way.
+test("rule 96: the practice marking follows the real-numbers switch (marked when off, plain when on)", async () => {
+  {
+    // Switch OFF: today's behaviour, unchanged.
+    const { calls } = fakeWorld();
+    const P = load(true);
+    const settings = await P.loadSettings();
+    assert.match(P.twinSubject("trainer_new_eval", "Pat Client", settings), /^\[PRACTICE COPY\] Track 500 · /);
+    const sent = await P.sendTextTwinEmail({ to: PRACTICE_INBOX, subject: "s", words: "w", leadId: lead.id, kind: "trainer_new_eval", settings });
+    assert.equal(sent.status, "sent", sent.reason);
+    const [mail] = calls.filter(c => c.host === "api.resend.com");
+    assert.match(mail.body.text, /PRACTICE COPY/, "off = marked");
+  }
+  {
+    // Switch ON: the words people read are plain.
+    const P = load(true);
+    const settings = { ...(await P.loadSettings()), practice_real_numbers: true };
+    const subject = P.twinSubject("trainer_new_eval", "Pat Client", settings);
+    assert.ok(!/PRACTICE COPY/.test(subject), "on = no subject prefix");
+    assert.match(subject, /^Track 500 · /, "the Track 500 tag stays");
+  }
+  {
+    // LIVE is plain whatever the saved row says, and the switch cannot change that.
+    const P = load(false);
+    assert.ok(!/PRACTICE COPY/.test(P.twinSubject("trainer_new_eval", "Pat Client", { practice_real_numbers: false })));
+    assert.ok(!/PRACTICE COPY/.test(P.twinSubject("trainer_new_eval", "Pat Client", { practice_real_numbers: true })));
   }
 });
 
