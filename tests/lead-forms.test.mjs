@@ -37,7 +37,12 @@ const keys = formId => LF.defaultFields(formId).map(f => f.key);
 test("the original questions are exactly what each page has today (so an unchanged form is never touched)", () => {
   assert.deepEqual(keys("contact"), visibleNames(read("contact.html"), "contact-intake"));
   assert.deepEqual(keys("get_started"), visibleNames(read("get-started.html"), "contact-intake"));
-  assert.deepEqual(keys("ad_landing"), visibleNames(read("dog-training-cleveland-oh.html"), "contact-intake"));
+  // Joshua 2026-09-23: the old ad/market pages carry the 2.0 booking form (booking-intake -> /api/booking-lead).
+  // The form editor's "ad_landing" definition no longer matches any form on them, so it can never touch one.
+  assert.deepEqual(visibleNames(read("dog-training-cleveland-oh.html"), "contact-intake"), [], "no old contact-intake form left on a market page");
+  assert.deepEqual(visibleNames(read("dog-training-cleveland-oh.html"), "booking-intake"),
+    ["first_name", "last_name", "phone", "email", "address", "city", "state", "zip", "dog_name", "problem", "sms_consent"],
+    "the market page carries the 2.0 evaluation form");
   assert.deepEqual(keys("booklet").filter(k => visibleNames(read("get-started.html"), "market-guide-form").includes(k)), visibleNames(read("get-started.html"), "market-guide-form"));
   const contactOptions = [...read("contact.html").match(/<select required name="i_want_to">([\s\S]*?)<\/select>/)[1].matchAll(/<option>([^<]+)<\/option>/g)].map(m => m[1]);
   assert.deepEqual(LF.defaultFields("contact").find(f => f.key === "i_want_to").choices, contactOptions);

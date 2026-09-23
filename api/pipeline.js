@@ -62,6 +62,12 @@ module.exports = async function handler(req, res) {
         const texts = Object.fromEntries(X.view(state).texts.map(t => [t.key, { label: t.label, status: t.status, preview: t.preview, active_name: t.active_name }]));
         return res.status(200).json({ ok: true, texts, make_uses_portal: process.env.LDTT_TEXTS_FROM_PORTAL === "1" });
       }
+      if (op === "reengage") {
+        // The saved re-engage batch key + last run, read-only. SUPER ADMIN only, like the sender.
+        if (!access.isSuperAdmin) return res.status(403).json({ ok: false, message: "Only the Super Admin can see the re-engage batch." });
+        const row = (await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${P.REENGAGE_KEY}&select=key,value&limit=1`))?.[0] || null;
+        return res.status(200).json({ ok: true, batch: P.normalizeReengageBatch(row?.value), raw: row?.value || null });
+      }
       if (op === "followup") {
         // Rule 81: the saved follow-up texts. READ ONLY: it plans and previews, it never sends or writes.
         const rows = await B.sbOrThrow("/rest/v1/leads?select=id,created_at,first_name,last_name,phone,sms_consent,status,raw_payload&sms_consent=is.true&order=created_at.desc&limit=3000");
@@ -114,6 +120,36 @@ module.exports = async function handler(req, res) {
         ? `${P.WAITING_FOR_KEY}. ${result.waiting} email${result.waiting === 1 ? "" : "s"} saved and waiting.`
         : `Sent ${result.sent.length}. Failed ${result.failed.length}.${result.failed[0] ? ` ${result.failed[0].message}` : ""}`;
       return res.status(200).json({ ok: true, message, ...result });
+    }
+    if (op === "reengage_send") {
+      // Joshua 2026-09-23: the office door for the re-engage invite. SUPER ADMIN only (it texts a client).
+      // One lead, once ever: sendReengageInvite claims raw_payload.pipeline.reengage before anything goes out.
+      const access = await authorizeRequest(req, res, { require: "super", message: "Only the Super Admin can send the re-engage invite." });
+      if (!access) return;
+      const leadId = B.clean(body.lead_id, 80);
+      if (!/^[0-9a-f-]{36}$/i.test(leadId)) return res.status(400).json({ ok: false, message: "Which lead? The lead id is missing." });
+      const lead = (await B.sbOrThrow(`/rest/v1/leads?id=eq.${encodeURIComponent(leadId)}&select=${P.LEAD_SELECT}&limit=1`))?.[0];
+      if (!lead) return res.status(404).json({ ok: false, message: "That lead was not found." });
+      const result = await P.sendReengageInvite({ lead, by: actorLabel(access) });
+      const message = result.status === "sent"
+        ? `Re-engage invite sent (text: ${result.text?.status || "-"}, email: ${result.client_email?.status || "-"}).`
+        : `Not sent: ${result.reason || result.text?.reason || result.client_email?.reason || result.status}`;
+      return res.status(200).json({ ok: true, message, result });
+    }
+    if (op === "reengage_batch_save") {
+      // The batch key {"send_at","column","armed"}. SUPER ADMIN only. armed:false (or deleting the key by
+      // hand) is the kill switch; the cron (api/cron/auto-followups.js) checks it every run.
+      const access = await authorizeRequest(req, res, { require: "super", message: "Only the Super Admin can arm the re-engage batch." });
+      if (!access) return;
+      const batch = P.normalizeReengageBatch(body);
+      if (batch.armed && (!batch.column || !batch.send_at)) {
+        return res.status(400).json({ ok: false, message: "To arm the batch it needs a status column and a send_at time." });
+      }
+      const existing = (await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${P.REENGAGE_KEY}&select=key,value&limit=1`))?.[0];
+      const value = { armed: batch.armed, column: batch.column, send_at: batch.send_at, last_run: existing?.value?.last_run || null, updated_by: actorLabel(access), updated_at: new Date().toISOString() };
+      if (existing) await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${P.REENGAGE_KEY}`, { method: "PATCH", prefer: "return=minimal", body: { value } });
+      else await B.sbOrThrow("/rest/v1/site_settings", { method: "POST", prefer: "return=minimal", body: { key: P.REENGAGE_KEY, value } });
+      return res.status(200).json({ ok: true, message: batch.armed ? `Armed for ${batch.send_at} on column ${batch.column}.` : "Saved, NOT armed.", value });
     }
     if (op === "followup_send") {
       // Joshua 2026-09-16: the "Has not booked yet" follow-up texts are an office button, not a timer.

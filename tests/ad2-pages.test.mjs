@@ -70,7 +70,13 @@ test("wiring: Page Studio, Site Builder, Page Editor list, /ads route, send to l
   const route = read("api/ad-page.js");
   assert.match(route, /const adFamily = type === "ad" \|\| type === "ad2";[^\n]*\n\s*if \(\(entrance === "ads"\) !== adFamily\) return notFound/);
   assert.match(route, /if \(type === "ad2"\) return ad2\.renderPage\(content, \{ practice: isSandbox\(\), data: /);
-  assert.match(read("api/send-to-live.js"), /if \(page\.page_type === "ad2"\) throw fail\(409, "2\.0 ad pages stay on the practice copy for now\./);
+  // Rule 85 amended 2026-09-23 (Joshua: Arrison's 2.0 updates "should be pushed and go live too"):
+  // Send to live carries ad2 pages with the ad2 cleaner, still draft-only, never flipping a live page's type.
+  const stl = read("api/send-to-live.js");
+  assert.match(stl, /const isAd2 = page\.page_type === "ad2";/);
+  assert.match(stl, /isAd2 \? ad2\.normalizeContent\(page\.draft_content \|\| \{\}\) : template\.normalizeContent/);
+  assert.match(stl, /already exists on live as a different kind of page/);
+  assert.match(stl, /page_type: page\.page_type \|\| "ad"/);
   const studio = read("trainer-backoffice/page-studio.js");
   assert.match(studio, /"\/lib\/ad-page-template\.js", "\/lib\/ad2-usmap\.js", "\/lib\/ad2-page-template\.js"/);
   assert.match(studio, /id="psAd2Section"/);
@@ -88,7 +94,11 @@ test("wiring: Page Studio, Site Builder, Page Editor list, /ads route, send to l
   for (const shell of ["staff.html", "trainer-backoffice/index.html"]) assert.match(read(shell), /ad2-studio\.js\?v=/, shell);
   const migration = read("supabase/migrations/20260914140000_practice_ad2_page_type.sql");
   assert.match(migration, /alter table practice\.ad_pages add constraint ad_pages_page_type_check check \(page_type = any \(array\['ad'::text, 'site'::text, 'landing'::text, 'ad2'::text\]\)\);/);
-  assert.ok(!/public\./.test(migration.replace(/^--.*$/gm, "")), "the live table is not changed");
+  assert.ok(!/public\./.test(migration.replace(/^--.*$/gm, "")), "the practice migration never changed the live table");
+  // 2026-09-23: the live twin exists (rule 85 amended): public.ad_pages accepts ad2 the same way.
+  const liveMigration = read("supabase/migrations/20260923220000_public_ad2_page_type.sql");
+  assert.match(liveMigration, /alter table public\.ad_pages add constraint ad_pages_page_type_check check \(page_type = any \(array\['ad'::text, 'site'::text, 'landing'::text, 'ad2'::text\]\)\);/);
+  assert.ok(!/practice\./.test(liveMigration.replace(/^--.*$/gm, "")), "the live migration never touches the practice schema");
   assert.match(read("api/sitemap.js"), /r\.page_type === "ad2"/);
   assert.match(read("lib/page-durability.js"), /const adFamily = type => type === "ad" \|\| type === "ad2";/);
 });
@@ -217,7 +227,7 @@ test("Joshua 2026-09-16: street address, city and state are required on every 2.
 // Joshua 2026-09-23: "the trainers should appear when the ZIP code is typed on the page" — under the ZIP box, on the
 // 2.0 page itself, pickable, and the pick rides along with the lead.
 test("Joshua 2026-09-23: the trainers near the typed ZIP appear under the ZIP box and one can be picked", () => {
-  assert.equal(T.VERSION, "20260923ad14");
+  assert.equal(T.VERSION, "20260923ad15");
   for (const starter of T.STARTERS) {
     const html = T.renderPage(starter, { practice: true });
     const form = (html.match(/<form class="lead contact-intake"[\s\S]*?<\/form>/) || [""])[0];

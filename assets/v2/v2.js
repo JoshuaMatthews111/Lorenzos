@@ -157,6 +157,8 @@
     } catch (e) { return ""; }
   }
 
+  var qs = new URLSearchParams(location.search);
+
   function sendEvaluation(form, status, button) {
     var f = form.elements;
     var payload = {
@@ -175,7 +177,12 @@
       // the trainer pages send, so the pipeline routes this lead to that trainer.
       trainer_slug: f.trainer_slug ? f.trainer_slug.value : "",
       assigned_trainer: f.assigned_trainer ? f.assigned_trainer.value : "",
-      source_page: location.origin + location.pathname
+      source_page: location.origin + location.pathname,
+      // Joshua 2026-09-23 (old ad pages get the 2.0 flow): the ad click's UTM tags ride with the lead
+      // like they always did on the old market forms. Server-side cleanLeadIntake already accepts them.
+      utm_source: qs.get("utm_source") || "",
+      utm_medium: qs.get("utm_medium") || "",
+      utm_campaign: qs.get("utm_campaign") || ""
     };
     var ctrl = typeof AbortController === "function" ? new AbortController() : null;
     var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 15000) : null;
@@ -398,7 +405,14 @@
     look(); // a ZIP the browser filled in already counts
   }
 
+  // Joshua 2026-09-23 (re-engage invite): a link like /ads/pensacola?zip=32507 lands with the
+  // visitor's ZIP already filled in, so the trainers near them appear the moment the form opens.
+  var presetZip = String(qs.get("zip") || "").replace(/\D/g, "").slice(0, 5);
+
   document.querySelectorAll("form.lead").forEach(function (form) {
+    if (presetZip.length === 5 && form.elements && form.elements.zip && !String(form.elements.zip.value || "").trim()) {
+      form.elements.zip.value = presetZip;
+    }
     trainerPicker(form);
     form.addEventListener("submit", function (e) {
       e.preventDefault();

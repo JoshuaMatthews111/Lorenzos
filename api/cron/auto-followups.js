@@ -32,7 +32,12 @@ module.exports = async function handler(req, res) {
   try {
     const result = await P.runAutoFollowUps();
     console.log("auto_followups_run", JSON.stringify({ on: result.on, checked: result.checked, sent: result.sent?.length || 0, skipped: result.skipped?.length || 0 }));
-    return res.status(200).json({ ok: true, ...result });
+    // Joshua 2026-09-23: the same cadence checks the one-shot re-engage batch (site_settings key
+    // "reengage_batch"). Not armed (the normal state) = a one-line no-op. It disarms itself after a run.
+    const reengage = await P.runReengageBatch()
+      .catch(error => ({ armed: false, message: `re-engage check failed: ${String(error?.message || error)}` }));
+    if (reengage.ran) console.log("reengage_batch_run", JSON.stringify({ column: reengage.column, walked: reengage.walked, sent: reengage.sent, texts: reengage.texts_sent, emails: reengage.emails_sent }));
+    return res.status(200).json({ ok: true, ...result, reengage });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });

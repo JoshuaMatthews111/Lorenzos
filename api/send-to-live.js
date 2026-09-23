@@ -34,6 +34,7 @@
 const { isSandbox } = require("../lib/sandbox");
 const portalAuth = require("../lib/portal-auth.js");
 const template = require("../lib/ad-page-template.js");
+const ad2 = require("../lib/ad2-page-template.js"); // rule 85 amended 2026-09-23: 2.0 pages send to live too
 const LF = require("../lib/lead-forms.js"); // rule 75: kind "lead_forms"
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
@@ -291,14 +292,18 @@ async function sendAdPage(auth, id, slugHint, copied) {
   let page = UUID.test(id) ? await practiceRow("ad_pages", [["id", id]]) : null;
   if (!page && slugHint) page = await practiceRow("ad_pages", [["slug", slugHint]]);
   if (!page) throw fail(404, "That ad page could not be found on the practice copy.");
-  // Rule 85: the 2.0 pages are practice-only for now (public.ad_pages does not accept page_type "ad2" yet).
-  if (page.page_type === "ad2") throw fail(409, "2.0 ad pages stay on the practice copy for now. They can go live after the office tests them and the live site is set up for 2.0 pages.");
-  const content = await repointPracticeUploads(template.normalizeContent(page.draft_content || {}), copied);
+  // Rule 85 (amended 2026-09-23, Joshua): 2.0 pages go live too. public.ad_pages accepts page_type "ad2"
+  // (migration 20260923220000) and the same draft-only door carries them; each type keeps its own cleaner.
+  const isAd2 = page.page_type === "ad2";
+  const content = await repointPracticeUploads(isAd2 ? ad2.normalizeContent(page.draft_content || {}) : template.normalizeContent(page.draft_content || {}), copied);
   if (!content.slug) throw fail(400, "The ad page needs a web address before it can be sent.");
   if (template.markets.some(market => market.slug === content.slug)) throw fail(409, `/${content.slug} is a page built into the site. Give the ad page another address first.`);
 
   let target = await liveRow("ad_pages", [["id", page.id]]);
   if (!target) target = await liveRow("ad_pages", [["slug", content.slug]]);
+  if (target && String(target.page_type || "ad") !== String(page.page_type || "ad")) {
+    throw fail(409, `/${content.slug} already exists on live as a different kind of page. Give this page another address first.`);
+  }
 
   // Page Studio on live reads the name and login back out of this string.
   const updatedBy = `${auth.sentByName} <${auth.email}> (from practice copy)`;
@@ -312,7 +317,7 @@ async function sendAdPage(auth, id, slugHint, copied) {
   } else {
     [row] = await liveFetch("/rest/v1/ad_pages", {
       method: "POST", headers: { Prefer: "return=representation" },
-      body: JSON.stringify({ slug: content.slug, market: content.market, city: content.city, state: content.state, status: "draft", draft_content: content, draft_revision: draftRevision, created_by: updatedBy, updated_by: updatedBy })
+      body: JSON.stringify({ slug: content.slug, market: content.market, city: content.city, state: content.state, page_type: page.page_type || "ad", status: "draft", draft_content: content, draft_revision: draftRevision, created_by: updatedBy, updated_by: updatedBy })
     });
   }
   if (!row?.id) throw fail(500, "The live ad page draft could not be saved.");

@@ -1428,7 +1428,7 @@ COLLECTED; service-dog gold tag YES; milestones later.
 
 ## Ad landing pages 2.0 in Page Studio (added 2026-09-14, Claude; practice copy only)
 
-85. **The 2.0 pages are Page Studio pages of type `ad2`, practice copy only.** Joshua 2026-09-14: "make them
+85. **The 2.0 pages are Page Studio pages of type `ad2` — practice copy only UNTIL 2026-09-23, LIVE SINCE (see rule 100: `public.ad_pages` accepts `ad2`, /ads/<slug> serves them on live, the studio lists them on live, and Send to live carries them; the practice copy stays the editing rehearsal space).** Joshua 2026-09-14: "make them
     available in the sandbox, both in the drop down and in the page studio"; meeting 2026-09-11: "Add the 2.0 pages
     into Page Studio so Arrison can edit them herself." (My 12 Sep report said this was still pending; it was.)
     - `lib/ad2-page-template.js` is the 11 Sep build script (`~/Desktop/LDTT Ad Pages 2.0 2026-09-11/tools/build.py`)
@@ -1859,3 +1859,70 @@ COLLECTED; service-dog gold tag YES; milestones later.
       client email is redirected to Settings -> practice_email_to. STILL BANNED, forever: any signup /
       activation / verification email on a submit door (the lead-integrity test pins it).
     - The practice copy is `20260923sb42` (same code, stamp only) on the same alias flow (rule 50).
+
+## Old ad pages get the 2.0 flow, ad 2.0 pages go LIVE, and the 9:30 re-engage sender (added 2026-09-23 night, the post-go-live brief from Joshua)
+
+100. **The old ad pages carry the 2.0 evaluation form and its whole flow, and the ad 2.0 pages serve LIVE.**
+    Joshua: "even the old ad pages have the same flow as the 2.0 pages when booking is made and the forms
+    filled are the new one we made with the asterisks and same stage by stage and same processes"; decision
+    sheet: Arrison's 2.0 landing page updates "should be pushed and go live too".
+    - **One form, one door.** The 12 built-in market pages (`dog-training-<city>.html`, regenerated from
+      `lib/ad-page-template.js`) and every Page Studio `ad` page carry the SAME evaluation form the 2.0 pages
+      carry: class `ad-form-card ad-form-card-v2 lead booking-intake`, `data-kind="evaluation"`,
+      `data-endpoint="/api/booking-lead"`, red `required-mark` asterisks server-rendered, `(optional)` on the
+      rest, tel keyboard, required street address/city/state/ZIP, the trainers-near-you picker
+      (`data-trainer-pick` -> GET /api/booking?zip=), the single-use-case SMS consent wording (rule 47), driven
+      by `assets/v2/v2.js` (which now also carries the click's utm_source/medium/campaign and prefills ZIP from
+      `?zip=`). Submits go through `createLead` (rule 98 sameRequest, needs-a-call stamping, rule 74 ZIP
+      routing, rule 72 texts + rule 99 email twins) and carry on into the answered `book_url`. The old
+      FormSubmit/Google-Sheet market form is GONE from these pages — the CONTACT page's frozen FormSubmit flow
+      (rule 73 byte pins) is untouched, and the booklet/ebook forms are untouched. The Meta pixel head and the
+      Google conversion snippet fire for `booking-intake` exactly as they did for `contact-intake`
+      (`eventID: id` x2 unchanged, rule 12) — but note honestly: the server-side Meta CAPI event (which rode
+      `submit-contact`) does not fire for `booking-lead` leads; the browser Lead event still does.
+      `script.js` `PRACTICE_LEAD_FORM_SELECTOR` includes `.booking-intake` so the practice copy never switches
+      the form off. The quiz test pages `lp-test-*.html` keep their old form on purpose (not advertised, own
+      plumbing); `dog-training.html`, `get-started.html` and `contact.html` are NOT ad landing pages and keep
+      their forms. The Lead-forms editor's `ad_landing` definition no longer matches any form and can never
+      touch one (tests/lead-forms pins it).
+    - **Ad 2.0 pages LIVE (rule 85 amended).** `public.ad_pages` accepts `page_type = 'ad2'`
+      (`supabase/migrations/20260923220000_public_ad2_page_type.sql`, additive twin of the practice migration).
+      The 12 practice ad2 pages were copied to `public` (published_content + draft_content, storage files
+      copied practice-bucket -> live bucket, URLs re-pointed; before-state: public.ad_pages held exactly ONE
+      row, Arrison's `about` site draft, untouched). `/ads/<slug>` serves them on live with the pixel + Google
+      tag (practice still leaves the tags out, rule 85). Page Studio's "Ad landing pages 2.0" section, the Site
+      Builder groups and the Page Editor dropdown list them on live too. `api/send-to-live.js` now carries an
+      `ad2` page (its own cleaner, still DRAFT-only, never flips an existing live page's type). The Español
+      toggle stays exactly the Pensacola page's own content.
+    - Pins: `tests/old-ad-pages-2026-09-23.test.mjs`, `tests/ad2-pages.test.mjs` (amended), the audit's ad-page
+      checks (booking-intake accepted).
+
+101. **The 9:30 AM re-engage sender exists, ARMED BUT UNAIMED — and Joshua said "we don't send yet".**
+    - **The office door**: POST `/api/pipeline {op:"reengage_send", lead_id}` — SUPER ADMIN ONLY. Renders the
+      `reengage_invite` words (rule 84 editor, key 6) with `{booking_link}` = the LIVE ad 2.0 page for the
+      lead's local area, `/ads/<slug>?zip=<lead zip>` when a published ad2 page's own ZIP is within 50 miles
+      (Census centroids, rule 74), else `/book?zip=<lead zip>`; sends the client TEXT via pathway 1 (SMS
+      consent only; practice copy = active tester phones only, rule 82) AND the client EMAIL twin (rule 99:
+      regardless of consent, opt-out line, one idempotency key `client:<lead>:reengage_invite`; the practice
+      copy redirects every client email to Settings -> practice_email_to).
+    - **IDEMPOTENT PER LEAD, forever.** The send claims `raw_payload.pipeline.reengage` first (version-guarded
+      mergePipelineRecord); ANY existing record — sent, sending, a lost claim — refuses a second send. A lead
+      can never get the blast twice, whatever mix of button and batch runs.
+    - **The batch runner** (`runReengageBatch`, checked by the existing `api/cron/auto-followups.js` cadence,
+      */15): reads `site_settings` key `reengage_batch` `{"send_at","column","armed"}`. Only when `armed` AND
+      now >= send_at does it DISARM ITSELF FIRST (version-guarded PATCH on the row — the claim is the kill
+      switch; a crash mid-run leaves it disarmed), walk the leads in that status column (qa/test rows held
+      out), send each once through the same per-lead door, then write `last_run` (walked / texts_sent /
+      emails_sent / skipped, per-lead details) into the same key. KILL SWITCH: `armed:false` or deleting the
+      key stops everything. `op:"reengage_batch_save"` (SUPER ADMIN, arming needs column + send_at) and GET
+      `op=reengage` manage it from the office.
+    - **SHIPPED DISARMED**: the key is preset `{"armed": false, "column": "engaged_no_outcome", "send_at": ""}`
+      on live and practice (Joshua picked column A, "Engaged Lead: No Outcome", and said "we don't send yet").
+      ARMING IS NOT ENOUGH TO TEXT REAL PEOPLE: every Make client route is still tester-locked (rule 99), so a
+      live send to a non-tester is accepted by the webhook (recorded "sent" = "Make answered 200") and dropped
+      by Make's filter. Real texts need the morning switch (a Make filter change) AND the armed key. Never
+      "fix" that by widening this code.
+    - `lib/reengage.js` (the old follow-up planner) still has NO send code (`SENDING_ENABLED = false`, rule 81)
+      and never reads `reengage_invite`. The only senders are the two doors above.
+    - Pins: `tests/reengage-send.test.mjs` (idempotency, consent gating, kill switch, disarm-after-run,
+      practice email redirect, hook-200-means-sent), `tests/pipeline-texts.test.mjs` (mention count).

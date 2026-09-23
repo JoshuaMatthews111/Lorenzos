@@ -86,7 +86,7 @@ const tail = src.slice(src.lastIndexOf("<script>", scriptsAt), src.indexOf("</bo
 /* Hidden inputs carry trainer routing and ad attribution. Taken verbatim so the
    office record is identical, with source_page repointed at the test slug so
    Tim can tell the two layouts apart in the leads table. */
-const formBlock = src.slice(src.indexOf('<form class="ad-form-card ad-form-card-v2 contact-intake"'));
+const formBlock = src.slice(src.indexOf('<form class="ad-form-card ad-form-card-v2 lead booking-intake"'));
 const hidden = (formBlock.slice(0, formBlock.indexOf("</form>")).match(/<input type="hidden"[^>]*>/g) || [])
   .map(tag => tag.replace(/name="source_page" value="[^"]*"/, `name="source_page" value="${SLUG}"`))
   .map(tag => tag.replace('value="Paid ads market page"', 'value="Paid ads market page (quiz layout test)"'))

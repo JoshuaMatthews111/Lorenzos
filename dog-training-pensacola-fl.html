@@ -8,7 +8,7 @@
   <link rel="canonical" href="https://www.lorenzosdogtrainingteam.com/dog-training-pensacola-fl">
   <link rel="icon" type="image/png" href="assets/ldtt-favicon.png">
   <link rel="apple-touch-icon" href="assets/ldtt-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=20260812marketoffers1">
+  <link rel="stylesheet" href="styles.css?v=20260923live10">
   <meta property="og:type" content="website">
   <meta property="og:title" content="Pensacola Dog Training | Lorenzo's Dog Training Team">
   <meta property="og:description" content="Request Pensacola, FL dog training from Lorenzo&#39;s Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with fast local follow-up.">
@@ -43,7 +43,7 @@
       document.addEventListener('submit', function(e){
         var f = e.target;
         if (!(f instanceof HTMLFormElement)) return;
-        var isLead = f.classList.contains('contact-intake'), isReg = f.classList.contains('pdf-optin');
+        var isLead = f.classList.contains('contact-intake') || f.classList.contains('booking-intake'), isReg = f.classList.contains('pdf-optin');
         if (!isLead && !isReg) return;
         var id = uuid(); f.dataset.metaEventId = id;
         stamp(f,'meta_event_id',id); stamp(f,'fbp',cookie('_fbp')); stamp(f,'fbc',fbc());
@@ -377,6 +377,39 @@
       background:#fff !important;color:#131a33 !important;border:1px solid #c9cede !important}
     .market-consult-panel button[type="submit"]{color:#fff !important}
 
+    /* Joshua 2026-09-23: the market pages carry the SAME evaluation form the 2.0 pages carry
+       (required boxes wear the red asterisk, the rest say "(optional)", trainers appear under
+       the ZIP box, and the form carries on into /book). Only the form's own pieces are styled
+       here — assets/v2/v2.css never loads on a market page (it restyles whole pages). */
+    .market-consult-panel .required-mark{color:#c8102e !important;font-weight:900;margin-left:3px}
+    .market-consult-panel .optional-mark{color:#5b6a83;font-weight:400;font-size:.8em;margin-left:4px}
+    .market-consult-panel .lead input[aria-invalid="true"],.market-consult-panel .lead select[aria-invalid="true"]{border-color:#c8102e !important}
+    .market-consult-panel .fnote{font-size:12px;color:#5b6883;line-height:1.4;margin:2px 0 0}
+    .market-consult-panel .fstatus{font-size:14px;min-height:1em;margin:6px 0 0}
+    .market-consult-panel .fstatus.err{color:#c8102e;font-weight:600}
+    .market-consult-panel .fstatus.busy{color:#44536f}
+    .market-consult-panel .fstatus.done{background:#eef7ee;border:1px solid #9fd09f;border-radius:6px;padding:12px 14px;color:#173d17}
+    .market-consult-panel .tnear{border:1.5px solid #e2e7f0;border-radius:8px;background:#f7f9fc;padding:12px 12px 10px;display:flex;flex-direction:column;gap:6px;margin:2px 0}
+    .market-consult-panel .tnear[hidden]{display:none}
+    .market-consult-panel .tnear-h{font-weight:700;font-size:15px;line-height:1.2;color:#131a33;margin:0}
+    .market-consult-panel .tnear-sub{font-size:12px;color:#5b6883;line-height:1.35;margin:0}
+    .market-consult-panel .tnear-sub[hidden]{display:none}
+    .market-consult-panel .tnear-msg{font-size:13px;color:#44536f;line-height:1.4;margin:0}
+    .market-consult-panel .tnear-msg[hidden]{display:none}
+    .market-consult-panel .tnear-list{display:grid;grid-template-columns:1fr;gap:8px;margin-top:2px}
+    .market-consult-panel .tnear-list:empty{display:none}
+    .market-consult-panel .tcard{position:relative;display:flex;flex-direction:row;align-items:center;gap:10px;background:#fff;border:1.5px solid #cfd6e2;border-radius:8px;padding:8px 9px;cursor:pointer;font-weight:400;font-size:13px}
+    .market-consult-panel .tcard:hover{border-color:#9fb0cb}
+    .market-consult-panel .tcard.on{border-color:#c8102e;box-shadow:0 0 0 2px rgba(196,1,19,.16)}
+    .market-consult-panel .tcard:focus-within{outline:2px solid #131a33;outline-offset:2px}
+    .market-consult-panel .tc-radio{position:absolute;opacity:0;pointer-events:none}
+    .market-consult-panel .tc-photo{width:54px;height:54px;border-radius:50%;object-fit:cover;flex:none}
+    .market-consult-panel .tc-blank{display:flex;align-items:center;justify-content:center;background:#e6ebf4;color:#44536f;font-weight:700;font-size:20px}
+    .market-consult-panel .tc-txt{display:flex;flex-direction:column;gap:1px;min-width:0}
+    .market-consult-panel .tc-name{font-weight:700;color:#131a33}
+    .market-consult-panel .tc-meta{font-size:11.5px;color:#5b6883}
+    .market-consult-panel .tc-cal{font-size:11px;color:#0c7c40;font-weight:600}
+
     /* 2) Sections injected below the fold were designed for a dark page.
        Give them that dark ground on every archetype — in the market's own navy. */
     .market-care-section,.market-testimonial-section,.market-guide-section{
@@ -535,6 +568,21 @@
     .case-bilingual{background:linear-gradient(160deg,#fff 55%,#fdf3e3)}
     .market-case-panel .btn{align-self:flex-start}
 
+    /* Image / embed sections + the per-section layout choices (Page Editor).
+       secw-wide/-full override the shared .container width; imgsz-* caps the
+       embedded photo. All opt-in per section, "" leaves the design untouched. */
+    .market-image-section{padding:34px 0}
+    .market-embed-figure{margin:0;text-align:center}
+    .market-embed-figure img{width:100%;max-width:880px;height:auto;aspect-ratio:var(--ar,auto);object-fit:cover;border-radius:14px;display:block;margin:0 auto;box-shadow:0 18px 44px rgba(0,0,0,.28)}
+    .market-embed-figure figcaption{margin-top:10px;font-size:.9rem;color:#5a6478}
+    .market-image-section.imgsz-small .market-embed-figure img{max-width:420px}
+    .market-image-section.imgsz-medium .market-embed-figure img{max-width:680px}
+    .market-image-section.imgsz-large .market-embed-figure img{max-width:1050px}
+    .market-image-section.imgsz-full .market-embed-figure img{max-width:100%}
+    .market-landing .secw-wide .container{--max:1400px}
+    .market-landing .secw-full .container{--max:100%;width:100%}
+    .market-landing .secw-full.market-image-section .market-embed-figure img{border-radius:0;box-shadow:none}
+
     /* below-fold market photo in the care section */
     .market-care-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:26px;align-items:center}
     .market-care-photo{margin:0;border-radius:14px;overflow:hidden;box-shadow:0 18px 44px rgba(0,0,0,.35)}
@@ -677,35 +725,43 @@
             <h2>Book your free, no-obligation evaluation.</h2>
             <p>Tell us what&rsquo;s going on with your dog. A member of our team will reach out to discuss your concerns and arrange your <b>free</b> evaluation.</p>
           </div>
-          <form class="ad-form-card ad-form-card-v2 contact-intake"
-            action="https://formsubmit.co/production@lorenzosdogtrainingteam.com"
-            method="POST"
-            data-google-form-endpoint="https://docs.google.com/forms/d/e/1FAIpQLSdV1-0yBlRusq9tkjymZKm_BfXfpmMKDDrcyqfP3KbEq-Qd_g/formResponse"
-            data-office-email="production@lorenzosdogtrainingteam.com"
-            data-email-endpoint="https://formsubmit.co/ajax/production@lorenzosdogtrainingteam.com"
+          <form class="ad-form-card ad-form-card-v2 lead booking-intake"
+            data-kind="evaluation"
+            data-endpoint="/api/booking-lead"
             data-form-type="market-ad-form"
-            data-conversion-event="ldtt_market_ad_lead_submit">
+            data-conversion-event="ldtt_market_ad_lead_submit"
+            autocomplete="on" novalidate>
             <div class="form-grid-two">
-              <label>First Name<input required name="first_name" autocomplete="given-name"></label>
-              <label>Last Name<input required name="last_name" autocomplete="family-name"></label>
+              <label>First name<span class="required-mark" aria-hidden="true">*</span><input name="first_name" autocomplete="given-name" required></label>
+              <label>Last name<span class="required-mark" aria-hidden="true">*</span><input name="last_name" autocomplete="family-name" required></label>
             </div>
-            <label>Phone Number<input required type="tel" name="phone" autocomplete="tel" inputmode="tel"></label>
-            <label>Email Address<input required type="email" name="email" autocomplete="email"></label>
-            <label>ZIP Code<input required name="zip" autocomplete="postal-code" inputmode="numeric"></label>
-            <label>What do you need help with?
-              <select required name="i_want_to">
-                <option value="">Select one</option>
-                <option>Schedule an in person evaluation with a trainer in my area</option>
-                <option>Schedule an online consultation</option>
-                <option>Dog obedience training</option>
-                <option>Dog behavior modification</option>
-                <option>Puppy training</option>
-                <option>Specialty, service, or protection training</option>
-                <option>Not sure yet</option>
+            <label>Phone<span class="required-mark" aria-hidden="true">*</span><input name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label>
+            <label>Email<span class="required-mark" aria-hidden="true">*</span><input name="email" type="email" autocomplete="email" required></label>
+            <label class="wide">Street address<span class="required-mark" aria-hidden="true">*</span><input name="address" autocomplete="street-address" maxlength="300" required placeholder="Where the trainer comes to see your dog"></label>
+            <div class="form-grid-two">
+              <label>City<span class="required-mark" aria-hidden="true">*</span><input name="city" autocomplete="address-level2" maxlength="80" required placeholder="Pensacola"></label>
+              <label>State<span class="required-mark" aria-hidden="true">*</span><select name="state" autocomplete="address-level1" required><option value="">Choose a state</option><option value="AL">Alabama</option><option value="AK">Alaska</option><option value="AZ">Arizona</option><option value="AR">Arkansas</option><option value="CA">California</option><option value="CO">Colorado</option><option value="CT">Connecticut</option><option value="DE">Delaware</option><option value="DC">District of Columbia</option><option value="FL" selected>Florida</option><option value="GA">Georgia</option><option value="HI">Hawaii</option><option value="ID">Idaho</option><option value="IL">Illinois</option><option value="IN">Indiana</option><option value="IA">Iowa</option><option value="KS">Kansas</option><option value="KY">Kentucky</option><option value="LA">Louisiana</option><option value="ME">Maine</option><option value="MD">Maryland</option><option value="MA">Massachusetts</option><option value="MI">Michigan</option><option value="MN">Minnesota</option><option value="MS">Mississippi</option><option value="MO">Missouri</option><option value="MT">Montana</option><option value="NE">Nebraska</option><option value="NV">Nevada</option><option value="NH">New Hampshire</option><option value="NJ">New Jersey</option><option value="NM">New Mexico</option><option value="NY">New York</option><option value="NC">North Carolina</option><option value="ND">North Dakota</option><option value="OH">Ohio</option><option value="OK">Oklahoma</option><option value="OR">Oregon</option><option value="PA">Pennsylvania</option><option value="RI">Rhode Island</option><option value="SC">South Carolina</option><option value="SD">South Dakota</option><option value="TN">Tennessee</option><option value="TX">Texas</option><option value="UT">Utah</option><option value="VT">Vermont</option><option value="VA">Virginia</option><option value="WA">Washington</option><option value="WV">West Virginia</option><option value="WI">Wisconsin</option><option value="WY">Wyoming</option></select></label>
+            </div>
+            <label>ZIP code<span class="required-mark" aria-hidden="true">*</span><input name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="10" required></label>
+            <div class="tnear wide" data-trainer-pick data-endpoint="/api/booking" data-debounce="400" data-owner="" data-loading="Looking for trainers near you&hellip;" data-empty="We do not have a trainer within 50 miles of that ZIP yet. Send the form and our office will call you." hidden>
+              <h3 class="tnear-h">Trainers near you</h3><p class="tnear-sub">Pick who you want. You can still change this on the next screen.</p>
+              <p class="tnear-msg" role="status" aria-live="polite"></p>
+              <div class="tnear-list" role="group" aria-label="Trainers near you"></div>
+              <input type="hidden" name="trainer_slug" value=""><input type="hidden" name="assigned_trainer" value="">
+            </div>
+            <label>Dog&#39;s name<span class="optional-mark">(optional)</span><input name="dog_name" autocomplete="off"></label>
+            <label class="wide">What is going on with your dog?<span class="optional-mark">(optional)</span>
+              <select name="problem">
+                <option>Pulling on the leash</option>
+                <option>Barking</option>
+                <option>Jumping on people</option>
+                <option>Reactive to dogs or people</option>
+                <option>New puppy</option>
+                <option>New rescue</option>
+                <option>Board &amp; train</option>
+                <option>Service dog</option>
+                <option>Something else</option>
               </select>
-            </label>
-            <label class="wide">What is happening with your dog?
-              <textarea name="comments" rows="3" placeholder="Example: pulling on leash, barking, jumping, potty training, aggression, anxiety..."></textarea>
             </label>
             <p class="consent-optional"><b>Optional &mdash; not required to book your evaluation.</b></p>
             <label class="consent-row">
@@ -713,35 +769,9 @@
               <span>By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my inquiry, scheduling and confirming my free consultation or evaluation, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="terms.html">Terms of Service</a> and <a href="privacy-policy.html">Privacy Policy</a>.</span>
             </label>
             <p class="form-disclaimer">Phone is required so Lorenzo's office can call about your request. SMS consent is optional and separate from submitting this form.</p>
-
-            <input type="hidden" name="trainer_name" value="Clark Patton, Michael King, Daniel Bainbridge">
-            <input type="hidden" name="assigned_trainer" value="Clark Patton, Michael King, Daniel Bainbridge">
-            <input type="hidden" name="trainer_market" value="Pensacola, FL">
-            <input type="hidden" name="ad_market" value="Pensacola, FL">
-            <input type="hidden" name="market_city" value="Pensacola">
-            <input type="hidden" name="market_state" value="FL">
-            <input type="hidden" name="market_trainers" value="Clark Patton, Michael King, Daniel Bainbridge">
-            <input type="hidden" name="landing_page_type" value="Paid ads market page">
-            <input type="hidden" name="address_line_1" value="Short ad form - office to collect">
-            <input type="hidden" name="address_line_2" value="">
-            <input type="hidden" name="city" value="Pensacola">
-            <input type="hidden" name="state" value="FL">
-            <input type="hidden" name="heard_about_us" value="Paid Advertising">
-            <input type="hidden" name="vet_or_previous_client" value="Market ad landing page">
-            <input type="hidden" name="internal_route_note" value="Market ad landing page lead for Pensacola, FL. Office to confirm full address and evaluation preference during follow-up. Nearby trainer group: Clark Patton, Michael King, Daniel Bainbridge.">
-            
-            <input type="hidden" name="source_page" value="dog-training-pensacola-fl">
-            <input type="hidden" name="utm_source" value="">
-              <input type="hidden" name="utm_medium" value="">
-              <input type="hidden" name="utm_campaign" value="">
-              <input type="hidden" name="utm_content" value="">
-              <input type="hidden" name="utm_term" value="">
-              <input type="hidden" name="gclid" value="">
-              <input type="hidden" name="landing_url" value="">
-            <input type="hidden" name="timestamp" value="">
-            <div class="form-status" role="status" aria-live="polite"></div>
             <button class="btn btn-red" type="submit">Book My Consultation</button>
-            <small>Free and no obligation. No full address needed to start.</small>
+            <small>Free and no obligation. Your evaluation is booked on the next screen.</small>
+            <p class="fstatus wide" role="status" aria-live="polite"></p>
           </form>
         </aside>
       </div>
@@ -907,8 +937,18 @@
       document.addEventListener('submit', function(event){
         const form = event.target;
         if (!(form instanceof HTMLFormElement)) return;
-        if (form.classList.contains('contact-intake')) sendConversion(conversions.consultation, 250);
+        if (form.classList.contains('contact-intake') || form.classList.contains('booking-intake')) sendConversion(conversions.consultation, 250);
         if (form.classList.contains('pdf-optin')) sendConversion(conversions.pdf, 25);
+      }, true);
+      // Joshua 2026-09-15: phone digits format themselves as (216) 816-8026 while the visitor types,
+      // and extra digits are dropped instead of the field silently cutting the number off.
+      document.addEventListener('input', function(event){
+        const el = event.target;
+        if (!el || el.tagName !== 'INPUT' || (el.name !== 'phone' && el.name !== 'vet_phone')) return;
+        let d = String(el.value).replace(/[^0-9]/g, '');
+        if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+        d = d.slice(0, 10);
+        el.value = d.length > 6 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : d.length > 3 ? '(' + d.slice(0, 3) + ') ' + d.slice(3) : d;
       }, true);
       document.addEventListener('DOMContentLoaded', function(){
         const params = new URLSearchParams(window.location.search);
@@ -930,8 +970,9 @@
     })();
   </script>
   <script src="supabase-config.js"></script>
-  <script src="script.js?v=20260812marketoffers1"></script>
-  <script src="market-landing.js?v=20260923live9"></script>
-  <script src="ad-funnel.js?v=20260812marketoffers1"></script>
+  <script src="script.js?v=20260923live10"></script>
+  <script src="market-landing.js?v=20260923live10"></script>
+  <script src="ad-funnel.js?v=20260923live10"></script>
+  <script src="assets/v2/v2.js?v=20260923live10" defer></script>
 </body>
 </html>

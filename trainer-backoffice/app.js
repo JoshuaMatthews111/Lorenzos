@@ -3815,7 +3815,7 @@ function adTwoEditorPages() {
     }
   }
   const pages = shared.store.pages || [];
-  const ad2 = window.LDTT_IS_SANDBOX ? pages.filter(page => page.page_type === "ad2") : []; // rule 85: 2.0 pages on the practice copy only
+  const ad2 = pages.filter(page => page.page_type === "ad2"); // rule 85 (amended 2026-09-23): 2.0 pages serve live too
   const ads = []; // Page Studio ad pages carry the Meta pixel on /ads/: they open from the Site Builder, never in this preview
   return [...ad2, ...ads].map(page => ({ id: `/ads/${page.slug}`, pageId: page.id, status: page.status, type: page.page_type === "ad2" ? "ad2" : "ad", label: `${page.market || page.title || page.slug}${page.status === "published" ? "" : " (draft)"}` }));
 }

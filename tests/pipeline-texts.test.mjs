@@ -137,7 +137,7 @@ test("every Make send carries the portal's finished words; the test text goes on
   assert.match(app, /data-ptx-role=/); assert.match(app, /class="ptx-timeline"/); assert.match(app, /data-ptx-activate=/);
 });
 
-test("reengage_invite (Joshua 2026-09-23): a client TEMPLATE only — exact words, editable like the others, wired to no trigger and no scheduler", () => {
+test("reengage_invite (Joshua 2026-09-23, amended same night): exact words, editable like the others; the ONLY senders are the office door and the disarmed batch (tests/reengage-send.test.mjs), never a scheduler", () => {
   const t = X.TEXTS.find(x => x.key === "reengage_invite");
   assert.ok(t, "the template exists");
   assert.equal(t.role, "client");
@@ -148,15 +148,22 @@ test("reengage_invite (Joshua 2026-09-23): a client TEMPLATE only — exact word
   assert.equal(X.check("reengage_invite", t.words).value, t.words, "the default words pass the editor's own checks");
   assert.equal(X.render(X.wordsFor(null, "reengage_invite"), { first_name: "Sam", dog_name: "Max", booking_link: "https://x/book" }),
     "Hi Sam, it's Lorenzo's Dog Training Team. We spoke about training for Max. We would love to help. Pick a free evaluation time here: https://x/book. Or call us at (216) 475-5999.");
-  // TEMPLATE ONLY: nothing sends it. The ONLY mention in lib/pipeline.js is the client-email subject map
-  // (go-live 2026-09-23: ready if the office ever sends it by hand) - never a trigger or scheduler.
+  // Joshua 2026-09-23 (brief, same night as go-live): the 9:30 AM re-engage sender exists in lib/pipeline.js —
+  // the Super-Admin office door (api/pipeline reengage_send) and the batch runner behind site_settings key
+  // "reengage_batch", shipped DISARMED with no send_at. The senders' own pins (idempotency, consent, kill
+  // switch, disarm-after-run, practice redirect) live in tests/reengage-send.test.mjs. What must STILL never
+  // happen: lib/reengage.js (the old follow-up scheduler) sending it, or any timer that is not behind the
+  // armed key. Only these mentions may exist in lib/pipeline.js: the subject map, the words mapping in
+  // withTextMessages, and the REENGAGE_TEXT_KEY constant that the sender uses.
   const pipelineSrc = read("lib/pipeline.js");
-  const mentions = pipelineSrc.split("reengage_invite").length - 1;
-  assert.equal(mentions, 1, "exactly one mention");
-  assert.match(pipelineSrc, /reengage_invite: "Ready when you are - book your free evaluation"/, "and it is the subject line, nothing else");
-  assert.ok(!read("lib/reengage.js").includes("reengage_invite"), "the follow-up scheduler never reads it");
-  assert.equal(R.SENDING_ENABLED, false, "the scheduler itself is still off");
+  assert.match(pipelineSrc, /reengage_invite: "Ready when you are - book your free evaluation"/, "the email subject");
+  assert.match(pipelineSrc, /const REENGAGE_TEXT_KEY = "reengage_invite";/, "one named constant for the sender");
+  assert.match(pipelineSrc, /if \(payload\.pathway === "reengage"\) return \{ \.\.\.payload, message: T\.render\(words\("reengage_invite"\)/, "the pathway words mapping");
+  assert.equal(pipelineSrc.replace(/\/\/[^\n]*/g, "").split("reengage_invite").length - 1, 3, "no other code mention — no trigger, no scheduler");
+  assert.ok(!read("lib/reengage.js").includes("reengage_invite"), "the old follow-up scheduler never reads it");
+  assert.equal(R.SENDING_ENABLED, false, "the old scheduler itself is still off");
 });
+
 
 test("service-dog leads wear a gold tag on office, Sales and trainer cards and in the lead details", () => {
   const app = read("trainer-backoffice/app.js");

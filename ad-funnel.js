@@ -265,9 +265,9 @@
 
 	  const bookingStartedKey = `ldttBookingStarted:${pageSlug}`;
 	  const hasStartedBookingForm = () => sessionStorage.getItem(bookingStartedKey) === "yes"
-	    || Array.from(document.querySelectorAll(".contact-intake input, .contact-intake select, .contact-intake textarea"))
+	    || Array.from(document.querySelectorAll(".contact-intake input, .contact-intake select, .contact-intake textarea, .booking-intake input, .booking-intake select, .booking-intake textarea"))
 	      .some(control => control.type === "checkbox" ? control.checked : String(control.value || "").trim());
-	  document.querySelectorAll(".contact-intake input, .contact-intake select, .contact-intake textarea").forEach(control => {
+	  document.querySelectorAll(".contact-intake input, .contact-intake select, .contact-intake textarea, .booking-intake input, .booking-intake select, .booking-intake textarea").forEach(control => {
 	    control.addEventListener("input", () => sessionStorage.setItem(bookingStartedKey, "yes"), { once: true });
 	    control.addEventListener("change", () => sessionStorage.setItem(bookingStartedKey, "yes"), { once: true });
 	  });

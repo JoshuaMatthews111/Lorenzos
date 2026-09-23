@@ -299,7 +299,7 @@
     const html = `<option value="">${sb.pageId ? "Open another landing page…" : "Pick a landing page…"}</option>`
       + group("Landing pages", pages.filter(p => p.page_type === "landing"))
       + group("Ad pages", pages.filter(p => !p.page_type || p.page_type === "ad"))
-      + (store.sandbox ? group("Ad pages 2.0", pages.filter(p => p.page_type === "ad2")) : "")
+      + group("Ad pages 2.0", pages.filter(p => p.page_type === "ad2"))
       + (portalHas("pageEditorPreviewDocument") && portalTrainers().length ? `<optgroup label="Trainer pages">${portalTrainers().map(t => `<option value="trainer:${esc(t.id)}" ${sb.pageId === `trainer:${t.id}` ? "selected" : ""}>${esc(t.name)}</option>`).join("")}</optgroup>` : "");
     if (select.dataset.html !== html) { select.innerHTML = html; select.dataset.html = html; }
     if (!pages.some(p => p.id === sb.pageId && p.page_type !== "site") && !String(sb.pageId || "").startsWith("trainer:")) select.value = "";
@@ -359,7 +359,7 @@
         ${group("Site pages", pages.filter(p => p.page_type === "site"), "None yet. Press + New page.")}
         ${group("Landing pages", pages.filter(p => p.page_type === "landing"), "None yet.")}
         ${group("Ad pages", pages.filter(p => !p.page_type || p.page_type === "ad"), "None yet. Ad pages open in the ad editor.")}
-        ${S().store.sandbox ? group("Ad pages 2.0", pages.filter(p => p.page_type === "ad2"), "None yet. Page Studio → Ad landing pages 2.0.") : ""}
+        ${group("Ad pages 2.0", pages.filter(p => p.page_type === "ad2"), "None yet. Page Studio → Ad landing pages 2.0.")}
         ${trainerGroupHtml(q)}
         <p class="ps-help" style="margin-top:14px">Import the current website's pages (About, Facility, Contact, Dog Training…) from <b>+ New page → Import</b>. The original file stays live until you publish your copy.</p>`;
     } else if (sb.leftTab === "blocks" && !sb.draft) {

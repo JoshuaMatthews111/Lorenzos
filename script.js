@@ -375,7 +375,7 @@ const practiceFormsOff=env=>Boolean(env?.sandbox)&&!LDTT_EDGE_PRACTICE_FLAG_DEPL
 // and track-site-event are NOT deployed with the flag, so their forms and tracking stay off (rule 20).
 // Live never reads any of this: practiceFormsOff(env) is false there.
 const LDTT_PRACTICE_LEAD_FORMS_ON=true;
-const PRACTICE_LEAD_FORM_SELECTOR='.contact-intake,.market-guide-form,.ad-exit-form,.office-lead-form';
+const PRACTICE_LEAD_FORM_SELECTOR='.contact-intake,.market-guide-form,.ad-exit-form,.office-lead-form,.booking-intake';
 const practiceLeadForm=form=>LDTT_PRACTICE_LEAD_FORMS_ON&&Boolean(form?.matches?.(PRACTICE_LEAD_FORM_SELECTOR));
 const practiceFunctionOff=(env,functionName)=>practiceFormsOff(env)&&!(LDTT_PRACTICE_LEAD_FORMS_ON&&functionName==='submit-contact');
 const practiceHeaders=env=>(env?.sandbox?{[LDTT_PRACTICE_HEADER]:'1'}:{});

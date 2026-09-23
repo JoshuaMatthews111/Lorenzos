@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260923live9"; // rule 76 photos; rule 85 (2.0 pages); landing page dropdown; rule 89 Site Builder 2.0 (new CSS + lib files). Loads page-studio.css + the lib scripts.
+  const VERSION = "20260923live10"; // rule 76 photos; rule 85 (2.0 pages); landing page dropdown; rule 89 Site Builder 2.0 (new CSS + lib files). Loads page-studio.css + the lib scripts.
   const API = "/api/pages"; // site-builder: one API for ad, site and landing pages (api/ad-pages.js is an alias)
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/ad2-usmap.js", "/lib/ad2-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
   const store = { pages: null, markets: [], starters: [], importable: [], sandbox: false, loading: false, error: "" };
@@ -178,7 +178,7 @@
           <button class="btn btn-red" type="button" ${type === "ad" ? `data-ps-open="${esc(page.id)}"` : type === "ad2" ? `data-a2-open="${esc(page.id)}"` : `data-sb-open="${esc(page.id)}"`}>Edit full screen</button>
           ${page.status === "published" ? `<a class="btn btn-outline" href="${esc(path)}" target="_blank" rel="noopener">Open live page</a>` : ""}
           ${type === "ad" ? `<button class="btn btn-outline" type="button" data-ps-duplicate-page="${esc(page.id)}">Duplicate</button>` : type === "ad2" ? `<button class="btn btn-outline" type="button" data-a2-duplicate="${esc(page.id)}">Duplicate</button>` : `<button class="btn btn-outline" type="button" data-sb-duplicate="${esc(page.id)}">Duplicate</button>`}
-          ${type === "ad2" ? `<span class="ps-meta">Stays on the practice copy for now</span>` : sendToLiveButton(page)}
+          ${sendToLiveButton(page)}
         </div>
       </article>`;
   }
@@ -202,7 +202,7 @@
     return `
       <section class="ps-launcher-hero">
         <div><p class="portal-tag" style="color:#ffd166">Page Studio · Site Builder</p><h2>Your whole website, edited full screen. Publish goes live in a minute, no code deploy.</h2>
-        <p>One editor for every page: site pages (About, Services, Contact, anything), landing pages, ${store.sandbox ? "2.0 ad pages, " : ""}and every trainer's page. Click words to type, click photos to change them, add blocks (reviews, video, photo gallery …), move and hide sections, pick colours and fonts, and publish. Every publish keeps a version you can put back. New to it? Open it and press <b>? How to use</b>.${store.sandbox ? " <b>Practice copy:</b> everything here is practice; use Send to live when a page is ready." : ""}</p></div>
+        <p>One editor for every page: site pages (About, Services, Contact, anything), landing pages, 2.0 ad pages, and every trainer's page. Click words to type, click photos to change them, add blocks (reviews, video, photo gallery …), move and hide sections, pick colours and fonts, and publish. Every publish keeps a version you can put back. New to it? Open it and press <b>? How to use</b>.${store.sandbox ? " <b>Practice copy:</b> everything here is practice; use Send to live when a page is ready." : ""}</p></div>
         <div style="display:grid;gap:10px">
           <button class="ps-big-btn" type="button" data-sb-studio>⛶ Open the Site Builder</button>
           <button class="ps-big-btn ghost on-dark" type="button" data-sb-new>+ New page</button>
@@ -216,10 +216,10 @@
       <section class="panel pad"><div class="panel-head"><h2>Landing pages</h2></div>
         ${grid(landingPages, "No block-built landing pages yet. <b>+ New page</b> → Market landing or Recruiting landing.")}
       </section>
-      ${store.sandbox ? `<section class="panel pad" id="psAd2Section"><div class="panel-head"><h2>Ad landing pages 2.0</h2><button class="btn btn-red" type="button" data-a2-new>+ New 2.0 page</button></div>
-        <p class="ps-help">The new ad page designs from 11 Sep (Miramar Beach, Panama City Beach, Ann Arbor). Edit every word, photo, video title, review and state full screen. They stay on the practice copy until the office tests them.</p>
+      <section class="panel pad" id="psAd2Section"><div class="panel-head"><h2>Ad landing pages 2.0</h2><button class="btn btn-red" type="button" data-a2-new>+ New 2.0 page</button></div>
+        <p class="ps-help">The new ad page designs from 11 Sep (Miramar Beach, Panama City Beach, Ann Arbor). Edit every word, photo, video title, review and state full screen. Live since 2026-09-23 (Joshua): a published 2.0 page serves at /ads/&lt;name&gt;.</p>
         ${grid(ad2Pages, `No 2.0 pages here yet. <button class="btn btn-outline" type="button" data-a2-seed>Add the three 2.0 pages</button>`)}
-      </section>` : ""}
+      </section>
       <section class="panel pad"><div class="panel-head"><h2>Ad pages</h2></div>
         ${grid(adPages, "No Page Studio ad pages yet. Click <b>+ New ad page</b> to make the first one — it takes about a minute.")}
       </section>
