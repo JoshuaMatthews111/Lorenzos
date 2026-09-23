@@ -171,6 +171,10 @@
       problem: f.problem.value,
       dog_name: f.dog_name.value.trim(),
       sms_consent: !!f.sms_consent.checked,
+      // Joshua 2026-09-23: the trainer the visitor picked under the ZIP box travels with the lead. Same two names
+      // the trainer pages send, so the pipeline routes this lead to that trainer.
+      trainer_slug: f.trainer_slug ? f.trainer_slug.value : "",
+      assigned_trainer: f.assigned_trainer ? f.assigned_trainer.value : "",
       source_page: location.origin + location.pathname
     };
     var ctrl = typeof AbortController === "function" ? new AbortController() : null;
@@ -229,7 +233,173 @@
     el.value = d.length > 6 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : d.length > 3 ? "(" + d.slice(0, 3) + ") " + d.slice(3) : d;
   }, true);
 
+  // Joshua 2026-09-23: "the trainers should appear when the ZIP code is typed on the page." As soon as the ZIP
+  // box holds 5 digits the form asks GET /api/booking?zip=<zip> (rule 74: every listed trainer within 50 miles,
+  // nearest first) and draws each answer as a real <label> + <input type=radio> card, so picking one works with
+  // the keyboard and without any JavaScript styling tricks. The pick rides along with the lead (sendEvaluation).
+  function trainerPicker(form) {
+    var box = form.querySelector("[data-trainer-pick]");
+    var zipField = form.elements ? form.elements.zip : null;
+    if (!box || !zipField) return;
+    var endpoint = box.getAttribute("data-endpoint") || "";
+    if (!endpoint) return; // the Page Studio preview asks nothing
+    var list = box.querySelector(".tnear-list");
+    var msg = box.querySelector(".tnear-msg");
+    var sub = box.querySelector(".tnear-sub");
+    var slugField = form.elements.trainer_slug;
+    var nameField = form.elements.assigned_trainer;
+    var owner = String(box.getAttribute("data-owner") || "").toLowerCase();
+    var wait = parseInt(box.getAttribute("data-debounce"), 10);
+    if (!(wait >= 0 && wait <= 5000)) wait = 400;
+    var LOADING = box.getAttribute("data-loading") || "Looking for trainers near you…";
+    var EMPTY = box.getAttribute("data-empty") || "We do not have a trainer within 50 miles of that ZIP yet. Send the form and our office will call you.";
+    var timer = null;
+    var seq = 0;         // only the newest answer is drawn: a slow reply for an older ZIP is ignored
+    var askedZip = "";
+
+    function choose(slug, name) {
+      if (slugField) slugField.value = slug || "";
+      if (nameField) nameField.value = name || "";
+      list.querySelectorAll(".tcard").forEach(function (label) {
+        var on = label.getAttribute("data-slug") === slug;
+        label.classList.toggle("on", on);
+        var radio = label.querySelector("input[type=radio]");
+        if (radio) radio.checked = on;
+      });
+    }
+
+    function clearPick() { choose("", ""); }
+
+    function note(text) {
+      msg.textContent = text || "";
+      msg.hidden = !text;
+    }
+
+    function card(t) {
+      var label = document.createElement("label");
+      label.className = "tcard";
+      label.setAttribute("data-slug", t.slug);
+      var radio = document.createElement("input");
+      radio.type = "radio";
+      radio.name = "trainer_pick";
+      radio.value = t.slug;
+      radio.className = "tc-radio";
+      label.appendChild(radio);
+      var photo = String(t.photo || "");
+      if (photo) {
+        var img = document.createElement("img");
+        img.className = "tc-photo";
+        img.src = photo;
+        img.alt = "";
+        img.width = 54;
+        img.height = 54;
+        img.loading = "lazy";
+        label.appendChild(img);
+      } else {
+        var blank = document.createElement("span");
+        blank.className = "tc-photo tc-blank";
+        blank.setAttribute("aria-hidden", "true");
+        blank.textContent = String(t.name || "?").charAt(0);
+        label.appendChild(blank);
+      }
+      var text = document.createElement("span");
+      text.className = "tc-txt";
+      var name = document.createElement("span");
+      name.className = "tc-name";
+      name.textContent = String(t.name || t.slug);
+      text.appendChild(name);
+      if (t.market) {
+        var market = document.createElement("span");
+        market.className = "tc-meta";
+        market.textContent = String(t.market);
+        text.appendChild(market);
+      }
+      var miles = document.createElement("span");
+      miles.className = "tc-meta tc-miles";
+      miles.textContent = (t.miles == null ? "" : t.miles) + " mi away";
+      text.appendChild(miles);
+      if (t.calendar) {
+        var cal = document.createElement("span");
+        cal.className = "tc-cal";
+        cal.textContent = "Online calendar";
+        text.appendChild(cal);
+      }
+      label.appendChild(text);
+      return label;
+    }
+
+    function draw(trainers) {
+      var keep = slugField ? slugField.value : "";
+      list.textContent = "";
+      if (!trainers.length) {
+        sub.hidden = true;
+        clearPick();
+        note(EMPTY);
+        return;
+      }
+      sub.hidden = false;
+      note("");
+      trainers.forEach(function (t) { list.appendChild(card(t)); });
+      var slugs = trainers.map(function (t) { return t.slug; });
+      // the page's own market trainer is picked first when they are in the answer; otherwise the nearest card
+      var pick = slugs.indexOf(keep) > -1 ? keep : (owner && slugs.indexOf(owner) > -1 ? owner : slugs[0]);
+      var chosen = trainers[slugs.indexOf(pick)];
+      choose(pick, chosen ? (chosen.name || pick) : pick);
+    }
+
+    function ask(zip) {
+      var mine = ++seq;
+      box.hidden = false;
+      sub.hidden = true;
+      list.textContent = "";
+      note(LOADING);
+      fetch(endpoint + "?zip=" + encodeURIComponent(zip), { headers: { "Accept": "application/json" } })
+        .then(function (res) { return res.json().catch(function () { return null; }); })
+        .then(function (data) {
+          if (mine !== seq) return; // a newer ZIP was typed while this answer was on its way
+          draw(data && Array.isArray(data.trainers) ? data.trainers : []);
+        })
+        .catch(function (err) {
+          if (mine !== seq) return;
+          clearPick();
+          sub.hidden = true;
+          note(EMPTY);
+          if (window.console) console.warn("[LDTT] trainers near ZIP failed:", err && (err.message || err));
+        });
+    }
+
+    function look() {
+      var zip = String(zipField.value || "").replace(/\D/g, "").slice(0, 5);
+      if (zip.length < 5) {
+        seq += 1;
+        askedZip = "";
+        box.hidden = true;
+        list.textContent = "";
+        note("");
+        clearPick();
+        return;
+      }
+      if (zip === askedZip) return;
+      askedZip = zip;
+      ask(zip);
+    }
+
+    zipField.addEventListener("input", function () {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(look, wait); // debounce: wait until the typing stops
+    });
+    zipField.addEventListener("change", function () { if (timer) clearTimeout(timer); look(); });
+    list.addEventListener("change", function (event) {
+      var radio = event.target.closest ? event.target.closest("input[type=radio]") : null;
+      if (!radio) return;
+      var label = radio.closest(".tcard");
+      choose(radio.value, label ? (label.querySelector(".tc-name") || {}).textContent : "");
+    });
+    look(); // a ZIP the browser filled in already counts
+  }
+
   document.querySelectorAll("form.lead").forEach(function (form) {
+    trainerPicker(form);
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       var status = form.querySelector(".fstatus");

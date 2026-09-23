@@ -28,11 +28,17 @@ module.exports = async function handler(req, res) {
     // is assigned; if only trainers without a calendar are near, the link still works (the client picks a
     // trainer on the page). Nobody within 50 miles = trainer_slug null, no link, office follow-up.
     const route = await B.routeZip(intake.value.zip, settings);
-    const setting = route.calendar;
+    // Joshua 2026-09-23: the ad page 2.0 lists the trainers near the typed ZIP and the visitor picks one. That pick
+    // wins over "nearest with a calendar", but ONLY when that trainer is one of the cards for this ZIP (rule 74:
+    // inside 50 miles, listed, with a live calendar). Anything else falls back to the routing we had.
+    const picked = intake.value.trainer_slug
+      ? (route.cards || []).find(card => card.slug === intake.value.trainer_slug) || null
+      : null;
+    const setting = (picked && B.settingBySlug(settings, picked.slug)) || route.calendar;
     const trainer = setting ? await B.trainerRow(setting.slug) : null;
     const routed = setting && trainer ? setting : null;
     const { lead, reused } = await B.createLead({ intake: intake.value, setting: routed, trainer, via: "booking-lead" });
-    const slug = routed ? routed.slug : (route.nearest?.slug || null);
+    const slug = routed ? routed.slug : (picked?.slug || route.nearest?.slug || null);
     // Step 3 (rule 72): the same pipeline every source enters. SMS consent + a trainer for the ZIP ->
     // Make pathway 1 (booking-link text, tester phones only). A double submit never texts twice (reused,
     // and enterPipeline claims before it sends). Never fails the request: the lead is already saved.

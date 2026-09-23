@@ -214,6 +214,56 @@ test("Joshua 2026-09-16: street address, city and state are required on every 2.
   assert.match(booking, /\.\.\.\(intake\.address \? \{ address: intake\.address \} : \{\}\),\n\s*\.\.\.\(intake\.city \? \{ city: intake\.city \} : \{\}\),\n\s*\.\.\.\(intake\.state \? \{ state: intake\.state \} : \{\}\),\n\s*\.\.\.\(intake\.utm_source/);
 });
 
+// Joshua 2026-09-23: "the trainers should appear when the ZIP code is typed on the page" — under the ZIP box, on the
+// 2.0 page itself, pickable, and the pick rides along with the lead.
+test("Joshua 2026-09-23: the trainers near the typed ZIP appear under the ZIP box and one can be picked", () => {
+  assert.equal(T.VERSION, "20260923ad14");
+  for (const starter of T.STARTERS) {
+    const html = T.renderPage(starter, { practice: true });
+    const form = (html.match(/<form class="lead contact-intake"[\s\S]*?<\/form>/) || [""])[0];
+    // the area sits right under the ZIP box and starts empty and hidden
+    assert.match(form, /<label>ZIP code<input name="zip"[^>]*><\/label>\n<div class="tnear wide" data-trainer-pick /, `${starter.design}: the trainer area follows the ZIP box`);
+    assert.match(form, /data-endpoint="\/api\/booking"/, `${starter.design}: it asks the same site's booking API`);
+    assert.match(form, /data-debounce="400"/, `${starter.design}: the debounce hook`);
+    assert.match(form, /<div class="tnear wide" data-trainer-pick [^>]*hidden>/, `${starter.design}: nothing shows until a ZIP is typed`);
+    // the three wordings, in the page itself
+    assert.match(form, /<h3 class="tnear-h">Trainers near you<\/h3>/, `${starter.design}: heading`);
+    assert.match(form, /<p class="tnear-sub">Pick who you want\. You can still change this on the next screen\.<\/p>/, `${starter.design}: the short line`);
+    assert.match(form, /data-loading="Looking for trainers near you…"/, `${starter.design}: while loading`);
+    assert.match(form, /data-empty="We do not have a trainer within 50 miles of that ZIP yet\. Send the form and our office will call you\."/, `${starter.design}: nobody in range`);
+    // the pick travels with the lead, under the same names the trainer pages send
+    assert.match(form, /<input type="hidden" name="trainer_slug" value="">/, `${starter.design}: the hidden trainer field`);
+    assert.match(form, /<input type="hidden" name="assigned_trainer" value="">/, `${starter.design}: the trainer's name`);
+  }
+  // the page's own market trainer is named on the page, and is kept when the office saves it (rule 85: only when set)
+  assert.equal(T.normalizeContent({ design: "d1", slug: "x", owner_slug: "Dylan Atkinson!" }).owner_slug, "dylan-atkinson");
+  assert.ok(!("owner_slug" in T.normalizeContent({ design: "d1", slug: "x" })), "a page without an owner keeps its exact shape");
+  assert.match(T.renderPage(T.normalizeContent({ design: "d2", slug: "x", owner_slug: "tabatha-shelley" }), { practice: true }), /data-owner="tabatha-shelley"/);
+  assert.match(T.renderPage(T.STARTERS[0], { preview: true }), /data-trainer-pick data-endpoint=""/, "the Page Studio preview asks the booking API nothing");
+
+  // the page script: fetch + render + select, and the chosen slug is sent
+  const js = read("assets/v2/v2.js");
+  assert.match(js, /function trainerPicker\(form\)/);
+  assert.match(js, /fetch\(endpoint \+ "\?zip=" \+ encodeURIComponent\(zip\)/, "it asks /api/booking for that ZIP");
+  assert.match(js, /timer = setTimeout\(look, wait\); \/\/ debounce/, "the ZIP box is debounced");
+  assert.match(js, /if \(mine !== seq\) return;/, "a stale answer is ignored");
+  assert.match(js, /radio\.type = "radio";\n\s*radio\.name = "trainer_pick";/, "real radios, one pick at a time");
+  assert.match(js, /owner && slugs\.indexOf\(owner\) > -1 \? owner : slugs\[0\]/, "the page's own trainer is preselected, else the nearest");
+  assert.match(js, /cal\.textContent = "Online calendar";/);
+  assert.match(js, /miles\.textContent = \(t\.miles == null \? "" : t\.miles\) \+ " mi away";/);
+  assert.match(js, /trainer_slug: f\.trainer_slug \? f\.trainer_slug\.value : ""/, "the pick is sent with the lead");
+  assert.match(js, /assigned_trainer: f\.assigned_trainer \? f\.assigned_trainer\.value : ""/);
+  assert.match(read("assets/v2/v2.css"), /\.lead \.tcard\.on\{border-color:var\(--red\)/, "the picked card is clearly marked");
+
+  // the server keeps the pick, and only when that trainer really is near the typed ZIP
+  const B = require("../lib/booking.js");
+  assert.equal(B.cleanLeadIntake({ first_name: "A", phone: "4405550100", trainer_slug: "Harley McGrew" }).value.trainer_slug, "harleymcgrew");
+  assert.equal(B.cleanLeadIntake({ first_name: "A", phone: "4405550100" }).value.trainer_slug, "");
+  const lead = read("api/booking-lead.js");
+  assert.match(lead, /\(route\.cards \|\| \[\]\)\.find\(card => card\.slug === intake\.value\.trainer_slug\)/, "the pick must be one of the cards for this ZIP");
+  assert.match(lead, /const setting = \(picked && B\.settingBySlug\(settings, picked\.slug\)\) \|\| route\.calendar;/, "otherwise the routing we had");
+});
+
 test("Joshua 2026-09-16: a photo can show whole (contain) instead of filling its frame", () => {
   const c = T.normalizeContent({ design: "d2", slug: "x", pframe: { founder: { fit: "contain", y: 0 }, hero: { fit: "contain" } } });
   assert.deepEqual(c.pframe, { founder: { y: 0, fit: "contain" } }, "the top photo knows only cover");

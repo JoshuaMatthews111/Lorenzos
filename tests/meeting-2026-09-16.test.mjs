@@ -79,7 +79,7 @@ test("3. required boxes wear a red asterisk: portal pass + CSS, 2.0 pages, /book
   assert.match(v2js, /function markRequired\(root\)/);
   assert.match(v2js, /markRequired\(document\);/);
   const T = require("../lib/ad2-page-template.js");
-  assert.match(T.renderPage(T.STARTERS[0], { practice: true }), /v2\.css\?v=20260917ad13/, "the browsers fetch the new css + js");
+  assert.match(T.renderPage(T.STARTERS[0], { practice: true }), /v2\.css\?v=20260923ad14/, "the browsers fetch the new css + js");
   const book = read("lib/booking-page.js");
   assert.match(book, /label:has\(> input\[required\]\):not\(:has\(\.req\)\)::before/);
   const contact = read("contact.html");
