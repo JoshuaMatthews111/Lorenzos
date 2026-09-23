@@ -5625,6 +5625,10 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 .lead-card-sources .lead-alpha-toggle:hover { border-color: #d80f35; color: #082754; }
 .lead-card-sources .lead-alpha-toggle.is-yes { border-color: #d80f35; background: #fff5f7; color: #082754; }
 .lead-alpha-toggle .alpha-check { color: #d80f35; font-size: 1rem; font-weight: 900; line-height: 1; }
+/* Joshua 2026-09-23: the Alpha question is a three-state select on the card and in the detail panel. */
+.lead-card-sources .lead-alpha-toggle { cursor: default; gap: 6px; }
+.lead-alpha-toggle select, .lead-alpha-check select { font: inherit; font-size: .72rem; font-weight: 700; color: #082754; border: 1px solid #cbd8e8; border-radius: 999px; background: #fff; padding: 2px 8px; cursor: pointer; }
+.lead-alpha-toggle.is-yes select { border-color: #d80f35; background: #fff5f7; }
 .lead-detail-panel .field-hint { font-weight: 400; color: #64748b; font-size: .75rem; }
 
 /* rule 71: online booking block in the lead panel + eval time on Sales cards */
@@ -5864,6 +5868,9 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
 .optional-mark { color: #5b6a83; font-weight: 400; font-size: .8em; margin-left: 4px; }
 .lead-tag-track500 { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #fff; background: #071f46; border-radius: 999px; padding: 1px 8px; margin-left: 4px; vertical-align: 1px; }
 .lead-journey h3 .lead-tag-track500 { font-size: 12px; vertical-align: 3px; }
+/* Joshua 2026-09-23: "Needs a call" — no trainer calendar for the ZIP, the office must phone this client. */
+.lead-tag-needs-call { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #d80f35; background: #fff5f7; border: 1.5px solid #d80f35; border-radius: 999px; padding: 0 8px; margin-left: 4px; vertical-align: 1px; }
+.lead-detail-panel h2 .lead-tag-needs-call { font-size: 13px; vertical-align: 4px; }
 .journey-step.skipped { border-color: #f1c2ca; }
 .journey-step.skipped small { color: #8a0b1f; }
 .journey-step.off { opacity: .75; border-style: dashed; }

@@ -65,10 +65,24 @@ test("Added to Alpha saves alone, as a real yes/no", async () => {
   assert.equal("status" in patch[0].body, false, "an Alpha tick must never resend the status");
   assert.equal("eval_scheduled_at" in patch[0].body, false, "an Alpha tick must never touch the eval time");
 
+  // Joshua 2026-09-23: the office door now speaks the same three-state language as
+  // the trainer door (api/trainer-lead-action.js): true = Yes, false = No, and anything
+  // else (including junk strings) saves NULL = "not answered yet". The old pin forced
+  // junk to false; that collapsed blank into No, which the office select no longer does.
+  calls = fakeSupabase();
+  res = await call(handler, update({ added_to_alpha: false }));
+  assert.equal(res.statusCode, 200);
+  assert.equal(leadPatches(calls)[0].body.added_to_alpha, false, "a real false means No");
+
   calls = fakeSupabase();
   res = await call(handler, update({ added_to_alpha: "yes" }));
   assert.equal(res.statusCode, 200);
-  assert.equal(leadPatches(calls)[0].body.added_to_alpha, false, "only a real true means yes");
+  assert.equal(leadPatches(calls)[0].body.added_to_alpha, null, "anything but a real true/false clears to blank (null)");
+
+  calls = fakeSupabase();
+  res = await call(handler, update({ added_to_alpha: null }));
+  assert.equal(res.statusCode, 200);
+  assert.equal(leadPatches(calls)[0].body.added_to_alpha, null, "null clears the answer back to blank");
 });
 
 test("Eval date + time is stored as ISO, cleared by empty, refused when unreadable", async () => {

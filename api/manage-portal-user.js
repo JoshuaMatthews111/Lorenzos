@@ -1,4 +1,5 @@
-const { blockedInSandbox, supabaseRequest } = require("../lib/sandbox");
+const { blockedInSandbox, supabaseRequest, isSandbox } = require("../lib/sandbox");
+const crypto = require("crypto");
 const { authorizeRequest, isMissingColumnError } = require("../lib/portal-auth");
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -149,6 +150,57 @@ module.exports = async function handler(req, res) {
       await auditPortalChange(admin, "portal_account_created", { user_id: created.id }, profile?.[0] || null,
         `${admin.actor.name || admin.actor.email} created a ${permission.replace("_", " ")} login for ${newEmail}.`).catch(() => {});
       return res.status(200).json({ ok: true, created: true, user: profile?.[0] || null, email: newEmail });
+    }
+
+    // Joshua 2026-09-23: move a trainer's SANDBOX login to the trainer's own email.
+    // Shantelle's practice row pointed at a personal placeholder address; her real
+    // company address had no login at all. This action, PRACTICE COPY ONLY and Super
+    // Admin only, gives the trainer's real email a login the same way live publishing
+    // does (ensure-trainer-user createOrEnableAuthUser): a strong random password that
+    // is never shown, never returned and never logged, email confirmed, and the
+    // practice portal_users row re-pointed at it. The old login's own password and
+    // portal rows are never touched. Live answers 404 for this action.
+    if (clean(body.action, 40) === "sandbox-fix-trainer-login") {
+      if (!isSandbox()) return res.status(404).json({ ok: false, message: "Not here." });
+      const trainerId = clean(body.trainer_id, 80);
+      const newEmail = clean(body.new_email, 254).toLowerCase();
+      if (!trainerId) return res.status(400).json({ ok: false, message: "trainer_id is required." });
+      if (!/^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(newEmail)) return res.status(400).json({ ok: false, message: "Enter the trainer's real email address." });
+      const trainerRows = await supabaseFetch(`/rest/v1/trainers?select=id,full_name,email&id=eq.${encodeURIComponent(trainerId)}&limit=1`);
+      const trainer = trainerRows?.[0];
+      if (!trainer) return res.status(404).json({ ok: false, message: "Trainer record was not found." });
+      const portalRows = await supabaseFetch(`/rest/v1/portal_users?select=*&trainer_id=eq.${encodeURIComponent(trainerId)}&role=eq.trainer&limit=1`);
+      const portalRow = portalRows?.[0];
+      if (!portalRow) return res.status(404).json({ ok: false, message: "This trainer has no practice portal row to move." });
+      let authUser = await findAuthUserByEmail(newEmail);
+      let created = false;
+      if (!authUser?.id) {
+        // Random, unguessable, never fixed, never revealed: 24 bytes of entropy plus
+        // the character classes Supabase requires.
+        const password = `${crypto.randomBytes(24).toString("base64url")}!aA1`;
+        authUser = await supabaseFetch("/auth/v1/admin/users", {
+          method: "POST",
+          body: JSON.stringify({ email: newEmail, password, email_confirm: true, user_metadata: { display_name: trainer.full_name, portal_role: "trainer" } })
+        });
+        created = true;
+        if (!authUser?.id) throw new Error("The trainer login could not be created.");
+      }
+      const clash = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,trainer_id&user_id=eq.${encodeURIComponent(authUser.id)}&limit=1`);
+      if (clash?.[0] && String(clash[0].trainer_id || "") !== String(trainerId)) {
+        return res.status(409).json({ ok: false, message: `${newEmail} already belongs to another portal login.` });
+      }
+      const moved = await supabaseFetch(`/rest/v1/portal_users?user_id=eq.${encodeURIComponent(portalRow.user_id)}&trainer_id=eq.${encodeURIComponent(trainerId)}`, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ user_id: authUser.id, email: newEmail, display_name: portalRow.display_name || trainer.full_name, active: true, access_status: "active" })
+      });
+      await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(trainerId)}`, {
+        method: "PATCH", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({ email: newEmail, auth_user_id: authUser.id })
+      });
+      await auditPortalChange(admin, "portal_profile_updated", portalRow, moved?.[0] || null,
+        `${trainer.full_name}'s practice login moved to ${newEmail}${created ? " (new login, random password, never shown)" : ""}.`).catch(() => {});
+      return res.status(200).json({ ok: true, moved: true, email: newEmail, created_auth_user: created, user: moved?.[0] || null });
     }
 
     let userId = clean(body.user_id, 120);

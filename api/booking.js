@@ -416,6 +416,7 @@ async function callback(req, res, body) {
       ...(current.email || !client.email ? {} : { email: client.email }),
       raw_payload: {
         ...raw,
+        needs_office_call: true, // Joshua 2026-09-23: the office must call this person; the portal shows a "Needs a call" badge
         booking: {
           ...(raw.booking && typeof raw.booking === "object" ? raw.booking : {}),
           callback: { zip, requested_at: now, phone: client.phone, reason: `No trainer within ${B.RADIUS_MILES} miles of ZIP ${zip}.` }

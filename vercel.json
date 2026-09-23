@@ -131,6 +131,10 @@
     {
       "path": "/api/cron/site-health",
       "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/cron/auto-followups",
+      "schedule": "*/15 * * * *"
     }
   ],
   "functions": {

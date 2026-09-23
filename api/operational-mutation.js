@@ -390,7 +390,9 @@ async function updateRecord(admin, body, requestId) {
   if (!Object.keys(changes).length) return { status: 400, body: { ok: false, message: "No supported changes were supplied." } };
   // lead cards (2026-09-12): a real yes/no and a real timestamp, or nothing is written.
   if (entityType === "lead") {
-    if ("added_to_alpha" in changes) changes.added_to_alpha = changes.added_to_alpha === true;
+    // Joshua 2026-09-23: the office answers the same three-state Alpha question the
+    // trainer portal asks. true = Yes, false = No, null = not answered yet (blank).
+    if ("added_to_alpha" in changes) changes.added_to_alpha = changes.added_to_alpha === true ? true : changes.added_to_alpha === false ? false : null;
     if ("eval_scheduled_at" in changes) {
       const when = changes.eval_scheduled_at ? new Date(changes.eval_scheduled_at) : null;
       if (when && Number.isNaN(when.getTime())) return { status: 400, body: { ok: false, message: "The eval date and time could not be read. Pick it again." } };
