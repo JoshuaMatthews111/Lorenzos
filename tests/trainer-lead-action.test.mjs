@@ -110,6 +110,19 @@ test("added to Alpha: yes / no, no status change, audited", async () => {
   assert.equal(w.store.audit_events[0].action, "trainer_lead_alpha");
   await call({ action: "alpha", lead_id: w.id, value: false });
   assert.equal(w.store.leads[0].added_to_alpha, false);
+  // Joshua 2026-09-23: the trainer can clear the answer back to BLANK (null) - "not answered yet" is not "No".
+  await call({ action: "alpha", lead_id: w.id, value: null });
+  assert.equal(w.store.leads[0].added_to_alpha, null);
+  await call({ action: "alpha", lead_id: w.id, value: "yes" });
+  assert.equal(w.store.leads[0].added_to_alpha, null, "only a real boolean answers the question; anything else is blank");
+});
+
+test("the portal asks the question in plain words, blank first", async () => {
+  const { readFileSync } = await import("node:fs");
+  const app = readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
+  assert.ok(app.includes("Have you logged this lead in Alpha?"), "the trainer sees the question, not a toggle");
+  assert.ok(app.includes('<option value=""${alphaAnswer === "" ? " selected" : ""}>Pick Yes or No</option>'), "blank option first, selected until the trainer answers");
+  assert.ok(app.includes("Yes, it is logged in Alpha") && app.includes("No, not yet"), "Yes and No are spelled out");
 });
 
 test("only the trainer the lead is assigned to (or the office); stale versions and bad input write nothing", async () => {

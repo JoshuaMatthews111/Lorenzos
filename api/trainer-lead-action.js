@@ -210,8 +210,11 @@ module.exports = async function handler(req, res) {
       changes = { status };
       summary = `Trainer marked the lead lost (${status.replace(/^lost_/, "").replace(/_/g, " ")}).`;
     } else {
-      changes = { added_to_alpha: body.value === true };
-      summary = changes.added_to_alpha ? "Trainer marked the lead Added to Alpha." : "Trainer marked the lead not added to Alpha.";
+      // Joshua 2026-09-23: the trainer answers "Have you logged this lead in Alpha?" Yes / No, and can
+      // clear the answer back to blank. Blank (null) means "not answered yet" - different from No.
+      const v = body.value === true ? true : body.value === false ? false : null;
+      changes = { added_to_alpha: v };
+      summary = v === true ? "Trainer answered Yes: this lead is logged in Alpha." : v === false ? "Trainer answered No: this lead is not logged in Alpha yet." : "Trainer cleared the Alpha answer.";
     }
     if (note) summary += ` Note: ${note}`;
 
@@ -227,8 +230,8 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         actor_user_id: access.actor?.id || access.user?.id || null, actor_email: access.actor?.email || null, actor_name: access.actor?.name || null,
         action: `trainer_lead_${action}`, entity_type: "lead", entity_id: String(record.id), summary,
-        before_data: { status: before.status, added_to_alpha: before.added_to_alpha === true },
-        after_data: { status: record.status, added_to_alpha: record.added_to_alpha === true },
+        before_data: { status: before.status, added_to_alpha: before.added_to_alpha ?? null },
+        after_data: { status: record.status, added_to_alpha: record.added_to_alpha ?? null },
         request_id: requestId
       })
     });
@@ -258,8 +261,8 @@ module.exports = async function handler(req, res) {
       });
     }
     if (action === "eval_completed") await P.afterEvalCompleted({ lead: record }).catch(error => console.error("after_eval_completed_failed", String(error?.message || error)));
-    const message = action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : changes.added_to_alpha ? "Marked Added to Alpha." : "Marked not added to Alpha.";
-    return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha === true, version: record.version || null } });
+    const message = action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
+    return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha ?? null, version: record.version || null } });
   } catch (error) {
     const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;
     return reply(res, status, { ok: false, message: error.message || "The lead could not be updated." });

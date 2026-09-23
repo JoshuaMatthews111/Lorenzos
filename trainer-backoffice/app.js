@@ -1150,6 +1150,8 @@ function remoteLeadToUi(row) {
     // lead cards (2026-09-12): real columns on leads (both schemas).
     evalScheduledAt: row.eval_scheduled_at || "",
     addedToAlpha: row.added_to_alpha === true,
+    // Joshua 2026-09-23: blank means "the trainer has not answered yet" - different from No.
+    alphaAnswer: row.added_to_alpha === true ? "yes" : row.added_to_alpha === false ? "no" : "",
     clientNote,
     comments: clientNote,
     additional_interest: raw.additional_interest || "",
@@ -9562,14 +9564,21 @@ const TRAINER_LOST_REASONS = [["price", "Price concern"], ["not_ready", "Not rea
 function trainerLeadActionsBox(lead) {
   if (!lead.remoteId) return "";
   const closed = ["Became a Client", "Archived", "Do Not Contact", "Bad Lead"].includes(lead.status) || /^(Lost|Canceled)/.test(String(lead.status || ""));
-  const alpha = lead.addedToAlpha === true;
+  // Joshua 2026-09-23: a plain question, blank until the trainer answers. Yes / No / blank (= not answered yet).
+  const alphaAnswer = lead.alphaAnswer || "";
   const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
   const reasons = TRAINER_LOST_REASONS.map(([value, label]) => `<option value="${value}" ${pick.reason === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
   return `<section class="detail-note-block trainer-lead-update"><span>Update this lead</span>
     <div class="row-actions">
       ${lead.status === "Evaluation Scheduled" ? `<button type="button" class="btn btn-red btn-small" data-trainer-lead-action="eval_completed" data-lead-ref="${escapeHtml(lead.id)}">Eval completed</button>` : ""}
-      <button type="button" class="btn btn-outline btn-small lead-alpha-toggle${alpha ? " is-yes" : ""}" data-trainer-lead-action="alpha" data-value="${alpha ? "false" : "true"}" data-lead-ref="${escapeHtml(lead.id)}" aria-pressed="${alpha ? "true" : "false"}">${alpha ? `<span class="alpha-check" aria-hidden="true">✓</span>Added to Alpha` : "Added to Alpha? No"}</button>
     </div>
+    <label class="trainer-alpha-question">Have you logged this lead in Alpha?
+      <select class="select-pill" data-trainer-lead-action="alpha" data-lead-ref="${escapeHtml(lead.id)}">
+        <option value=""${alphaAnswer === "" ? " selected" : ""}>Pick Yes or No</option>
+        <option value="yes"${alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option>
+        <option value="no"${alphaAnswer === "no" ? " selected" : ""}>No, not yet</option>
+      </select>
+    </label>
     ${closed ? `<p class="field-hint">This lead is closed (${escapeHtml(lead.status)}). Ask the office to reopen it.</p>` : `<div class="trainer-lost-box">
       <label>Lost? Why<select data-trainer-lost-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${reasons}</select></label>
       <label>Note for the office <span class="hint">(optional)</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
@@ -9870,7 +9879,7 @@ async function trainerLeadAction(button) {
   const lead = (state.leads || []).find(l => l.id === button.dataset.leadRef);
   if (!lead?.remoteId) { showToast("This lead is not saved yet."); return; }
   const body = { action, lead_id: lead.remoteId, ...(lead.version !== undefined && lead.version !== null ? { expected_version: lead.version } : {}) };
-  if (action === "alpha") body.value = button.dataset.value === "true";
+  if (action === "alpha") body.value = button.tagName === "SELECT" ? (button.value === "yes" ? true : button.value === "no" ? false : null) : button.dataset.value === "true";
   if (action === "lost") {
     const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
     if (!pick.reason) { showToast("Pick why the client was lost."); return; }
@@ -14060,7 +14069,7 @@ document.addEventListener("click", async event => {
   const dealCustomAdd = event.target.closest("[data-deal-custom-add]");
   if (event.target.closest("[data-ptx-role], [data-ptx-stage], [data-ptx-open], [data-ptx-field], [data-ptx-new], [data-ptx-offered], [data-ptx-copy], [data-ptx-edit], [data-ptx-cancel], [data-ptx-save], [data-ptx-delete], [data-ptx-activate], [data-ptx-test]") && pipelineTextClick(event)) return;
   const trainerAction = event.target.closest("[data-trainer-lead-action]");
-  if (trainerAction) { trainerLeadAction(trainerAction); return; }
+  if (trainerAction && trainerAction.tagName !== "SELECT") { trainerLeadAction(trainerAction); return; } // the Alpha select saves on change, not on click
   if (event.target.closest("[data-trainer-team-reload]")) { trainerTeam = null; loadTrainerTeam(); render(); return; }
   if (event.target.closest("[data-trainer-calendar-reload]")) { trainerCalendar = null; loadTrainerCalendar(); render(); return; }
   if (event.target.closest("[data-trainer-phone-reload]")) { trainerPhoneChange = null; loadTrainerPhoneChange(); render(); return; }
@@ -16029,6 +16038,8 @@ document.addEventListener("change", async event => {
     saveLeadAlpha(alphaCheck.dataset.leadAlphaCheck, alphaCheck.checked);
     return;
   }
+  const trainerAlpha = event.target.closest("select[data-trainer-lead-action='alpha']");
+  if (trainerAlpha) { trainerLeadAction(trainerAlpha); return; } // "Have you logged this lead in Alpha?" Yes / No / blank
   const lostReason = event.target.closest("[data-lead-lost-reason]");
   if (lostReason) {
     const lead = updateLeadRecord(lostReason.dataset.leadLostReason, { lostReason: lostReason.value });
