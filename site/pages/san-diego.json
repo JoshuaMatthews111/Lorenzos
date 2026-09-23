@@ -1,0 +1,151 @@
+{
+  "slug": "san-diego",
+  "title": "San Diego, CA",
+  "page_type": "ad",
+  "path": "/ads/san-diego",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 1,
+  "schema": "public",
+  "html_sha256": "d27424da433791ddfdcce92225eb330aeac6ce1538450324a9d2e3b58341de47",
+  "html_file": "site/pages/san-diego.html",
+  "images": [],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "SAN DIEGO.",
+      "REAL RESULTS AT HOME."
+    ],
+    "cta": "Book My Free Evaluation",
+    "inc": [
+      "Free evaluation",
+      "Published pricing",
+      "Military discount available",
+      "90-day guarantee"
+    ],
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "Transparent pricing: professional dog training",
+      "from $1,250 with no mystery quotes.",
+      "Start with a free in-home evaluation."
+    ],
+    "top": "San Diego Dog Training From $1,250 — Obedience, Puppy & Behavior Help.",
+    "zip": "92105",
+    "city": "San Diego",
+    "desc": "Transparent pricing: professional dog training from $1,250 — no mystery quotes.",
+    "f_p1": "In San Diego, your request is coordinated by Lorenzo's office with Genevieve Twilla, Karemela Sefferin, and Fred Harris. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "f_p2": "San Diego families can request obedience, behavior modification, service, and specialty training support — with published pricing from the first click and a military discount available.",
+    "slug": "san-diego",
+    "vids": [
+      {
+        "s": "The calm we train for here",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "Same dog. Same home. New habits.",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "A walk worth taking again",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Quiet at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "c_sub": "Transparent from the first click. Book a free in-home evaluation or call 866.436.4959.",
+    "check": [
+      "New puppy",
+      "Leash pulling",
+      "Barking",
+      "Recall"
+    ],
+    "e_sub": "A trainer meets you and your dog at home, sees what is really going on, and recommends a clear next step. No cost and no obligation.",
+    "f_btn": "Free Evaluation",
+    "f_tag": "40+ Years. One Standard.",
+    "state": "CA",
+    "title": "San Diego Dog Training | Lorenzo's",
+    "c_head": "You shouldn't need three phone calls to learn a",
+    "design": "d1",
+    "e_head": "Your Free In-Home Evaluation",
+    "market": "San Diego, CA",
+    "pframe": {
+      "hero": {
+        "fit": "cover",
+        "shade": 30
+      }
+    },
+    "photos": {
+      "ba1": "/assets/v2/d1-ba1.webp",
+      "ba2": "/assets/v2/d1-ba2.webp",
+      "ba3": "/assets/v2/d1-ba3.webp",
+      "ba4": "/assets/v2/d1-ba4.webp",
+      "hero": "https://lorenzosdogtrainingteam.com/assets/facility-purpose-aerial-clean.png",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/facility-purpose-aerial-clean.png",
+      "aussie": "https://lorenzosdogtrainingteam.com/assets/market-photos/san-diego-client-dog.jpg",
+      "golden": "https://lorenzosdogtrainingteam.com/assets/market-photos/san-diego-client-dog.jpg",
+      "founder": "/assets/v2/d1-founder.webp",
+      "founderM": "/assets/v2/d1-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "loc_sub": "San Diego, North Park, nearby beach communities, and surrounding San Diego County. In-home evaluations by appointment.",
+    "c_eyebrow": "Straight answers",
+    "f_eyebrow": "Meet the Founder,",
+    "owner_slug": "fred-harris"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

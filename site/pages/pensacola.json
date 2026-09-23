@@ -1,0 +1,209 @@
+{
+  "slug": "pensacola",
+  "title": "Pensacola, FL",
+  "page_type": "ad",
+  "path": "/ads/pensacola",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 1,
+  "schema": "public",
+  "html_sha256": "832bb79df418fa441a822d09a007351ce8add32548174301a589086caf0a9058",
+  "html_file": "site/pages/pensacola.html",
+  "images": [],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "PENSACOLA.",
+      "REAL RESULTS AT HOME."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "Three Lorenzo's trainers live right here — Pensacola,",
+      "Navarre, and Crestview. Published pricing, a free",
+      "evaluation, and a 90-day guarantee.",
+      "Start with a free in-home evaluation."
+    ],
+    "svc": [
+      "New puppy, new house: habits done right",
+      "Leash manners that hold at the dog beach",
+      "Barking, lunging and fear, with a plan",
+      "Trains with a pro, plus handoff lessons",
+      "Task training after a suitability check",
+      "Control that holds around distractions"
+    ],
+    "top": "Barking, Pulling, Ignoring You? Pensacola Dog Behavior & Obedience Training.",
+    "zip": "32501",
+    "city": "Pensacola",
+    "desc": "Three Lorenzo's trainers live right here — Pensacola, Navarre, and Crestview. Published pricing, a free evaluation, and a 90-day guarantee.",
+    "f_p1": "In Pensacola, your request is coordinated by Lorenzo's office with Clark Patton, Michael King, Daniel Bainbridge. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "slug": "pensacola",
+    "vids": [
+      {
+        "s": "Same dog. New habits at home.",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "From pulling to a loose leash",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "Settled in and listening",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Calm at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "b_bul": [
+      "Five steps to start this week",
+      "A short routine for a new house",
+      "Focus before the walk begins",
+      "Calmer behavior, sooner"
+    ],
+    "b_sub": "A move can unsettle any dog. The 5-Step Calm Dog Blueprint gives you a simple daily routine for focus and calmer behavior at home.",
+    "b_url": "",
+    "f_btn": "Free Evaluation",
+    "f_tag": "Local Trainer. Proven Method.",
+    "state": "FL",
+    "title": "Pensacola Dog Training | Lorenzo's",
+    "blocks": [
+      {
+        "id": "locations-rl68z4",
+        "text": "Book a free in-home evaluation or call (866) 436-4959.",
+        "type": "locations",
+        "after": "ebook",
+        "image": "",
+        "phone": "(866) 436-4959",
+        "quote": "Better Dogs. Happier People.",
+        "button": {
+          "href": "/contact",
+          "label": "Book Your Free Evaluation",
+          "style": "outline"
+        },
+        "states": [
+          "California",
+          "Ohio",
+          "Florida",
+          "Michigan",
+          "Kentucky",
+          "Illinois",
+          "Indiana",
+          "New Hampshire",
+          "Massachusetts",
+          "Georgia",
+          "Texas",
+          "New York"
+        ],
+        "eyebrow": "Start today",
+        "heading": "Enjoy life with a dog who listens",
+        "locText": "Pensacola, FL and the surrounding communities. In-home evaluations by appointment.",
+        "showMap": true,
+        "locButton": {
+          "href": "/find-a-trainer",
+          "label": "View all locations",
+          "style": "outline"
+        },
+        "locEyebrow": "12 STATES. ONE STANDARD.",
+        "locHeading": "Find a location near you"
+      }
+    ],
+    "design": "d2",
+    "market": "Pensacola, FL",
+    "pframe": {
+      "hero": {
+        "fit": "cover",
+        "shade": 30
+      }
+    },
+    "photos": {
+      "ba1": "/assets/v2/d2-ba1.webp",
+      "ba2": "/assets/v2/d2-ba2.webp",
+      "ba3": "/assets/v2/d2-ba3.webp",
+      "ba4": "/assets/v2/d2-ba4.webp",
+      "book": "/assets/v2/d2-book.webp",
+      "hero": "https://lorenzosdogtrainingteam.com/assets/market-photos/lorenzo-pack-down-stay.jpg",
+      "svc1": "/assets/v2/d2-svc1.webp",
+      "svc2": "/assets/v2/d2-svc2.webp",
+      "svc3": "/assets/v2/d2-svc3.webp",
+      "svc4": "/assets/v2/d2-svc4.webp",
+      "svc5": "/assets/v2/d2-svc5.webp",
+      "svc6": "/assets/v2/d2-svc6.webp",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/market-photos/lorenzo-pack-down-stay.jpg",
+      "founder": "/assets/v2/d2-founder.webp",
+      "founderM": "/assets/v2/d2-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "b_eyebrow": "Settling in? Start with the free guide",
+    "owner_slug": "daniel-bainbridge"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

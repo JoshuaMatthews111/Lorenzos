@@ -1,0 +1,192 @@
+{
+  "slug": "lexington",
+  "title": "Lexington / Harrodsburg, KY",
+  "page_type": "ad",
+  "path": "/ads/lexington",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 1,
+  "schema": "public",
+  "html_sha256": "7c2ea35862d001995982056bf6fd1c746a9b1a1bfd93cc43dd0630d766593c8c",
+  "html_file": "site/pages/lexington.html",
+  "images": [],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "LEXINGTON.",
+      "REAL RESULTS AT HOME."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "Farm & property dogs: recall that holds on open acreage,",
+      "and manners around horses and livestock.",
+      "Start with a free in-home evaluation.",
+      "Start with a free in-home evaluation."
+    ],
+    "svc": [
+      "Potty and crate plans that fit a condo",
+      "Loose leash on busy campus sidewalks",
+      "Reactivity, barking and fear, explained",
+      "Trains with a pro, from $2,500",
+      "Task training after a suitability check",
+      "Reliable focus around real distractions"
+    ],
+    "top": "Recall That Fails in the Field? Chasing Horses? Lexington Farm & Property Dog Training.",
+    "zip": "40330",
+    "city": "Lexington / Harrodsburg",
+    "desc": "Farm & property dogs: recall that holds on open acreage, and manners around horses and livestock.",
+    "f_p1": "In Lexington, your request is coordinated by Lorenzo's office with Bailey Brown. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "slug": "lexington",
+    "vids": [
+      {
+        "s": "",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "",
+        "t": "Enzo, Weeks Later"
+      }
+    ],
+    "f_btn": "Free Evaluation",
+    "state": "KY",
+    "title": "Lexington Dog Training | Lorenzo's",
+    "blocks": [
+      {
+        "id": "locations-4admn4",
+        "text": "Book a free in-home evaluation or call (866) 436-4959.",
+        "type": "locations",
+        "after": "rvs",
+        "image": "",
+        "phone": "(866) 436-4959",
+        "quote": "Better Dogs. Happier People.",
+        "button": {
+          "href": "/contact",
+          "label": "Book Your Free Evaluation",
+          "style": "outline"
+        },
+        "states": [
+          "California",
+          "Ohio",
+          "Florida",
+          "Michigan",
+          "Kentucky",
+          "Illinois",
+          "Indiana",
+          "New Hampshire",
+          "Massachusetts",
+          "Georgia",
+          "Texas",
+          "New York"
+        ],
+        "eyebrow": "Start today",
+        "heading": "Enjoy life with a dog who listens",
+        "locText": "Lexington / Harrodsburg, KY and the surrounding communities. In-home evaluations by appointment.",
+        "showMap": false,
+        "locButton": {
+          "href": "/find-a-trainer",
+          "label": "View all locations",
+          "style": "outline"
+        },
+        "locEyebrow": "12 STATES. ONE STANDARD.",
+        "locHeading": "Find a location near you"
+      }
+    ],
+    "design": "d3",
+    "f_head": [
+      "KNOW THE WHY.",
+      "SEE THE CHANGE."
+    ],
+    "market": "Lexington / Harrodsburg, KY",
+    "photos": {
+      "st1": "/assets/v2/d3-st1.webp",
+      "st2": "/assets/v2/d3-st2.webp",
+      "st3": "/assets/v2/d3-st3.webp",
+      "hero": "https://lorenzosdogtrainingteam.com/assets/market-photos/lexington-class-group.jpg",
+      "svc1": "/assets/v2/d3-svc1.webp",
+      "svc2": "/assets/v2/d3-svc2.webp",
+      "svc3": "/assets/v2/d3-svc3.webp",
+      "svc4": "/assets/v2/d3-svc4.webp",
+      "svc5": "/assets/v2/d3-svc5.webp",
+      "svc6": "/assets/v2/d3-svc6.webp",
+      "about": "https://lorenzosdogtrainingteam.com/assets/market-photos/lexington-trainer-candid.jpg",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/market-photos/lexington-class-group.jpg"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "loc_sub": "Lexington, Harrodsburg, Mercer County, and Central Kentucky communities. In-home evaluations by appointment.",
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "f_eyebrow": "Meet the Founder, Lorenzo Miller",
+    "owner_slug": "bailey-brown"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

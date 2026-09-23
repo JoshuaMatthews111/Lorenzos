@@ -1,0 +1,348 @@
+{
+  "slug": "atlanta",
+  "title": "Atlanta, GA",
+  "page_type": "ad",
+  "path": "/ads/atlanta",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 2,
+  "schema": "public",
+  "html_sha256": "e58d25e5df8dd9dde64a698039fa9dd4722cb9b20f5cb811c69fc8369701cefe",
+  "html_file": "site/pages/atlanta.html",
+  "images": [
+    {
+      "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7gysbm-ldtt-logo-full.webp",
+      "bucket": "trainer-page-assets"
+    }
+  ],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "BIG CITY.",
+      "HAPPY DOGS."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "Less “Uh-oh.” More “Let’s go!”",
+      "Professional dog training for the ATL lifestyle.",
+      "Start with a FREE in-home evaluation.",
+      "Your favorite thing about ATL will be LDTT ."
+    ],
+    "svc": [
+      "Potty and crate plans that fit a condo",
+      "Loose leash on busy campus sidewalks",
+      "Reactivity, barking and fear, explained",
+      "Trains with a pro, from $2,500",
+      "Task training after a suitability check",
+      "Reliable focus around real distractions"
+    ],
+    "top": "Service Dog Training in Atlanta — Plus Aggression Help & Real-World Obedience.",
+    "zip": "30052",
+    "city": "Atlanta",
+    "desc": "Specialty & Service Dog Training in Atlanta — starting with a free assessment.",
+    "f_p1": "In Atlanta, your request is coordinated by Lorenzo's office with Aryson Whorley, Christopher Almonte, and Chloe Chisolm. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "logo": {
+      "size": 80,
+      "photo": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7gysbm-ldtt-logo-full.webp"
+    },
+    "slug": "atlanta",
+    "vids": [
+      {
+        "s": "",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "",
+        "t": "Enzo, Weeks Later"
+      }
+    ],
+    "elbox": {
+      "hero:0": {
+        "dx": -37,
+        "dy": 174
+      },
+      "hero:1": {
+        "dx": -37,
+        "dy": 23
+      },
+      "hero:2": {
+        "dw": 33,
+        "dx": -33,
+        "dy": -76
+      },
+      "hero:3": {
+        "dx": -43,
+        "dy": -277
+      },
+      "hero:4": {
+        "dh": 16,
+        "dw": 8,
+        "dx": 2,
+        "dy": -3
+      },
+      "hero:11": {
+        "dx": 8,
+        "dy": 17
+      }
+    },
+    "f_btn": "Free Evaluation",
+    "state": "GA",
+    "title": "Atlanta Dog Training | Lorenzo's",
+    "blocks": [
+      {
+        "id": "divider-3amyl2",
+        "size": "normal",
+        "type": "divider",
+        "after": "hero",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-5czlsw",
+        "size": "normal",
+        "type": "divider",
+        "after": "about3",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "pricing-7knidu",
+        "text": "",
+        "type": "pricing",
+        "after": "svc",
+        "plans": [
+          {
+            "name": "Obedience",
+            "note": "Private lessons, in-home options",
+            "price": "From $1,250",
+            "button": {
+              "href": "/contact",
+              "label": "Book Evaluation",
+              "style": "primary"
+            },
+            "featured": false,
+            "features": [
+              "Free evaluation",
+              "Owner coaching built in",
+              "90-day Limited Training Guarantee"
+            ]
+          },
+          {
+            "name": "Board & Train",
+            "note": "Your dog trains with a professional",
+            "price": "From $2,500",
+            "button": {
+              "href": "/contact",
+              "label": "Book Evaluation",
+              "style": "primary"
+            },
+            "featured": true,
+            "features": [
+              "Real skills that come home",
+              "Handoff lessons included",
+              "Slots fill 6–8 weeks ahead"
+            ]
+          }
+        ],
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "normal",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        },
+        "layout": "cards",
+        "eyebrow": "Programs",
+        "heading": "Pick the path that fits."
+      },
+      {
+        "id": "divider-akpe17",
+        "size": "normal",
+        "type": "divider",
+        "after": "rvs",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      }
+    ],
+    "design": "d3",
+    "f_head": [
+      "KNOW THE WHY.",
+      "SEE THE CHANGE."
+    ],
+    "market": "Atlanta, GA",
+    "pframe": {
+      "hero": {
+        "fit": "cover",
+        "shade": 59
+      },
+      "svc3": {
+        "x": 0
+      },
+      "svc5": {
+        "z": 183
+      },
+      "about": {
+        "dh": 44,
+        "dx": 37,
+        "dy": -23
+      }
+    },
+    "photos": {
+      "st1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7k8xd9-b4na2.png",
+      "st2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7k98hg-b4na.png",
+      "st3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7k9k9n-b4na3.png",
+      "hero": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7jgzlr-atl-hero1.png",
+      "svc1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7hnhmb-puppy-traning.png",
+      "svc2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7hnsqj-obedience-training.png",
+      "svc3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7ho39w-behavior-training.png",
+      "svc4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7hohmr-board-train.png",
+      "svc5": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7hou7t-service-dog-2.png",
+      "svc6": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7hpdx1-advanced-traning.png",
+      "about": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7hmct7-meet-lorenzo1.png",
+      "heroM": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7jg4bx-atl-hero1.png"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "loc_sub": "Atlanta, Loganville, Dallas, and surrounding Georgia communities. In-home evaluations by appointment.",
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "f_eyebrow": "Meet the Founder, Lorenzo Miller",
+    "owner_slug": "robert-wesling"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-09-05T10:32:54.174Z",
+  "exported_at": "2026-09-23T07:01:29.732Z",
   "schema": "public",
   "theme": {
     "version": 1,
@@ -20,6 +20,8 @@
     "logoDark": "",
     "favicon": "",
     "tagline": "Serious Training. Serious Results.",
-    "phone": "(866) 436-4959"
+    "phone": "(866) 436-4959",
+    "logoWidth": "",
+    "headScale": ""
   }
 }

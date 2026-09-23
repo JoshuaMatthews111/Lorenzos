@@ -1,0 +1,209 @@
+{
+  "slug": "san-antonio",
+  "title": "San Antonio, TX",
+  "page_type": "ad",
+  "path": "/ads/san-antonio",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 1,
+  "schema": "public",
+  "html_sha256": "320bb111a7722833c837197d5520dc13919a923b12151bd8b362523e570272ad",
+  "html_file": "site/pages/san-antonio.html",
+  "images": [],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "SAN ANTONIO.",
+      "REAL RESULTS AT HOME."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "Military family? Your training follows you — Lorenzo's has",
+      "certified trainers in cities nationwide, so a PCS move",
+      "never means starting over.",
+      "Start with a free in-home evaluation."
+    ],
+    "svc": [
+      "New puppy, new house: habits done right",
+      "Leash manners that hold at the dog beach",
+      "Barking, lunging and fear, with a plan",
+      "Trains with a pro, plus handoff lessons",
+      "Task training after a suitability check",
+      "Control that holds around distractions"
+    ],
+    "top": "Aggression, Puppy Training & Obedience in San Antonio — Spanish-Speaking Trainers.",
+    "zip": "78245",
+    "city": "San Antonio",
+    "desc": "Military family? Your training follows you — Lorenzo's has certified trainers in cities nationwide, so a PCS move never means starting over.",
+    "f_p1": "In San Antonio, your request is coordinated by Lorenzo's office with Giovanni Gutierrez and Carolina Perez. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "slug": "san-antonio",
+    "vids": [
+      {
+        "s": "Same dog. New habits at home.",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "From pulling to a loose leash",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "Settled in and listening",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Calm at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "b_bul": [
+      "Five steps to start this week",
+      "A short routine for a new house",
+      "Focus before the walk begins",
+      "Calmer behavior, sooner"
+    ],
+    "b_sub": "A move can unsettle any dog. The 5-Step Calm Dog Blueprint gives you a simple daily routine for focus and calmer behavior at home.",
+    "b_url": "",
+    "f_btn": "Free Evaluation",
+    "f_tag": "Local Trainer. Proven Method.",
+    "state": "TX",
+    "title": "San Antonio Dog Training | Lorenzo's",
+    "blocks": [
+      {
+        "id": "locations-8m6udr",
+        "text": "Book a free in-home evaluation or call (866) 436-4959.",
+        "type": "locations",
+        "after": "ebook",
+        "image": "",
+        "phone": "(866) 436-4959",
+        "quote": "Better Dogs. Happier People.",
+        "button": {
+          "href": "/contact",
+          "label": "Book Your Free Evaluation",
+          "style": "outline"
+        },
+        "states": [
+          "California",
+          "Ohio",
+          "Florida",
+          "Michigan",
+          "Kentucky",
+          "Illinois",
+          "Indiana",
+          "New Hampshire",
+          "Massachusetts",
+          "Georgia",
+          "Texas",
+          "New York"
+        ],
+        "eyebrow": "Start today",
+        "heading": "Enjoy life with a dog who listens",
+        "locText": "San Antonio, TX and the surrounding communities. In-home evaluations by appointment.",
+        "showMap": true,
+        "locButton": {
+          "href": "/find-a-trainer",
+          "label": "View all locations",
+          "style": "outline"
+        },
+        "locEyebrow": "12 STATES. ONE STANDARD.",
+        "locHeading": "Find a location near you"
+      }
+    ],
+    "design": "d2",
+    "market": "San Antonio, TX",
+    "pframe": {
+      "hero": {
+        "fit": "cover",
+        "shade": 30
+      }
+    },
+    "photos": {
+      "ba1": "/assets/v2/d2-ba1.webp",
+      "ba2": "/assets/v2/d2-ba2.webp",
+      "ba3": "/assets/v2/d2-ba3.webp",
+      "ba4": "/assets/v2/d2-ba4.webp",
+      "book": "/assets/v2/d2-book.webp",
+      "hero": "https://lorenzosdogtrainingteam.com/assets/market-photos/san-antonio-field-work.jpg",
+      "svc1": "/assets/v2/d2-svc1.webp",
+      "svc2": "/assets/v2/d2-svc2.webp",
+      "svc3": "/assets/v2/d2-svc3.webp",
+      "svc4": "/assets/v2/d2-svc4.webp",
+      "svc5": "/assets/v2/d2-svc5.webp",
+      "svc6": "/assets/v2/d2-svc6.webp",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/market-photos/san-antonio-field-work.jpg",
+      "founder": "/assets/v2/d2-founder.webp",
+      "founderM": "/assets/v2/d2-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "b_eyebrow": "Settling in? Start with the free guide",
+    "owner_slug": "carolina-perez"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

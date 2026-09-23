@@ -1,0 +1,237 @@
+{
+  "slug": "chicago",
+  "title": "Chicago, IL",
+  "page_type": "ad",
+  "path": "/ads/chicago",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 2,
+  "schema": "public",
+  "html_sha256": "13829e4692fa664bd0e4b4734cd6cd48105439bb47c74ea5e800916f140e24b7",
+  "html_file": "site/pages/chicago.html",
+  "images": [
+    {
+      "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclx26p-ldtt-logo-full.webp",
+      "bucket": "trainer-page-assets"
+    }
+  ],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "BUSY CITY.",
+      "CALM DOG."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "No waitlist. Evaluations available this week",
+      "across Chicago.",
+      "Start with a free in-home evaluation.",
+      ""
+    ],
+    "svc": [
+      "Potty and crate plans that fit a condo",
+      "Loose leash on busy campus sidewalks",
+      "Reactivity, barking and fear, explained",
+      "Trains with a pro, from $2,500",
+      "Task training after a suitability check",
+      "Reliable focus around real distractions"
+    ],
+    "top": "Reactive Dog? New Puppy? Chicago Dog Training With No Waitlist.",
+    "zip": "60618",
+    "city": "Chicago",
+    "desc": "No waitlist. Evaluations available this week across Chicago.",
+    "f_p1": "In Chicago, your request is coordinated by Lorenzo's office with Jasmine Bland. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "logo": {
+      "size": 80,
+      "photo": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclx26p-ldtt-logo-full.webp"
+    },
+    "slug": "chicago",
+    "vids": [
+      {
+        "s": "",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "",
+        "t": "Enzo, Weeks Later"
+      }
+    ],
+    "elbox": {
+      "hero:0": {
+        "dw": -372
+      }
+    },
+    "f_btn": "Free Evaluation",
+    "state": "IL",
+    "title": "Chicago Dog Training | Lorenzo's",
+    "blocks": [
+      {
+        "id": "locations-tamw8c",
+        "text": "Book a free in-home evaluation or call (866) 436-4959.",
+        "type": "locations",
+        "after": "rvs",
+        "image": "",
+        "phone": "(866) 436-4959",
+        "quote": "Better Dogs. Happier People.",
+        "button": {
+          "href": "/contact",
+          "label": "Book Your Free Evaluation",
+          "style": "outline"
+        },
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        },
+        "states": [
+          "California",
+          "Ohio",
+          "Florida",
+          "Michigan",
+          "Kentucky",
+          "Illinois",
+          "Indiana",
+          "New Hampshire",
+          "Massachusetts",
+          "Georgia",
+          "Texas",
+          "New York"
+        ],
+        "eyebrow": "Start today",
+        "heading": "Enjoy life with a dog who listens",
+        "locText": "Chicago, IL and the surrounding communities. In-home evaluations by appointment.",
+        "showMap": false,
+        "locButton": {
+          "href": "/find-a-trainer",
+          "label": "View all locations",
+          "style": "outline"
+        },
+        "locEyebrow": "12 STATES. ONE STANDARD.",
+        "locHeading": "Find a location near you"
+      }
+    ],
+    "design": "d3",
+    "f_head": [
+      "KNOW THE WHY.",
+      "SEE THE CHANGE."
+    ],
+    "market": "Chicago, IL",
+    "pframe": {
+      "hero": {
+        "fit": "cover",
+        "shade": 30
+      },
+      "svc5": {
+        "z": 220
+      },
+      "svc6": {
+        "dx": 1
+      }
+    },
+    "photos": {
+      "st1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclw4wf-b4na.png",
+      "st2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclwex8-b4na2.png",
+      "st3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclwo77-b4na3.png",
+      "hero": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8szhpv-c311699b-38b1-4314-a400-242188536932.png",
+      "svc1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclski0-puppy-training-2.png",
+      "svc2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclt5sx-obedience-training.png",
+      "svc3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mucltl68-behavior-training-3.png",
+      "svc4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mucltwpl-board-train.png",
+      "svc5": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mucluf0u-service-dog-2.png",
+      "svc6": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclv3lj-advanced-traning.png",
+      "about": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclq2r8-meet-lorenzo-2.png",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/ldtt-team-cover.jpg"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "loc_sub": "Chicago, Northwest Indiana, Gary, and surrounding communities. In-home evaluations by appointment.",
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "f_eyebrow": "Meet the Founder, Lorenzo Miller",
+    "owner_slug": "jasmine-bland"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

@@ -1,0 +1,417 @@
+{
+  "slug": "cleveland",
+  "title": "Cleveland / Akron, OH",
+  "page_type": "ad",
+  "path": "/ads/cleveland",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 4,
+  "schema": "public",
+  "html_sha256": "085077fe16ea73aeae06caa6dc228cb2c39cfc6d2540e84e95df73a1644ab503",
+  "html_file": "site/pages/cleveland.html",
+  "images": [
+    {
+      "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7n8ja3-ldtt-logo-full.webp",
+      "bucket": "trainer-page-assets"
+    }
+  ],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "CLEVELAND DOGS",
+      "DON'T DO CHAOS."
+    ],
+    "cta": "Book My Free Evaluation",
+    "inc": [
+      "Free evaluation",
+      "Same-day callback",
+      "90-day guarantee",
+      "A trainer sees your dog at home"
+    ],
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "This is Northeast Ohio's home team for serious dog training.",
+      "From lakefront walks to busy neighborhood sidewalks,",
+      "your dog needs dependable real-world control.",
+      "Start with a free in-home evaluation."
+    ],
+    "top": "Aggression, Leash Pulling, or a New Puppy? Cleveland Training Where the Trainers Get Certified.",
+    "zip": "44118",
+    "city": "Cleveland / Akron",
+    "desc": "This is where it all starts. Train your dog at the same facility where Lorenzo's professional trainers come to learn, train, and earn their certification — next door to our 17,000 sq ft Cleveland",
+    "f_p1": "In Cleveland, your request is coordinated by Lorenzo's office with Harley McGrew and Brady DeRemer. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "f_p2": "Local Northeast Ohio support, with every inquiry personally coordinated through Lorenzo's Cleveland office. Board & Train lives here too: your dog can live, learn and train on campus, right next to the 17,000 sq ft headquarters.",
+    "logo": {
+      "size": 80,
+      "photo": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7n8ja3-ldtt-logo-full.webp"
+    },
+    "slug": "cleveland",
+    "vids": [
+      {
+        "s": "The calm we train for here",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "Same dog. Same home. New habits.",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "A walk worth taking again",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Quiet at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "c_sub": "Northeast Ohio starts here. Book a free in-home evaluation or call 866.436.4959.",
+    "check": [
+      "Aggression",
+      "Leash pulling",
+      "New puppy",
+      "Board & train"
+    ],
+    "e_sub": "A trainer meets you and your dog at home, sees what is really going on, and recommends a clear next step. No cost and no obligation.",
+    "elbox": {
+      "eval:1": {
+        "dx": 117,
+        "dy": -3
+      },
+      "eval:2": {
+        "dx": 83,
+        "dy": 1
+      },
+      "eval:3": {
+        "dx": 53,
+        "dy": 7
+      },
+      "eval:4": {
+        "dx": 25,
+        "dy": 10
+      },
+      "eval:7": {
+        "dx": 2,
+        "dy": -3
+      },
+      "hero:0": {
+        "dx": -45,
+        "dy": -33
+      },
+      "hero:1": {
+        "dx": -49,
+        "dy": -28,
+        "hide": true,
+        "label": "↻Element: ↻↺ Reset🗑 Delete✕"
+      },
+      "hero:2": {
+        "dx": -51,
+        "dy": 83
+      },
+      "hero:3": {
+        "dx": -53,
+        "dy": -63
+      },
+      "eval:10": {
+        "dx": -6,
+        "dy": 34
+      },
+      "close1:2": {
+        "dx": -1,
+        "dy": 5
+      },
+      "close1:3": {
+        "dw": 86,
+        "dx": -1,
+        "dy": 4
+      },
+      "close1:6": {
+        "dx": -11,
+        "dy": 14
+      },
+      "founder:0": {
+        "dx": -22,
+        "dy": 19
+      },
+      "founder:1": {
+        "dx": -26,
+        "dy": 25
+      },
+      "founder:2": {
+        "dx": -30,
+        "dy": 199,
+        "hide": true,
+        "label": "40+ Years. One Standard.↻Text: 40+ Year…"
+      },
+      "founder:3": {
+        "dx": -24,
+        "dy": 5
+      },
+      "founder:4": {
+        "dx": -23,
+        "dy": 7
+      },
+      "founder:5": {
+        "dx": 47,
+        "dy": -9
+      }
+    },
+    "f_btn": "Free Evaluation",
+    "f_tag": "40+ Years. One Standard.",
+    "state": "OH",
+    "title": "Cleveland & Akron Dog Training | Lorenzo's",
+    "blocks": [
+      {
+        "id": "divider-0ccqmd",
+        "size": "normal",
+        "type": "divider",
+        "after": "eval",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-waywwf",
+        "size": "normal",
+        "type": "divider",
+        "after": "hero",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-fgyb9b",
+        "size": "normal",
+        "type": "divider",
+        "after": "founder",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-u2i6ne",
+        "size": "normal",
+        "type": "divider",
+        "after": "close1",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "testimonials-9npsao",
+        "type": "testimonials",
+        "after": "eval",
+        "items": [
+          {
+            "name": "Abby H.",
+            "quote": "As a former veterinary assistant, I highly recommend Lorenzo's. They have a proven history of helping temperamental dogs have a real chance at a calm family life. They will ensure you are able to continue the training yourself for years to come. Worth every penny!",
+            "rating": 5,
+            "location": "Cleveland / Akron"
+          },
+          {
+            "name": "Tameka H.",
+            "quote": "Eric Beck at Lorenzo’s Dog Training is amazing! He’s super patient and really knows how to work with both you and your dog. He helped me understand my pup so much better, and the progress we’ve made is incredible. I’d 100% recommend Eric and Lorenzo’s to anyone looking for great training! 10 out of 10.",
+            "rating": 5,
+            "location": ""
+          },
+          {
+            "name": "Jessica B.",
+            "quote": "Robert has done amazing work with my chocolate lab. Since moving, I’m having issues with keeping him under control and I’m looking for a way to help.",
+            "rating": 5,
+            "location": "Cleveland / Akron"
+          },
+          {
+            "name": "408 Concessions, LLC",
+            "quote": "Brady has went above and beyond for our Maggie girl. His knowledge and understanding is incredible! Whether you’re looking for basic handling knowledge or advanced training, we highly recommend going to Lorenzo’s!",
+            "rating": 5,
+            "location": "Cleveland / Akron"
+          }
+        ],
+        "limit": 3,
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "normal",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        },
+        "layout": "slider",
+        "source": "typed",
+        "eyebrow": "Trusted by dog owners",
+        "heading": "What families say.",
+        "destinationId": "lorenzos-team"
+      }
+    ],
+    "c_head": "Your Dog Trains at our HEadquarters",
+    "design": "d1",
+    "e_head": "Your Free In-Home Evaluation",
+    "market": "Cleveland / Akron, OH",
+    "pframe": {
+      "hero": {
+        "fit": "cover",
+        "shade": 40
+      },
+      "aussie": {
+        "z": 126,
+        "dh": 86,
+        "dx": -7,
+        "dy": -31,
+        "fit": "contain"
+      },
+      "founder": {
+        "y": 0,
+        "dx": 1
+      }
+    },
+    "photos": {
+      "ba1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7mitwt-b4na.png",
+      "ba2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7mj7bl-b4na2.png",
+      "ba3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7mkkz7-b4na1.png",
+      "ba4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7mk8ci-b4na3.png",
+      "hero": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7mc335-f3b23374-2f72-4410-941b-cd60fac7389d.png",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/facility-exterior-main.jpg",
+      "aussie": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7moia5-facility-entry.jpg",
+      "golden": "https://lorenzosdogtrainingteam.com/assets/ldtt-team-hq-exterior.jpg",
+      "founder": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7mhva4-meet-lorenzo1.png",
+      "founderM": "/assets/v2/d1-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "loc_sub": "Cleveland, Akron, Garfield Heights, Cleveland Heights, Streetsboro, and Northeast Ohio. In-home evaluations by appointment.",
+    "c_eyebrow": "The home team",
+    "f_eyebrow": "Meet the Founder,",
+    "owner_slug": "lorenzo-miller"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

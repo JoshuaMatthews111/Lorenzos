@@ -1,0 +1,361 @@
+{
+  "slug": "columbus",
+  "title": "Columbus / Reynoldsburg, OH",
+  "page_type": "ad",
+  "path": "/ads/columbus",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 2,
+  "schema": "public",
+  "html_sha256": "7c430ab0c15c25306fc692f26662450758de05f4ffb6c63c34c610855fb5a4b0",
+  "html_file": "site/pages/columbus.html",
+  "images": [
+    {
+      "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7nhsz5-ldtt-logo-full.webp",
+      "bucket": "trainer-page-assets"
+    }
+  ],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "BETTER MANNERS.",
+      "BIGGER ADVENTURES."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "Columbus gives dogs plenty of places to explore,",
+      "but freedom begins with reliable behavior.",
+      "Our customized training builds obedience and leash control",
+      "and confidence around everyday distractions."
+    ],
+    "svc": [
+      "New puppy, new house: habits done right",
+      "Leash manners that hold at the dog beach",
+      "Barking, lunging and fear, with a plan",
+      "Trains with a pro, plus handoff lessons",
+      "Task training after a suitability check",
+      "Control that holds around distractions"
+    ],
+    "top": "Dogs Fighting at Home? Get Help with Aggression & Behavior Training in Columbus.",
+    "zip": "43068",
+    "city": "Columbus / Reynoldsburg",
+    "desc": "Dogs fighting in the same house? We specialize in resolving multi-dog conflict. Ask about a same-week assessment.",
+    "f_p1": "In Columbus, your request is coordinated by Lorenzo's office with Shannon Paskins. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "logo": {
+      "size": 80,
+      "photo": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7nhsz5-ldtt-logo-full.webp"
+    },
+    "slug": "columbus",
+    "vids": [
+      {
+        "s": "Same dog. New habits at home.",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "From pulling to a loose leash",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "Settled in and listening",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Calm at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "b_bul": [
+      "Five steps to start this week",
+      "A short routine for a new house",
+      "Focus before the walk begins",
+      "Calmer behavior, sooner"
+    ],
+    "b_sub": "A move can unsettle any dog. The 5-Step Calm Dog Blueprint gives you a simple daily routine for focus and calmer behavior at home.",
+    "b_url": "",
+    "elbox": {
+      "hero:4": {
+        "dh": -6,
+        "dw": 1,
+        "dx": 4,
+        "dy": -1
+      },
+      "hero:5": {
+        "dx": 1,
+        "dy": -2
+      },
+      "hero:6": {
+        "dw": -5,
+        "dx": 1
+      },
+      "hero:7": {
+        "dx": 1
+      },
+      "hero:8": {
+        "dx": 1
+      },
+      "hero:9": {
+        "dx": 1
+      },
+      "hero:10": {
+        "dx": 1,
+        "dy": 1
+      },
+      "hero:11": {
+        "dh": -13,
+        "dw": -26,
+        "dx": 9
+      },
+      "founder2:7": {
+        "dx": 11,
+        "dy": 7
+      }
+    },
+    "f_btn": "Free Evaluation",
+    "f_tag": "Local Trainer. Proven Method.",
+    "state": "OH",
+    "title": "Columbus Dog Training | Lorenzo's",
+    "blocks": [
+      {
+        "id": "locations-uefyi6",
+        "text": "Book a free in-home evaluation or call (866) 436-4959.",
+        "type": "locations",
+        "after": "ebook",
+        "image": "",
+        "phone": "(866) 436-4959",
+        "quote": "Better Dogs. Happier People.",
+        "button": {
+          "href": "/contact",
+          "label": "Book Your Free Evaluation",
+          "style": "outline"
+        },
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        },
+        "states": [
+          "California",
+          "Ohio",
+          "Florida",
+          "Michigan",
+          "Kentucky",
+          "Illinois",
+          "Indiana",
+          "New Hampshire",
+          "Massachusetts",
+          "Georgia",
+          "Texas",
+          "New York"
+        ],
+        "eyebrow": "Start today",
+        "heading": "Enjoy life with a dog who listens",
+        "locText": "Columbus / Reynoldsburg, OH and the surrounding communities. In-home evaluations by appointment.",
+        "showMap": true,
+        "locButton": {
+          "href": "/find-a-trainer",
+          "label": "View all locations",
+          "style": "outline"
+        },
+        "locEyebrow": "12 STATES. ONE STANDARD.",
+        "locHeading": "Find a location near you"
+      },
+      {
+        "id": "divider-i8pdsi",
+        "size": "normal",
+        "type": "divider",
+        "after": "ba-sec2",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-q01nvv",
+        "size": "normal",
+        "type": "divider",
+        "after": "svc",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-h4hzzg",
+        "size": "normal",
+        "type": "divider",
+        "after": "hero",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      }
+    ],
+    "design": "d2",
+    "market": "Columbus / Reynoldsburg, OH",
+    "pframe": {
+      "book": {
+        "dx": -7,
+        "dy": -2
+      },
+      "hero": {
+        "fit": "cover",
+        "shade": 51
+      },
+      "founder": {
+        "x": 38,
+        "y": 17
+      }
+    },
+    "photos": {
+      "ba1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cxd7x-b4na.png",
+      "ba2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cxnan-b4na1.png",
+      "ba3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cyan9-b4na2.png",
+      "ba4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cyk0h-b4na3.png",
+      "book": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cw10s-ebook-thumbnail.png",
+      "hero": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cmcdj-c498739f-c5fc-4fab-972e-bd3b4e992eb8.png",
+      "svc1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8ctbd0-puppy-training-2.png",
+      "svc2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8ctok3-obedience-training.png",
+      "svc3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cu0po-behavior-training-3.png",
+      "svc4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cugxf-crate-training.png",
+      "svc5": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cusqp-service-dog.png",
+      "svc6": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8cvatn-advanced-traning.png",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/columbus-two-dogs.jpg",
+      "founder": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu8crpln-meet-lorenzo-2.png",
+      "founderM": "/assets/v2/d2-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "b_eyebrow": "Settling in? Start with the free guide",
+    "owner_slug": "shannon-paskins"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

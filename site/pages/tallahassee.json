@@ -1,0 +1,187 @@
+{
+  "slug": "tallahassee",
+  "title": "Tallahassee, FL",
+  "page_type": "ad",
+  "path": "/ads/tallahassee",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 2,
+  "schema": "public",
+  "html_sha256": "e900bbed775993c02941c6619648a03c0699c5652d84158b64199cd7fc6d4fb4",
+  "html_file": "site/pages/tallahassee.html",
+  "images": [],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "TALLAHASSEE.",
+      "REAL RESULTS AT HOME."
+    ],
+    "cta": "Book My Free Evaluation",
+    "inc": [
+      "Free evaluation",
+      "Reactivity specialists",
+      "90-day guarantee",
+      "A trainer sees your dog at home"
+    ],
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "He knows the commands, he just will not listen.",
+      "Reactivity and reliability are what we fix.",
+      "Start with a free in-home evaluation.",
+      ""
+    ],
+    "top": "Knows the Commands but Won't Listen? Tallahassee Reactive Dog Training.",
+    "zip": "32504",
+    "city": "Tallahassee",
+    "desc": "He knows the commands — he just won't listen. Reactivity and reliability are what we fix.",
+    "f_p1": "In Tallahassee, your request is coordinated by Lorenzo's office with Victoria Bayleigh Morris. They train the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by professional trainers across {n} states.",
+    "f_p2": "Tallahassee is Victoria's active market for dog owners who need a clearer next step now: reactivity, reliability and follow-through, trained where you really live.",
+    "slug": "tallahassee",
+    "vids": [
+      {
+        "s": "The calm we train for here",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "Same dog. Same home. New habits.",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "A walk worth taking again",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Quiet at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "c_sub": "From knowing to doing. Book a free in-home evaluation or call 866.436.4959.",
+    "check": [
+      "Won't listen",
+      "Reactivity",
+      "Sound sensitivity",
+      "Leash pulling"
+    ],
+    "e_sub": "A trainer meets you and your dog at home, sees what is really going on, and recommends a clear next step. No cost and no obligation.",
+    "elbox": {
+      "hero:1": {
+        "dw": -58,
+        "dx": -11,
+        "dy": 11
+      },
+      "hero:2": {
+        "dw": -401,
+        "dx": 54,
+        "dy": 10,
+        "fs": 61
+      },
+      "hero:4": {
+        "dh": 26,
+        "dw": 36,
+        "dx": 5,
+        "dy": -17
+      },
+      "hero:9": {
+        "dx": -3,
+        "dy": 6
+      },
+      "close1:6": {
+        "dx": -2,
+        "dy": 51
+      },
+      "founder:0": {
+        "dx": 37,
+        "dy": 14
+      },
+      "founder:1": {
+        "dw": -184,
+        "dx": 28,
+        "dy": 20,
+        "fs": 72
+      },
+      "founder:3": {
+        "dw": -50
+      }
+    },
+    "f_btn": "Free Evaluation",
+    "f_tag": "40+ Years. One Standard.",
+    "state": "FL",
+    "title": "Tallahassee Dog Training | Lorenzo's",
+    "c_head": "Commands aren't the problem. Follow-through is.",
+    "design": "d1",
+    "e_head": "Your Free In-Home Evaluation",
+    "market": "Tallahassee, FL",
+    "photos": {
+      "ba1": "/assets/v2/d1-ba1.webp",
+      "ba2": "/assets/v2/d1-ba2.webp",
+      "ba3": "/assets/v2/d1-ba3.webp",
+      "ba4": "/assets/v2/d1-ba4.webp",
+      "hero": "https://lorenzosdogtrainingteam.com/assets/market-photos/tallahassee-lead.jpg",
+      "heroM": "https://lorenzosdogtrainingteam.com/assets/market-photos/tallahassee-lead.jpg",
+      "aussie": "https://lorenzosdogtrainingteam.com/assets/market-photos/tallahassee-second.jpg",
+      "golden": "https://lorenzosdogtrainingteam.com/assets/market-photos/tallahassee-second.jpg",
+      "founder": "/assets/v2/d1-founder.webp",
+      "founderM": "/assets/v2/d1-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "h1_size": 65,
+    "loc_sub": "Tallahassee, Leon County, North Florida, and surrounding communities. In-home evaluations by appointment.",
+    "c_eyebrow": "Follow-through",
+    "f_eyebrow": "Meet the Founder,",
+    "owner_slug": "victoria-bayleigh-morris"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

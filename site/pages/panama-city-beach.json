@@ -1,0 +1,231 @@
+{
+  "slug": "panama-city-beach",
+  "title": "Panama City Beach, FL",
+  "page_type": "ad",
+  "path": "/ads/panama-city-beach",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 3,
+  "schema": "public",
+  "html_sha256": "5d4396479ad2c56bd18d44fefa3f8b13cd537149fe6f4b0d8c2ee755b86b4e05",
+  "html_file": "site/pages/panama-city-beach.html",
+  "images": [
+    {
+      "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3v3a9l-ldtt-logo-full.webp",
+      "bucket": "trainer-page-assets"
+    }
+  ],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "NEW HOME. NEW TOWN.",
+      "SAME GOOD DOG."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "Moved to Bay County, or just got a dog?",
+      "We help new neighbors and Tyndall",
+      "families settle dogs who pull or bark,",
+      "starting with a free in-home evaluation."
+    ],
+    "svc": [
+      "New puppy, new house: habits done right",
+      "Leash manners that hold at the dog beach",
+      "Barking, lunging and fear, with a plan",
+      "Trains with a pro, plus handoff lessons",
+      "Task training after a suitability check",
+      "Control that holds around distractions"
+    ],
+    "top": "New to Bay County? Book a Free In-Home Dog Training Evaluation",
+    "zip": "32407",
+    "city": "Panama City Beach",
+    "desc": "Obedience, puppy and behavior training for Panama City Beach, Lynn Haven and Tyndall families. Free in-home evaluation, 90-day guarantee. 866.436.4959.",
+    "f_p1": "In Bay County, your request is coordinated by Lorenzo's office with Tabatha Shelley, our trainer in Panama City. She trains the method Lorenzo Miller built over 40+ years in Cleveland, the same one used by more than 50 professional trainers across {n} states.",
+    "logo": {
+      "size": 80,
+      "photo": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3v3a9l-ldtt-logo-full.webp"
+    },
+    "slug": "panama-city-beach",
+    "vids": [
+      {
+        "s": "Same dog. New habits at home.",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "From pulling to a loose leash",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "Settled in and listening",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Calm at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "b_bul": [
+      "Five steps to start this week",
+      "A short routine for a new house",
+      "Focus before the walk begins",
+      "Calmer behavior, sooner"
+    ],
+    "b_sub": "A move can unsettle any dog. The 5-Step Calm Dog Blueprint gives you a simple daily routine for focus and calmer behavior at home.",
+    "b_url": "",
+    "f_btn": "Free Evaluation",
+    "f_tag": "Local Trainer. Proven Method.",
+    "state": "FL",
+    "title": "Dog Training in Panama City Beach & Bay County | Lorenzo's",
+    "blocks": [
+      {
+        "id": "locations-f465yj",
+        "text": "Book a free in-home evaluation or call (866) 436-4959.",
+        "type": "locations",
+        "after": "ebook",
+        "image": "",
+        "phone": "(866) 436-4959",
+        "quote": "Better Dogs. Happier People.",
+        "button": {
+          "href": "/contact",
+          "label": "Book Your Free Evaluation",
+          "style": "outline"
+        },
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        },
+        "states": [
+          "California",
+          "Ohio",
+          "Florida",
+          "Michigan",
+          "Kentucky",
+          "Illinois",
+          "Indiana",
+          "New Hampshire",
+          "Massachusetts",
+          "Georgia",
+          "Texas",
+          "New York"
+        ],
+        "eyebrow": "Start today",
+        "heading": "Enjoy life with a dog who listens",
+        "locText": "Panama City Beach, FL and the surrounding communities. In-home evaluations by appointment.",
+        "showMap": true,
+        "locButton": {
+          "href": "/find-a-trainer",
+          "label": "View all locations",
+          "style": "outline"
+        },
+        "locEyebrow": "12 STATES. ONE STANDARD.",
+        "locHeading": "Find a location near you"
+      }
+    ],
+    "design": "d2",
+    "market": "Panama City Beach, FL",
+    "photos": {
+      "ba1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3ybycl-9dd8bc6a-b7c5-41d3-a519-3351ea1d4b76.png",
+      "ba2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3yhrhm-0e4b82eb-b957-42f4-82fb-f47ca709c042.png",
+      "ba3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3ykkqr-5951532d-5546-4a79-84ba-1efcb3b2951f.png",
+      "ba4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3ym4ti-6cc2f79a-2faf-4777-9d8b-e0ced7c74802.png",
+      "book": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3xztxc-fb1153d3-d928-44cc-b93e-1529ba5844ab.png",
+      "hero": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3vu3ca-29642928-5d1c-4307-9296-5719d6992684.png",
+      "svc1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3xsepb-7f4e90cb-40b5-4801-9e43-ce850d6893a4.png",
+      "svc2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3x2370-0308d76c-a0e8-4193-8adf-a16d52014485.png",
+      "svc3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3xiggc-162635bc-13be-4503-afd8-592e5a86686f.png",
+      "svc4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3xbfdv-a40e7c9a-e01e-4b68-909d-bd01ddc6fa4c.png",
+      "svc5": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3xf0rg-1c04a657-a603-458e-81b8-dce8c0d76fec.png",
+      "svc6": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3xo4aa-cf77272f-4022-4de3-93e8-74f302b9fca5.png",
+      "heroM": "/assets/v2/d2-hero-m.webp",
+      "founder": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3w5f8w-0cdf4a36-69a5-4db8-acc0-326692a9aff8.png",
+      "founderM": "/assets/v2/d2-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "b_eyebrow": "Settling in? Start with the free guide",
+    "owner_slug": "victoria-bayleigh-morris"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

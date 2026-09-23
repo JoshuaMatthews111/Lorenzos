@@ -1,0 +1,146 @@
+{
+  "slug": "miramar-beach",
+  "title": "Miramar Beach, FL",
+  "page_type": "ad",
+  "path": "/ads/miramar-beach",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 1,
+  "schema": "public",
+  "html_sha256": "8dec860a0f178130035326a2095af6f6c156273644405de86d51992931c6b1eb",
+  "html_file": "site/pages/miramar-beach.html",
+  "images": [],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "CALM ON THE LEASH.",
+      "CALM ON THE PATIO."
+    ],
+    "cta": "Book My Free Evaluation",
+    "inc": [
+      "A trainer sees your dog at home",
+      "Talk through your daily routine",
+      "A clear program and next steps",
+      "A straight answer on fit"
+    ],
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "For dogs who live on the coast all year.",
+      "Leash walks at dawn, patios at sunset,",
+      "and a calm house when the crowds arrive.",
+      "Start with a free in-home evaluation."
+    ],
+    "top": "Free In-Home Dog Training Evaluations for Destin, Miramar Beach & 30A",
+    "zip": "32550",
+    "city": "Miramar Beach",
+    "desc": "Obedience, puppy and behavior training for Miramar Beach, Destin and 30A dog owners. Free in-home evaluation and a 90-day guarantee. Call 866.436.4959.",
+    "f_p1": "Lorenzo Miller has trained dogs for more than 40 years. He built Lorenzo's Dog Training Team in Cleveland, and today trainers in {n} states work from his one method. On the Emerald Coast, your request is coordinated by Lorenzo's office with trainer Tabatha Shelley.",
+    "f_p2": "Coast life is its own test. Walton County allows resident dogs on the sand only with a permit and a leash, and Destin's beaches are closed to dogs. So we train for how you really live here: loose-leash walks, calm on busy patios, and quiet when the neighbors' guests arrive.",
+    "slug": "miramar-beach",
+    "vids": [
+      {
+        "s": "The calm we train for here",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "Same dog. Same home. New habits.",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "A walk worth taking again",
+        "t": "Enzo, Weeks Later"
+      },
+      {
+        "s": "Quiet at home, steady outside",
+        "t": "Luna's Progress"
+      }
+    ],
+    "c_sub": "Book a free in-home evaluation or call 866.436.4959. Away for part of the year? Ask about an online consult.",
+    "check": [
+      "Pulls hard on every leash walk",
+      "Barks at guests, doors or dogs",
+      "New puppy or new rescue at home",
+      "Just moved here on PCS orders"
+    ],
+    "e_sub": "A trainer meets you and your dog at home, sees what is really going on, and recommends a clear next step. No cost and no obligation.",
+    "f_btn": "Free Evaluation",
+    "f_tag": "40+ Years. One Standard.",
+    "state": "FL",
+    "title": "Dog Training in Miramar Beach, Destin & 30A | Lorenzo's",
+    "c_head": "Enjoy the Coast With a Dog Who Listens",
+    "design": "d1",
+    "e_head": "Your Free In-Home Evaluation",
+    "market": "Miramar Beach, FL",
+    "photos": {
+      "ba1": "/assets/v2/d1-ba1.webp",
+      "ba2": "/assets/v2/d1-ba2.webp",
+      "ba3": "/assets/v2/d1-ba3.webp",
+      "ba4": "/assets/v2/d1-ba4.webp",
+      "hero": "/assets/v2/d1-hero.webp",
+      "heroM": "/assets/v2/d1-hero-m.webp",
+      "aussie": "/assets/v2/d1-aussie.webp",
+      "golden": "/assets/v2/d1-golden.webp",
+      "founder": "/assets/v2/d1-founder.webp",
+      "founderM": "/assets/v2/d1-founder-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "loc_sub": "Miramar Beach, Destin, Santa Rosa Beach, 30A and Walton County. In-home evaluations by appointment.",
+    "c_eyebrow": "For Emerald Coast Locals",
+    "f_eyebrow": "Meet the Founder,",
+    "owner_slug": "daniel-bainbridge"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

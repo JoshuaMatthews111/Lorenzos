@@ -1,0 +1,350 @@
+{
+  "slug": "ann-arbor",
+  "title": "Ann Arbor, MI",
+  "page_type": "ad",
+  "path": "/ads/ann-arbor",
+  "alt_path": null,
+  "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+  "published_at": "2026-09-23T07:00:11.788561+00:00",
+  "revision": 5,
+  "schema": "public",
+  "html_sha256": "a98adfd1f9c8ddc408c8fabd4079aa0dcca42f603dcc749bff7350970f1ab9f3",
+  "html_file": "site/pages/ann-arbor.html",
+  "images": [
+    {
+      "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7d98f0-ldtt-logo-full.webp",
+      "bucket": "trainer-page-assets"
+    }
+  ],
+  "exported_at": "2026-09-23T07:01:29.732Z",
+  "content": {
+    "v": 2,
+    "h1": [
+      "BETTER BEHAVIOR.",
+      "BETTER LIFE TOGETHER."
+    ],
+    "cta": "Book My Free Evaluation",
+    "seo": {
+      "noindex": true
+    },
+    "sub": [
+      "For apartments, condos and long shifts.",
+      "Barking, pulling, reactivity, rescues.",
+      "We explain the why, then train the how.",
+      "Start with a free in-home evaluation."
+    ],
+    "svc": [
+      "Potty and crate plans that fit a condo",
+      "Loose leash on busy campus sidewalks",
+      "Reactivity, barking and fear, explained",
+      "Trains with a pro, from $2,500",
+      "Task training after a suitability check",
+      "Reliable focus around real distractions"
+    ],
+    "top": "Ann Arbor Dog Owners: Free In-Home Training Evaluation, No Obligation",
+    "zip": "48104",
+    "city": "Ann Arbor",
+    "desc": "Dog training for Ann Arbor and Ypsilanti apartments and homes: barking, reactivity, puppies and rescues. Free in-home evaluation. Call 866.436.4959.",
+    "f_p1": "Lorenzo Miller has trained dogs for more than 40 years and built one method that trainers in {n} states now follow. In Ann Arbor, your evaluation is with Dylan Atkinson, whose focus is helping owners understand why dogs do what they do, not just what to say.",
+    "logo": {
+      "size": 80,
+      "photo": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7d98f0-ldtt-logo-full.webp"
+    },
+    "slug": "ann-arbor",
+    "vids": [
+      {
+        "s": "",
+        "t": "Ruger: Before & After"
+      },
+      {
+        "s": "",
+        "t": "Bailey's Turnaround"
+      },
+      {
+        "s": "",
+        "t": "Enzo, Weeks Later"
+      }
+    ],
+    "f_btn": "Free Evaluation",
+    "state": "MI",
+    "title": "Ann Arbor Dog Training: Puppy, Obedience & Behavior | LDTT",
+    "blocks": [
+      {
+        "id": "divider-w8ib0u",
+        "size": "normal",
+        "type": "divider",
+        "after": "about3",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-dqknsa",
+        "size": "normal",
+        "type": "divider",
+        "after": "hero",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-n35a9l",
+        "size": "normal",
+        "type": "divider",
+        "after": "rvs",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "divider-2izl3e",
+        "size": "normal",
+        "type": "divider",
+        "after": "about3",
+        "style": "line",
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "tight",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        }
+      },
+      {
+        "id": "pricing-y777cc",
+        "text": "",
+        "type": "pricing",
+        "after": "svc",
+        "plans": [
+          {
+            "name": "Obedience",
+            "note": "Private lessons, in-home options",
+            "price": "From $1,250",
+            "button": {
+              "href": "/contact",
+              "label": "Book Evaluation",
+              "style": "primary"
+            },
+            "featured": false,
+            "features": [
+              "Free evaluation",
+              "Owner coaching built in",
+              "90-day Limited Training Guarantee"
+            ]
+          },
+          {
+            "name": "Board & Train",
+            "note": "Your dog trains with a professional",
+            "price": "From $2,500",
+            "button": {
+              "href": "/contact",
+              "label": "Book Evaluation",
+              "style": "primary"
+            },
+            "featured": true,
+            "features": [
+              "Real skills that come home",
+              "Handoff lessons included",
+              "Slots fill 6–8 weeks ahead"
+            ]
+          }
+        ],
+        "design": {
+          "font": "",
+          "tone": "",
+          "align": "left",
+          "width": "normal",
+          "anchor": "",
+          "gradTo": "",
+          "bgColor": "",
+          "bgImage": "",
+          "bgVideo": "",
+          "overlay": "",
+          "padding": "normal",
+          "gradFrom": "",
+          "headFont": "",
+          "headSize": "",
+          "gradAngle": "",
+          "textColor": "",
+          "hideMobile": false
+        },
+        "layout": "cards",
+        "eyebrow": "Programs",
+        "heading": "Pick the path that fits."
+      }
+    ],
+    "design": "d3",
+    "f_head": [
+      "KNOW THE WHY.",
+      "SEE THE CHANGE."
+    ],
+    "market": "Ann Arbor, MI",
+    "pframe": {
+      "hero": {
+        "x": 47,
+        "fit": "cover",
+        "shade": 40
+      },
+      "svc3": {
+        "x": 0,
+        "z": 117
+      },
+      "svc5": {
+        "y": 100,
+        "z": 165
+      },
+      "about": {
+        "y": 0,
+        "dh": 20,
+        "dw": 158,
+        "dx": -1,
+        "dy": -13
+      }
+    },
+    "photos": {
+      "st1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7fxy5y-b4na1.png",
+      "st2": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7fy7gw-b4na2.png",
+      "st3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7fz1dr-b4na3.png",
+      "hero": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7e2gth-annarbor-header.png",
+      "svc1": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7fn422-puppy-traning.png",
+      "svc2": "/assets/v2/d2-hero-m.webp",
+      "svc3": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7fp7hb-behavior-training.png",
+      "svc4": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7fqbga-crate-training.png",
+      "svc5": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7fqyi8-service-dog-2.png",
+      "svc6": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7frq5c-advanced-traning.png",
+      "about": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7efedm-c68057c6-7984-49cf-825b-3651d5568c6d.png",
+      "heroM": "/assets/v2/d3-hero-m.webp"
+    },
+    "states": [
+      "California",
+      "Ohio",
+      "Florida",
+      "Michigan",
+      "Kentucky",
+      "Illinois",
+      "Indiana",
+      "New Hampshire",
+      "Massachusetts",
+      "Georgia",
+      "Texas",
+      "New York"
+    ],
+    "loc_sub": "Ann Arbor, Ypsilanti and Canton. In-home evaluations by appointment.",
+    "reviews": [
+      {
+        "name": "Becca L.",
+        "text": "I honestly owe my sanity to Lorenzo's Dog Training Team, especially Eric. I adopted a Pitbull/Chihuahua mix and he was extremely anxious and could never settle."
+      },
+      {
+        "name": "Stephanie P.",
+        "text": "Robert truly changed my life. After Robert was done, my Hunter became a completely different dog! His reactivity with dogs is gone."
+      },
+      {
+        "name": "Jenn S.",
+        "text": "I cannot give enough stars to our trainer Bruce Maldonado. When I say that he has changed our lives, I mean it quite literally."
+      }
+    ],
+    "f_eyebrow": "Meet the Founder, Lorenzo Miller",
+    "owner_slug": "dylan-atkinson"
+  },
+  "theme": {
+    "site": {
+      "version": 1,
+      "fontHead": "",
+      "fontBody": "",
+      "baseSize": "16",
+      "colors": {
+        "primary": "#062650",
+        "secondary": "#f4f8fc",
+        "accent": "#ce1233",
+        "background": "#ffffff",
+        "text": "#0f2340"
+      },
+      "buttonShape": "rounded",
+      "buttonFill": "filled",
+      "spacing": "normal",
+      "logo": "",
+      "logoDark": "",
+      "favicon": "",
+      "tagline": "Serious Training. Serious Results.",
+      "phone": "(866) 436-4959",
+      "logoWidth": "",
+      "headScale": ""
+    },
+    "page": null
+  },
+  "navigation": {
+    "version": 1,
+    "header": {
+      "links": [],
+      "ctas": []
+    },
+    "footer": {
+      "blurb": "",
+      "groups": []
+    }
+  }
+}

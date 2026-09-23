@@ -1,5 +1,216 @@
 {
-  "exported_at": "2026-09-05T10:32:54.174Z",
+  "exported_at": "2026-09-23T07:01:29.732Z",
   "schema": "public",
-  "pages": []
+  "pages": [
+    {
+      "slug": "ann-arbor",
+      "title": "Ann Arbor, MI",
+      "page_type": "ad",
+      "path": "/ads/ann-arbor",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 5,
+      "schema": "public",
+      "html_sha256": "a98adfd1f9c8ddc408c8fabd4079aa0dcca42f603dcc749bff7350970f1ab9f3",
+      "html_file": "site/pages/ann-arbor.html",
+      "images": [
+        {
+          "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7d98f0-ldtt-logo-full.webp",
+          "bucket": "trainer-page-assets"
+        }
+      ],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "atlanta",
+      "title": "Atlanta, GA",
+      "page_type": "ad",
+      "path": "/ads/atlanta",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 2,
+      "schema": "public",
+      "html_sha256": "e58d25e5df8dd9dde64a698039fa9dd4722cb9b20f5cb811c69fc8369701cefe",
+      "html_file": "site/pages/atlanta.html",
+      "images": [
+        {
+          "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7gysbm-ldtt-logo-full.webp",
+          "bucket": "trainer-page-assets"
+        }
+      ],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "chicago",
+      "title": "Chicago, IL",
+      "page_type": "ad",
+      "path": "/ads/chicago",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 2,
+      "schema": "public",
+      "html_sha256": "13829e4692fa664bd0e4b4734cd6cd48105439bb47c74ea5e800916f140e24b7",
+      "html_file": "site/pages/chicago.html",
+      "images": [
+        {
+          "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/muclx26p-ldtt-logo-full.webp",
+          "bucket": "trainer-page-assets"
+        }
+      ],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "cleveland",
+      "title": "Cleveland / Akron, OH",
+      "page_type": "ad",
+      "path": "/ads/cleveland",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 4,
+      "schema": "public",
+      "html_sha256": "085077fe16ea73aeae06caa6dc228cb2c39cfc6d2540e84e95df73a1644ab503",
+      "html_file": "site/pages/cleveland.html",
+      "images": [
+        {
+          "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7n8ja3-ldtt-logo-full.webp",
+          "bucket": "trainer-page-assets"
+        }
+      ],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "columbus",
+      "title": "Columbus / Reynoldsburg, OH",
+      "page_type": "ad",
+      "path": "/ads/columbus",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 2,
+      "schema": "public",
+      "html_sha256": "7c430ab0c15c25306fc692f26662450758de05f4ffb6c63c34c610855fb5a4b0",
+      "html_file": "site/pages/columbus.html",
+      "images": [
+        {
+          "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu7nhsz5-ldtt-logo-full.webp",
+          "bucket": "trainer-page-assets"
+        }
+      ],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "lexington",
+      "title": "Lexington / Harrodsburg, KY",
+      "page_type": "ad",
+      "path": "/ads/lexington",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 1,
+      "schema": "public",
+      "html_sha256": "7c2ea35862d001995982056bf6fd1c746a9b1a1bfd93cc43dd0630d766593c8c",
+      "html_file": "site/pages/lexington.html",
+      "images": [],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "miramar-beach",
+      "title": "Miramar Beach, FL",
+      "page_type": "ad",
+      "path": "/ads/miramar-beach",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 1,
+      "schema": "public",
+      "html_sha256": "8dec860a0f178130035326a2095af6f6c156273644405de86d51992931c6b1eb",
+      "html_file": "site/pages/miramar-beach.html",
+      "images": [],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "panama-city-beach",
+      "title": "Panama City Beach, FL",
+      "page_type": "ad",
+      "path": "/ads/panama-city-beach",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 3,
+      "schema": "public",
+      "html_sha256": "5d4396479ad2c56bd18d44fefa3f8b13cd537149fe6f4b0d8c2ee755b86b4e05",
+      "html_file": "site/pages/panama-city-beach.html",
+      "images": [
+        {
+          "url": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/site/mu3v3a9l-ldtt-logo-full.webp",
+          "bucket": "trainer-page-assets"
+        }
+      ],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "pensacola",
+      "title": "Pensacola, FL",
+      "page_type": "ad",
+      "path": "/ads/pensacola",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 1,
+      "schema": "public",
+      "html_sha256": "832bb79df418fa441a822d09a007351ce8add32548174301a589086caf0a9058",
+      "html_file": "site/pages/pensacola.html",
+      "images": [],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "san-antonio",
+      "title": "San Antonio, TX",
+      "page_type": "ad",
+      "path": "/ads/san-antonio",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 1,
+      "schema": "public",
+      "html_sha256": "320bb111a7722833c837197d5520dc13919a923b12151bd8b362523e570272ad",
+      "html_file": "site/pages/san-antonio.html",
+      "images": [],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "san-diego",
+      "title": "San Diego, CA",
+      "page_type": "ad",
+      "path": "/ads/san-diego",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 1,
+      "schema": "public",
+      "html_sha256": "d27424da433791ddfdcce92225eb330aeac6ce1538450324a9d2e3b58341de47",
+      "html_file": "site/pages/san-diego.html",
+      "images": [],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    },
+    {
+      "slug": "tallahassee",
+      "title": "Tallahassee, FL",
+      "page_type": "ad",
+      "path": "/ads/tallahassee",
+      "alt_path": null,
+      "published_by": "Joshua Matthews (ad 2.0 go-live 2026-09-23)",
+      "published_at": "2026-09-23T07:00:11.788561+00:00",
+      "revision": 2,
+      "schema": "public",
+      "html_sha256": "e900bbed775993c02941c6619648a03c0699c5652d84158b64199cd7fc6d4fb4",
+      "html_file": "site/pages/tallahassee.html",
+      "images": [],
+      "exported_at": "2026-09-23T07:01:29.732Z"
+    }
+  ]
 }
