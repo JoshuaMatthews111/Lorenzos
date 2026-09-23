@@ -142,7 +142,14 @@ test("deal submit (create) still works exactly as before", async () => {
 
 test("screens: opens on Dashboard, lead details with the pre-evaluation questions, deal form fills from the lead, deals edit", () => {
   // Opens at the top on Dashboard; only a tab tap from another screen jumps.
-  assert.match(app, /if \(jump && jump !== "dashboard"\) requestAnimationFrame\(\(\) => scrollToTrainerSection\(jump, false\)\);\n    else \{ state\.activeView = "dashboard"; window\.scrollTo\(0, 0\); markTrainerTab\("dashboard"\); \}/);
+  assert.match(app, /if \(jump && jump !== "dashboard"\) requestAnimationFrame\(\(\) => scrollToTrainerSection\(jump, false\)\);/);
+  assert.match(app, /else \{ state\.activeView = "dashboard"; window\.scrollTo\(0, 0\); markTrainerTab\("dashboard"\); \}/);
+  // Joshua 2026-09-23: the one exception — a trainer who arrived on the deep link in their alert text
+  // (/trainer-backoffice?view=leadPipeline&lead=<id>) opens on that lead's own tab, not the Dashboard.
+  assert.match(app, /else if \(state\.selectedLeadId && trainerOnePageViews\(\)\.includes\(state\.activeView\)\) \{\n\s*const landing = state\.activeView;\n\s*markTrainerTab\(landing\);\n\s*requestAnimationFrame\(\(\) => scrollToTrainerSection\(landing, false\)\);\n\s*\}/);
+  // The deep link itself: an explicit ?view= is honoured, so the trainer portal is not forced to the
+  // office "leads" screen, and /staff?lead=<id> still falls back to it.
+  assert.match(app, /if \(leadId && \/\^\[0-9a-f-\]\{36\}\$\/i\.test\(leadId\)\) \{\n\s*if \(!view\) state\.activeView = "leads";\n\s*state\.selectedLeadId = leadId;\n\s*\}/);
   // Lead details: cards and rows open it; it is read-only and shows where the questions were answered.
   assert.match(app, /<article class="sales-card trainer-card" data-open-lead="\$\{escapeHtml\(lead\.id\)\}"/);
   const panel = app.match(/function trainerLeadDetailPanel\(\) \{[\s\S]*?\n\}\n/)[0];

@@ -289,3 +289,81 @@ test("Spanish preview: Pensacola only, never the editor, form submits unchanged"
   // The toggle locks each option's submitted value to the English text before translating the label.
   assert.ok(src.includes('opt.setAttribute("value", opt.textContent)'), "option values locked so submits never change");
 });
+
+// ---------------------------------------------------------------------------
+// 3c. The unfinished-form timer (Joshua 2026-09-23): "the timer will fire if they filled the first
+// short part of the form but didn't do the detailed questions."
+// THE DECISION, pinned here: the 30-minute step - and only that step - swaps its wording. The chain
+// stays three messages. The office BUTTON never swaps. The wording itself is Joshua + Lorenzo's final
+// text and is not restated here; these pins prove which reader gets it and that it renders cleanly.
+// ---------------------------------------------------------------------------
+const UNFINISHED_LEAD = () => makeLead({ zip: "44128" }, { entered_at: new Date(T0 - 31 * MIN).toISOString(), followups: [{ step: "tim", status: "sent" }] });
+
+test("unfinished form: the 30-minute timer step carries the did-not-finish wording and a form link", async () => {
+  const P = loadPipeline(true);
+  const { calls, db } = stubWorld({ autoOn: true, lead: UNFINISHED_LEAD() });
+  const out = await P.runAutoFollowUps({ nowMs: T0 });
+  assert.deepEqual(out.sent.map(s => s.step), ["link"], JSON.stringify(out));
+  const hook = calls.filter(c => c.host === "hook.us2.make.com").at(-1);
+  assert.equal(hook.body.pathway, "followup");
+  assert.equal(hook.body.followup_key, "unfinished", "the 30-minute step wears the unfinished-form wording");
+  assert.ok(hook.body.form_link, "a form link always resolves, even with no booking link");
+  assert.match(hook.body.form_link, /\?zip=44128$|\/book$/, "the re-engage link shape: the local page with the ZIP prefilled, or /book");
+  // The words that actually go to Twilio.
+  assert.match(hook.body.message, /may not have finished your request/, "Joshua + Lorenzo's final wording");
+  assert.match(hook.body.message, new RegExp(hook.body.form_link.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "the form link is in the words");
+  // It is still ONE step, so it is claimed and recorded like any other and never repeats.
+  const record = db.lead.raw_payload.pipeline.followups;
+  assert.equal(record.filter(f => f.step === "link").length, 1);
+  const before = calls.filter(c => c.host === "hook.us2.make.com").length;
+  assert.deepEqual((await P.runAutoFollowUps({ nowMs: T0 })).sent, [], "never twice");
+  assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, before);
+});
+
+test("unfinished form: a lead that DID answer the dog questions keeps the booking-link wording", async () => {
+  const P = loadPipeline(true);
+  const lead = UNFINISHED_LEAD();
+  lead.raw_payload.booking = { intake: { zip: "44128" }, dogs: [{ name: "Rex", breed: "Lab", behavior: "pulling" }] };
+  const { calls } = stubWorld({ autoOn: true, lead });
+  const out = await P.runAutoFollowUps({ nowMs: T0 });
+  assert.deepEqual(out.sent.map(s => s.step), ["link"]);
+  const hook = calls.filter(c => c.host === "hook.us2.make.com").at(-1);
+  assert.equal(hook.body.followup_key, "link", "they finished the form: the ordinary follow-up");
+  assert.doesNotMatch(hook.body.message, /may not have finished your request/);
+});
+
+test("unfinished form: a missing dog name reads professionally, never a gap or a raw field", async () => {
+  const P = loadPipeline(true);
+  const { calls } = stubWorld({ autoOn: true, lead: UNFINISHED_LEAD() });
+  await P.runAutoFollowUps({ nowMs: T0 });
+  const words = calls.filter(c => c.host === "hook.us2.make.com").at(-1).body.message;
+  assert.match(words, /training for your dog\b/, "the house fallback, as in booking_confirmation and reengage_invite");
+  for (const bad of ["undefined", "null", "{dog_name}", "{first_name}", "{form_link}"]) {
+    assert.ok(!words.includes(bad), `a client must never read "${bad}"`);
+  }
+  assert.ok(!/ {2}/.test(words), "no gap where a missing field used to be");
+});
+
+test("unfinished form: the office's own button never swaps the wording", async () => {
+  const P = loadPipeline(true);
+  const { calls } = stubWorld({ autoOn: true, lead: UNFINISHED_LEAD() });
+  // The office pressing "send the booking link again" means the booking link, whatever the form says.
+  const out = await P.sendFollowUpText({ lead: UNFINISHED_LEAD(), step: "link" });
+  assert.equal(out.status, "sent", JSON.stringify(out));
+  const hook = calls.filter(c => c.host === "hook.us2.make.com").at(-1);
+  assert.equal(hook.body.followup_key, "link");
+  assert.doesNotMatch(hook.body.message, /may not have finished your request/);
+});
+
+test("unfinished form: three messages per lead and never a fourth", async () => {
+  const P = loadPipeline(true);
+  const { calls, db } = stubWorld({ autoOn: true, lead: makeLead({ zip: "44128" }) });
+  // Walk the whole clock well past the last step.
+  await P.runAutoFollowUps({ nowMs: T0 });
+  await P.runAutoFollowUps({ nowMs: T0 + 31 * MIN });
+  await P.runAutoFollowUps({ nowMs: T0 + 25 * HOUR });
+  await P.runAutoFollowUps({ nowMs: T0 + 3 * 24 * HOUR });
+  const steps = db.lead.raw_payload.pipeline.followups.map(f => f.step);
+  assert.deepEqual(steps, ["tim", "link", "care"], "exactly the three steps, in order");
+  assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 3, "three texts, never a fourth");
+});

@@ -759,8 +759,16 @@ function applyUrlState() {
   if (trainerId && state.trainers.some(t => t.id === trainerId)) state.selectedTrainerId = trainerId;
   // Rule 72: a trainer alert text (and, from step 3b, the office booking email) links straight to one
   // lead: /staff?view=leads&lead=<id>. leadDetailPanel() finds it by its database id at draw time.
+  // Joshua 2026-09-23: the TRAINER portal honours the same deep link on its own path —
+  // /trainer-backoffice?view=leadPipeline&lead=<id> opens that trainer's own Lead Pipeline with the
+  // lead drawer already on it. Only fall back to the office "leads" screen when no view was asked
+  // for, so /staff?lead=<id> and /staff?view=leads&lead=<id> behave exactly as they did before.
+  // This runs at load, before the sign-in box, so the lead survives the login.
   const leadId = params.get("lead");
-  if (leadId && /^[0-9a-f-]{36}$/i.test(leadId)) { state.activeView = "leads"; state.selectedLeadId = leadId; }
+  if (leadId && /^[0-9a-f-]{36}$/i.test(leadId)) {
+    if (!view) state.activeView = "leads";
+    state.selectedLeadId = leadId;
+  }
 }
 
 const leadStatusToDb = {
@@ -5189,6 +5197,14 @@ function renderView() {
     const jump = trainerOnePageJump;
     trainerOnePageJump = "";
     if (jump && jump !== "dashboard") requestAnimationFrame(() => scrollToTrainerSection(jump, false));
+    // Joshua 2026-09-23: a trainer who arrived on the deep link in their alert text opens ON that
+    // lead's own tab, not on the Dashboard. The lead drawer is a fixed overlay either way, so this
+    // only decides what sits behind it. No deep-linked lead = the Dashboard, exactly as before.
+    else if (state.selectedLeadId && trainerOnePageViews().includes(state.activeView)) {
+      const landing = state.activeView;
+      markTrainerTab(landing);
+      requestAnimationFrame(() => scrollToTrainerSection(landing, false));
+    }
     else { state.activeView = "dashboard"; window.scrollTo(0, 0); markTrainerTab("dashboard"); }
   }
 }

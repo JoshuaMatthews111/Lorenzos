@@ -271,7 +271,10 @@ test("a booking sends pathway 2 once (customer + the practice trainer-alert test
   assert.equal(h2[0].body.trainer_phone, TESTER, "practice copy: the trainer alert goes to the tester phone in the settings box");
   assert.equal(h2[0].body.service_address, "4815 Orchard Rd, Garfield Heights, OH 44128");
   assert.match(h2[0].body.safety_flag, /SAFETY/);
-  assert.match(h2[0].body.trainer_portal_link, new RegExp(`/staff\\?view=leads&lead=${lead.id}$`));
+  // Joshua 2026-09-23: the trainer's link is their OWN portal, never the office /staff portal.
+  assert.match(h2[0].body.trainer_portal_link, new RegExp(`/trainer-backoffice\\?view=leadPipeline&lead=${lead.id}$`));
+  assert.ok(!h2[0].body.trainer_portal_link.includes("/staff"), "a trainer is never sent to the office portal");
+  assert.match(h2[0].body.link, new RegExp(`/staff\\?view=leads&lead=${lead.id}$`), "the office link stays the office portal");
   const saved = db.leads[0];
   assert.equal(saved.status, "evaluation_scheduled");
   assert.equal(saved.eval_scheduled_at, new Date(SLOT_A * 1000).toISOString());
@@ -342,3 +345,31 @@ test("JOSHUA'S HARD RULE: FormSubmit keeps the Contact page, this step sends no 
 });
 
 function read(path) { return readFileSync(new URL(`../${path}`, import.meta.url), "utf8"); }
+
+// ---------------------------------------------------------------------------
+// Joshua 2026-09-23 (bug he caught): every trainer-facing message used staffLeadLink() - the OFFICE
+// /staff portal - so trainers were being sent to the office door. TEST-PIN: a trainer is never sent
+// to /staff, by text or by the email twin; the office and Operations keep /staff.
+// ---------------------------------------------------------------------------
+test("a trainer is never sent to the office /staff portal", () => {
+  const { P } = load(true);
+  const id = "11111111-2222-3333-4444-555555555555";
+
+  const trainerLink = P.trainerLeadLink(id);
+  const staffLink = P.staffLeadLink(id);
+  assert.ok(!trainerLink.includes("/staff"), "the trainer link must not point at the office portal");
+  assert.match(trainerLink, /\/trainer-backoffice\?view=leadPipeline&lead=11111111-2222-3333-4444-555555555555$/);
+  assert.match(staffLink, /\/staff\?view=leads&lead=11111111-2222-3333-4444-555555555555$/, "office/operations links are unchanged");
+  assert.notEqual(trainerLink, staffLink);
+
+  // Structural: every trainer_portal_link in the pipeline is built from trainerLeadLink, so a new
+  // trainer text cannot quietly reintroduce the office link.
+  const source = readFileSync(new URL("../lib/pipeline.js", import.meta.url), "utf8");
+  const assignments = source.match(/trainer_portal_link:\s*\w+\(/g) || [];
+  assert.equal(assignments.length, 4, "the four trainer texts: new inquiry, new evaluation, pre-eval answers, log the deal");
+  for (const line of assignments) {
+    assert.match(line, /trainer_portal_link:\s*trainerLeadLink\(/, `a trainer text still builds its link with the wrong helper: ${line}`);
+  }
+  // The trainer's EMAIL twin asks for the trainer portal too.
+  assert.match(source, /trainerTwinEmail[\s\S]{0,600}?portal:\s*"trainer"/, "the trainer email twin must ask for the trainer portal");
+});
