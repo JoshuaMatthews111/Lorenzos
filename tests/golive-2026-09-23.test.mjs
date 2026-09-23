@@ -56,3 +56,15 @@ test("security 2026-09-23: no login via URL, the shells scrub credential params,
   assert.match(sbl, /if \(!isSandbox\(\)\) return reply\(res, 404/, "the passwordless door stays 404 on live");
   assert.ok(!sbl.includes("action_link:"), "the full magic link is never returned");
 });
+
+test("go-live: the LIVE booking page never wears the PRACTICE COPY bar (rule 96)", async () => {
+  const { readFileSync } = require("node:fs");
+  const src = readFileSync(new URL("../api/booking-page.js", import.meta.url), "utf8");
+  assert.ok(src.includes("practice: isSandbox()"), "the flag follows the schema, never a hardcoded true");
+  const handler = require("../api/booking-page.js");
+  global.fetch = async () => ({ ok: true, status: 200, json: async () => [], text: async () => "[]", headers: new Headers() });
+  const res = { statusCode: 0, headers: {}, setHeader() {}, status(c) { this.statusCode = c; return this; }, send(b) { this.body = b; return this; }, json(b) { this.body = b; return this; } };
+  await handler({ method: "GET", headers: {}, query: {} }, res);
+  assert.equal(res.statusCode, 200);
+  assert.ok(!String(res.body).includes("PRACTICE COPY"), "no practice bar on live");
+});

@@ -1,5 +1,5 @@
-// /book and /book/<trainer_slug>?lead=<id>&zip=<zip> (vercel.json rewrites). PRACTICE COPY ONLY this round:
-// answers 404 on live. The page itself is lib/booking-page.js; its data comes from /api/booking.
+// /book and /book/<trainer_slug>?lead=<id>&zip=<zip> (vercel.json rewrites). Serves LIVE since the
+// 2026-09-23 go-live; the PRACTICE COPY bar shows only on the practice copy (rule 96). The page itself is lib/booking-page.js; its data comes from /api/booking.
 // Rule 74: every entry lands on step 1 ("Enter your ZIP code"), ZIP pre-filled from the lead or ?zip=.
 // Rule 75: step 2's questions are the PUBLISHED "Booking page questions" from the form editor (the original
 // 11 when nothing was changed, or when the settings row cannot be read).
@@ -17,5 +17,6 @@ module.exports = async function handler(req, res) {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store, max-age=0");
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
-  return res.status(200).send(renderBookingPage(slug, { practice: true, form }));
+  // Rule 96: the PRACTICE COPY bar is the website saying where you are — only the practice copy wears it.
+  return res.status(200).send(renderBookingPage(slug, { practice: isSandbox(), form }));
 };
