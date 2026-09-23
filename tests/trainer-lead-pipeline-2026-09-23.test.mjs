@@ -144,3 +144,17 @@ test("mobile: the trainer board stacks at phone width and the office board is un
   block.split("\n").filter(line => line.includes("{") && line.includes(".sales-"))
     .forEach(line => assert.ok(line.includes("trainer-lead-pipeline"), `office board must not be restyled: ${line.trim()}`));
 });
+
+// Missy 2026-09-23: "when you click into a lead, it jumps back to the New Inquiry column all the way
+// to the left. This happens in both mobile view and on the PC." Opening a lead redraws the screen and
+// the rebuilt board lost its sideways scroll. render() now remembers the place and puts it back.
+test("opening a lead keeps the board where it was scrolled sideways", () => {
+  const app = readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
+  assert.match(app, /const scrollPlaces = rememberSidewaysScroll\(\);\n  renderView\(\);/, "the place is taken before the redraw");
+  assert.match(app, /restoreSidewaysScroll\(scrollPlaces\);/, "and put back after it");
+  assert.match(app, /SIDEWAYS_SCROLL_SELECTOR = "\.sales-board, \.lead-kanban, \.table-wrap"/, "covers the office board, the trainer board and the wide tables");
+  const remember = app.slice(app.indexOf("function rememberSidewaysScroll"), app.indexOf("function restoreSidewaysScroll"));
+  assert.match(remember, /\$\{state\.activeView\}:\$\{index\}/, "a board only ever restores onto itself");
+  const restore = app.slice(app.indexOf("function restoreSidewaysScroll"));
+  assert.match(restore, /Math\.min\(left, Math\.max\(0, box\.scrollWidth - box\.clientWidth\)\)/, "never scrolls past the end of a shorter board");
+});

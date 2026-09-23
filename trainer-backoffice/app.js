@@ -4663,9 +4663,15 @@ function render() {
   }
   renderSidebar();
   renderTopbar();
+  // Missy 2026-09-23: "when you click into a lead, it jumps back to the New Inquiry column all the
+  // way to the left. This happens in both mobile view and on the PC." Opening a lead redraws the
+  // screen, which rebuilds the board and loses how far across it was scrolled. Remember the place
+  // before the redraw and put it back after, so the column you were reading stays where it was.
+  const scrollPlaces = rememberSidewaysScroll();
   renderView();
   markRequiredLabels(document);
   markOptionalLabels(document);
+  restoreSidewaysScroll(scrollPlaces); // the boxes exist by now; putting it back here keeps the two label passes together
   requestAnimationFrame(() => enhancePasswordFields(document));
   requestAnimationFrame(enhanceHorizontalScrollers);
   requestAnimationFrame(refreshTemplatePreview);
@@ -4745,7 +4751,33 @@ function rememberBuilderNavigation(frame) {
   } catch { /* the frame moved somewhere this page cannot read */ }
 }
 
+// Missy 2026-09-23: keep a side-scrolling board where the reader left it across a redraw.
+// Keyed by the screen plus the box's place on it, so a board only ever restores onto itself.
+const SIDEWAYS_SCROLL_SELECTOR = ".sales-board, .lead-kanban, .table-wrap";
+
+function rememberSidewaysScroll() {
+  const places = new Map();
+  try {
+    document.querySelectorAll(SIDEWAYS_SCROLL_SELECTOR).forEach((box, index) => {
+      if (box.scrollLeft > 0) places.set(`${state.activeView}:${index}`, box.scrollLeft);
+    });
+  } catch { /* nothing to remember */ }
+  return places;
+}
+
+function restoreSidewaysScroll(places) {
+  if (!places || !places.size) return;
+  try {
+    document.querySelectorAll(SIDEWAYS_SCROLL_SELECTOR).forEach((box, index) => {
+      const left = places.get(`${state.activeView}:${index}`);
+      // Only as far as this box can actually go, so a shorter board never ends up blank.
+      if (left) box.scrollLeft = Math.min(left, Math.max(0, box.scrollWidth - box.clientWidth));
+    });
+  } catch { /* the screen changed under us; leave it where it is */ }
+}
+
 const horizontalScrollSelectors = [
+  ".sales-board",
   ".table-wrap",
   ".lead-kanban",
   ".submission-review-list-shell",
