@@ -1777,3 +1777,47 @@ COLLECTED; service-dog gold tag YES; milestones later.
       `new_inquiry`, kind `trainer_new_inquiry`) plus its email twin, Tim/Operations' new-lead text and email,
       and the office Resend email. All four were `sent` on both rows. Only the browser redirect was missing.
     Tests: `tests/trainer-page-leads-2026-09-22.test.mjs` (11). Full suite 396, audit 200.
+
+## A repeat submit, and office smoke tests on the live site (added 2026-09-23)
+
+98. **A second submit is a DOUBLE SUBMIT only when nothing about the request changed; and an office
+    smoke test on the LIVE site is marked so it never reaches the counts.**
+    Joshua 2026-09-23: "'Pensacola makes a new lead' must hold for EVERY ad 2.0 page and every other
+    door" and "test leads must never mix with the live site's leads or counts".
+    - **The reuse rule lives in ONE place**, `sameRequest()` in `lib/booking.js`, and it is used by the
+      one server door that creates leads from a form (`createLead`, behind `/api/booking-lead`,
+      `/book`'s own form and the no-trainer callback). A lead is reused only when ALL of these hold:
+      same door (`via`), same typed ZIP, same `source_page`, same trainer pick, first lead still
+      `new_inquiry`, nothing booked / requested / called back, inside 30 minutes. Anything else is a
+      NEW request with its own lead and its own routing. Never widen this.
+    - **The visitor's pick is kept as `raw_payload.booking.intake.picked_slug`**, separate from
+      `trainer_slug` (where the lead was ROUTED). They differ when the picked trainer has no calendar,
+      so comparing `trainer_slug` would have broken the genuine double submit. A row saved before
+      `picked_slug` existed has none, and is treated exactly as it was.
+    - **Every 2.0 page sends its own address** (`source_page: location.origin + location.pathname` in
+      `assets/v2/v2.js`), so two markets are never "the same page" even on the same ZIP.
+    - **The other doors have no reuse path at all.** The Contact page, the trainer landing pages, the
+      market guide / ebook forms and the office lead form all go through `submit-contact`, which only
+      ever upserts on the browser's per-submit `submission_id` (fresh `Date.now()` + random on every
+      submit). Its only email lookup is the 4-in-10-minutes rate limit.
+    - **Office smoke tests on live.** A smoke test after a push is a REAL row in `public.leads`. The
+      office uses the set phrase — **last name `LDTT TEST`**, or an email tagged `+ldtt-test@` (or a
+      whole address starting `ldtt-test@`). `lib/office-test-lead.js` and its mirror
+      `supabase/functions/_shared/office-test-lead.ts` decide it; `lib/booking.js` `createLead` and
+      `supabase/functions/submit-contact` stamp `raw_payload.qa = true` — a real JSON **boolean** —
+      on a match, and the hold-out that already exists (rule 1, `metrics.js` `isQaLead` / `excludeQa`)
+      drops the row from every tile, chart, table, report and CSV. Rule 13 also keeps it out of Meta.
+    - **Keep the pattern narrow, and keep the two copies in step.** "test", "qa", "tester" on their own
+      are deliberately NOT matched: real people are called Tester. Checked read-only against live on
+      2026-09-23: 0 of 290 `public.leads` rows and 0 `trainer_applications` match either pattern, so
+      turning this on could not move a single existing number.
+    - **The hold-out itself is unchanged** (rule 1). `isQaLead` still reads the flag only, never a name
+      or an email — the NAME only decides what the two write doors stamp.
+    - **Rule 97 is untouched**: the practice host still stamps nothing. Only the set phrase adds a
+      stamp, and the `*.vercel.app` host test still only picks the lifecycle event type.
+    - **OPEN (Joshua's call, 2026-09-23): boolean vs string.** `isQaLead` compares `=== true`, but 3
+      live rows (all 2026-08-06 release checks, all archived / do-not-contact) carry the STRING
+      `"true"`. Rule 1's own SQL verification casts, so the SQL answers 283 of 290 while the screens
+      answer 286. Rule 98 never creates that shape. `tests/lead-integrity-2026-09-23.test.mjs` pins the
+      gap so nobody closes it by accident — closing it would move a live number.
+    Tests: `tests/lead-integrity-2026-09-23.test.mjs` (21). Full suite 417, audit 202.

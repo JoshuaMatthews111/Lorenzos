@@ -1,6 +1,7 @@
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { insertRows, selectRows } from "../_shared/rest.ts";
 import { requestSchema, type Schema } from "../_shared/practice.ts";
+import { isOfficeTestLead } from "../_shared/office-test-lead.ts";
 
 function clean(value: unknown) {
   return String(value ?? "").trim();
@@ -118,9 +119,18 @@ Deno.serve(async (req) => {
     const trainerSlug = clean(payload.trainer_slug);
     const assignedTrainerName = clean(payload.assigned_trainer);
     const sourceSubmissionId = clean(payload.submission_id);
-    const isQaSubmission = payload.qa === true
+    // Rule 98: an OFFICE SMOKE TEST on the live site uses the set phrase (last name "LDTT TEST", or an
+    // email tagged +ldtt-test). It is a real row in public.leads, so it is stamped raw_payload.qa = true
+    // below and the hold-out that already exists (metrics.js isQaLead, rule 1) keeps it out of every count.
+    // This is the ONLY thing that adds a qa stamp to the stored row; the host test below still only picks
+    // the lifecycle event type, so rule 97 (the practice copy stamps nothing) is untouched.
+    const officeTest = isOfficeTestLead({ first_name: firstName, last_name: lastName, email });
+    const isQaSubmission = officeTest
+      || payload.qa === true
       || /^qa[_-]/i.test(sourceSubmissionId)
       || /(?:localhost|127\.0\.0\.1|\.vercel\.app)(?::\d+)?(?:\/|$)/i.test(clean(payload.page_url));
+    // A real JSON boolean, never the string "true": metrics.js isQaLead reads `raw_payload.qa === true`.
+    const storedPayload = officeTest ? { ...payload, qa: true } : payload;
     const trainerInterest = /becom(?:e|ing) a dog trainer|trainer opportunity|dog trainer business/i.test(
       [payload.i_want_to, payload.additional_interest, payload.source_page].map(value => clean(value)).join(" ")
     );
@@ -164,7 +174,7 @@ Deno.serve(async (req) => {
           utm_content: clean(payload.utm_content),
           utm_term: clean(payload.utm_term),
           received_at: clean(payload.timestamp) || new Date().toISOString(),
-          raw_payload: payload
+          raw_payload: storedPayload
         }
       });
       const application = Array.isArray(insertedApplications) ? insertedApplications[0] : null;
@@ -181,7 +191,7 @@ Deno.serve(async (req) => {
           event_type: isQaSubmission ? "qa_release_check" : "recruiting_inquiry",
           market: clean(payload.trainer_market || [payload.city, payload.state].filter(Boolean).join(", ")),
           source_page: clean(payload.source_page || payload.page_url || "contact.html"),
-          raw_payload: payload,
+          raw_payload: storedPayload,
           occurred_at: clean(payload.timestamp) || new Date().toISOString()
         }
       });
@@ -216,7 +226,7 @@ Deno.serve(async (req) => {
         sms_consent: clean(payload.sms_consent).toLowerCase() === "yes",
         status: "new_inquiry",
         source_page: clean(payload.source_page || payload.page_url || "website"),
-        raw_payload: payload
+        raw_payload: storedPayload
       }
     });
 
@@ -242,7 +252,7 @@ Deno.serve(async (req) => {
           lead_id: lead.id,
           event_type: "form_submitted",
           note: assignedTrainerName ? `Trainer landing page form submitted for ${assignedTrainerName}.` : "Website contact form submitted.",
-          raw_payload: payload
+          raw_payload: storedPayload
         }
       });
       await insertRows({
@@ -263,7 +273,7 @@ Deno.serve(async (req) => {
           utm_source: clean(payload.utm_source),
           utm_medium: clean(payload.utm_medium),
           utm_campaign: clean(payload.utm_campaign),
-          raw_payload: payload,
+          raw_payload: storedPayload,
           occurred_at: clean(payload.timestamp) || new Date().toISOString()
         }
       });

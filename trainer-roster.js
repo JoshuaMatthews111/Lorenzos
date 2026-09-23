@@ -572,6 +572,58 @@ window.LDTT_TRAINER_ROSTER = [
     }
   },
   {
+    "id": "shantelle-tuck",
+    "slug": "shantelle-tuck",
+    "pageSlug": "shantelletuck",
+    "name": "Shantelle Tuck",
+    "state": "Georgia",
+    "market": "Atlanta, GA",
+    "serviceArea": "Atlanta and surrounding Georgia communities",
+    "phone": "(866) 436-4959",
+    "email": "",
+    "username": "",
+    "title": "Lorenzo's Certified Dog Trainer",
+    "tagline": "Serious training for real-life results.",
+    "heroHeadline": "The right trainer. The right results.",
+    "bio": "Shantelle turned a lifelong passion for dogs into a training career after years in daycare, boarding, grooming, and professional dog sitting.",
+    "fullBio": "Born in Hendersonville, North Carolina, raised in Rome, Georgia, and now residing in Roswell, Georgia, Shantelle Mayu Tuck has always had a passion for dogs and dreamed of turning that passion into a career as a professional dog trainer. Shantelle’s journey to Lorenzo’s Dog Training Team began through her mentor, Robert Wesling. After initially experiencing LDTT as a client, she was drawn to the strong team environment and the support built into the organization. Becoming a dog trainer was something Shantelle had always wanted to pursue, and joining LDTT gave her the opportunity to turn that longtime dream into reality. Before beginning her training career, Shantelle built valuable hands-on experience caring for dogs in a professional daycare, boarding, and grooming environment. She has also worked professionally as a dog sitter for more than five years. These experiences have allowed her to work with dogs in a variety of settings while developing a deeper understanding and appreciation for their individual personalities and needs. Outside of dog training, Shantelle is committed to continual personal growth. Her goals include reading 25 books each year, maintaining an active lifestyle so she can remain healthy well into her later years, and being intentional about investing in her friendships. She enjoys reading, exercising, and just about anything involving animals. Looking ahead, she also hopes to explore the world of dog sports. For Shantelle, becoming part of Lorenzo’s Dog Training Team represents more than starting a new career - it is the realization of a dream and an opportunity to build a life around something she has always loved: working with dogs and helping them thrive.",
+    "sourceBioUrl": "https://lorenzosdogtrainingteam.com/shantelletuck",
+    "layout": "mock-5",
+    "pageStatus": "Published",
+    "locked": true,
+    "clicks": 0,
+    "forms": 0,
+    "conversions": 0,
+    "image": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/a30eddd7-513f-409f-a98a-b1bb8aa32c55/profilePhoto-1787239529262.jpg",
+    "photo": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/a30eddd7-513f-409f-a98a-b1bb8aa32c55/profilePhoto-1787239529262.jpg",
+    "cardPhoto": "https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/a30eddd7-513f-409f-a98a-b1bb8aa32c55/profilePhoto-1787239529262.jpg",
+    "companyLogo": "",
+    "specialties": [
+      "Dog Obedience Training",
+      "Behavior Modification",
+      "Puppy Training",
+      "Real-World Owner Leadership"
+    ],
+    "credentials": [
+      "Lorenzo's Certified Dog Trainer",
+      "Powered by Lorenzo's Dog Training Team",
+      "Office-managed lead follow-up"
+    ],
+    "seoTitle": "Dog Trainer in Atlanta, GA | Shantelle Tuck | Lorenzo's Dog Training Team",
+    "seoDescription": "Professional dog obedience training and behavior modification with Shantelle Tuck in Atlanta, GA, backed by Lorenzo's Dog Training Team.",
+    "review1Author": "",
+    "review1Copy": "",
+    "review2Author": "",
+    "review2Copy": "",
+    "review3Author": "",
+    "review3Copy": "",
+    "socials": {
+      "facebook": "",
+      "instagram": "",
+      "tiktok": ""
+    }
+  },
+  {
     "id": "jasmine-bland",
     "slug": "jasmine-bland",
     "pageSlug": "jasminebland",

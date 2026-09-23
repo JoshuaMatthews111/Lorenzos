@@ -36,7 +36,7 @@ SEO={
 TRAINER_APPLICATION_FORM_EMBED="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform?embedded=true"
 TRAINER_APPLICATION_FORM_LINK="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform"
 TRAINER_APPLICATION_FORM_RESPONSE="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/formResponse"
-SITE_ASSET_VERSION="20260923sb37"
+SITE_ASSET_VERSION="20260923sb38"
 PORTAL_ASSET_VERSION="20260819media"
 GOOGLE_ADS_ID="AW-11463464040"
 CONTACT_CONVERSION_ID="AW-11463464040/WIE3CMK0kr0aEOiomtoq"
@@ -166,6 +166,7 @@ trainers=[
 ("Aryson Whorley","Atlanta, GA","Georgia","assets/trainer-headshots/Aryson Whorley 360_x_360.jpg","aryson-whorley","Aryson brings veterinary clinic and dog daycare experience, plus a passion for helping owners see what training can change."),
 ("Robert Wesling","Atlanta, GA","Georgia","assets/trainer-headshots/Robert Wesling  TC 360_x_360.jpg","robert-wesling","Robert became passionate about LDTT after training his own dog, Leia, and now helps owners build stronger relationships with their dogs."),
 ("Chloe Chisolm","Atlanta, GA","Georgia","assets/trainer-headshots/Chloe Chisolm TT 360_x_360.jpg","chloe-chislom","Chloe's veterinary technician background and shelter experience shaped her mission to help save dogs through effective, compassionate training."),
+("Shantelle Tuck","Atlanta, GA","Georgia","https://ptnzaeprvkgjgtupmcty.supabase.co/storage/v1/object/public/trainer-page-assets/a30eddd7-513f-409f-a98a-b1bb8aa32c55/profilePhoto-1787239529262.jpg","shantelle-tuck","Shantelle turned a lifelong passion for dogs into a training career after years in daycare, boarding, grooming, and professional dog sitting."),
 ("Jasmine Bland","Hammond, IN","Indiana","assets/trainer-headshots/Jasmine Bland 360_x_360.jpg","jasmine-bland","Jasmine draws from veterinary technology education and a balanced-training mindset to serve owners and dogs in Indiana."),
 ("Bailey Brown","Versailles, KY","Kentucky","assets/trainer-headshots/Bailey Brown ETT 360_x_360.jpg","bailey-brown","Bailey became a trainer after LDTT helped her own dog, and now helps families learn to love and lead their dogs again."),
 ("Emilio Marotta","Boston, MA","Massachusetts","assets/trainer-headshots/Emilio Marotta 360_x_360.jpg","emilio-marotta","Emilio is a former Marine, college athlete, Master Trainer, and dog lover focused on building trainers and helping more families."),

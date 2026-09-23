@@ -22,6 +22,11 @@
       "permanent": true
     },
     {
+      "source": "/shantelle-tuck",
+      "destination": "/shantelletuck",
+      "permanent": true
+    },
+    {
       "source": "/trainer-bio-s",
       "destination": "/trainer-bio-shantelle-tuck",
       "permanent": true

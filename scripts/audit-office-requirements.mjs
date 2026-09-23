@@ -470,6 +470,51 @@ const checks = [
     const clean = ["lib/booking.js", "lib/lead-forms.js"].every(file => !/[ --]/.test(read(file)));
     return hold && clean;
   })()],
+  // Joshua 2026-09-23 (A): "Pensacola makes a new lead" holds for every door. A second submit is a DOUBLE
+  // SUBMIT only when it is the same door, the same page, the same ZIP, the same trainer pick and the first
+  // lead is still untouched. Anything else is a new request with its own lead and its own routing.
+  ["rule 71/74 (2026-09-23): a repeat submit only reuses a lead when it is the same door, page, ZIP and trainer pick and the first lead is untouched; the visitor's pick is kept as picked_slug apart from where the lead was routed", (() => {
+    const same = (bookingLib.match(/function sameRequest\(row, \{ intake, via \}\) \{[\s\S]*?\n\}/) || [""])[0];
+    const guards = /if \(booking\.intake\?\.via !== via\) return false;/.test(same)
+      && /if \(booking\.slot_start \|\| booking\.requested_at \|\| booking\.callback\) return false;/.test(same)
+      && /if \(!REUSABLE_STATUSES\.has\(String\(row\.status \?\? ""\)\)\) return false;/.test(same)
+      && /if \(zipBefore !== zipNow\) return false;/.test(same)
+      && /if \(pageBefore && pageNow && pageBefore !== pageNow\) return false;/.test(same)
+      && /if \(pickNow && pickBefore && pickBefore !== pickNow\) return false;/.test(same);
+    const kept = /picked_slug: clean\(intake\.trainer_slug, 80\)\.toLowerCase\(\) \|\| null,/.test(bookingLib)
+      && /const REUSABLE_STATUSES = new Set\(\["new_inquiry"\]\);/.test(bookingLib);
+    // Every 2.0 page sends its OWN address, so two markets are never the same page.
+    const ownPage = /source_page: location\.origin \+ location\.pathname/.test(read("assets/v2/v2.js"));
+    // The other doors key on the browser's per-submit id, so they have no reuse path at all.
+    const contactFn = read("supabase/functions/submit-contact/index.ts");
+    const perSubmit = /onConflict: sourceSubmissionId \? "source_submission_id" : undefined/.test(contactFn)
+      && /entries\.submission_id=`\$\{isReleaseQaHost\?'qa-release-':'web-'\}\$\{Date\.now\(\)\}/.test(publicScript)
+      && /submission_id: `\$\{isReleaseQaHost\(\) \? "qa-release-" : "trainer-"\}\$\{Date\.now\(\)\}/.test(app);
+    return guards && kept && ownPage && perSubmit;
+  })()],
+  // Joshua 2026-09-23 (B4): a smoke test on the LIVE site is a real row in public.leads, so it carries the
+  // set phrase and the two server doors stamp raw_payload.qa = true; the rule-1 hold-out then drops it.
+  ["rule 98: an office smoke-test lead (last name \"LDTT TEST\", or an email tagged +ldtt-test) is stamped raw_payload.qa = true as a real boolean by lib/booking.js and submit-contact, so the existing hold-out keeps it out of every count; the pattern is narrow, the hold-out itself is unchanged (rule 1) and the practice host still stamps nothing (rule 97)", (() => {
+    const helper = read("lib/office-test-lead.js");
+    const edgeHelper = read("supabase/functions/_shared/office-test-lead.ts");
+    const narrow = [helper, edgeHelper].every(src =>
+      /const NAME_KEY = \/ldtttest\//.test(src)
+      && /const EMAIL_TAG = \/\\\+ldtt-test\(\?:\[\^@\]\*\)\?@\/i;/.test(src)
+      && /const EMAIL_LOCAL = \/\^ldtt-test@\/i;/.test(src));
+    const bookingStamp = /const \{ isOfficeTestLead \} = require\("\.\/office-test-lead"\);/.test(bookingLib)
+      && /\.\.\.\(isOfficeTestLead\(intake\) \? \{ qa: true \} : \{\}\),/.test(bookingLib);
+    const contactFn = read("supabase/functions/submit-contact/index.ts");
+    const edgeStamp = /import \{ isOfficeTestLead \} from "\.\.\/_shared\/office-test-lead\.ts";/.test(contactFn)
+      && /const officeTest = isOfficeTestLead\(\{ first_name: firstName, last_name: lastName, email \}\);/.test(contactFn)
+      && /const storedPayload = officeTest \? \{ \.\.\.payload, qa: true \} : payload;/.test(contactFn)
+      && !/raw_payload: payload\b/.test(contactFn)
+      && /const metaAllowed = metaTestMode \|\| \(!isQaSubmission && schema !== "practice"\);/.test(contactFn); // rule 13
+    // rule 1: the hold-out is untouched, and rule 97: the host still stamps nothing on the practice copy.
+    const holdOut = /if \(row\.isTest === true\) return true;\n    return rawOf\(row\)\.qa === true;/.test(read("trainer-backoffice/metrics.js"));
+    const rule97 = /if \(window\.LDTT_IS_SANDBOX === true\) return false;/.test(app)
+      && /if\(isReleaseQaHost&&!onPracticeCopy\(\)\) data\.set\('qa','true'\);/.test(publicScript);
+    return narrow && bookingStamp && edgeStamp && holdOut && rule97;
+  })()],
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);
