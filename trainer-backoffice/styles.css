@@ -5923,3 +5923,19 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
 .badge-legend-item .lead-alpha-toggle { display: inline-flex; align-items: center; border: 1px solid #cbd8e8; border-radius: 999px; background: #fff; color: #53657e; font-size: .72rem; font-weight: 700; padding: 2px 9px; }
 .badge-legend-item .badge-legend-eval { display: inline-flex; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #eef4ff; color: #082754; font-size: .74rem; }
 .badge-legend-item .badge-legend-eval span { text-transform: uppercase; letter-spacing: .06em; font-size: .66rem; font-weight: 800; color: #53657e; }
+
+/* Go-live hotfix 2026-09-23: the Alpha question. Cards wear the compact red toggle BUTTON again
+   (a select on every card overflowed the boards); the worded three-state select lives only in the
+   opened lead panel, on the right, in the red button language. Office and trainer panels alike. */
+.lead-card-sources .lead-alpha-toggle { cursor: pointer; gap: 4px; }
+.lead-detail-panel .lead-alpha-check,
+.trainer-lead-update .trainer-alpha-question {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  margin-top: 16px; padding: 10px 14px; border: 1px solid #d80f35; border-radius: 10px;
+  background: #fff5f7; color: #082754; font-weight: 800;
+}
+.lead-detail-panel .lead-alpha-check select,
+.trainer-lead-update .trainer-alpha-question select {
+  margin-left: auto; border: 1px solid #d80f35; border-radius: 999px; background: #fff;
+  color: #082754; font: inherit; font-size: .8rem; font-weight: 800; padding: 6px 12px; cursor: pointer;
+}

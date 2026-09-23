@@ -209,18 +209,30 @@ test("wiring: vercel.json schedules the cron; the Settings panel carries the swi
 // ---------------------------------------------------------------------------
 // 1. The office Alpha question is the same three-state select as the trainer's
 // ---------------------------------------------------------------------------
-test("office Alpha question: card and detail are the worded three-state select, saved as yes/no/blank", () => {
+test("office Alpha question: card = compact red toggle button; the worded three-state select lives ONLY in the opened lead panel", () => {
   const app = read("trainer-backoffice/app.js");
   const card = app.slice(app.indexOf("function leadAlphaToggle"), app.indexOf("function datetimeLocalValue"));
-  for (const words of ["Have you logged this lead in Alpha?", "Pick Yes or No", "Yes, it is logged in Alpha", "No, not yet"]) {
-    assert.ok(card.includes(words), `card select says "${words}"`);
-  }
-  assert.ok(app.includes('data-lead-alpha-check="${lead.id}"'), "the detail panel keeps its own control");
+  // Go-live hotfix 2026-09-23: no select on any card - the button is blank-aware.
+  assert.ok(!card.includes("<select"), "the card control carries NO select");
+  assert.ok(card.includes('<button type="button" class="lead-alpha-toggle'), "the card control is the red toggle button");
+  for (const words of ["Added to Alpha?", "Added to Alpha? No", "Added to Alpha"]) assert.ok(card.includes(words), `card says "${words}"`);
+  // The click toggles yes <-> blank and never opens the card.
+  assert.ok(app.includes('saveLeadAlpha(alphaToggle.dataset.leadAlpha, (alphaLead?.alphaAnswer || "") === "yes" ? "" : "yes")'), "click: blank/no -> yes, yes -> blank");
+  assert.ok(!app.includes('select[data-lead-alpha]"'), "no change handler for a card select remains");
+  // The worded question stays in the OPENED panels (office + trainer), as a select.
+  assert.ok(app.includes('data-lead-alpha-check="${lead.id}"'), "the office detail panel keeps the three-state control");
   const detail = app.slice(app.indexOf('class="lead-alpha-check"'), app.indexOf('data-lead-lost-reason'));
-  assert.ok(detail.includes("Pick Yes or No") && detail.includes("No, not yet"), "the detail control is the same worded select");
+  for (const words of ["Have you logged this lead in Alpha?", "Pick Yes or No", "Yes, it is logged in Alpha", "No, not yet"]) {
+    assert.ok(detail.includes(words), `office panel select says "${words}"`);
+  }
   assert.ok(!detail.includes('type="checkbox"'), "the old collapse-blank-into-No checkbox is gone");
+  const trainer = app.slice(app.indexOf('class="trainer-alpha-question"'), app.indexOf("data-trainer-lost-reason"));
+  assert.ok(trainer.includes("Pick Yes or No") && trainer.includes("No, not yet"), "the trainer panel keeps the same worded select");
+  // The red-button styling covers both panel questions.
+  const css = read("trainer-backoffice/styles.css");
+  assert.ok(/\.lead-detail-panel \.lead-alpha-check,\n\.trainer-lead-update \.trainer-alpha-question \{/.test(css), "both panel questions share the red styling block");
   const save = app.slice(app.indexOf("function saveLeadAlpha"), app.indexOf("async function persistLeadWorkflow"));
-  assert.ok(save.includes('answer === "yes" ? true : answer === "no" ? false : null'), "the office save writes true/false/null like the trainer door");
+  assert.ok(save.includes('answer === "yes" ? true : answer === "no" ? false : null'), "the office save still writes true/false/null (tri-state data unchanged)");
 });
 
 // ---------------------------------------------------------------------------

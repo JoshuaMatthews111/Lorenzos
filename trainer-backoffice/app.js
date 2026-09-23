@@ -9020,7 +9020,7 @@ function badgeLegend() {
     [`<span class="lead-tag-needs-call">Needs a call</span>`, "No trainer calendar"],
     [`<span class="lead-tag-service-dog">★ Service dog</span>`, "Service-dog request"],
     [`<span class="lead-card-eval badge-legend-eval"><span>Eval</span> <strong>date + time</strong></span>`, "Booked evaluation"],
-    [`<span class="lead-alpha-toggle">Logged in Alpha?</span>`, "Answer on the card"],
+    [`<span class="lead-alpha-toggle">Added to Alpha?</span>`, "Click once logged"],
     [`<strong class="lead-card-market">Market</strong>`, "Lead's market"]
   ];
   return `<details class="badge-legend"><summary>What the badges mean</summary><div class="badge-legend-items" role="list">${items.map(([mark, words]) => `<span class="badge-legend-item" role="listitem">${mark} ${escapeHtml(words)}</span>`).join("")}</div></details>`;
@@ -11786,17 +11786,17 @@ function leadCardEvalLine(lead) {
   return lead.status === "Evaluation Scheduled" ? `<p class="lead-card-eval is-missing">Eval date + time not set. Open the lead to add it.</p>` : "";
 }
 
-// Meeting 2026-09-11: "Added to Alpha?" set from the card.
-// Joshua 2026-09-23: same three-state question as the trainer portal — blank until answered.
+// Meeting 2026-09-11 + go-live hotfix 2026-09-23 (Joshua): the CARD control is the compact red
+// toggle button again. The worded three-state dropdown lives ONLY in the opened lead panel —
+// a select on every card overflowed the boards. Blank until answered (tri-state data unchanged):
+// yes = red check "Added to Alpha"; blank = "Added to Alpha?"; an explicit no = "Added to Alpha? No".
+// Click: blank or no -> yes; yes -> back to blank. The click never opens the card (rule 70).
 function leadAlphaToggle(lead) {
   const answer = lead.alphaAnswer || "";
-  return `<label class="lead-alpha-toggle${answer === "yes" ? " is-yes" : ""}">Have you logged this lead in Alpha?
-    <select class="select-pill" data-lead-alpha="${escapeHtml(lead.id)}">
-      <option value=""${answer === "" ? " selected" : ""}>Pick Yes or No</option>
-      <option value="yes"${answer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option>
-      <option value="no"${answer === "no" ? " selected" : ""}>No, not yet</option>
-    </select>
-  </label>`;
+  const yes = answer === "yes";
+  const words = yes ? `<span class="alpha-check" aria-hidden="true">\u2713</span>Added to Alpha` : answer === "no" ? "Added to Alpha? No" : "Added to Alpha?";
+  const title = yes ? "Logged in Alpha. Click to clear the answer." : "Not answered yet. Click once this lead is logged in Alpha.";
+  return `<button type="button" class="lead-alpha-toggle${yes ? " is-yes" : ""}" data-lead-alpha="${escapeHtml(lead.id)}" aria-pressed="${yes ? "true" : "false"}" title="${title}">${words}</button>`;
 }
 
 function datetimeLocalValue(value, timeZone) {
@@ -14128,11 +14128,14 @@ document.addEventListener("click", async event => {
   const dealCustomRemove = event.target.closest("[data-deal-custom-remove]");
   if (dealCustomRemove) { const f = dealForm(); const i = Number(dealCustomRemove.dataset.dealCustomRemove); state.dealForm = { ...f, custom_dates: f.custom_dates.filter((_, k) => k !== i) }; render(); return; }
   // lead cards (2026-09-12): the Alpha button sits inside a card that opens on click.
-  const alphaToggle = event.target.closest("[data-lead-alpha], .lead-alpha-toggle");
+  const alphaToggle = event.target.closest("button[data-lead-alpha]");
   if (alphaToggle) {
-    // Joshua 2026-09-23: the card's Alpha question is now a select. A click on it must not
-    // open the card; the actual save happens on the select's change event below.
+    // Go-live hotfix 2026-09-23: the card button toggles yes <-> blank (an explicit no also
+    // goes to yes on click); the click never opens the card. The worded three-state select
+    // stays in the opened lead panel only.
     event.stopPropagation();
+    const alphaLead = allLeadRows().find(item => item.id === alphaToggle.dataset.leadAlpha);
+    saveLeadAlpha(alphaToggle.dataset.leadAlpha, (alphaLead?.alphaAnswer || "") === "yes" ? "" : "yes");
     return;
   }
   const openLead = event.target.closest("[data-open-lead]");
@@ -16069,11 +16072,6 @@ document.addEventListener("change", async event => {
     const detail = `${lead.owner || "Lead"} eval date + time set to ${leadEvalLabel(iso, zone) || "not set"}.`;
     if (remoteReady) runRemoteMutation("Eval date + time saved", () => persistLeadFields(lead, { eval_scheduled_at: iso || null }, detail), { type: "Lead", detail });
     else saveState("Eval date + time saved");
-    return;
-  }
-  const alphaCard = event.target.closest("select[data-lead-alpha]");
-  if (alphaCard) {
-    saveLeadAlpha(alphaCard.dataset.leadAlpha, alphaCard.value);
     return;
   }
   const alphaCheck = event.target.closest("[data-lead-alpha-check]");
