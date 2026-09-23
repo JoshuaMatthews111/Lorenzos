@@ -221,7 +221,10 @@ test("new inquiry: the routed trainer is texted through pathway 2 (trainer branc
     assert.equal(post.customer_phone, "");
     assert.equal(post.zip, "44118");
     assert.match(post.trainer_message, /New Track 500 inquiry/);
-    assert.match(post.trainer_message, /Pat Client, ZIP 44118/);
+    // Joshua 2026-09-23: the trainer's new-inquiry text carries the CLIENT'S PHONE NUMBER, not the ZIP,
+    // so the trainer can call straight from the message.
+    assert.match(post.trainer_message, /Pat Client\n\(440\) 555-0199/);
+    assert.ok(!/ZIP/.test(post.trainer_message), "no ZIP in the trainer's new-inquiry text");
     assert.match(post.trainer_message, /\/staff\?view=leads&lead=/);
     assert.equal(post.customer_message, "");
     assert.equal(post.practice, false);
@@ -249,7 +252,7 @@ test("new inquiry: the routed trainer is texted through pathway 2 (trainer branc
   assert.match(src, /trainer_new_inquiry_text: inquiry/, "recorded on the pipeline record");
   const T = require("../lib/pipeline-texts.js");
   const t = T.TEXTS.find(x => x.key === "trainer_new_inquiry");
-  assert.deepEqual({ stage: t.stage, role: t.role, status: t.status, fields: t.fields }, { stage: "new_lead", role: "trainer", status: "in_use", fields: ["first_name", "last_name", "zip", "problem", "trainer_portal_link"] });
+  assert.deepEqual({ stage: t.stage, role: t.role, status: t.status, fields: t.fields }, { stage: "new_lead", role: "trainer", status: "in_use", fields: ["first_name", "last_name", "phone", "problem", "trainer_portal_link"] }); // Joshua 2026-09-23: phone, not ZIP
 });
 
 test("live: pathway 1 plan uses the lead's phone with no tester check; settings carry operations_phone; the portal box exists", () => {
