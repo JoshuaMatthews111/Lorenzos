@@ -18,8 +18,15 @@ function staticSitemap() {
 async function publishedRows() {
   const target = supabaseRequest("/rest/v1/ad_pages?select=slug,page_type,published_at,published_content&status=eq.published&limit=500");
   const response = await deps.fetch(`${SUPABASE_URL}${target.path}`, { headers: { apikey: SERVICE_ROLE_KEY, Authorization: `Bearer ${SERVICE_ROLE_KEY}`, ...target.headers } });
-  if (!response.ok) return [];
+  if (!response.ok) {
+    // Never a secret: status + first bytes of the error body only.
+    console.error("sitemap_rows_failed", response.status, String(await response.text().catch(() => "")).slice(0, 160));
+    return [];
+  }
   const rows = await response.json().catch(() => []);
+  // 2026-09-23: "no /ads/ pages in the sitemap" is NOT a bug - every ad 2.0 page carries
+  // seo.noindex=true (set by the office), and a noindex page must stay out of the sitemap.
+  // Flip noindex off in Page Studio and the page appears here on the next request.
   return (Array.isArray(rows) ? rows : []).filter(r => /^[a-z0-9-]{2,80}$/.test(String(r.slug || "")) && !(r.published_content?.seo?.noindex === true));
 }
 
