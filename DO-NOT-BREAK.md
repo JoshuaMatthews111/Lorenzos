@@ -1821,3 +1821,41 @@ COLLECTED; service-dog gold tag YES; milestones later.
       answer 286. Rule 98 never creates that shape. `tests/lead-integrity-2026-09-23.test.mjs` pins the
       gap so nobody closes it by accident — closing it would move a live number.
     Tests: `tests/lead-integrity-2026-09-23.test.mjs` (21). Full suite 417, audit 202.
+
+## GO-LIVE 2026-09-23 (branch feat/meeting-2026-09-12, stamp 20260923live9)
+
+99. **Production now runs the sandbox feature set.** Branch `feat/meeting-2026-09-12`, deployment
+    `dpl_4QC4MWjcTeS9jRTAAi5RLzGHNpCe` (`ldtt-site-9gok81slp`), stamp `20260923live9`. The header's
+    old branch names and every earlier "the live branch is X" note are out of date. Rollback to the
+    pre-push site: `npx vercel rollback dpl_BkjCcaixk6hDfNvokYKBBiQp8N8m --yes` (livefix4).
+    - **Booking + pipeline serve LIVE.** The blanket `if (!isSandbox()) return 404` gates are GONE from
+      `api/booking.js`, `api/booking-lead.js`, `api/booking-page.js` and `api/pipeline.js`; the office
+      Resend emails send on live too. Everywhere rules 71-74 say "404 on live" for those four routes is
+      superseded. STILL 404 on live and must stay: `api/sandbox-trainer-login.js`, `api/lead-journey.js`,
+      `api/send-to-live.js`, `api/practice-reset.js`, and `api/lead-forms.js` (unless LDTT_LEAD_FORMS_LIVE=1).
+    - **public got the live twins**: leads status CHECK with the two canceled_* values; `added_to_alpha`
+      nullable/no-default (blank = not answered; every stored false became NULL on 2026-09-23);
+      `public.booking_holds` (no one-per-slot index); `site_settings` rows `booking_trainers`,
+      `pipeline_texts` (behind its own restrictive `pipeline_texts_server_only` policy, rule 84 pattern)
+      and `pipeline_office_emails`.
+    - **No-text-night holds, still ON until Joshua says otherwise:** every Twilio route in Make scenarios
+      6237328 / 6237333 / 6254549 is tester-phones-only (text:equal, 3 phones); `operations_phone` in the
+      public settings row is EMPTY; `trainer_emails_hold` is TRUE (live trainer email twins skipped);
+      `lib/pipeline.js` `trainerPhoneFor` refuses the shared office line (866) 436-4959 on live, so a
+      trainer still on the placeholder number is skipped with a plain reason, never texted at the office
+      line. Trainer REAL phones were NOT copied to public.trainers (the ready SQL is in
+      `~/Desktop/LDTT Meeting Changes 2026-09-13/GO-LIVE-2026-09-23.md`).
+    - **auto_followups is OFF in the public settings row.** The cron endpoint answers 403 to outsiders.
+    - **Credentials never ride the address bar.** Both portal shells' login forms POST, and a first-in-head
+      scrubber strips password/username params with history.replaceState before any other script runs.
+      Never remove either half (stamp 20260923live7 incident: /staff?username=...&password=...).
+    - The Alpha question: cards wear the compact red toggle button; the worded three-state select lives
+      ONLY in the opened lead panel (office + trainer). Never put a select back on the cards (live6 incident).
+    - **Clients get TRANSACTIONAL email twins (owner decision, Joshua + Lorenzo, 2026-09-23).** Every
+      client text (booking link, office-will-call, follow-ups, booking confirmation - and the re-engage
+      invite if the office ever sends it) also goes to the LEAD'S OWN email with the same words, via
+      Resend only (`lib/pipeline.js` `clientTwinEmail`), regardless of SMS consent, one idempotency key
+      per lead + kind (+ step / hold), always carrying the opt-out line. On the practice copy every
+      client email is redirected to Settings -> practice_email_to. STILL BANNED, forever: any signup /
+      activation / verification email on a submit door (the lead-integrity test pins it).
+    - The practice copy is `20260923sb42` (same code, stamp only) on the same alias flow (rule 50).

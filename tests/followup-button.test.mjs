@@ -76,14 +76,17 @@ test("office button: not a tester phone, no consent, or a live copy = skipped, n
   assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 0, "no Make post");
 
   const live = load(false);
-  const before = calls.length;
   // 2026-09-17: live texts the lead's own phone, but only once the pathway 1 hook exists on Production.
+  // GO-LIVE 2026-09-23 (owner decision): the CLIENT EMAIL twin now reads the texts row + settings even
+  // when the text cannot go, so a few rest reads are expected - but still no Make post and no Resend
+  // send (no key in this test world).
   delete process.env.LDTT_MAKE_HOOK_PATHWAY1;
   const off = await live.sendFollowUpText({ lead, step: "tim" });
   process.env.LDTT_MAKE_HOOK_PATHWAY1 = "https://hook.us2.make.com/abc123followup";
   assert.equal(off.status, "skipped");
   assert.match(off.reason, /pathway 1 address is not set/);
-  assert.equal(calls.length, before, "with no live hook nothing is fetched at all (no tester list on live)");
+  assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 0, "no Make post without the live hook");
+  assert.equal(calls.filter(c => /resend\.com/.test(c.host)).length, 0, "no Resend send without the key");
 });
 
 test("the office lead panel draws the buttons, gated to office admins on the practice copy; trainer screens never do", () => {

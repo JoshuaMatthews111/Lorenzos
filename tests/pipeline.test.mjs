@@ -123,7 +123,11 @@ function formLead(db, over = {}) {
   return lead;
 }
 const hookCalls = (calls, n) => calls.filter(c => c.host === "hook.us2.make.com" && c.path === (n === 1 ? "/testhookone" : "/testhooktwo"));
-const noEmail = calls => assert.equal(calls.filter(c => /resend\.com|formsubmit\.co/.test(c.host) || /form-delivery/.test(c.url)).length, 0, "this step never sends email");
+// 2026-09-23 owner decision (Joshua + Lorenzo): clients now get TRANSACTIONAL email twins of their
+// texts, via Resend, when the key exists. These tests run WITHOUT a Resend key, so the assertion still
+// holds - and it still proves the hard part of the rule: FormSubmit / form-delivery are NEVER touched
+// by the pipeline, and no signup/activation email exists anywhere.
+const noEmail = calls => assert.equal(calls.filter(c => /resend\.com|formsubmit\.co/.test(c.host) || /form-delivery/.test(c.url)).length, 0, "no email leaves without the Resend key, and FormSubmit is never touched");
 
 test("GO-LIVE 2026-09-23: /api/pipeline serves LIVE too - the 404 gate is gone; auth still guards the office ops", async () => {
   const { readFileSync } = await import("node:fs");

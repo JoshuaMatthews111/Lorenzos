@@ -68,3 +68,44 @@ test("go-live: the LIVE booking page never wears the PRACTICE COPY bar (rule 96)
   assert.equal(res.statusCode, 200);
   assert.ok(!String(res.body).includes("PRACTICE COPY"), "no practice bar on live");
 });
+
+// POLICY REVERSAL 2026-09-23 (Joshua + Lorenzo, owner decision): clients now get TRANSACTIONAL email
+// twins of their texts. There is still no signup / activation / verification email, ever, on any
+// submit door (tests/lead-integrity-2026-09-23.test.mjs keeps pinning that).
+test("client email twins: live sends to the lead's own address; the practice copy redirects to the practice inbox", async () => {
+  process.env.RESEND_API_KEY = "re_test_key";
+  const sent = [];
+  global.fetch = async (url, options = {}) => {
+    const u = String(url);
+    if (u.includes("api.resend.com")) {
+      sent.push({ body: JSON.parse(options.body), key: options.headers?.["Idempotency-Key"] });
+      return { ok: true, status: 200, json: async () => ({ id: "em_1" }), text: async () => '{"id":"em_1"}', headers: new Headers() };
+    }
+    return { ok: true, status: 200, json: async () => [], text: async () => "[]", headers: new Headers() };
+  };
+  delete require.cache[require.resolve("../lib/pipeline.js")];
+  delete process.env.LDTT_SANDBOX;
+  const L = require("../lib/pipeline.js");
+  const lead = { id: "00000000-0000-4000-8000-0000000000cc", email: "client@example.test", first_name: "Sam", raw_payload: {} };
+  const r = await L.clientTwinEmail("booking_link", { lead, settings: {}, words: "Hi Sam, book here.", link: "https://www.lorenzosdogtrainingteam.com/book/x", idempotencyKey: "" });
+  assert.equal(r.status, "sent", JSON.stringify(r));
+  assert.equal(sent[0].body.to[0], "client@example.test", "live: the lead's OWN address");
+  assert.equal(sent[0].key, "client:00000000-0000-4000-8000-0000000000cc:booking_link", "one idempotency key per lead + kind");
+  assert.equal(sent[0].body.subject, "Book your free dog training evaluation");
+  assert.ok(sent[0].body.text.includes("Reply to this email with STOP"), "every client email carries the opt-out");
+  assert.ok(sent[0].body.html.includes("Lorenzo's Dog Training Team"), "the team signature");
+  assert.ok(!/\bTim\b/.test(sent[0].body.text + sent[0].body.html + sent[0].body.subject));
+  const noEmail = await L.clientTwinEmail("booking_link", { lead: { ...lead, email: "" }, settings: {}, words: "Hi." });
+  assert.equal(noEmail.status, "skipped", "no address = no email, plain reason");
+  // Practice copy: redirected to practice_email_to only.
+  process.env.LDTT_SANDBOX = "1";
+  delete require.cache[require.resolve("../lib/pipeline.js")];
+  const LP = require("../lib/pipeline.js");
+  const p = await LP.clientTwinEmail("care_call", { lead, settings: { practice_email_to: "inbox@practice.test" }, words: "Hi Sam." });
+  assert.equal(p.status, "sent");
+  assert.equal(sent.at(-1).body.to[0], "inbox@practice.test", "practice: only the practice inbox, never the real client");
+  const pNone = await LP.clientTwinEmail("care_call", { lead, settings: { practice_email_to: "" }, words: "Hi Sam." });
+  assert.equal(pNone.status, "skipped", "no practice inbox saved = nothing sent anywhere");
+  delete process.env.LDTT_SANDBOX;
+  delete require.cache[require.resolve("../lib/pipeline.js")];
+});

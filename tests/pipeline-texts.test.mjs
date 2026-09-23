@@ -148,8 +148,12 @@ test("reengage_invite (Joshua 2026-09-23): a client TEMPLATE only — exact word
   assert.equal(X.check("reengage_invite", t.words).value, t.words, "the default words pass the editor's own checks");
   assert.equal(X.render(X.wordsFor(null, "reengage_invite"), { first_name: "Sam", dog_name: "Max", booking_link: "https://x/book" }),
     "Hi Sam, it's Lorenzo's Dog Training Team. We spoke about training for Max. We would love to help. Pick a free evaluation time here: https://x/book. Or call us at (216) 475-5999.");
-  // TEMPLATE ONLY: nothing sends it. Neither the pipeline's send code nor the follow-up scheduler names the key.
-  assert.ok(!read("lib/pipeline.js").includes("reengage_invite"), "lib/pipeline.js never sends it");
+  // TEMPLATE ONLY: nothing sends it. The ONLY mention in lib/pipeline.js is the client-email subject map
+  // (go-live 2026-09-23: ready if the office ever sends it by hand) - never a trigger or scheduler.
+  const pipelineSrc = read("lib/pipeline.js");
+  const mentions = pipelineSrc.split("reengage_invite").length - 1;
+  assert.equal(mentions, 1, "exactly one mention");
+  assert.match(pipelineSrc, /reengage_invite: "Ready when you are - book your free evaluation"/, "and it is the subject line, nothing else");
   assert.ok(!read("lib/reengage.js").includes("reengage_invite"), "the follow-up scheduler never reads it");
   assert.equal(R.SENDING_ENABLED, false, "the scheduler itself is still off");
 });

@@ -265,13 +265,18 @@ test("practice copy: every trainer email goes to practice_email_to only; the rea
   const d = await P.sendEvalCompletedTexts({ lead });
   for (const r of [a, b, c, d]) assert.equal(r.email.status, "sent", JSON.stringify(r.email));
   const mails = twinEmails(calls);
-  assert.equal(mails.length, 4);
+  // GO-LIVE 2026-09-23 (owner decision): the booking also sends the CLIENT confirmation email; on the
+  // practice copy it is redirected to the same practice inbox, so the count is 5 and the set is still one.
+  assert.equal(mails.length, 5);
   assert.deepEqual([...new Set(allRecipients(calls))], [PRACTICE_TO]);
   assert.ok(!REAL.some(email => JSON.stringify(calls).includes(email)), "no real address leaves the fake DB on the practice copy");
-  assert.deepEqual(mails.map(m => m.key), [`${LEAD_ID}:trainer_new_inquiry`, `${LEAD_ID}:trainer_new_eval:hold-1`, `${LEAD_ID}:pre_eval_answers`, `${LEAD_ID}:trainer_log_deal`]);
+  assert.deepEqual(mails.map(m => m.key).sort(), [`${LEAD_ID}:trainer_new_inquiry`, `${LEAD_ID}:trainer_new_eval:hold-1`, `${LEAD_ID}:pre_eval_answers`, `${LEAD_ID}:trainer_log_deal`, `client:${LEAD_ID}:booking_confirmation:hold-1`].sort());
   const trainerPost = hookPosts(calls, "twinhooktwo")[1];
   assert.ok(mails[1].text.includes(trainerPost.trainer_message), "the booking email twin carries the trainer_new_eval words");
-  assert.ok(mails.every(m => /^\[PRACTICE COPY\] Track 500 · /.test(m.subject)));
+  assert.ok(mails.filter(m => !m.key.startsWith("client:")).every(m => /^\[PRACTICE COPY\] Track 500 · /.test(m.subject)));
+  const clientMail = mails.find(m => m.key.startsWith("client:"));
+  assert.match(clientMail.subject, /^\[PRACTICE COPY\] You're confirmed: /, "the client subject is the booked time, marked on the practice copy");
+  assert.ok(clientMail.text.includes("Reply to this email with STOP"), "every client email carries the opt-out line");
   // No practice address saved: skipped, nothing sent.
   const w = fakeWorld({ practice_email_to: "" });
   const P2 = load(true);
