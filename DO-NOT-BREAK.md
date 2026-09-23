@@ -1731,3 +1731,49 @@ COLLECTED; service-dog gold tag YES; milestones later.
     ON, practice emails land there with no marker at all. If the office ever needs to tell a rehearsal
     email from a real one again, turn `practice_real_numbers` OFF or point `practice_email_to` at a
     separate test address.
+
+## Trainer landing page leads: on the Leads screen, and on into booking (added 2026-09-22; practice copy only)
+
+97. **No lead form stamps `qa` on the practice copy, and a trainer landing page carries on into the booking
+    flow the way the ad pages 2.0 do.**
+    Joshua 2026-09-22 (voice note): "Trainer landing page leads are missing from the office Leads screen" and
+    "trainer landing page leads must follow the same flow as the ad pages 2.0."
+    - **The cause of the missing leads.** The practice copy is a preview alias on `*.vercel.app` (rule 50), and
+      every browser lead form read a `*.vercel.app` host as a RELEASE-QA host (`isReleaseQaHost`) and stamped
+      `raw_payload.qa = true`. Rule 1 holds `qa` rows out of every count, so those real practice leads never
+      reached the office Leads screen — while the trainer portal (`trainerLeads()` reads `state.leads` with no
+      hold-out) and the server-driven Sales panels still showed them. Proof in the practice data: the two
+      trainer-page leads `2565397d-…47e6b5` and `59f927b7-…95e1f538` carry `qa: "true"`; the ad-2.0 lead
+      `9d871aca-…d9f2` (made server-side by `/api/booking-lead`, which never stamps `qa`) carries none, which
+      is exactly why only the 2.0 lead showed. 21 rows in `practice.leads` carry `qa = true`; 14 of them were
+      stamped by the practice host (submission ids `practice-*` and the 2026-09-12 / 2026-09-23 `qa-release-*`
+      rows that entered the pipeline), and only the 6 from 2026-08-06 are genuine release-QA rows (rule 1).
+    - **The fix is at the stamp, never at the hold-out.** `metrics.js` `isQaLead` and `allLeadRows()` are
+      unchanged — a genuine `qa` row is still held out of every count, chart and export (rule 1). Instead:
+      `trainer-backoffice/app.js` `isReleaseQaHost()` answers false when `window.LDTT_IS_SANDBOX === true`;
+      `script.js`'s practice Contact Us capture uses `isReleaseQaHost && !onPracticeCopy()`; `ad-funnel.js` and
+      `market-landing.js` build their LEAD payload with `isQaLeadSubmission()`. The site-event (`track-site-event`)
+      stamps are deliberately left alone. **Live is byte-identical in behaviour**: its host is the domain, so
+      `isReleaseQaHost` was already false there, and the frozen live serialiser `wireAsyncForm` (rule 73) still
+      reads the plain flag.
+    - **Rows stamped before this fix stay held out.** Nothing back-fills them. The office sees them through
+      "Show test records" on the Leads screen; clearing `raw_payload.qa` on a practice row is a data decision
+      for Joshua, not something the code does.
+    - **Trainer page -> booking.** `trainerPageBookingUrl(entries, canonical, pipeline)` in `app.js`, called
+      from the `office-lead-form` handler INSIDE `if (window.LDTT_IS_SANDBOX === true)`, AFTER
+      `/api/pipeline {op:"enter"}` answered (so every text and email has already gone out). It uses the link the
+      pipeline already returns — `/book/<that trainer>?lead=<id>`, because a trainer-page lead stays with ITS
+      trainer (rule 72) — and never builds a `/book/<slug>` address of its own. `book_url` null (that trainer
+      takes no online bookings) falls back to the ZIP flow `/book?lead=&zip=`, so the office is not the only
+      path. It refuses outside the practice copy, without a saved lead, for the free-ebook skip, for a
+      non-booking lane and for an `ok:false` answer. Rule 74 still holds on the booking page itself: the slug in
+      the address is a hint and the client always picks.
+    - **Every existing delivery is untouched.** The practice branch never calls FormSubmit, `/api/form-delivery`,
+      `submitLandingEmail` or `recordClientFormDelivery`; the live branch below it (form-delivery, then the
+      browser FormSubmit retry to production@) is unchanged, and `tests/office-email.test.mjs`'s byte hashes
+      still pass.
+    - **Confirmed against the real practice rows** (read-only SQL): a trainer-page lead already gets the client
+      booking-link text (pathway 1), the trainer's **New inquiry** text (`sendNewInquiryText`, pathway
+      `new_inquiry`, kind `trainer_new_inquiry`) plus its email twin, Tim/Operations' new-lead text and email,
+      and the office Resend email. All four were `sent` on both rows. Only the browser redirect was missing.
+    Tests: `tests/trainer-page-leads-2026-09-22.test.mjs` (11). Full suite 396, audit 200.

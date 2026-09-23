@@ -16,6 +16,10 @@
   const search = new URLSearchParams(window.location.search);
   const isReleaseQaHost = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname) || /\.vercel\.app$/i.test(window.location.hostname);
   const startedAt = Date.now();
+  // Joshua 2026-09-22: the practice copy is a *.vercel.app preview (rule 50), so isReleaseQaHost answers true
+  // there and every ebook opt-in lead was stamped qa - held out of every count and off the office Leads screen
+  // (rule 1). A practice lead is a real practice lead (rules 5 + 46). Live is unchanged: its host never matched.
+  const isQaLeadSubmission = () => isReleaseQaHost && window.LDTT_IS_SANDBOX !== true;
   const isStandaloneAdPage = !document.body.classList.contains("market-landing");
   const visitorId = (() => {
     const key = "ldttAnonymousVisitorId";
@@ -119,12 +123,12 @@
 
   const buildLeadPayload = (form, source) => {
     const data = new FormData(form);
-    const submissionId = `${isReleaseQaHost ? "qa-release-" : "ebook-"}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const submissionId = `${isQaLeadSubmission() ? "qa-release-" : "ebook-"}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const marketCity = document.querySelector('[name="market_city"]')?.value || marketName.split(",")[0]?.trim() || "";
     const marketState = document.querySelector('[name="market_state"]')?.value || marketName.split(",")[1]?.trim() || "";
     return {
       submission_id: submissionId,
-      qa: isReleaseQaHost,
+      qa: isQaLeadSubmission(),
 	      first_name: String(data.get("first_name") || "").trim(),
 	      last_name: String(data.get("last_name") || "").trim() || "Ebook Lead",
 	      email: String(data.get("email") || "").trim(),

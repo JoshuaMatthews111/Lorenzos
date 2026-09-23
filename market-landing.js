@@ -35,6 +35,10 @@
     return value;
   })();
   const startedAt = Date.now();
+  // Joshua 2026-09-22: the practice copy is a *.vercel.app preview (rule 50), so isReleaseQaHost answers true
+  // there and every ebook opt-in lead was stamped qa - held out of every count and off the office Leads screen
+  // (rule 1). A practice lead is a real practice lead (rules 5 + 46). Live is unchanged: its host never matched.
+  const isQaLeadSubmission = () => isReleaseQaHost && window.LDTT_IS_SANDBOX !== true;
   const utm = new URLSearchParams(window.location.search);
   const trackMarketEvent = async (eventType, extra = {}) => {
     const payload = {
@@ -281,13 +285,13 @@
     if (guideForm.dataset.submitting === "true") return;
     if (!guideForm.reportValidity()) return;
     const formData = new FormData(guideForm);
-    const submissionId = `${isReleaseQaHost ? "qa-release-" : "ebook-"}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const submissionId = `${isQaLeadSubmission() ? "qa-release-" : "ebook-"}${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const firstName = String(formData.get("first_name") || "").trim();
     const lastName = String(formData.get("last_name") || "").trim();
     const additionalInterest = formData.getAll("additional_interest").map(value => String(value).trim()).filter(Boolean).join(", ");
 	    const payload = {
 	      submission_id: submissionId,
-	      qa: isReleaseQaHost,
+	      qa: isQaLeadSubmission(),
 	      first_name: firstName,
 	      last_name: lastName || "Ebook Lead",
 	      email: String(formData.get("email") || "").trim(),

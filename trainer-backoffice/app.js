@@ -13077,7 +13077,15 @@ function getVisitorId() {
   return visitorId;
 }
 
+// Joshua 2026-09-22: "trainer landing page leads are missing from the office Leads screen."
+// The practice copy IS a *.vercel.app preview (rule 50), so this release-QA host test answered true there and
+// every trainer-landing-page lead was stamped raw_payload.qa = true. Rule 1 holds qa rows out of every count,
+// so those real practice leads vanished from the office Leads screen while the trainer portal (trainerLeads()
+// reads state.leads with no hold-out) and the server-driven Sales panels still showed them.
+// The practice copy is the office's practice environment, not a release-QA run: its leads are real practice
+// leads (rules 5 + 46). Live is untouched — its host is the domain, so this was already false there.
 function isReleaseQaHost() {
+  if (window.LDTT_IS_SANDBOX === true) return false;
   return /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname) || /\.vercel\.app$/i.test(window.location.hostname);
 }
 
@@ -13103,6 +13111,37 @@ function trainerAttribution(trainer, eventType) {
     user_agent: navigator.userAgent,
     timestamp: new Date().toISOString()
   };
+}
+
+// ---------------------------------------------------------------------------
+// Trainer landing page -> the booking flow (PRACTICE COPY ONLY)
+//
+// Joshua 2026-09-22 (voice note): "Trainer landing page leads must follow the same flow as the ad pages 2.0."
+// The 2.0 pages (assets/v2/v2.js) post the form, read `book_url` off the answer and send the browser there.
+// A trainer page is the same journey with ONE difference: the trainer is FIXED, so there is no trainer to
+// pick. The pipeline already answers that exact link for a trainer-page lead - /book/<that trainer>?lead=<id>
+// (lib/pipeline.js: a trainer-page lead stays with ITS trainer and is never handed to another one by ZIP) -
+// so this uses the link the pipeline returns and never builds a trainer link of its own.
+//
+// When that trainer takes no online bookings the pipeline answers no link (book_url null). Then the client
+// falls back to the ZIP flow (/book?lead=&zip=), the same screen the Contact Us page uses, so the office is
+// not the only path from there.
+//
+// Live never reaches this: the caller is inside `window.LDTT_IS_SANDBOX === true`, and this refuses again on
+// top of that. It never touches FormSubmit, /api/form-delivery or the Google Sheet (rules 72 + 73).
+// ---------------------------------------------------------------------------
+function trainerPageBookingUrl(entries, canonical, pipeline) {
+  if (window.LDTT_IS_SANDBOX !== true) return "";
+  if (!canonical?.lead_id) return "";
+  if (pipeline?.ok === false) return "";
+  if (pipeline?.skipped) return ""; // the free-ebook opt-in is not a booking lead
+  const lane = pipeline?.lane?.key ?? pipeline?.lane;
+  if (lane && lane !== "booking") return ""; // the server's lane table wins when it disagrees
+  // The trainer is fixed: this is /book/<that trainer>?lead=<id>, no trainer picker.
+  if (pipeline?.book_url) return String(pipeline.book_url);
+  // That trainer has no booking calendar: the ZIP flow, prefilled, instead of a dead end at the office.
+  const zip = String(entries?.zip || "").replace(/\D/g, "").slice(0, 5);
+  return `/book?lead=${encodeURIComponent(canonical.lead_id)}${zip ? `&zip=${encodeURIComponent(zip)}` : ""}`;
 }
 
 function recordTrainerPageView(trainer) {
@@ -16527,9 +16566,20 @@ document.addEventListener("submit", async event => {
       if (window.LDTT_IS_SANDBOX === true) {
         // Rule 72: practice copy only -> the one pipeline (/api/form-delivery answers 423 there). Live never
         // comes here, so the office's current new-lead email path below is unchanged.
+        let pipeline = null;
         if (canonical.lead_id) {
-          await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "enter", lead_id: canonical.lead_id, via: "trainer-page" }) })
-            .catch(error => console.warn("LDTT practice pipeline could not start", error));
+          pipeline = await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "enter", lead_id: canonical.lead_id, via: "trainer-page" }) })
+            .then(response => response.json().catch(() => null))
+            .catch(error => { console.warn("LDTT practice pipeline could not start", error); return null; });
+        }
+        // Joshua 2026-09-22: a trainer landing page follows the same flow as the ad pages 2.0 - form -> lead ->
+        // client text with the booking link -> trainer text -> Tim's text/email -> office email -> straight into
+        // the booking flow. The pipeline has already sent all of those by the time it answers here.
+        const bookingUrl = trainerPageBookingUrl(entries, canonical, pipeline);
+        if (bookingUrl) {
+          setLandingStatus("Saved. Taking you to pick your evaluation time…", "success");
+          window.location.assign(bookingUrl);
+          return;
         }
         event.target.reset();
         setLandingStatus("Thank you. Your consultation request was submitted. Lorenzo's office has the details and will follow up with the next step.");

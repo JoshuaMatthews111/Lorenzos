@@ -680,6 +680,9 @@ const enterPracticePipeline=async(canonical,entries)=>{
   }
 };
 const practiceEsc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[ch]);
+// The practice copy answers /api/environment with sandbox:true (rule 50: it is a preview alias on *.vercel.app).
+// Read at call time, never at load time: window.LDTT_IS_SANDBOX is set when publicEnvironment resolves.
+const onPracticeCopy=()=>window.LDTT_IS_SANDBOX===true;
 // Meeting 2026-09-16 (Lorenzo, Missy, Rachel): on the PRACTICE COPY a Contact Us submit whose "I want to..."
 // answer is a booking lane does not stop at "the office will contact you" - it goes straight into the same
 // booking flow the 2.0 ad pages use (/book?lead=&zip=: ZIP -> trainer within 50 miles -> time -> questions).
@@ -715,7 +718,11 @@ const practiceContactEntries=form=>{
   const phoneNoticeText=String(form.querySelector('.form-disclaimer')?.textContent||'').replace(/\s+/g,' ').trim();
   if(smsText) data.set('sms_consent_text',smsText);
   if(phoneNoticeText) data.set('phone_required_notice_text',phoneNoticeText);
-  if(isReleaseQaHost) data.set('qa','true');
+  // Joshua 2026-09-22: this block only ever runs on the practice copy, whose address ends in .vercel.app, so
+  // isReleaseQaHost was true here and every practice Contact Us lead was stamped qa - held out of every count
+  // and off the office Leads screen (rule 1). A practice lead is a real practice lead (rules 5 + 46), not a
+  // release-QA row. Live never reaches this helper (the capture listener exists only when env.sandbox).
+  if(isReleaseQaHost&&!onPracticeCopy()) data.set('qa','true');
   if(!data.get('source_page')) data.set('source_page',document.title);
   ['utm_source','utm_medium','utm_campaign','utm_term','utm_content','gclid','gbraid','wbraid'].forEach(key=>{
     const value=params.get(key);
