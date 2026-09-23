@@ -113,7 +113,10 @@ test("every Make send carries the portal's finished words; the test text goes on
   const src = read("lib/pipeline.js");
   assert.match(src, /async function postHook\(url, rawPayload\) \{\n  const payload = await withTextMessages\(rawPayload\);/);
   assert.match(src, /if \(payload\.pathway === "new_lead"\) return \{ \.\.\.payload, message: T\.render\(words\("booking_link"\), payload\) \};/);
-  assert.match(src, /customer_message: T\.render\(words\("booking_confirmation"\), \{ \.\.\.payload, dog_name: payload\.dog_name \|\| "your dog" \}\), trainer_message: T\.render\(words\("trainer_new_eval"\), payload\)/);
+  assert.match(src, /customer_message: T\.render\(words\("booking_confirmation"\), payload\), trainer_message: T\.render\(words\("trainer_new_eval"\), payload\)/);
+  // QA 2026-09-23: the dog-name fallback is applied ONCE for every text, client- and trainer-facing,
+  // because every live lead so far has an empty dog_name. Nobody reads "Dog:" with nothing after it.
+  assert.match(src, /payload = \{ \.\.\.payload, dog_name: payload\.dog_name \|\| "your dog" \};/);
   assert.match(src, /catch \{ state = null; \}/, "an unreadable editor never fails a send (starting words are used)");
   assert.match(src, /const words = key => \{ const saved = T\.wordsFor\(state, key\); return T\.check\(key, saved\)\.error \? T\.wordsFor\(null, key\) : saved; \};/, "words that fail the checks are never sent");
   assert.match(read("supabase/migrations/20260914120000_practice_pipeline_texts_server_only.sql"), /as restrictive for all to authenticated, anon\n  using \(key <> 'pipeline_texts'\)\n  with check \(key <> 'pipeline_texts'\);/, "no browser login can read or write the texts row");
