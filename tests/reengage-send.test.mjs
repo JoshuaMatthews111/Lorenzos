@@ -68,7 +68,9 @@ function stubFetch(world, calls) {
       if (u.search.includes("id=eq.")) return res(200, one ? [one] : []);
       if (u.search.includes("status=eq.")) {
         const status = decodeURIComponent((u.search.match(/status=eq\.([^&]+)/) || [])[1] || "");
-        return res(200, world.leads.filter(l => l.status === status));
+        // created_at=gte.<iso> behaves like PostgREST: a lead with no created_at is treated as new.
+        const oldest = decodeURIComponent((u.search.match(/created_at=gte\.([^&]+)/) || [])[1] || "");
+        return res(200, world.leads.filter(l => l.status === status && (!oldest || !l.created_at || l.created_at >= oldest)));
       }
       return res(200, world.leads);
     }
@@ -161,7 +163,8 @@ test("disarm-after-run: the runner disarms BEFORE the first send, walks the colu
       makeLead(),
       makeLead({ id: "00000000-0000-4000-8000-000000000050", first_name: "Ada", email: "", sms_consent: false }), // no email, no consent -> skipped
       makeLead({ id: "00000000-0000-4000-8000-000000000051", raw_payload: { qa: true } }),                        // test row -> held out
-      makeLead({ id: "00000000-0000-4000-8000-000000000052", status: "office_contacted" })                        // other column -> not walked
+      makeLead({ id: "00000000-0000-4000-8000-000000000052", status: "office_contacted" }),                       // other column -> not walked
+      makeLead({ id: "00000000-0000-4000-8000-000000000053", created_at: "2026-06-01T00:00:00Z" })                // 100+ days old -> outside the 60-day window (Joshua 2026-09-23)
     ],
     settings: { key: "reengage_batch", value: { armed: true, column: "engaged_no_outcome", send_at: "2026-09-23T09:30:00-04:00" }, updated_at: "2026-09-23T09:00:00Z" },
     adPages: [{ slug: "pensacola", published_content: { zip: "32504" } }]
@@ -175,8 +178,10 @@ test("disarm-after-run: the runner disarms BEFORE the first send, walks the colu
   const disarmIndex = calls.findIndex(c => c.method === "PATCH" && c.path.startsWith("/rest/v1/site_settings") && c.body?.value?.armed === false);
   const firstHook = calls.findIndex(c => c.host === "hook.us2.make.com");
   assert.ok(disarmIndex > -1 && firstHook > -1 && disarmIndex < firstHook, "disarmed before the first send");
-  // walked only the chosen column, test row held out
-  assert.equal(out.walked, 3, "engaged_no_outcome holds 3 rows (incl. the qa row)");
+  // walked only the chosen column, test row held out, the 100-day-old lead outside the 60-day window
+  assert.equal(out.walked, 3, "engaged_no_outcome holds 3 recent rows (incl. the qa row); the old lead is excluded");
+  const leadsQuery = calls.find(c => c.path === "/rest/v1/leads" && c.query.includes("status=eq."));
+  assert.ok(/created_at=gte\./.test(leadsQuery.query), "the walk carries the 60-day window (Joshua 2026-09-23)");
   assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 1, "one text: Sam (consented tester)");
   assert.ok(out.skipped >= 1);
   // the ad 2.0 page within 50 miles is the link, ZIP prefilled
