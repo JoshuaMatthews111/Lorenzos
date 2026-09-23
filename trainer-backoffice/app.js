@@ -3850,6 +3850,7 @@ function mainWebsitePages() {
 function portalPreviewViews() {
   return [
     { id: "dashboard", label: "Trainer Dashboard" },
+    { id: "leadPipeline", label: "Lead Pipeline" },
     { id: "leads", label: "My Leads" },
     { id: "deals", label: "Clients" },
     { id: "myPage", label: "My Trainer Page" },
@@ -4996,6 +4997,9 @@ function trainerNav() {
   // Communications screen still opens from a New Inquiry card ("Log a call"), so logging contact keeps working.
   return [
     ["dashboard", "Dashboard", "dashboard"],
+    // Rachel 2026-09-23: the office board, the trainer's own leads, directly ABOVE My Leads. The old
+    // "My Pipeline" board inside My Leads stays for now — nothing was removed.
+    ["leadPipeline", "Lead Pipeline", "lead", badges.myLeads],
     ["leads", "My Leads", "lead", badges.myLeads],
     ["deals", "Clients", "trophy", badges.paymentsDue],
     ["myPage", "My Trainer Page", "monitor"],
@@ -5074,6 +5078,7 @@ function renderTopbar() {
     settings: ["Settings", "Portal access, database status, and account controls."]
   } : {
     dashboard: ["Dashboard", "Your numbers, your pipeline and your clients on one page. Scroll down to work."],
+    leadPipeline: ["Lead Pipeline", "The same board the office sees, showing only your leads."],
     leads: ["My Leads", "See office notes and outcomes for leads assigned to you."],
     deals: ["Clients", "Record each client you sold and how the balance is arranged. Your clients, your revenue, your Track 500 countdown."],
     myPage: ["My Trainer Page", "This page is controlled, published, and locked by Lorenzo's office."],
@@ -6627,6 +6632,11 @@ const trainerScreens = {
   myPage() {
     const trainer = trainerById(currentTrainerId());
     return `<div class="dashboard-grid">${panel("My Locked Trainer Landing Page", `<a class="btn btn-red" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">Open Full Page</a>`, lockedPageCard(trainer), "pad")}${panel("Locked Page Details", "", lockedPageDetails(trainer), "pad")}</div>${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}`;
+  },
+  // Rachel 2026-09-23: the office board with the trainer's own leads only. Same columns, same wording,
+  // same badges, same card, same legends as the office Leads screen — one renderer draws both.
+  leadPipeline() {
+    return panel("Lead Pipeline", "", `<p class="panel-copy">This is the same board the office works from. It shows only your leads, in the stage the office has them in right now.</p>${sourceLegend()}${badgeLegend()}${trainerLeadPipelineBoard()}`, "pad");
   },
   leads() {
     // The working board first (New Inquiry -> Lost), then every assigned lead with office notes.
@@ -9490,6 +9500,30 @@ function trainerPipelineBoard(leads) {
   return `<div class="sales-board trainer-board">${columns}</div>`;
 }
 
+// ---- The trainer's Lead Pipeline: the OFFICE board, their leads only (Rachel 2026-09-23) ------
+// Rule 7: the rows are `trainerLeads(currentTrainerId())` and nothing else, so another trainer's lead can
+// never be drawn here. Rule 34: the buckets come from METRICS.salesBuckets over METRICS.SALES_STAGES — the
+// same call the office board makes — so office and trainer read every lead the same way. No money tiles and
+// no deal cards: those are office figures and would be wrong for one trainer.
+// Do Not Contact and Archived leads are held out (rule 80: a trainer is never handed someone to call who is
+// on that list). They are not in any SALES_STAGES column; without this they would fall into the "captured"
+// fallback and appear under "Captured & Responded".
+const TRAINER_PIPELINE_HIDDEN_DB_STATUSES = ["do_not_contact", "archived"];
+
+function trainerLeadPipelineRows(leads = trainerLeads(currentTrainerId())) {
+  return leads
+    // Demo/offline rows carry only the UI status; metrics.js's own map gives them the db status the
+    // office board buckets on. A real row already has dbStatus and is passed through untouched.
+    .map(lead => (lead.dbStatus ? lead : { ...lead, dbStatus: METRICS.LEAD_STATUS_TO_DB[lead.status] || "" }))
+    .filter(lead => !TRAINER_PIPELINE_HIDDEN_DB_STATUSES.includes(lead.dbStatus));
+}
+
+function trainerLeadPipelineBoard(leads = trainerLeads(currentTrainerId())) {
+  const buckets = METRICS.salesBuckets(trainerLeadPipelineRows(leads), SALES_STAGES);
+  const columns = salesBoardColumnsHtml(buckets, { deals: [], moreSuffix: "more in My Leads" });
+  return `<div class="sales-board trainer-board trainer-lead-pipeline">${columns}</div>`;
+}
+
 function trainerCardEvalLine(lead) {
   if (lead.status !== "Evaluation Scheduled") return "";
   const label = leadEvalLabel(lead.evalScheduledAt, leadTimeZone(lead));
@@ -10103,25 +10137,19 @@ function salesPipelineView() {
   return `${tabsRow}${salesPipelineBoard()}`;
 }
 
-function salesPipelineBoard() {
-  const rows = salesPipelineRows();
-  const deals = METRICS.activeDeals(state.deals || []);
-  const buckets = METRICS.salesBuckets(rows, SALES_STAGES);
-  const totals = METRICS.salesTotals(rows, deals, SALES_STAGES);
-  const columnCounts = new Map(METRICS.salesColumnCounts(rows, deals, SALES_STAGES));
-  const { won: wonCount, decided, closeRate, booked, soldTotal, collectedTotal } = totals;
-  const winback = buckets.get("winback") || [];
-
-  const metrics = metricGrid([
-    ["lead", "In Pipeline", totals.inPipeline, "Bot-handled leads only", ""],
-    ["calendar", "Evaluations Booked", booked, "Past marketing, in sales", booked ? "up" : ""],
-    ["trophy", "Won", wonCount, `${fmtMoney(collectedTotal)} collected of ${fmtMoney(soldTotal)}`, wonCount ? "up" : ""],
-    ["report", "Close Rate", `${closeRate}%`, `${wonCount} won of ${decided} decided`, closeRate >= 50 ? "up" : "down"]
-  ]);
-
-  const columns = SALES_STAGES.map(([id, label, tone]) => {
+// ---- ONE board renderer, two callers (Rachel 2026-09-23, meeting 2026-09-12) -------------------
+// "Trainers need the SAME board the office sees." Before this, the trainer's board was drawn from
+// METRICS.TRAINER_PIPELINE_STAGES, which lumps new_inquiry + office_contacted + engaged_no_outcome into one
+// column LABELLED "New Inquiry" — so a lead the office had already engaged still read "New Inquiry" to the
+// trainer. This function is the office's board markup, lifted out unchanged, so the two can never drift again:
+//   - the office calls it with its Sales rows and its deals (deal cards in the Won column, office-only);
+//   - the trainer calls it with their OWN leads and no deals (rule 7), so no other trainer's lead and no
+//     money card can ever appear.
+// Columns, labels, tones, card markup and reading order are identical in both modes.
+function salesBoardColumnsHtml(buckets, { deals = [], columnCounts = null, moreSuffix = "more" } = {}) {
+  return SALES_STAGES.map(([id, label, tone]) => {
     const items = buckets.get(id) || [];
-    const dealCards = id !== "won" ? "" : METRICS.dealsWithoutLead(deals, items).slice(0, 25).map(d => {
+    const dealCards = id !== "won" || !deals.length ? "" : METRICS.dealsWithoutLead(deals, items).slice(0, 25).map(d => {
       const pays = paymentsForDeal(d.id);
       const nextDue = pays.find(p => p.status === "scheduled");
       return `<article class="sales-card deal-card" data-open-deal="${escapeHtml(d.id)}">
@@ -10139,12 +10167,31 @@ function salesPipelineBoard() {
         ${leadCardEvalLine(lead)}
         ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
       </article>`).join("");
-    const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more</p>` : "";
+    const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} ${moreSuffix}</p>` : "";
     return `<section class="sales-column ${tone}">
-      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${columnCounts.get(id) ?? items.length}</span></header>
+      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${columnCounts?.get(id) ?? items.length}</span></header>
       <div class="sales-column-body">${cards || `<p class="sales-empty">No leads in this stage yet.</p>`}${more}</div>
     </section>`;
   }).join("");
+}
+
+function salesPipelineBoard() {
+  const rows = salesPipelineRows();
+  const deals = METRICS.activeDeals(state.deals || []);
+  const buckets = METRICS.salesBuckets(rows, SALES_STAGES);
+  const totals = METRICS.salesTotals(rows, deals, SALES_STAGES);
+  const columnCounts = new Map(METRICS.salesColumnCounts(rows, deals, SALES_STAGES));
+  const { won: wonCount, decided, closeRate, booked, soldTotal, collectedTotal } = totals;
+  const winback = buckets.get("winback") || [];
+
+  const metrics = metricGrid([
+    ["lead", "In Pipeline", totals.inPipeline, "Bot-handled leads only", ""],
+    ["calendar", "Evaluations Booked", booked, "Past marketing, in sales", booked ? "up" : ""],
+    ["trophy", "Won", wonCount, `${fmtMoney(collectedTotal)} collected of ${fmtMoney(soldTotal)}`, wonCount ? "up" : ""],
+    ["report", "Close Rate", `${closeRate}%`, `${wonCount} won of ${decided} decided`, closeRate >= 50 ? "up" : "down"]
+  ]);
+
+  const columns = salesBoardColumnsHtml(buckets, { deals, columnCounts });
 
   const sourceRows = METRICS.salesSourceRows(rows, SALES_STAGES).map(([source, stat]) => {
     const rate = stat.rate;

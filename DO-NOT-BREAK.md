@@ -1926,3 +1926,35 @@ COLLECTED; service-dog gold tag YES; milestones later.
       and never reads `reengage_invite`. The only senders are the two doors above.
     - Pins: `tests/reengage-send.test.mjs` (idempotency, consent gating, kill switch, disarm-after-run,
       practice email redirect, hook-200-means-sent), `tests/pipeline-texts.test.mjs` (mention count).
+
+## Trainer Lead Pipeline: one board, two readers (added 2026-09-23, Rachel via Joshua)
+
+102. **The trainer's "Lead Pipeline" tab and the office Sales board are drawn by ONE function.**
+     Before this, the trainer's board came from `METRICS.TRAINER_PIPELINE_STAGES`, which lumps
+     `new_inquiry` + `office_contacted` + `engaged_no_outcome` into one column LABELLED "New Inquiry":
+     the office engaged a lead and the trainer's board still read "New Inquiry". The two boards read
+     the same lead differently. Fixed by extracting the office board's column/card markup into
+     `salesBoardColumnsHtml(buckets, { deals, columnCounts, moreSuffix })` in `trainer-backoffice/app.js`.
+     - The OFFICE (`salesPipelineBoard()`) calls it with its Sales rows, its deals and its column counts.
+       Its rendered HTML is byte-for-byte what it was before the extraction — never change that without
+       re-proving it.
+     - The TRAINER (`trainerScreens.leadPipeline()` → `trainerLeadPipelineBoard()`) calls the SAME function
+       with `METRICS.salesBuckets(trainerLeadPipelineRows(), SALES_STAGES)` and `deals: []`.
+       Never fork this into a second board; never give the trainer's board its own stage list.
+     - **Rule 7 is the whole point:** the rows are `trainerLeads(currentTrainerId())` and nothing else.
+       No office money tiles (In Pipeline / Evaluations Booked / Won / Close Rate), no deal cards, no status
+       dropdown, no office-note editing, no archive/delete, no assignment. A tapped card opens
+       `trainerLeadDetailPanel()` — the trainer's own read-only panel with their own actions (Eval completed,
+       Lost + reason, the Alpha question, hand-off through `api/trainer-lead-action.js`, rule 83).
+     - `do_not_contact` and `archived` are held out (rule 80: a trainer is never handed someone to call who
+       is on that list). They are in no `SALES_STAGES` column, so without the hold-out the `salesStageFor`
+       fallback would show them under "Captured & Responded".
+     - The tab sits directly ABOVE "My Leads" in `trainerNav()`, and the old "My Pipeline" board inside
+       My Leads STAYS — nothing was removed. The Page Editor's portal preview list matches the menu (rule 80).
+     - `sourceLegend()` / `badgeLegend()` are the office's own functions, so the key reads identically.
+     - Mobile: `.sales-board.trainer-lead-pipeline` stacks to one column under 720px. Every phone override is
+       scoped to that class so the office board is untouched.
+     Pins: `tests/trainer-lead-pipeline-2026-09-23.test.mjs` (8): nav order + badge from metrics.js, the seven
+     SALES_STAGES labels with no "New Inquiry" column, an engaged lead in "Captured & Responded" for office AND
+     trainer, strict scoping + the never-call hold-out, no tiles / no deal cards, one renderer, the legends,
+     the phone CSS scoped to the trainer board.
