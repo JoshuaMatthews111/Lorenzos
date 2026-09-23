@@ -187,7 +187,7 @@ test("disarm-after-run: the runner disarms BEFORE the first send, walks the colu
   // Joshua 2026-09-23: the LIVE ad page for that area (the Facebook ones), never the unfinished 2.0
   // page. The 2.0 row only names the nearest area; the link is the static page, ZIP prefilled.
   const hook = calls.find(c => c.host === "hook.us2.make.com");
-  assert.match(String(hook.body.booking_link), /\/dog-training-pensacola-fl\.html\?zip=32507$/);
+  assert.match(String(hook.body.booking_link), /\/dog-training-pensacola-fl\?zip=32507$/);
   assert.ok(!/\/ads\//.test(String(hook.body.booking_link)), "a 2.0 page is never sent to a client");
   // the summary landed in the key and it stays disarmed
   const final = world.settings.value;
