@@ -281,11 +281,10 @@ test("the 2.0 pages hand the visitor to the lead they just made, and nothing els
   assert.ok(!/localStorage[^\n]*lead/i.test(v2), "no remembered lead id on the 2.0 pages");
 });
 
-test("live is still 404 for every booking route, and the reuse guard makes no extra call", async () => {
+test("GO-LIVE 2026-09-23: the booking routes serve LIVE too; the reuse rule is the same on both schemas", async () => {
   const { leadApi, bookingApi, pageApi } = load(false);
-  const { calls } = fakeWorld();
-  assert.equal((await call(leadApi, { body: cleveland() })).statusCode, 404);
-  assert.equal((await call(bookingApi, { method: "GET", query: { zip: "44128" } })).statusCode, 404);
-  assert.equal((await call(pageApi, { method: "GET", query: { slug: "lorenzo-miller" } })).statusCode, 404);
-  assert.equal(calls.length, 0);
+  fakeWorld();
+  assert.equal((await call(leadApi, { body: cleveland() })).statusCode, 200, "a live lead can be created");
+  assert.equal((await call(bookingApi, { method: "GET", query: { zip: "44128" } })).statusCode, 200, "the live nearby list answers");
+  assert.equal((await call(pageApi, { method: "GET", query: { slug: "lorenzo-miller" } })).statusCode, 200, "the live booking page renders");
 });

@@ -122,15 +122,15 @@ test("ZIP routing and Google slot parsing", () => {
   assert.equal(daniel.time_zone, "America/Chicago");
 });
 
-test("every new route answers 404 on live and makes no call", async () => {
-  const { leadApi, bookingApi, pageApi } = load(false);
-  const { calls } = fakeWorld();
-  assert.equal((await call(leadApi, { body: intake() })).statusCode, 404);
-  assert.equal((await call(leadApi, { method: "OPTIONS", headers: { origin: "https://ldtt-ads-v2-sandbox.vercel.app" } })).statusCode, 404);
-  assert.equal((await call(bookingApi, { method: "GET", query: { trainer: "lorenzo-miller" } })).statusCode, 404);
-  assert.equal((await call(bookingApi, { body: evalBody() })).statusCode, 404);
-  assert.equal((await call(pageApi, { method: "GET", query: { slug: "lorenzo-miller" } })).statusCode, 404);
-  assert.equal(calls.length, 0);
+test("GO-LIVE 2026-09-23: the booking routes serve LIVE too - the 404 gate is gone and every table call keeps the schema switch", async () => {
+  const { readFileSync } = await import("node:fs");
+  for (const file of ["../api/booking.js", "../api/booking-lead.js", "../api/booking-page.js"]) {
+    const src = readFileSync(new URL(file, import.meta.url), "utf8");
+    assert.doesNotMatch(src, /if \(!isSandbox\(\)\) return res\.status\(404\)/, `${file} no longer answers 404 on live`);
+  }
+  const { pageApi } = load(false);
+  fakeWorld();
+  assert.equal((await call(pageApi, { method: "GET", query: { slug: "lorenzo-miller" } })).statusCode, 200, "the booking page renders on live");
 });
 
 test("booking-lead: CORS preflight allows the 2.0 pages only", async () => {

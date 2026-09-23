@@ -475,7 +475,8 @@ async function preEval(req, res, body) {
 }
 
 module.exports = async function handler(req, res) {
-  if (!isSandbox()) return res.status(404).json({ ok: false, message: "Not found." });
+  // GO-LIVE 2026-09-23 (Joshua): this route now serves LIVE too. Every table call still goes through the
+  // schema switch (rule 5), so the practice copy keeps writing practice.* while live writes public.*.
   B.applyCors(req, res, "GET, POST, OPTIONS");
   res.setHeader("Cache-Control", "no-store, max-age=0");
   if (req.method === "OPTIONS") return res.status(204).end();

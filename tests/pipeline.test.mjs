@@ -125,12 +125,15 @@ function formLead(db, over = {}) {
 const hookCalls = (calls, n) => calls.filter(c => c.host === "hook.us2.make.com" && c.path === (n === 1 ? "/testhookone" : "/testhooktwo"));
 const noEmail = calls => assert.equal(calls.filter(c => /resend\.com|formsubmit\.co/.test(c.host) || /form-delivery/.test(c.url)).length, 0, "this step never sends email");
 
-test("live: /api/pipeline answers 404 and makes no call", async () => {
+test("GO-LIVE 2026-09-23: /api/pipeline serves LIVE too - the 404 gate is gone; auth still guards the office ops", async () => {
+  const { readFileSync } = await import("node:fs");
+  const src = readFileSync(new URL("../api/pipeline.js", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /if \(!isSandbox\(\)\) return res\.status\(404\)/, "the live gate is gone");
   const { pipelineApi } = load(false);
-  const { calls } = fakeWorld();
-  assert.equal((await call(pipelineApi, { body: { op: "enter", lead_id: "aaaaaaaa-bbbb-4ccc-8ddd-000000000001" } })).statusCode, 404);
-  assert.equal((await call(pipelineApi, { method: "GET", query: { op: "settings" } })).statusCode, 404);
-  assert.equal(calls.length, 0);
+  fakeWorld();
+  const settings = await call(pipelineApi, { method: "GET", query: { op: "settings" } });
+  assert.notEqual(settings.statusCode, 404, "settings is served (behind the office login), not hidden");
+  assert.notEqual(settings.statusCode, 200, "but never without a login");
 });
 
 test("Contact Us lead with SMS consent: one booking-link text to the tester phone, never twice", async () => {

@@ -279,9 +279,9 @@ test("the page: ZIP first, questions before the calendar, then the congratulatio
   const withSlug = await call(pageApi, { method: "GET", query: { slug: "lorenzo-miller" } });
   assert.match(withSlug.sent, /var SLUG = "lorenzo-miller";/);
   const live = load(false);
-  assert.equal((await call(live.pageApi, { method: "GET", query: {} })).statusCode, 404);
-  assert.equal((await call(live.bookingApi, { method: "GET", query: { zip: "44105" } })).statusCode, 404);
-  assert.equal((await call(live.bookingApi, { body: formBody({ op: "request", trainer_slug: "eric-beck" }) })).statusCode, 404);
+  // GO-LIVE 2026-09-23: the booking page and the nearby list serve LIVE now.
+  assert.equal((await call(live.pageApi, { method: "GET", query: {} })).statusCode, 200);
+  assert.equal((await call(live.bookingApi, { method: "GET", query: { zip: "44105" } })).statusCode, 200);
   const vercel = JSON.parse(readFileSync(new URL("../vercel.json", import.meta.url), "utf8"));
   const i = vercel.rewrites.findIndex(r => r.source === "/book");
   assert.ok(i >= 0 && i < vercel.rewrites.findIndex(r => r.source === "/:slug"), "/book must win over the trainer catch-all");

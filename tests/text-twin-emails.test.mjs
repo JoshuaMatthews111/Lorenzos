@@ -288,7 +288,8 @@ test("no double sends: a second afterBooking on the same hold sends no second te
   const first = await P.afterBooking({ lead: db.leads[0], booking, trainer, setting: { slug: "lorenzo-miller", time_zone: "America/New_York" } });
   assert.equal(first.texts.status, "sent");
   const mails = twinEmails(calls);
-  assert.deepEqual(mails.map(m => m.key).sort(), [`${LEAD_ID}:ops_eval_booked:hold-1`, `${LEAD_ID}:trainer_new_eval:hold-1`].sort());
+  // GO-LIVE 2026-09-23: the office booking email sends on live too (once, its own idempotency key).
+  assert.deepEqual(mails.map(m => m.key).sort(), [`${LEAD_ID}:ops_eval_booked:hold-1`, `${LEAD_ID}:trainer_new_eval:hold-1`, `ldtt-booking-email-${LEAD_ID}-hold-1`].sort());
   const p = db.leads[0].raw_payload.pipeline;
   for (const rec of [p.ops_eval_booked_email, p.trainer_new_eval_email, p.booking_notices[0].ops_alert_email, p.booking_notices[0].trainer_email]) {
     assert.equal(rec.status, "sent");
@@ -298,7 +299,7 @@ test("no double sends: a second afterBooking on the same hold sends no second te
   assert.equal("email" in p.booking_notices[0].ops_alert, false);
   const again = await P.afterBooking({ lead: db.leads[0], booking, trainer, setting: null });
   assert.match(again.texts.reason, /Already handled/);
-  assert.equal(twinEmails(calls).length, 2, "never twice");
+  assert.equal(twinEmails(calls).length, 3, "never twice");
   assert.equal(hookPosts(calls, "twinhookops").length, 1);
 
   // afterPreEval / afterEvalCompleted record <kind>_email (their callers hold the first_submitted_at / version claims).

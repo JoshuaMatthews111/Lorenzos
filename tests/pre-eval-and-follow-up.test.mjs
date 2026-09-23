@@ -75,11 +75,10 @@ test("booking page: the questions step and thank-you exist, the spec is embedded
   assert.match(preEval, /Please book your free evaluation first\./);
 });
 
-test("booking API: the questions answer 404 on live like every booking route", async () => {
-  const handler = require("../api/booking.js");
-  const res = { statusCode: 0, headers: {}, setHeader() {}, status(code) { this.statusCode = code; return this; }, json(body) { this.body = body; return this; }, end() { return this; } };
-  await handler({ method: "POST", headers: {}, query: {}, body: { op: "pre_eval", lead_id: "00000000-0000-4000-8000-000000000000", answers: {} } }, res);
-  assert.equal(res.statusCode, 404);
+test("GO-LIVE 2026-09-23: the booking API serves live (no blanket 404 gate in the handler any more)", () => {
+  const { readFileSync } = require("node:fs");
+  const src = readFileSync(new URL("../api/booking.js", import.meta.url), "utf8");
+  assert.doesNotMatch(src, /if \(!isSandbox\(\)\) return res\.status\(404\)/);
 });
 
 const NOW = Date.parse("2026-09-14T16:00:00Z"); // noon Eastern

@@ -9,7 +9,8 @@ const B = require("../lib/booking");
 const LF = require("../lib/lead-forms");
 
 module.exports = async function handler(req, res) {
-  if (!isSandbox()) return res.status(404).send("Not found");
+  // GO-LIVE 2026-09-23 (Joshua): this route now serves LIVE too. Every table call still goes through the
+  // schema switch (rule 5), so the practice copy keeps writing practice.* while live writes public.*.
   const slug = String(req.query?.slug || "").trim().toLowerCase();
   if (slug && !/^[a-z0-9-]{2,80}$/.test(slug)) return res.status(404).send("Not found");
   const form = await LF.loadPublishedFields(B.sbOrThrow, "booking_eval");
