@@ -35,3 +35,24 @@ test("go-live: on LIVE the shared office line never counts as a trainer's phone 
   assert.equal(real.ok, true);
   assert.equal(real.phone, "+16198763022");
 });
+
+test("security 2026-09-23: no login via URL, the shells scrub credential params, and the staff form can never GET", () => {
+  const { readFileSync } = require("node:fs");
+  const read = f => readFileSync(new URL("../" + f, import.meta.url), "utf8");
+  for (const shell of ["staff.html", "trainer-backoffice/index.html"]) {
+    const html = read(shell);
+    assert.match(html, /<form id="loginForm" class="login-form" method="post"/, `${shell}: the login form posts - a broken script can never put the password in the address`);
+    assert.ok(html.includes('bad=["password","pass","pwd","passwd","username"]'), `${shell}: the URL scrubber is present`);
+    const scrubAt = html.indexOf("history.replaceState");
+    const firstOtherScript = html.indexOf("location.search", html.indexOf("</title>"));
+    assert.ok(scrubAt > 0 && (firstOtherScript === -1 || scrubAt < firstOtherScript), `${shell}: the scrubber runs before any other script reads the URL`);
+  }
+  const app = read("trainer-backoffice/app.js");
+  for (const bad of ['params.get("password")', 'params.get("pwd")', 'params.get("username")', 'get(\'password\')']) {
+    assert.ok(!app.includes(bad), `app.js never reads ${bad} - the only way in is the login form (and the sandbox-only magic link)`);
+  }
+  // The magic-link token_hash stays a sandbox-only JSON answer, never a live link.
+  const sbl = read("api/sandbox-trainer-login.js");
+  assert.match(sbl, /if \(!isSandbox\(\)\) return reply\(res, 404/, "the passwordless door stays 404 on live");
+  assert.ok(!sbl.includes("action_link:"), "the full magic link is never returned");
+});

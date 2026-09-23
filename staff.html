@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <script>/* Security 2026-09-23 (Joshua): if credentials ever land in the web address (e.g. a login form that fell back to GET), scrub them BEFORE any other script can read, log or send the URL. The sandbox magic-link token_hash is not touched. */
+(function(){try{var bad=["password","pass","pwd","passwd","username"];var u=new URL(window.location.href);var hit=false;bad.forEach(function(k){while(u.searchParams.has(k)){u.searchParams.delete(k);hit=true;}});if(window.location.hash&&window.location.hash.indexOf("=")>-1){var h=new URLSearchParams(window.location.hash.replace(/^#/,""));var hh=false;bad.forEach(function(k){if(h.has(k)){h.delete(k);hh=true;}});if(hh){var rest=h.toString();u.hash=rest?"#"+rest:"";hit=true;}}if(hit){history.replaceState(history.state,document.title,u.pathname+u.search+u.hash);}}catch(e){}})();</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lorenzo Trainer Network Portal</title>
   <meta name="description" content="Lorenzo's office-controlled trainer network portal for trainer pages, leads, clients, approvals, and reporting.">
   <link rel="icon" href="assets/ldtt-favicon.png">
-  <link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260923live6">
+  <link rel="stylesheet" href="trainer-backoffice/styles.css?v=20260923live7">
   <script>
     /* refresh 2026-09-09: a stored session means this page will sign back in by
        itself. Painting the login card first read as "refreshing logs me out".
@@ -67,7 +69,7 @@
         <button type="button" data-login-mode="trainer">Trainer</button>
       </div>
       <p class="login-mode-help" id="loginModeHelp">Office staff sign in with their assigned admin email and password.</p>
-      <form id="loginForm" class="login-form">
+      <form id="loginForm" class="login-form" method="post" action="/staff" autocomplete="on">
           <label>Username or Email<input required name="username" placeholder="Username or email" autocomplete="username"></label>
           <label>Password<input required name="password" type="password" placeholder="Password" autocomplete="current-password"></label>
           <label class="login-persistence"><input type="checkbox" name="remember"><span>Keep me signed in on this device</span></label>
@@ -101,14 +103,14 @@
   <script src="supabase-config.js"></script>
   <script src="trainer-roster.js"></script>
   <script src="trainer-backoffice/application-data.js?v=20260730ads3"></script>
-  <script src="trainer-backoffice/old-copy-bar.js?v=20260923live6"></script>
-  <script src="trainer-backoffice/supabase.js?v=20260923live6"></script>
-  <script src="trainer-backoffice/metrics.js?v=20260923live6"></script>
-  <script src="/lib/zip-timezone.js?v=20260923live6"></script><!-- rule 86 -->
-  <script src="trainer-backoffice/app.js?v=20260923live6"></script>
-  <script defer src="trainer-backoffice/page-studio.js?v=20260923live6"></script><!-- defer (login speed, go-live 2026-09-23): editors run after the page parses -->
-  <script defer src="trainer-backoffice/site-builder.js?v=20260923live6"></script><!-- defer (login speed, go-live 2026-09-23): editors run after the page parses -->
-  <script defer src="trainer-backoffice/ad2-studio.js?v=20260923live6"></script><!-- rule 85: Ad landing pages 2.0 editor; defer (speed, Joshua 2026-09-23) -->
-  <script defer src="trainer-backoffice/form-editor.js?v=20260923live6"></script><!-- lead forms, rule 75; defer (speed, Joshua 2026-09-23) -->
+  <script src="trainer-backoffice/old-copy-bar.js?v=20260923live7"></script>
+  <script src="trainer-backoffice/supabase.js?v=20260923live7"></script>
+  <script src="trainer-backoffice/metrics.js?v=20260923live7"></script>
+  <script src="/lib/zip-timezone.js?v=20260923live7"></script><!-- rule 86 -->
+  <script src="trainer-backoffice/app.js?v=20260923live7"></script>
+  <script defer src="trainer-backoffice/page-studio.js?v=20260923live7"></script><!-- defer (login speed, go-live 2026-09-23): editors run after the page parses -->
+  <script defer src="trainer-backoffice/site-builder.js?v=20260923live7"></script><!-- defer (login speed, go-live 2026-09-23): editors run after the page parses -->
+  <script defer src="trainer-backoffice/ad2-studio.js?v=20260923live7"></script><!-- rule 85: Ad landing pages 2.0 editor; defer (speed, Joshua 2026-09-23) -->
+  <script defer src="trainer-backoffice/form-editor.js?v=20260923live7"></script><!-- lead forms, rule 75; defer (speed, Joshua 2026-09-23) -->
 </body>
 </html>
