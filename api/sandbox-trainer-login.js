@@ -26,6 +26,7 @@
 //   - Passwords are never written. Real staff logins keep working on the practice copy exactly as before
 //     (rule 33); this only adds a second way in, on the practice copy only.
 const { isSandbox, supabaseRequest, isSandboxOnlyLogin } = require("../lib/sandbox");
+const { verifyPortalUser, bearerToken } = require("../lib/portal-auth");
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -92,14 +93,23 @@ const reply = (res, status, body) => res.status(status).json(body);
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store, max-age=0");
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // No cross-site access: this route mints sign-in tokens.
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(204).end();
   // The gate: outside the practice copy this route does not exist.
   if (!isSandbox()) return reply(res, 404, { ok: false });
   if (!["GET", "POST"].includes(req.method)) return reply(res, 405, { ok: false, message: "Use GET or POST." });
   if (!SERVICE_ROLE_KEY) return reply(res, 500, { ok: false, message: "Supabase service role key is not configured." });
+  // SECURITY 2026-09-24 (portal audit): the practice copy shares its logins with LIVE (rules 5 and 33), so a
+  // token minted here opens that trainer's REAL live portal. Anonymous callers could list every trainer email
+  // and mint one. Now only a signed-in SUPER ADMIN may list or mint; everyone else gets nothing.
+  try {
+    const admin = await verifyPortalUser(bearerToken(req), { require: "super" });
+    if (!admin) return reply(res, 401, { ok: false, message: "Sign in as a super admin first, then pick a trainer." });
+  } catch (error) {
+    return reply(res, 401, { ok: false, message: "Sign in as a super admin first, then pick a trainer." });
+  }
   try {
     if (req.method === "GET") {
       return reply(res, 200, { ok: true, sandbox: true, trainers: await listTrainerLogins() });

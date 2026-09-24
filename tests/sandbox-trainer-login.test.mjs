@@ -48,6 +48,11 @@ function world() {
     const u = new URL(url);
     const method = (options.method || "GET").toUpperCase();
     calls.push({ path: u.pathname, method, headers: options.headers || {}, body: options.body ? JSON.parse(options.body) : null });
+    // SECURITY 2026-09-24: the route now requires a signed-in SUPER ADMIN; this is that admin's session.
+    if (u.pathname === "/auth/v1/user") {
+      const auth = String((options.headers || {}).Authorization || "");
+      return auth === "Bearer super-admin-session" ? json(200, { id: "u-super", email: "superadmin@lorenzosdogtrainingteam.com" }) : json(401, { message: "no session" });
+    }
     if (u.pathname === "/auth/v1/admin/generate_link") {
       const body = JSON.parse(options.body);
       return json(200, { email: body.email, properties: { action_link: "https://never-returned.example/x", hashed_token: `hash-for-${body.email}`, verification_type: body.type } });
@@ -61,7 +66,7 @@ function world() {
 
 async function call(method, body) {
   const res = { statusCode: 200, body: null, headers: {}, setHeader(k, v) { this.headers[k] = v; }, status(code) { this.statusCode = code; return this; }, json(p) { this.body = p; return this; }, end() { return this; } };
-  await handler({ method, headers: {}, body, query: {} }, res);
+  await handler({ method, headers: { authorization: "Bearer super-admin-session" }, body, query: {} }, res);
   return res;
 }
 

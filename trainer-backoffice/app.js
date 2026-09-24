@@ -7809,7 +7809,9 @@ async function setupSandboxTrainerLogin() {
   applySandboxLoginMode(box.closest(".login-card") || document);
   button.addEventListener("click", () => sandboxTrainerSignIn({ select, button, status }));
   try {
-    const response = await fetch("/api/sandbox-trainer-login", { cache: "no-store" });
+    // SECURITY 2026-09-24: the practice sign-in list is for a signed-in super admin only (api/sandbox-trainer-login.js).
+    const adminToken = await window.LDTT_PORTAL?.accessToken?.().catch?.(() => "") || "";
+    const response = await fetch("/api/sandbox-trainer-login", { cache: "no-store", headers: adminToken ? { Authorization: `Bearer ${adminToken}` } : {} });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || !result.ok || !Array.isArray(result.trainers)) throw new Error(result.message || "The trainer list could not be loaded.");
     const options = result.trainers.map(trainer => {
@@ -7858,9 +7860,10 @@ async function sandboxEmailSignIn({ email, status, remember = false, label = "" 
   status.className = "login-status";
   status.textContent = `Signing in as ${label || address}…`;
   try {
+    const adminToken = await window.LDTT_PORTAL?.accessToken?.().catch?.(() => "") || "";
     const response = await fetch("/api/sandbox-trainer-login", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}) },
       body: JSON.stringify({ email: address })
     });
     const result = await response.json().catch(() => ({}));
