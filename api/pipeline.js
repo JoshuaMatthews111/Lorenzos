@@ -142,14 +142,16 @@ module.exports = async function handler(req, res) {
       const access = await authorizeRequest(req, res, { require: "super", message: "Only the Super Admin can arm the re-engage batch." });
       if (!access) return;
       const batch = P.normalizeReengageBatch(body);
-      if (batch.armed && (!batch.column || !batch.send_at)) {
+      if (batch.armed && (!batch.columns.length || !batch.send_at)) {
         return res.status(400).json({ ok: false, message: "To arm the batch it needs a status column and a send_at time." });
       }
       const existing = (await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${P.REENGAGE_KEY}&select=key,value&limit=1`))?.[0];
-      const value = { armed: batch.armed, column: batch.column, send_at: batch.send_at, last_run: existing?.value?.last_run || null, updated_by: actorLabel(access), updated_at: new Date().toISOString() };
+      // `columns` is the list the runner walks; `column` stays the first of them so every older reader
+      // (and the stored shape it expects) keeps working.
+      const value = { armed: batch.armed, column: batch.column, columns: batch.columns, send_at: batch.send_at, last_run: existing?.value?.last_run || null, updated_by: actorLabel(access), updated_at: new Date().toISOString() };
       if (existing) await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${P.REENGAGE_KEY}`, { method: "PATCH", prefer: "return=minimal", body: { value } });
       else await B.sbOrThrow("/rest/v1/site_settings", { method: "POST", prefer: "return=minimal", body: { key: P.REENGAGE_KEY, value } });
-      return res.status(200).json({ ok: true, message: batch.armed ? `Armed for ${batch.send_at} on column ${batch.column}.` : "Saved, NOT armed.", value });
+      return res.status(200).json({ ok: true, message: batch.armed ? `Armed for ${batch.send_at} on ${batch.columns.length > 1 ? `columns ${batch.columns.join(", ")}` : `column ${batch.column}`}.` : "Saved, NOT armed.", value });
     }
     if (op === "followup_send") {
       // Joshua 2026-09-16: the "Has not booked yet" follow-up texts are an office button, not a timer.

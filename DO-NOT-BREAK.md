@@ -1918,14 +1918,57 @@ COLLECTED; service-dog gold tag YES; milestones later.
       `op=reengage` manage it from the office.
     - **SHIPPED DISARMED**: the key is preset `{"armed": false, "column": "engaged_no_outcome", "send_at": ""}`
       on live and practice (Joshua picked column A, "Engaged Lead: No Outcome", and said "we don't send yet").
-      ARMING IS NOT ENOUGH TO TEXT REAL PEOPLE: every Make client route is still tester-locked (rule 99), so a
-      live send to a non-tester is accepted by the webhook (recorded "sent" = "Make answered 200") and dropped
-      by Make's filter. Real texts need the morning switch (a Make filter change) AND the armed key. Never
-      "fix" that by widening this code.
+    - **ARMING IS NOW ENOUGH TO TEXT REAL PEOPLE — the old second net is GONE (corrected 2026-09-24).** This
+      rule used to say a live send to a non-tester was dropped by Make's filter, so real texts needed "the
+      morning switch" as well as the armed key. That stopped being true on the night of 2026-09-23: every
+      Twilio module in Make scenarios 6237328 / 6237333 / 6254549 was re-filtered to
+      `phone != "" AND practice == "false"`, which passes ANY real phone on live traffic, and all three
+      scenarios are active. **Flipping `armed` to true with a `send_at` in the past is, by itself, enough to
+      text and email real members of the public.** Treat this key as live ordnance. The only stops left are
+      `armed:false`, an empty `send_at`, and deleting the key.
+
+    ### The 2026-09-24 blast changes (Joshua, the night before the 7:00 AM send)
+
+    - **The words.** `reengage_invite` no longer says "We spoke about training for {dog_name}". Not one lead
+      in either column has a dog name, and most were only *Office Contacted*, so the old words were both
+      awkward and an assertion nobody could stand behind. The words now are: *"Hi {first_name}, it's
+      Lorenzo's Dog Training Team. You reached out about training for your dog and we'd still love to help.
+      Pick a free evaluation time here: {booking_link}. Or call us at (866) 436-4959."* plus the
+      `Reply STOP to opt out.` line, carried in the words exactly as `booking_link` / `followup_link` /
+      `care_call` carry it. `{dog_name}` is no longer a declared field of this text, so a saved template
+      using it is refused by the editor and the starting words go instead.
+    - **Client greetings are tidied at render time** (`lib/pipeline-texts.js` `clientGreetingName`, used by
+      all six CLIENT-facing first-name sites in `lib/pipeline.js`). ALL CAPS becomes proper case
+      ("TIMOTHY" -> "Timothy"); a name typed entirely in lower case gets its first letter back; and a field
+      that is not a usable greeting — two names ("Larry or Laura", "Bob and Sue"), a slash or ampersand
+      pair, a digit, or blank — is DROPPED so the message opens "Hi there,". **Trainer and Operations texts
+      are deliberately NOT tidied**: there the name identifies a person to call, it does not greet them.
+    - **No ZIP = Contact Us, never a bare `/book`.** `reengageBookingLink(lead, {noZip:"contact"})` sends
+      someone we cannot place to the live `/contact` (200, no redirect). The default `noZip:"book"` is
+      unchanged and is still what the unfinished-form timer uses. Everyone with a ZIP is unaffected: the
+      nearest market's LIVE static ad page with their ZIP prefilled, else `/book?zip=`. Never a 2.0 page.
+    - **The runner walks a LIST of columns.** `reengage_batch` accepts `columns: [...]`; the old single
+      `column` string still means exactly what it always meant, and `column` in the stored value and in the
+      summary stays the FIRST column so every older reader keeps working. One query per column, each
+      carrying its own 60-day window.
+    - **ONE PERSON, ONE MESSAGE across the whole batch.** `dedupeByPerson` groups the walked rows by email
+      address and by 10-digit phone and sends to ONE row per person. The row it keeps is the RICHEST one
+      (consent + a textable phone, then a ZIP, then an email), not merely the first one walked. A passed-over
+      row is never claimed — nothing is written to it, so the office can still reach that person by hand.
+      The per-lead once-ever record is unchanged and still the primary guard.
+    - **The run summary no longer eats the key.** It now merges into the stored value instead of replacing
+      it, so the office's own `note` and `max_age_days` survive a run.
+    - Every other guard is unchanged and must stay: disarm-before-first-send, per-lead idempotency, the
+      60-day window, SMS-consent gating for texts, the email twin to anyone with an address plus its opt-out
+      line, qa rows held out, the kill switch, and recording "sent" ONLY on a 200 from the hook.
+    - **"sent" still means "Make's webhook answered 200", NOT that Twilio delivered.** The only authoritative
+      record of what reached a human phone is the Twilio message log. Check it after any send.
     - `lib/reengage.js` (the old follow-up planner) still has NO send code (`SENDING_ENABLED = false`, rule 81)
       and never reads `reengage_invite`. The only senders are the two doors above.
     - Pins: `tests/reengage-send.test.mjs` (idempotency, consent gating, kill switch, disarm-after-run,
-      practice email redirect, hook-200-means-sent), `tests/pipeline-texts.test.mjs` (mention count).
+      practice email redirect, hook-200-means-sent, the name tidy, the Contact Us fallback, dedupe-by-person,
+      both columns in one run, and the 06:59/07:00 timing guard), `tests/pipeline-texts.test.mjs`
+      (the exact words, the honest field list, mention count).
 
 ## Trainer Lead Pipeline: one board, two readers (added 2026-09-23, Rachel via Joshua)
 

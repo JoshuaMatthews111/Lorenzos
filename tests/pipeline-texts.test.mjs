@@ -146,11 +146,18 @@ test("reengage_invite (Joshua 2026-09-23, amended same night): exact words, edit
   assert.equal(t.role, "client");
   assert.equal(t.stage, "not_booked");
   assert.equal(t.status, "not_yet", "it never claims to be sending");
-  assert.equal(t.words, "Hi {first_name}, it's Lorenzo's Dog Training Team. We spoke about training for {dog_name}. We would love to help. Pick a free evaluation time here: {booking_link}. Or call us at (866) 436-4959.");
-  assert.deepEqual(t.fields, ["first_name", "dog_name", "booking_link"]);
+  // Joshua 2026-09-24, rewritten before the send: no lead in either column has a dog name and most were only
+  // "Office Contacted", so the old "We spoke about training for {dog_name}" was both awkward and an
+  // assertion we could not stand behind. These words claim only that they reached out to us.
+  assert.equal(t.words, "Hi {first_name}, it's Lorenzo's Dog Training Team. You reached out about training for your dog and we'd still love to help. Pick a free evaluation time here: {booking_link}. Or call us at (866) 436-4959.\n\nReply STOP to opt out.");
+  assert.deepEqual(t.fields, ["first_name", "booking_link"], "{dog_name} is gone from the words, so it is gone from the fields");
+  assert.ok(!t.words.includes("{dog_name}"), "the words never name a dog nobody told us about");
+  assert.match(t.words, /Reply STOP to opt out\.$/, "the opt-out line rides in the words, as booking_link and followup_link carry it");
   assert.equal(X.check("reengage_invite", t.words).value, t.words, "the default words pass the editor's own checks");
-  assert.equal(X.render(X.wordsFor(null, "reengage_invite"), { first_name: "Sam", dog_name: "Max", booking_link: "https://x/book" }),
-    "Hi Sam, it's Lorenzo's Dog Training Team. We spoke about training for Max. We would love to help. Pick a free evaluation time here: https://x/book. Or call us at (866) 436-4959.");
+  assert.equal(X.render(X.wordsFor(null, "reengage_invite"), { first_name: "Sam", booking_link: "https://x/book" }),
+    "Hi Sam, it's Lorenzo's Dog Training Team. You reached out about training for your dog and we'd still love to help. Pick a free evaluation time here: https://x/book. Or call us at (866) 436-4959.\n\nReply STOP to opt out.");
+  // A template that still used {dog_name} is now refused by the editor, so the starting words go instead.
+  assert.ok(X.check("reengage_invite", "Hi {first_name}, about {dog_name}. {booking_link}").error, "{dog_name} is no longer offered for this text");
   // Joshua 2026-09-23 (brief, same night as go-live): the 9:30 AM re-engage sender exists in lib/pipeline.js —
   // the Super-Admin office door (api/pipeline reengage_send) and the batch runner behind site_settings key
   // "reengage_batch", shipped DISARMED with no send_at. The senders' own pins (idempotency, consent, kill

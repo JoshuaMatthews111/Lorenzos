@@ -92,7 +92,9 @@ test("one lead, once ever: the claim is written first, the second call is refuse
   // the hook payload carries the reengage words with the booking link
   const hook = calls.find(c => c.host === "hook.us2.make.com");
   assert.equal(hook.body.pathway, "reengage");
-  assert.match(String(hook.body.message), /^Hi Sam, it's Lorenzo's Dog Training Team\. We spoke about training for Max\./);
+  assert.match(String(hook.body.message), /^Hi Sam, it's Lorenzo's Dog Training Team\. You reached out about training for your dog and we'd still love to help\./);
+  assert.ok(!/\{dog_name\}|training for Max/.test(String(hook.body.message)), "the words never name the dog (2026-09-24 rewrite)");
+  assert.match(String(hook.body.message), /Reply STOP to opt out\.$/, "the opt-out line goes with the text");
   assert.match(String(hook.body.message), /book\?zip=32507/);
   // second call: refused, no new post, no new email
   const again = await P.sendReengageInvite({ lead: world.leads[0], by: "Test Runner" });
@@ -224,4 +226,181 @@ test("wiring pins: the cron checks the batch, the office door is Super Admin onl
   assert.match(lib, /DISARM FIRST/, "the claim-is-the-kill-switch note stays");
   // "sent" only on a 200 from the hook (the tester lock drops texts AFTER the webhook accepts)
   assert.match(lib, /"sent" ONLY on a 200 from the hook/);
+});
+
+// ---------------------------------------------------------------------------
+// 2026-09-24, the four fixes Joshua asked for before the blast, plus the walk over BOTH columns.
+// Everything here runs against the stubbed fetch above: no hook, no Resend, no Supabase is ever touched.
+// ---------------------------------------------------------------------------
+
+test("fix 2 - the name tidy: ALL CAPS is calmed down, an unusable greeting is dropped for \"Hi there,\", and a normal name is left exactly alone", () => {
+  const P = load(true);
+  const g = P.clientGreetingName;
+  // shouting -> proper case (the live "TIMOTHY" row)
+  assert.equal(g("TIMOTHY"), "Timothy");
+  assert.equal(g("MARY ANN"), "Mary Ann");
+  assert.equal(g("O'BRIEN"), "O'Brien");
+  // not a usable greeting -> the name is dropped, never guessed at
+  for (const bad of ["Larry or Laura", "LARRY OR LAURA", "Bob and Sue", "Larry/Laura", "Bob & Sue", "Client 2", "", "   ", null, undefined]) {
+    assert.equal(g(bad), "there", `"${bad}" is not a greeting`);
+  }
+  // a name typed all in lower case gets its first letter back (live: cherie / jana / ken / rosie)
+  assert.equal(g("cherie"), "Cherie");
+  assert.equal(g("ken"), "Ken");
+  // a normal name is untouched - including mixed case the office typed on purpose
+  assert.equal(g("Timothy"), "Timothy");
+  assert.equal(g("McDonald"), "McDonald");
+  assert.equal(g("Shianne sipes"), "Shianne sipes", "only the FIRST letter is ever added back");
+  assert.equal(g("Jose Luis"), "Jose Luis");
+  // and it reads as a greeting in the finished words
+  assert.match(X_render(P, "TIMOTHY"), /^Hi Timothy, it's Lorenzo's/);
+  assert.match(X_render(P, "Larry or Laura"), /^Hi there, it's Lorenzo's/);
+});
+
+function X_render(P, firstName) {
+  const T = require("../lib/pipeline-texts.js");
+  return T.render(T.wordsFor(null, "reengage_invite"), { first_name: P.clientGreetingName(firstName), booking_link: "https://x/book" });
+}
+
+test("fix 2 end to end - the ALL CAPS lead is texted \"Hi Timothy\", and a \"Larry or Laura\" lead is texted \"Hi there\"", async () => {
+  for (const [stored, expected] of [["TIMOTHY", "Hi Timothy,"], ["Larry or Laura", "Hi there,"]]) {
+    const world = { leads: [makeLead({ first_name: stored })], adPages: [] };
+    const calls = [];
+    stubFetch(world, calls);
+    const P = load(true);
+    await P.sendReengageInvite({ lead: world.leads[0] });
+    const hook = calls.find(c => c.host === "hook.us2.make.com");
+    assert.ok(String(hook.body.message).startsWith(expected), `"${stored}" -> ${expected} (got: ${String(hook.body.message).slice(0, 40)})`);
+    assert.ok(!String(hook.body.message).includes(stored) || stored === "TIMOTHY", "the raw stored name never reaches the client");
+  }
+});
+
+test("fix 3 - a lead with NO ZIP goes to the live Contact Us page, never a bare /book; a lead WITH a ZIP is unaffected", async () => {
+  const world = { leads: [makeLead({ zip: "" })], adPages: [] };
+  const calls = [];
+  stubFetch(world, calls);
+  const P = load(true);
+  // the blast asks for the Contact Us fallback
+  const blast = await P.reengageBookingLink(world.leads[0], { noZip: "contact" });
+  assert.equal(blast.kind, "contact");
+  assert.match(blast.url, /\/contact$/);
+  assert.ok(!/\/book/.test(blast.url), "no bare /book for someone we cannot place");
+  // the unfinished-form timer keeps the original /book fallback (it is a different message: finish the form)
+  const timer = await P.reengageBookingLink(world.leads[0]);
+  assert.equal(timer.kind, "book");
+  assert.match(timer.url, /\/book$/);
+  // and the send really uses the Contact Us link
+  await P.sendReengageInvite({ lead: world.leads[0] });
+  const hook = calls.find(c => c.host === "hook.us2.make.com");
+  assert.match(String(hook.body.booking_link), /\/contact$/);
+  assert.match(String(hook.body.message), /\/contact\. Or call us/);
+  assert.equal(world.leads[0].raw_payload.pipeline.reengage.link_kind, "contact", "the record says where they were sent");
+});
+
+test("fix 4 - dedupe by person across the WHOLE batch: the same email (or the same phone) in two rows gets ONE message, and the passed-over row is left untouched", async () => {
+  const world = {
+    leads: [
+      makeLead({ id: "00000000-0000-4000-8000-000000000060", first_name: "Steven", email: "steven@example.test", phone: "(440) 555-0123", status: "office_contacted" }),
+      makeLead({ id: "00000000-0000-4000-8000-000000000061", first_name: "Steven", email: "STEVEN@example.test", phone: "(216) 555-9999", status: "engaged_no_outcome" }), // same person, other column
+      makeLead({ id: "00000000-0000-4000-8000-000000000062", first_name: "Dee", email: "", phone: "(440) 555-0123", status: "engaged_no_outcome" }),                      // same PHONE as the first
+      makeLead({ id: "00000000-0000-4000-8000-000000000063", first_name: "Unique", email: "unique@example.test", phone: "(330) 555-7777", status: "office_contacted" })
+    ],
+    settings: { key: "reengage_batch", value: { armed: true, columns: ["office_contacted", "engaged_no_outcome"], send_at: "2026-09-24T11:00:00Z" }, updated_at: "2026-09-24T04:00:00Z" },
+    adPages: []
+  };
+  const calls = [];
+  stubFetch(world, calls);
+  const P = load(true);
+  const out = await P.runReengageBatch({ nowMs: Date.parse("2026-09-24T11:00:00Z") });
+  assert.equal(out.ran, true, JSON.stringify(out));
+  assert.equal(out.walked, 4, "all four rows were walked");
+  assert.equal(out.deduped, 2, "the email twin and the phone twin were both passed over");
+  // the two passed-over rows were never claimed: nothing at all was written to them
+  assert.equal(world.leads[1].raw_payload.pipeline, undefined, "the email twin keeps a clean record");
+  assert.equal(world.leads[2].raw_payload.pipeline, undefined, "the phone twin keeps a clean record");
+  // the two people who should hear from us did
+  assert.ok(world.leads[0].raw_payload.pipeline.reengage, "Steven was sent to once");
+  assert.ok(world.leads[3].raw_payload.pipeline.reengage, "Unique was sent to");
+
+  // and the row we KEEP is the richest one, not merely the first one walked (the live Steven pair: the
+  // emptier row was created first, so walking order alone would have thrown away the textable one)
+  const thin = makeLead({ id: "00000000-0000-4000-8000-000000000064", first_name: "Steven", email: "s@example.test", phone: "", zip: "", sms_consent: false, status: "office_contacted" });
+  const full = makeLead({ id: "00000000-0000-4000-8000-000000000065", first_name: "Steven", email: "s@example.test", phone: "(440) 555-0123", zip: "32507", sms_consent: true, status: "office_contacted" });
+  const picked = load(true).dedupeByPerson([thin, full]); // thin walked FIRST
+  assert.ok(picked.keep.has(full.id), "the row with consent, a phone and a ZIP is the one that is kept");
+  assert.ok(!picked.keep.has(thin.id));
+  assert.equal(picked.passed.get(thin.id), "email");
+  const reasons = out.details.filter(d => /deduped by/.test(d.reason || "")).map(d => d.reason);
+  assert.equal(reasons.length, 2);
+  assert.ok(reasons.some(r => /email/.test(r)) && reasons.some(r => /phone/.test(r)), "both routes named honestly");
+});
+
+test("both columns in one armed run, and a single `column` string still means exactly what it always meant", async () => {
+  // the list form
+  const n = load(true).normalizeReengageBatch({ armed: true, columns: ["office_contacted", "engaged_no_outcome"], send_at: "2026-09-24T11:00:00Z" });
+  assert.deepEqual(n.columns, ["office_contacted", "engaged_no_outcome"]);
+  assert.equal(n.column, "office_contacted", "`column` stays a string for every older reader");
+  assert.equal(n.max_age_days, 60, "the 60-day window survives");
+  // backward compatibility: the shape sitting on live today
+  const old = load(true).normalizeReengageBatch({ armed: false, column: "engaged_no_outcome", send_at: "" });
+  assert.deepEqual(old.columns, ["engaged_no_outcome"]);
+  assert.equal(old.column, "engaged_no_outcome");
+  // duplicates and junk are dropped, order kept
+  const messy = load(true).normalizeReengageBatch({ columns: ["office_contacted", "OFFICE_CONTACTED", "", "bad-!!"], column: "office_contacted" });
+  assert.deepEqual(messy.columns, ["office_contacted", "bad"]);
+
+  // and the runner really walks both, one query per column, each carrying the 60-day window
+  const world = {
+    leads: [
+      makeLead({ id: "00000000-0000-4000-8000-000000000070", email: "a@example.test", status: "office_contacted" }),
+      makeLead({ id: "00000000-0000-4000-8000-000000000071", email: "b@example.test", status: "engaged_no_outcome" })
+    ],
+    settings: { key: "reengage_batch", value: { armed: true, columns: ["office_contacted", "engaged_no_outcome"], send_at: "2026-09-24T11:00:00Z", note: "keep me" }, updated_at: "2026-09-24T04:00:00Z" },
+    adPages: []
+  };
+  const calls = [];
+  stubFetch(world, calls);
+  const P = load(true);
+  const out = await P.runReengageBatch({ nowMs: Date.parse("2026-09-24T11:00:00Z") });
+  assert.equal(out.walked, 2, "one lead from each column");
+  assert.deepEqual(out.per_column, { office_contacted: 1, engaged_no_outcome: 1 });
+  const walks = calls.filter(c => c.path === "/rest/v1/leads" && c.query.includes("status=eq."));
+  assert.equal(walks.length, 2, "one walk per column");
+  assert.ok(walks.every(w => /created_at=gte\./.test(w.query)), "every column carries the 60-day window");
+  // the summary keeps what the key was carrying instead of quietly dropping it
+  assert.equal(world.settings.value.note, "keep me", "the office's own note survives the run");
+  assert.equal(world.settings.value.armed, false, "still disarmed afterwards");
+  assert.deepEqual(world.settings.value.last_run.columns, ["office_contacted", "engaged_no_outcome"]);
+});
+
+test("THE TIMING GUARD: one minute before 7:00 AM Eastern it reports waiting and sends NOTHING; at 7:00 exactly it proceeds", async () => {
+  const SEND_AT = "2026-09-24T11:00:00Z"; // 7:00 AM Eastern, 24 September 2026
+  const settings = () => ({ key: "reengage_batch", value: { armed: true, columns: ["office_contacted"], send_at: SEND_AT }, updated_at: "2026-09-24T04:00:00Z" });
+
+  // 06:59:00 Eastern = 10:59:00Z
+  let world = { leads: [makeLead({ status: "office_contacted" })], settings: settings(), adPages: [] };
+  let calls = [];
+  stubFetch(world, calls);
+  let P = load(true);
+  let out = await P.runReengageBatch({ nowMs: Date.parse("2026-09-24T10:59:00Z") });
+  assert.equal(out.waiting, true, "it is waiting");
+  assert.equal(out.ran, undefined, "it did not run");
+  assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 0, "NOTHING was posted to Make");
+  assert.equal(calls.filter(c => c.host === "api.resend.com").length, 0, "NOTHING was sent by email");
+  assert.equal(world.settings.value.armed, true, "still armed, still waiting");
+  assert.equal(world.leads[0].raw_payload.pipeline, undefined, "no lead was even claimed");
+  // one second before the minute turns, still nothing
+  out = await P.runReengageBatch({ nowMs: Date.parse(SEND_AT) - 1000 });
+  assert.equal(out.waiting, true, "one second early is still early");
+  assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 0);
+
+  // 07:00:00 Eastern = 11:00:00Z - the same key, the same lead, now it goes
+  world = { leads: [makeLead({ status: "office_contacted" })], settings: settings(), adPages: [] };
+  calls = [];
+  stubFetch(world, calls);
+  P = load(true);
+  out = await P.runReengageBatch({ nowMs: Date.parse(SEND_AT) });
+  assert.equal(out.ran, true, "at 7:00 exactly it proceeds");
+  assert.equal(out.walked, 1);
+  assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 1, "and only then does anything leave");
 });
