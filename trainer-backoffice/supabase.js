@@ -645,8 +645,15 @@
   }
 
   async function operationalMutation(payload) {
-    const session = readSession();
+    let session = readSession();
     if (!session?.access_token) throw new Error("Your staff session has expired. Sign in again before saving.");
+    // Audit 2026-09-24 (rule 41): the same renew-before-send loadOperationalData does. After a laptop wakes or a
+    // tab sat hidden for over an hour (polls pause while hidden), the first save went out with an expired token,
+    // the API answered 403 and runRemoteMutation signed the office out and threw the edit away.
+    if (session.refresh_token && Number(session.expires_at || 0) <= Math.floor(Date.now() / 1000) + 30) {
+      try { await refreshSession(); } catch { /* try the save with the stored token; the caller handles a refusal */ }
+      session = readSession() || session;
+    }
     const response = await fetch("/api/operational-mutation", {
       method: "POST",
       cache: "no-store",
