@@ -10148,7 +10148,9 @@ async function submitDealFromForm() {
     if (!response.ok || !result.ok) throw new Error(result.message || `The deal could not be saved (${response.status}).`);
     state.dealForm = { ok: `${result.edited ? "Changes saved" : result.sandbox ? "Saved on the practice copy" : "Saved"}. ${fmtMoney(result.deal?.collected_amount)} collected, ${fmtMoney(result.balance_due)} balance due.` };
     showToast(result.edited ? "Deal updated" : result.sandbox ? "Deal submitted (practice copy)" : "Deal submitted");
-    await reloadRemoteData();
+    // Audit 2026-09-24: the deal IS saved at this point. A failed refresh must not put the filled form back with
+    // an error (that invited a second Submit and a duplicate deal); the next poll brings the new deal in.
+    await reloadRemoteData().catch(error => console.warn("LDTT refresh after a saved deal failed", error));
   } catch (error) {
     state.dealForm = { ...f, busy: false, error: error.message || String(error) };
   }
