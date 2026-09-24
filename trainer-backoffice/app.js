@@ -7750,6 +7750,7 @@ function loginFailureMessage(error, username = "") {
 // (loginForm submit) and, on the practice copy only, the passwordless trainer sign-in below, so a
 // trainer who came in without a password gets exactly the same checks and the same dashboard.
 async function finishPortalSignIn(status) {
+  resetPerUserPortalCaches(); // audit 2026-09-24: a new sign-in never inherits the last person's trainer answers
   // The data request goes out at the same time as the "who am I" lookup
   // instead of after it: one round trip less before the dashboard. The API
   // verifies the token on its own, and a sandbox-only login is refused there
@@ -9834,6 +9835,23 @@ let trainerPhoneChange = null;        // trainer: { current_last4, pending: {pho
 let trainerPhoneChangePromise = null;
 let phoneChangeRequests = null;       // office: { requests: [...], error? }
 let phoneChangeRequestsPromise = null;
+
+// Audit 2026-09-24 (rule 7): the trainer's calendar, team and phone answers load once per sign-in and are kept
+// in these module variables. Signing out and back in as ANOTHER person in the same tab used to keep the first
+// person's answers (their booked clients, Google link, team, phone last 4) and their half-filled deal / Lost /
+// hand-off boxes. Every sign-out and every sign-in now starts clean. No network, no storage write.
+function resetPerUserPortalCaches() {
+  trainerTeam = null; trainerTeamPromise = null;
+  trainerCalendar = null; trainerCalendarPromise = null;
+  trainerPhoneChange = null; trainerPhoneChangePromise = null;
+  phoneChangeRequests = null; phoneChangeRequestsPromise = null;
+  if (state && typeof state === "object") {
+    state.dealForm = {};
+    state.trainerLost = null;
+    state.trainerHandoff = null;
+    state.selectedLeadId = "";
+  }
+}
 
 async function phoneChangeApi(method, body) {
   const token = await window.LDTT_PORTAL?.accessToken?.();
@@ -15456,6 +15474,7 @@ document.addEventListener("click", async event => {
     if (window.LDTT_PORTAL?.enabled) await window.LDTT_PORTAL.signOut();
     portalUser = null;
     remoteReady = false;
+    resetPerUserPortalCaches();
     session = { loggedIn: false, role: "" };
     sessionStorage.removeItem(SESSION_KEY);
     render();
