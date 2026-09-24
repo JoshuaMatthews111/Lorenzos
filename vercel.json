@@ -149,6 +149,9 @@
     },
     "api/cron/site-health.js": {
       "includeFiles": "{sitemap.xml,site/pages/**}"
+    },
+    "api/cron/auto-followups.js": {
+      "maxDuration": 800
     }
   }
 }

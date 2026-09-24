@@ -1975,6 +1975,41 @@ COLLECTED; service-dog gold tag YES; milestones later.
       both columns in one run, and the 06:59/07:00 timing guard), `tests/pipeline-texts.test.mjs`
       (the exact words, the honest field list, mention count).
 
+    ### The blast must finish, every lead once (added 2026-09-24 ~04:30 Eastern, stamp `20260924live20`)
+
+    - **The cron function has an explicit time limit.** `vercel.json` gives `api/cron/auto-followups.js`
+      `maxDuration: 800` (the project is Pro with Fluid compute on; its default was 300 s). Never remove it.
+    - **A run that stops part-way is carried on, never lost.** `runReengageBatch` stops TAKING NEW LEADS after
+      `REENGAGE_BUDGET_MS` (10 min) and writes `status:"incomplete"`; the next */15 tick claims it (the same
+      version-guarded PATCH as the first run) and continues. A run KILLED outright stays `status:"running"`;
+      once `run_started_at` is older than `REENGAGE_RUN_STALE_MS` (14 min, longer than maxDuration) the next tick
+      carries it on. Continuations only ever send to leads with NO per-lead `reengage` record, skip any PERSON
+      (email / 10-digit phone) already reached, stop after `REENGAGE_MAX_RESUMES` (8) and never more than 6 h
+      after `send_at`. A lead whose record says `"sending"` (in flight when a run was killed) is NEVER re-sent;
+      it is listed in `last_run.interrupted` for the office to check by hand. `runs[]` keeps each tick's counts.
+    - **Stopping a part-way run:** `armed` is already false while a run is going, so the stop is
+      `"resume": false`, `"status": "stopped"`, or deleting the key. The final write keeps a stop the office
+      wrote during the run.
+    - **Resend pacing + 429 retries, for the batch only.** The batch loads the Resend config once with
+      `paceMs: 600` (under Resend's ~2 requests/second team limit) and `retry429: 4` (waits Retry-After, else
+      1/2/4 s, each wait capped at 5 s; the same Idempotency-Key rides every attempt). `lib/office-email.js`
+      `sendViaResend` does this ONLY when a caller opts in: every other caller (form submits, office emails,
+      twins) still makes exactly one attempt and never waits. A failed email is recorded as `email_reason`.
+    - **No undialable number is ever posted to Make by the blast.** `reengageDialable` (+1, area code and
+      exchange starting 2-9) - five live leads carried area codes like 121 that Twilio refuses; their text is
+      skipped with the reason and their email still goes.
+    - **Make pathway 1 (6237328) has an Ignore error handler on its Twilio module** (added 2026-09-24 04:19
+      Eastern; before-state in `~/Desktop/LDTT Meeting Changes 2026-09-13/make-backup-pre-blast-pathway1.json`),
+      so one bad number is logged as a warning and can never count toward `maxErrors: 3` and switch the
+      scenario off for everyone after it. The filter, mapper, from-number and hook are unchanged. It applies to
+      every pathway 1 text (new-lead booking link, follow-ups, care, re-engage): a Twilio error no longer stops
+      the scenario, so read the Make execution log / Twilio log for failures, not the scenario's on/off state.
+    - Pins: `tests/reengage-blast-scale.test.mjs` - 115 synthetic leads with Resend 429s and slow answers, the
+      budget stopping the first tick and the second finishing it, a hard kill mid-lead followed by a
+      too-early tick, then two racing stale ticks (exactly one carries on), everyone exactly once, the
+      in-flight lead never twice; the resume guards; the Resend helper (pacing, Retry-After, bounded, ordinary
+      callers one attempt); the dialable guard; and the maxDuration + opt-in wiring.
+
 ## Trainer Lead Pipeline: one board, two readers (added 2026-09-23, Rachel via Joshua)
 
 102. **The trainer's "Lead Pipeline" tab and the office Sales board are drawn by ONE function.**

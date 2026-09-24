@@ -34,9 +34,11 @@ module.exports = async function handler(req, res) {
     console.log("auto_followups_run", JSON.stringify({ on: result.on, checked: result.checked, sent: result.sent?.length || 0, skipped: result.skipped?.length || 0 }));
     // Joshua 2026-09-23: the same cadence checks the one-shot re-engage batch (site_settings key
     // "reengage_batch"). Not armed (the normal state) = a one-line no-op. It disarms itself after a run.
+    // 2026-09-24: a run that stopped part-way (its time budget, or the function was killed) is carried on
+    // by a later tick - see REENGAGE_BUDGET_MS in lib/pipeline.js; vercel.json gives this function 800 s.
     const reengage = await P.runReengageBatch()
       .catch(error => ({ armed: false, message: `re-engage check failed: ${String(error?.message || error)}` }));
-    if (reengage.ran) console.log("reengage_batch_run", JSON.stringify({ column: reengage.column, walked: reengage.walked, sent: reengage.sent, texts: reengage.texts_sent, emails: reengage.emails_sent }));
+    if (reengage.ran) console.log("reengage_batch_run", JSON.stringify({ column: reengage.column, walked: reengage.walked, sent: reengage.sent, texts: reengage.texts_sent, emails: reengage.emails_sent, emails_failed: reengage.emails_failed, already_done: reengage.already_done, resumed: reengage.resumed, stopped_early: reengage.stopped_early, remaining: reengage.remaining, interrupted: (reengage.interrupted || []).length }));
     return res.status(200).json({ ok: true, ...result, reengage });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
