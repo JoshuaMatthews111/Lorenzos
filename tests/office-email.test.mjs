@@ -374,7 +374,7 @@ test("phone consultation: customer-care text through the pathway 1 hook (or its 
   assert.equal(viaOne[0].body.pathway, "customer_care");
   assert.equal(viaOne[0].body.phone, TESTER);
   assert.equal(viaOne[0].body.customer_phone, TESTER);
-  assert.match(viaOne[0].body.message, /Our office will call you shortly from \(216\) 475-5999\. Reply STOP to opt out\.$/);
+  assert.match(viaOne[0].body.message, /Our office will call you shortly from \(866\) 436-4959\. Reply STOP to opt out\.$/);
   assert.doesNotMatch(viaOne[0].body.message, /schedule your complimentary evaluation/i, "not the booking-link words");
   const saved = db.leads[0];
   assert.equal(saved.raw_payload.pipeline.lane.key, "office_call");
@@ -396,7 +396,7 @@ test("phone consultation: customer-care text through the pathway 1 hook (or its 
     const care = hooks(calls, "/testhookcare");
     assert.equal(care.length, 1, "own route when set, and none without SMS consent");
     assert.equal(care[0].body.phone, TESTER);
-    assert.match(care[0].body.message, /Our office will call you shortly from \(216\) 475-5999\. Reply STOP to opt out\.$/);
+    assert.match(care[0].body.message, /Our office will call you shortly from \(866\) 436-4959\. Reply STOP to opt out\.$/);
     assert.equal(hooks(calls, "/testhookone").length, 1, "nothing more on pathway 1 while the care route is set");
     assert.equal(db.leads.find(l => l.id === b.id).raw_payload.pipeline.care_text.status, "sent");
     assert.match(db.leads.find(l => l.id === noConsent.id).raw_payload.pipeline.care_text.reason, /No SMS consent/);
