@@ -411,6 +411,28 @@ publicEnvironment.then(env=>{
   new MutationObserver(switchOffPracticeForms).observe(document.documentElement,{childList:true,subtree:true});
 });
 
+// ---------------------------------------------------------------------------
+// GO-LIVE 2026-09-24 (Joshua's order: "it should after filling that they should fill zip code mandatory
+// and then it takes them to the preferred trainers then the same text flow starts and fires and the rest
+// of the automation like the rest of the leads. don't break form submit.")
+// A Contact Us lead saved on LIVE is REMEMBERED here so the live hand-off below can enter it into the
+// same pipeline every other lead uses, AFTER the office's FormSubmit / Google Sheet delivery has finished.
+// This records; it never calls anything. The frozen FormSubmit path (rule 73: relayFormDeliveries, the
+// `const contactForm=` handler, window.LDTT_FORM_DELIVERY, submitEmailRelay, wireAsyncForm, and the
+// contact.html form markup) is byte-for-byte untouched by this change.
+// ---------------------------------------------------------------------------
+const CONTACT_US_SOURCES=/^contact\.html$/i;
+const isContactUsEntries=entries=>{
+  const source=String(entries?.source_page||'').trim();
+  if(CONTACT_US_SOURCES.test(source)) return true;
+  try{ return /^\/contact(\.html)?\/?$/i.test(new URL(String(entries?.page_url||''),window.location.href).pathname); }
+  catch(error){ return false; }
+};
+const rememberContactLead=(entries,canonical)=>{
+  if(!canonical?.lead_id||!isContactUsEntries(entries)) return;
+  window.LDTT_PENDING_CONTACT_LEAD={lead_id:String(canonical.lead_id),at:Date.now()};
+};
+
 const submitPublicFormToSupabase=async (functionName,entries)=>{
   const config=window.LDTT_SUPABASE;
   if(!config?.enabled||!config.functionsBaseUrl) return {skipped:true};
@@ -429,7 +451,9 @@ const submitPublicFormToSupabase=async (functionName,entries)=>{
     const text=await response.text();
     throw new Error(`Supabase ${functionName} failed: ${response.status} ${text}`);
   }
-  return response.json();
+  const result=await response.json();
+  if(functionName==='submit-contact') rememberContactLead(entries,result);
+  return result;
 };
 
 const TRAINER_ATTRIBUTION_KEY='ldttTrainerAttribution.v1';
@@ -493,6 +517,11 @@ const showFormSuccessModal=(message)=>{
   modal.classList.add('open');
   document.body.classList.add('form-modal-open');
   modal.querySelector('.form-success-ok').focus();
+  // GO-LIVE 2026-09-24 (Joshua): the live Contact Us hand-off runs HERE, which wireAsyncForm reaches only
+  // after `await onSubmit(...)` has resolved - i.e. after submit-contact AND relayFormDeliveries (the Google
+  // Sheet row, /api/form-delivery, the FormSubmit email to production@ and its browser retry) are all done.
+  // Entering the pipeline or leaving for the booking page can therefore never cut a delivery short.
+  if(typeof window.LDTT_CONTACT_HANDOFF==='function') window.LDTT_CONTACT_HANDOFF(modal);
 };
 
 const trackLdttConversion=(eventName,details={})=>{
@@ -799,6 +828,76 @@ const appendGoogleField=(payload,entryName,value)=>{
     payload.append(`${entryName}_month`,String(Number(match[2])));
     payload.append(`${entryName}_day`,String(Number(match[3])));
   }
+};
+
+// ---------------------------------------------------------------------------
+// Contact Us, LIVE: ZIP is mandatory, then the preferred trainers, then the same pipeline as every
+// other lead (Joshua 2026-09-24). Everything in this block sits OUTSIDE the frozen FormSubmit code
+// (rule 73): it adds no step to, and removes no step from, submit-contact -> relayFormDeliveries ->
+// /api/form-delivery -> the Google Sheet row and the FormSubmit email to production@.
+//
+// 1. ZIP. The red asterisk and `required` are already in the markup that build.py writes, exactly like
+//    every other required field; the markup is byte-identical (rule 73 pins it). What is added here is
+//    the 5-digit check and a friendly message, through setCustomValidity, so the form.reportValidity()
+//    that wireAsyncForm already calls refuses the submit in the normal, native way.
+// 2. The hand-off. After the office's delivery has finished (see showFormSuccessModal above), the lead
+//    enters /api/pipeline {op:"enter"} - the SAME door /api/booking-lead uses - and, when the pipeline
+//    hands back a booking link, the browser follows it to the trainer picker.
+//    The link is the pipeline's own /book/<trainer>?lead=<uuid> opaque id. NO name, phone, email or ZIP
+//    is ever put in the URL (an earlier review flagged that as a PII leak into history, Referer and logs).
+// ---------------------------------------------------------------------------
+const CONTACT_ZIP_MISSING='Please enter your ZIP code so we can show you the trainers nearest you.';
+const CONTACT_ZIP_MALFORMED='Please enter a valid 5-digit US ZIP code, for example 44128.';
+const wireContactZipRequired=root=>{
+  root.querySelectorAll('form.contact-intake').forEach(form=>{
+    if(String(form.querySelector('input[name="source_page"]')?.value||'')!=='contact.html') return;
+    const input=form.querySelector('input[name="zip"]');
+    if(!input||input.dataset.ldttZipWired==='true') return;
+    input.dataset.ldttZipWired='true';
+    input.setAttribute('inputmode','numeric');
+    input.setAttribute('maxlength','5');
+    input.setAttribute('pattern','\\d{5}');
+    const check=()=>{
+      const value=String(input.value||'').trim();
+      if(!value) input.setCustomValidity(CONTACT_ZIP_MISSING);
+      else if(!/^\d{5}$/.test(value)) input.setCustomValidity(CONTACT_ZIP_MALFORMED);
+      else input.setCustomValidity('');
+    };
+    input.addEventListener('input',check);
+    input.addEventListener('blur',check);
+    input.addEventListener('invalid',check);
+    check();
+  });
+};
+wireContactZipRequired(document);
+
+const contactHandoffSay=(modal,message)=>{
+  const paragraph=modal?.querySelector?.('p');
+  if(paragraph) paragraph.textContent=message;
+};
+window.LDTT_CONTACT_HANDOFF=async modal=>{
+  const pending=window.LDTT_PENDING_CONTACT_LEAD;
+  window.LDTT_PENDING_CONTACT_LEAD=null;
+  // The practice copy has its own capture listener for this (rule 73) and never comes through here.
+  if(window.LDTT_IS_SANDBOX===true) return;
+  if(!pending?.lead_id||Date.now()-pending.at>120000) return;
+  const thanks=modal?.querySelector?.('p')?.textContent||'';
+  contactHandoffSay(modal,'Thank you, your request was saved. One moment while we find the trainers nearest you…');
+  let pipeline=null;
+  try{
+    const response=await fetch('/api/pipeline',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'enter',lead_id:pending.lead_id,via:'contact-us'})});
+    pipeline=await response.json().catch(()=>null);
+  }catch(error){
+    console.warn('LDTT pipeline could not start',error);
+  }
+  // No booking link means the lane is not a booking lane (phone consultation / becoming a trainer /
+  // blank) or nobody takes online bookings within 50 miles of this ZIP. Either way the office follows
+  // up exactly as it does today, so the thank-you stays and nothing is promised that is not true.
+  if(!pipeline?.book_url){
+    contactHandoffSay(modal,thanks);
+    return;
+  }
+  window.location.assign(String(pipeline.book_url));
 };
 
 const contactForm=document.querySelector('.contact-intake');

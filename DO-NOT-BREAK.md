@@ -908,12 +908,16 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       page's FormSubmit markup are unchanged by this step (the HTML diff is the `?v=` stamp only). Never
       reroute FormSubmit through anything else; never add a FormSubmit fallback; never re-send it. The stash
       `portal3-attempt1-REROUTED-FORMSUBMIT-do-not-apply-2026-09-12` did that and was stopped: never apply it.
-    - **Practice copy only this round.** `api/pipeline.js` answers 404 on live before anything else.
+    - **`api/pipeline.js` serves LIVE as well as the practice copy** (go-live 2026-09-23; the "404 on live"
+      round is over). Every table call still goes through the schema switch (rule 5), so the practice copy
+      writes `practice.*` while live writes `public.*`.
       REVISED in step 3b (rule 73): the step-3 wrapper `deliverOrEnterPipeline()` is GONE. The Contact handler
       calls `relayFormDeliveries('contact',…)` directly again and `window.LDTT_FORM_DELIVERY` is
       `{submitCanonical, relay: relayFormDeliveries}`, byte-for-byte commit 1176038. The practice copy reaches the
       pipeline through a SEPARATE capture listener that only exists when `/api/environment` says sandbox (see rule 73).
-      `app.js` trainer pages still branch on `window.LDTT_IS_SANDBOX === true` before their own relay (live skips it).
+      LIVE reaches it through the hand-off in rule 103, which runs only AFTER the delivery above has finished
+      and never touches it. `app.js` trainer pages still branch on `window.LDTT_IS_SANDBOX === true` before
+      their own relay (live skips it).
     - **Which forms are on on the practice copy:** only the LEAD forms that post to `submit-contact`
       (`.contact-intake`, `.market-guide-form`, `.ad-exit-form`, `.office-lead-form`), because only
       `submit-contact` is deployed with the practice flag (version 9; checked 2026-09-12 with
@@ -995,6 +999,7 @@ live byte-identical after every pull), `node --test tests/*.test.mjs` and the of
       uses the table: ad pages, 2.0 pages, market pages and trainer pages always take `booking`. The lane is logged in
       `raw_payload.pipeline.lane` and shown in the lead panel. The FormSubmit office email goes out in EVERY case (live),
       untouched. Texts still need SMS consent and an active tester phone (rule 72).
+      **Since 2026-09-24 (rule 103) these lanes run on LIVE too**, not only on the practice copy.
     - **The customer-care text uses its own Make route when `LDTT_MAKE_HOOK_CARE` is set, else the pathway 1 hook**
       (REVISED 2026-09-22, sandbox fix pass). The old "never pathway 1" reason is gone: since 2026-09-14 pathway 1's
       Twilio body is `{{1.message}}` (its only filter is the phone tester filter, no pathway filter; checked 2026-09-22) and
@@ -2001,3 +2006,69 @@ COLLECTED; service-dog gold tag YES; milestones later.
      SALES_STAGES labels with no "New Inquiry" column, an engaged lead in "Captured & Responded" for office AND
      trainer, strict scoping + the never-call hold-out, no tiles / no deal cards, one renderer, the legends,
      the phone CSS scoped to the trainer board.
+
+## Contact Us goes live: ZIP required, then the trainers, then the same pipeline (added 2026-09-24, Claude, on Joshua's order)
+
+103. **On LIVE, Contact Us asks for a ZIP, hands the person to the preferred trainers, and enters the SAME
+     pipeline every other lead enters — and the office's form submit and logging are untouched.**
+     Joshua, 2026-09-24, in his words: "it should after filling that they should fill zip code mandatory and
+     then it takes them to the preferred trainers then the same text flow starts and fires and the rest of the
+     automation like the rest of the leads. don't break form submit."
+     - **The order of operations is the whole rule.** A live Contact Us submit runs, in this order and no other:
+       `submit-contact` (the lead row) → `relayFormDeliveries('contact',…)` → `/api/form-delivery` (Google Sheet
+       row + the FormSubmit email to `production@`, subject "New Lorenzo's Dog Training Team Contact Form
+       Submission") → the browser retry to FormSubmit when the server email failed → the delivery result logged
+       back → **only then** `/api/pipeline {op:"enter", via:"contact-us"}` → **only then** the booking page.
+       Nothing new may ever run before or inside that delivery. `tests/contact-us-live-pipeline.test.mjs` runs
+       the real blocks out of `script.js` and pins that exact call order and those exact bodies.
+     - **Nothing frozen was touched.** `relayFormDeliveries`, the `const contactForm=` handler,
+       `window.LDTT_FORM_DELIVERY`, `submitEmailRelay`, `wireAsyncForm` and the `contact.html` form markup are
+       byte-for-byte what rule 73 pins (commit 1176038); every hash in `tests/office-email.test.mjs` is still
+       green, INCLUDING the assertion that the practice capture listener is still gated to `env.sandbox`.
+       The new code lives in three places OUTSIDE those blocks and is pinned not to leak into them:
+       `rememberContactLead` (records the lead id after `submit-contact`; no network),
+       the last line of `showFormSuccessModal` (which `wireAsyncForm` reaches only after `await onSubmit(...)`
+       has resolved — that is what guarantees the ordering above), and `window.LDTT_CONTACT_HANDOFF` +
+       `wireContactZipRequired` just above the `const contactForm=` handler.
+       **The gate on the practice listener was deliberately NOT removed.** Removing it would have put live
+       submits through `submitPracticeContact`, which never calls FormSubmit — i.e. it would have broken the
+       one thing Joshua said not to break. Live gets its own hand-off instead. Never "simplify" the two paths
+       into one by deleting that gate.
+     - **ZIP.** `required` and the red `required-mark` asterisk were already in the markup `build.py` writes,
+       exactly like every other required field, and they are UNCHANGED (rule 73 pins that markup). What is added
+       is `wireContactZipRequired`: `pattern="\d{5}"`, `inputmode="numeric"`, `maxlength="5"` and
+       `setCustomValidity` — "Please enter your ZIP code so we can show you the trainers nearest you." when
+       blank, "Please enter a valid 5-digit US ZIP code, for example 44128." when malformed — so the
+       `form.reportValidity()` that `wireAsyncForm` already calls refuses the submit natively. It is wired only
+       on a form whose hidden `source_page` is `contact.html`, and never twice.
+     - **The trainer step.** The hand-off follows the pipeline's OWN `book_url`, which is
+       `/book/<trainer_slug>?lead=<uuid>` (`lib/booking.js` `bookUrl`). That is rule 74's page: ZIP → the
+       trainers within 50 miles who have a calendar, nearest first → Rachel's questions → the calendar, with
+       what the person already typed carried over by the lead id. **NO name, phone, email or ZIP may ever go
+       in that URL** — an earlier review flagged it as a PII leak into browser history, Referer headers and
+       access logs. The opaque id is the only parameter and the test pins that.
+     - **No booking link, no redirect.** When `enterPipeline` hands back `book_url: null` — the phone-consultation,
+       becoming-a-trainer and blank lanes, or no trainer with a calendar within 50 miles of that ZIP — the person
+       keeps today's thank-you and the office follows up exactly as it does now. Never send anyone to a booking
+       page that has nothing to show them.
+     - **Lane behaviour on live** (rule 73's `CONTACT_US_LANES` semantics are unchanged; they simply now run on
+       live as well):
+       | "I want to..." answer | lane | client text | client email twin | trainer | Operations | Sales tab | goes to trainers |
+       |---|---|---|---|---|---|---|---|
+       | in-person evaluation / virtual evaluation / training session | `booking` | booking-link text, SMS consent + textable phone only | yes, rule 99 twin, regardless of consent, when a link exists | new-inquiry text + email to the routed trainer | new-lead text + email | **yes** | **yes** |
+       | free phone consultation | `office_call` | care text "our office will call you shortly", no link, consent only | yes ("office will call") | no | no | no | no |
+       | becoming a dog trainer | `recruiting` | none | none | no | no | no | no |
+       | blank / unknown | `office_follow_up` | none | none | no | no | no | no |
+     - **Rule 2 side-effect, expected and intended:** a Contact Us lead in the `booking` lane now gets
+       `raw_payload.sales_pipeline = true`, so it appears on the **Sales tab** as well as the Leads tab, exactly
+       like every other pipeline lead. The office should expect Contact Us names on Sales from now on. The Leads
+       tab counts and the real-lead count (284) are unchanged: nothing is re-bucketed and no row is added.
+     - **The practice copy is unchanged** (rule 73): its own capture listener still takes practice Contact Us
+       submits, still never calls FormSubmit or `/api/form-delivery`, and the live hand-off returns immediately
+       when `window.LDTT_IS_SANDBOX === true`. Practice client texts still reach only tester phones and practice
+       client emails still redirect to the practice inbox.
+     Pins: `tests/contact-us-live-pipeline.test.mjs` (10) — the ZIP markup in `contact.html` AND in `build.py`,
+     the 5-digit rule and both messages, the exact live call order with the delivery first and unchanged, the
+     single `/api/form-delivery` call when the server email succeeds, the `{op:"enter",via:"contact-us"}` body,
+     the opaque-id-only URL, the no-link-no-redirect lanes, the sandbox no-op, the stale-lead guard, and that
+     none of the new names appear inside any frozen block.
