@@ -155,7 +155,7 @@ const PORTAL_STAFF_DIRECTORY = [
   { name: "Rachel Leggett", email: "rachelleggett@lorenzosdogtrainingteam.com", permission: "super_admin" },
   { name: "Kathleen Saraney", email: "controller@lorenzosdogtrainingteam.com", permission: "super_admin" },
   { name: "Arrison Jackson", email: "arrisoncjackson@gmail.com", permission: "super_admin" },
-  { name: "Tim Miller", email: "tmillerk999@gmail.com", permission: "super_admin" },
+  { name: "Lorenzo Miller", email: "tmillerk999@gmail.com", permission: "super_admin" }, // audit 2026-09-24: he is Lorenzo on every screen (lib/pipeline.js labels this address the same)
   { name: "Joshua Matthews", email: "mr.matthews2022@gmail.com", permission: "super_admin" },
   { name: "Marketing Team", email: "marketing@lorenzosdogtrainingteam.com", permission: "super_admin" },
   { name: "Mark Sprouse", email: "marksprouse@lorenzosdogtrainingteam.com", permission: "office_admin" },
