@@ -202,6 +202,19 @@ module.exports = async function handler(req, res) {
     const leadId = clean(body.lead_id, 60) || null;
     const clientId = clean(body.client_id, 60) || null;
 
+    // Rule 7 (audit 2026-09-24): a trainer may only close THEIR OWN lead. The lead flip below runs
+    // with the service key, so without this check any trainer who knew another lead's id (e.g. the
+    // lead they handed off, rule 91) could turn it into Became a Client and take the sale. Checked
+    // BEFORE anything is written, with the same ownership test operational-data uses to show a
+    // trainer their leads (leads.trainer_id). The office path is unchanged.
+    if (leadId && !auth.isAdmin) {
+      const owned = await supabaseFetch(`/rest/v1/leads?select=id,trainer_id&id=eq.${encodeURIComponent(leadId)}&limit=1`);
+      const lead = Array.isArray(owned) ? owned[0] : null;
+      if (!lead || String(lead.trainer_id || "") !== String(trainerId)) {
+        return res.status(403).json({ ok: false, message: "That lead is not assigned to you, so this deal cannot close it. Ask Lorenzo's office." });
+      }
+    }
+
     // Practice copy: identical path against the practice schema (lib/sandbox.js).
     const [deal] = await supabaseFetch("/rest/v1/deals", {
       method: "POST", headers: { Prefer: "return=representation" },
