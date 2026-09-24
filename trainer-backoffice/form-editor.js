@@ -175,7 +175,9 @@
       return panel("Lead forms", "", `<p class="panel-copy">Loading the lead forms…</p>`, "pad");
     }
     if (S.error === "not_here") {
-      return panel("Lead forms", "", `<p class="panel-copy">Lead forms are edited on the practice copy for now: open <a href="https://ldtt-sandbox.vercel.app/staff" target="_blank" rel="noopener">the practice portal</a> → Page Editor → Lead forms. Changes reach the live portal through Send to live, as a draft.</p>`, "pad");
+      // Audit 2026-09-24: no link on the live portal may point at the practice copy (a preview host).
+      // The words stay; the office opens the practice portal from their own bookmark.
+      return panel("Lead forms", "", `<p class="panel-copy">Lead forms are edited on the practice copy for now: open <strong>the practice portal</strong> → Page Editor → Lead forms. Changes reach the live portal through Send to live, as a draft.</p>`, "pad");
     }
     if (!S.data) return panel("Lead forms", "", `<p class="panel-copy">The forms did not load: ${esc(S.error)} <button class="btn btn-outline btn-small" type="button" data-lf-reload>Try again</button></p>`, "pad");
     const d = S.data;
