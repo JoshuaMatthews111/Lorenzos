@@ -315,6 +315,10 @@ async function restoreTrainerPage(admin, body, requestId) {
   return { status: 200, body: { ok: true, restored: true, live, record, actor: admin.actor, updated_at: record.updated_at, message: live ? "Trainer page restored. It is back on the website." : "Trainer page restored as a draft. It was not live when it was deleted." } };
 }
 
+// Keys of a lead's raw_payload that only the server writes (the texting pipeline, the booking flow, the
+// no-trainer stamp, the test-row stamp, and where the lead came from). An office save never changes them.
+const LEAD_SERVER_OWNED_KEYS = ["pipeline", "booking", "needs_office_call", "qa", "sales_pipeline", "submission_id", "source_page", "trainer_slug", "assigned_trainer", "trainer_market"];
+
 async function getRecord(table, id, idColumn = "id") {
   const rows = await supabaseFetch(`/rest/v1/${table}?select=*&${encodeURIComponent(idColumn)}=eq.${encodeURIComponent(id)}&limit=1`);
   return rows?.[0] || null;
@@ -410,6 +414,21 @@ async function updateRecord(admin, body, requestId) {
   // replace the applicant's answers or another staff member's stamp wholesale.
   if (entityType === "application" && changes.raw_payload && typeof changes.raw_payload === "object" && !Array.isArray(changes.raw_payload)) {
     changes.raw_payload = { ...(before.raw_payload || {}), ...changes.raw_payload };
+  }
+  // 2026-09-24 (portal audit): an office lead save sent the browser's WHOLE raw_payload, which could be minutes
+  // old, and it replaced the stored one outright. That erased what the server wrote meanwhile: the texting
+  // record (raw_payload.pipeline, including the re-engage once-only record), the booking answers, the red
+  // "Needs a call" stamp and the test-row stamp. Now the save is MERGED into the stored copy, and the keys only
+  // the server writes always keep their stored value (or stay absent when the server removed them). The only
+  // key the office screen means to change here is follow_up_date, and that still saves.
+  if (entityType === "lead" && changes.raw_payload && typeof changes.raw_payload === "object" && !Array.isArray(changes.raw_payload)) {
+    const stored = before.raw_payload && typeof before.raw_payload === "object" ? before.raw_payload : {};
+    const merged = { ...stored, ...changes.raw_payload };
+    for (const key of LEAD_SERVER_OWNED_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(stored, key)) merged[key] = stored[key];
+      else delete merged[key];
+    }
+    changes.raw_payload = merged;
   }
   const kept = keepLivePageLive(entityType, before, changes, clean(body.action, 80)); // rule 56
   if (kept.draftOnly) { for (const key of Object.keys(changes)) delete changes[key]; Object.assign(changes, kept.changes); }
