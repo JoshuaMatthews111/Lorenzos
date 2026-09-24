@@ -10037,7 +10037,9 @@ async function trainerLeadAction(button) {
     const response = await fetch("/api/trainer-lead-action", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` }, body: JSON.stringify(body) });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
-    state.trainerLost = null;
+    // Audit 2026-09-24: only a Lost save (or the lead leaving the list) empties the Lost box; answering the Alpha
+    // question or Eval completed used to wipe a reason + note the trainer had already typed.
+    if (action === "lost" || action === "handoff") state.trainerLost = null;
     if (action === "handoff") {
       state.trainerHandoff = null;
       if (state.selectedLeadId === lead.id || state.selectedLeadId === lead.remoteId) state.selectedLeadId = "";
@@ -10049,6 +10051,9 @@ async function trainerLeadAction(button) {
     render();
   } catch (error) {
     button.disabled = false;
+    // Audit 2026-09-24: a refused Alpha answer must not stay on screen as if it were saved (redraws are held
+    // while the dropdown has focus). Put back what is actually stored.
+    if (action === "alpha" && button.tagName === "SELECT") button.value = lead.alphaAnswer || "";
     showToast(error.message || "Not saved. Please try again.");
   }
 }
