@@ -2338,3 +2338,18 @@ office's-turn, no call reminder, no email campaign.
        `office_turn_digest` absent (= OFF), `trainer_emails_hold` true, `email_campaign` armed false / no send_at / no
        pools, `reengage_batch` armed false; 0 reminder claims, 0 campaign claims, 0 digest rows, 0 live hand-offs; anon REST
        reads of the server-only keys return nothing; the 06:15 UTC cron tick on live28 answered 200.
+
+112. **The follow-up timer has a START TIME and never texts the backlog; trainer emails go only for the chosen kinds
+     (Joshua 2026-09-25, after the Lorenzo / Angela call).** Settings `pipeline_office_emails`:
+     - `auto_followups_from` (ISO time). `runAutoFollowUps` does nothing before it (`waiting:true`, nothing written), and
+       `autoFollowUpDue(lead, now, {fromMs})` skips any lead whose `pipeline.entered_at` is before it. Switching the timer
+       on can therefore never text a lead from before the start (on 2026-09-25 that held out one real lead the office had
+       already called, which would otherwise have got two texts at once, and one old live test row).
+     - One follow-up text per lead per cron tick (`due.slice(0, 1)`): two steps due together go on two ticks, 15 minutes
+       apart, never back to back.
+     - `trainer_email_kinds` (list; absent/null = every kind, the old behavior). `trainerTwinEmail` skips a kind not on
+       the list with a plain reason; the trainer TEXT is unchanged. Live list 2026-09-25: `trainer_new_inquiry`,
+       `trainer_new_eval`, `pre_eval_answers` (new inquiry + evaluation booked with the questionnaire answers);
+       `trainer_log_deal` stays text only.
+     - Both keys are in `KEPT_WHEN_ABSENT`, so an office settings save that does not send them keeps the stored values.
+     Pins: `tests/timer-start-and-trainer-emails-2026-09-25.test.mjs`.
