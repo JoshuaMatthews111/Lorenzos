@@ -14,6 +14,7 @@
 // the same text twice.
 
 const P = require("../../lib/pipeline");
+const E = require("../../lib/email-campaign");
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
@@ -49,7 +50,12 @@ module.exports = async function handler(req, res) {
     const officeTurn = await P.runOfficeTurnDigest()
       .catch(error => ({ on: false, message: `office's-turn digest failed: ${String(error?.message || error)}` }));
     if (officeTurn.ran) console.log("office_turn_digest_run", JSON.stringify({ day: officeTurn.last_date, leads: officeTurn.leads, email: officeTurn.email?.status }));
-    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn });
+    // 2026-09-25: Angela's lead email - shipped DISARMED (site_settings email_campaign armed:false, no send_at).
+    // Not armed = a one-line no-op. Armed + due: it disarms itself first, then sends each person once.
+    const emailCampaign = await E.runEmailCampaign()
+      .catch(error => ({ armed: false, message: `email campaign check failed: ${String(error?.message || error)}` }));
+    if (emailCampaign.ran) console.log("email_campaign_run", JSON.stringify({ sent: emailCampaign.sent, skipped: emailCampaign.skipped, remaining: emailCampaign.remaining }));
+    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });

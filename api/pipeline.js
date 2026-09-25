@@ -18,6 +18,7 @@ const P = require("../lib/pipeline");
 const M = require("../lib/office-email");
 const R = require("../lib/reengage");
 const X = require("../lib/pipeline-texts"); // rule 84: the Text messages editor
+const E = require("../lib/email-campaign"); // Angela's lead email (2026-09-25): shipped DISARMED
 
 function actorLabel(access) {
   const actor = access?.actor || {};
@@ -67,6 +68,27 @@ module.exports = async function handler(req, res) {
         if (!access.isSuperAdmin) return res.status(403).json({ ok: false, message: "Only the Super Admin can see the re-engage batch." });
         const row = (await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${P.REENGAGE_KEY}&select=key,value&limit=1`))?.[0] || null;
         return res.status(200).json({ ok: true, batch: P.normalizeReengageBatch(row?.value), raw: row?.value || null });
+      }
+      if (op === "email_campaign") {
+        // Angela's email: the stored (disarmed) key + a READ-ONLY dry run for the pools asked. SUPER ADMIN only.
+        if (!access.isSuperAdmin) return res.status(403).json({ ok: false, message: "Only the Super Admin can see the email campaign." });
+        const pools = String(req.query?.pools || "").split(",").map(p => B.clean(p, 40)).filter(p => E.POOLS.includes(p));
+        const maxAge = Number(req.query?.max_age_days);
+        const result = await E.dryRun({
+          pools: pools.length ? pools : E.POOLS,
+          maxAgeDays: Number.isFinite(maxAge) && maxAge > 0 ? Math.floor(maxAge) : null,
+          reengageSince: B.clean(req.query?.reengage_since, 40)
+        });
+        return res.status(200).json({ ok: true, ...result });
+      }
+      if (op === "email_campaign_preview") {
+        // The email exactly as one lead would get it (HTML + plain text + their area link). Sends nothing.
+        if (!access.isSuperAdmin) return res.status(403).json({ ok: false, message: "Only the Super Admin can preview the email campaign." });
+        const leadId = B.clean(req.query?.lead_id, 60);
+        if (!B.UUID.test(leadId)) return res.status(400).json({ ok: false, message: "Which lead? The lead id is missing." });
+        const preview = await E.preview(leadId);
+        if (!preview) return res.status(404).json({ ok: false, message: "That lead was not found." });
+        return res.status(200).json({ ok: true, ...preview });
       }
       if (op === "followup") {
         // Rule 81: the saved follow-up texts. READ ONLY: it plans and previews, it never sends or writes.
@@ -152,6 +174,19 @@ module.exports = async function handler(req, res) {
       if (existing) await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${P.REENGAGE_KEY}`, { method: "PATCH", prefer: "return=minimal", body: { value } });
       else await B.sbOrThrow("/rest/v1/site_settings", { method: "POST", prefer: "return=minimal", body: { key: P.REENGAGE_KEY, value } });
       return res.status(200).json({ ok: true, message: batch.armed ? `Armed for ${batch.send_at} on ${batch.columns.length > 1 ? `columns ${batch.columns.join(", ")}` : `column ${batch.column}`}.` : "Saved, NOT armed.", value });
+    }
+    if (op === "email_campaign_save") {
+      // Angela's email key {armed, send_at, pools, max_age_days}. SUPER ADMIN only. Arming needs pools + send_at.
+      // armed:false (or deleting the key) is the kill switch; the cron checks it every run and disarms before sending.
+      const access = await authorizeRequest(req, res, { require: "super", message: "Only the Super Admin can arm the email campaign." });
+      if (!access) return;
+      const campaign = E.normalizeCampaign(body);
+      if (campaign.armed && (!campaign.pools.length || !campaign.send_at)) return res.status(400).json({ ok: false, message: "To arm the email it needs at least one pool and a send_at time." });
+      const existing = (await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${E.KEY}&select=key,value&limit=1`))?.[0];
+      const value = { ...(existing?.value || {}), ...campaign, updated_by: actorLabel(access), saved_at: new Date().toISOString() };
+      if (existing) await B.sbOrThrow(`/rest/v1/site_settings?key=eq.${E.KEY}`, { method: "PATCH", prefer: "return=minimal", body: { value, updated_at: new Date().toISOString() } });
+      else await B.sbOrThrow("/rest/v1/site_settings", { method: "POST", prefer: "return=minimal", body: { key: E.KEY, value } });
+      return res.status(200).json({ ok: true, message: campaign.armed ? `Armed for ${campaign.send_at}: ${campaign.pools.join(", ")}.` : "Saved, NOT armed.", value });
     }
     if (op === "followup_send") {
       // Joshua 2026-09-16: the "Has not booked yet" follow-up texts are an office button, not a timer.
