@@ -6035,3 +6035,10 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
   margin-left: auto; border: 1px solid #d80f35; border-radius: 999px; background: #fff;
   color: #082754; font: inherit; font-size: .8rem; font-weight: 800; padding: 6px 12px; cursor: pointer;
 }
+
+/* Rule 106 (2026-09-25): the Super Admin "Send to a trainer" box on the office lead panel. */
+.super-handoff { display: grid; gap: 8px; }
+.super-handoff input[type="search"] { width: 100%; max-width: none; }
+.super-handoff .super-handoff-list { width: 100%; min-height: 9rem; border: 1px solid rgba(148, 163, 184, .7); border-radius: 8px; padding: 4px; font: inherit; background: var(--panel, #fff); }
+.super-handoff .super-handoff-list option { padding: 4px 6px; }
+.super-handoff .btn { justify-self: start; }

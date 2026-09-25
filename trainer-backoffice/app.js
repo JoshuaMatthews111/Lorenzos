@@ -5257,7 +5257,7 @@ function typedFieldKey(field) {
     // onboarding: the trainer editor boxes were missing here — the page editor
     // (data-editor-field), the profile editor (data-profile-field), the trainer's
     // social links, video links and the Send-to-live name box.
-    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-trainer-phone-new=/.test(pair) ||/^data-pipeline-(email|label|trainer-phone|practice-email|ops-phone|live-ops-phone|live-ops-email|client-phone|alpha-email|trainer-override-phone)=/.test(pair) || /^data-lf-(label|choices|new-label|placeholder|name)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72/73: the office email box; rule 75: the form editor boxes
+    .filter(pair => /^(name|data-design-field|data-design-index|data-design-meta|data-design-page|data-flow-name|data-design-body-text|data-design-sms-text|data-design-body-html|data-flow-search|data-editor-field|data-editor-style|data-profile-field|data-trainer-social-link|data-main-trainer-video-url|data-builder-embed-url|data-send-live-name|data-deal-field|data-deal-custom|data-new-office-note|data-office-note-edit|data-client-note|data-submission-note|data-lead-search|data-application-search|data-client-search)=/.test(pair) || /^data-lead-eval-at=/.test(pair) || /^data-super-handoff-search=/.test(pair) || /^data-trainer-phone-new=/.test(pair) ||/^data-pipeline-(email|label|trainer-phone|practice-email|ops-phone|live-ops-phone|live-ops-email|client-phone|alpha-email|trainer-override-phone)=/.test(pair) || /^data-lf-(label|choices|new-label|placeholder|name)=/.test(pair)).join("|"); // rule 70: the lead eval box; rule 72/73: the office email box; rule 75: the form editor boxes
   if (own) return `${formKey}::${own}`;
   // Safety net (Joshua 2026-09-11, the password box that emptied while typing): a box
   // with none of the attributes above is no longer left with an empty key. Its key is
@@ -9845,6 +9845,83 @@ function trainerHandoffBox(lead, where = "panel") {
   </div>`;
 }
 
+// ---- Rule 106 (Joshua 2026-09-25): a SUPER ADMIN sends any lead to ANY trainer on the site with a portal login ----
+// Shown only to a Super Admin, on the office lead panel. The list comes from GET /api/trainer-lead-action?handoff_targets=1
+// (every ACTIVE trainer with an ACTIVE trainer portal login; the server checks it again on the send). Office admins keep
+// their own assign tools and rule 105; trainers keep "Send to someone in your downline". The search text and the pick live
+// in state.superHandoff so a background redraw never loses them; typing filters the list in place (no redraw).
+let superHandoffList = null;      // { trainers: [{ id, slug, full_name, place }], error? } once loaded
+let superHandoffPromise = null;
+
+function loadSuperHandoffTargets() {
+  if (superHandoffList || superHandoffPromise || !isSuperAdmin()) return superHandoffPromise;
+  if (!remoteReady || !window.LDTT_PORTAL?.accessToken) return null;
+  superHandoffPromise = (async () => {
+    try {
+      const token = await window.LDTT_PORTAL.accessToken();
+      const response = await fetch("/api/trainer-lead-action?handoff_targets=1", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load the trainers (${response.status}).`);
+      superHandoffList = { trainers: Array.isArray(payload.trainers) ? payload.trainers : [] };
+    } catch (error) {
+      superHandoffList = { trainers: [], error: error.message || "Could not load the trainers." };
+    } finally {
+      superHandoffPromise = null;
+      if (typeof render === "function") render();
+    }
+  })();
+  return superHandoffPromise;
+}
+
+function superHandoffMatches(trainer, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+  return `${trainer.full_name || ""} ${trainer.place || ""}`.toLowerCase().includes(q);
+}
+
+function superHandoffBox(lead) {
+  if (!isSuperAdmin() || !lead?.remoteId) return "";
+  loadSuperHandoffTargets();
+  const head = `<span>Send to a trainer <small class="field-hint">(Super Admin: anyone on the site with a trainer portal login)</small></span>`;
+  if (!superHandoffList) return `<section class="detail-note-block super-handoff">${head}<p class="field-hint">${remoteReady ? "Loading the trainers…" : "Sign in to the live portal to send leads."}</p></section>`;
+  if (superHandoffList.error) return `<section class="detail-note-block super-handoff">${head}<p class="field-hint">${escapeHtml(superHandoffList.error)} <button type="button" class="btn btn-outline btn-small" data-super-handoff-reload>Try again</button></p></section>`;
+  const pick = state.superHandoff?.leadId === lead.id ? state.superHandoff : {};
+  const current = String(lead.trainerRemoteId || "");
+  const trainers = superHandoffList.trainers.filter(t => String(t.id) !== current);
+  const options = trainers.map(t => `<option value="${escapeHtml(t.id)}"${pick.toTrainerId === t.id ? " selected" : ""}${superHandoffMatches(t, pick.q) ? "" : " hidden"}>${escapeHtml(t.full_name)}${t.place ? ` · ${escapeHtml(t.place)}` : ""}</option>`).join("");
+  return `<section class="detail-note-block super-handoff">${head}
+    <input type="search" class="select-pill" data-super-handoff-search data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.q || "")}" placeholder="Search a name or city" aria-label="Search the trainers">
+    <select class="super-handoff-list" size="7" data-super-handoff-to data-lead-ref="${escapeHtml(lead.id)}" aria-label="Pick the trainer who takes ${escapeHtml(lead.owner || "this lead")}">${options}</select>
+    <p class="field-hint">${trainers.length} trainer${trainers.length === 1 ? "" : "s"} with a portal login. The lead moves to that trainer's My Leads; nothing is texted or emailed.</p>
+    <button type="button" class="btn btn-red btn-small" data-super-handoff-send data-lead-ref="${escapeHtml(lead.id)}">Send</button>
+  </section>`;
+}
+
+async function superHandoffSend(button) {
+  const lead = (state.leads || []).find(l => l.id === button.dataset.leadRef);
+  if (!lead?.remoteId) { showToast("This lead is not saved yet."); return; }
+  const pick = state.superHandoff?.leadId === lead.id ? state.superHandoff : {};
+  const target = (superHandoffList?.trainers || []).find(t => t.id === pick.toTrainerId) || null;
+  if (!target) { showToast("Pick the trainer who takes this lead."); return; }
+  const from = trainerName(lead.trainerId);
+  if (!window.confirm(`Send ${lead.owner} to ${target.full_name}${target.place ? ` (${target.place})` : ""}? The lead moves to ${target.full_name}'s My Leads${from && from !== "Unassigned" ? ` and leaves ${from}'s` : ""}.`)) return;
+  button.disabled = true;
+  try {
+    const token = await window.LDTT_PORTAL?.accessToken?.();
+    const body = { action: "handoff", lead_id: lead.remoteId, to_trainer_id: target.id, ...(lead.version !== undefined && lead.version !== null ? { expected_version: lead.version } : {}) };
+    const response = await fetch("/api/trainer-lead-action", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` }, body: JSON.stringify(body) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not sent (${response.status}).`);
+    state.superHandoff = null;
+    showToast(`Sent to ${target.full_name}`);
+    await reloadRemoteData().catch(() => {});
+    render();
+  } catch (error) {
+    button.disabled = false;
+    showToast(error.message || "Not sent. Please try again.");
+  }
+}
+
 // Rank badges wear the chart's ring colours (styles.css .team-rank-<key>).
 const TEAM_RANK_KEYS = ["owner", "senior_vice_president", "regional_director", "master_trainer", "team_coordinator", "executive_team_trainer", "team_trainer"];
 const teamRankKey = rank => (TEAM_RANK_KEYS.includes(rank) ? rank : "none");
@@ -9979,10 +10056,12 @@ function resetPerUserPortalCaches() {
   trainerCalendar = null; trainerCalendarPromise = null;
   trainerPhoneChange = null; trainerPhoneChangePromise = null;
   phoneChangeRequests = null; phoneChangeRequestsPromise = null;
+  superHandoffList = null; superHandoffPromise = null;
   if (state && typeof state === "object") {
     state.dealForm = {};
     state.trainerLost = null;
     state.trainerHandoff = null;
+    state.superHandoff = null;
     state.selectedLeadId = "";
   }
 }
@@ -10521,7 +10600,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label><label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -14370,6 +14449,9 @@ document.addEventListener("click", async event => {
   const trainerAction = event.target.closest("[data-trainer-lead-action]");
   if (trainerAction && trainerAction.tagName !== "SELECT") { trainerLeadAction(trainerAction); return; } // the Alpha select saves on change, not on click
   if (event.target.closest("[data-trainer-team-reload]")) { trainerTeam = null; loadTrainerTeam(); render(); return; }
+  const superSend = event.target.closest("[data-super-handoff-send]");
+  if (superSend) { superHandoffSend(superSend); return; } // rule 106
+  if (event.target.closest("[data-super-handoff-reload]")) { superHandoffList = null; loadSuperHandoffTargets(); render(); return; }
   const teamExpand = event.target.closest("[data-team-expand]");
   if (teamExpand) { // My Team "Open all" / "Close all": flips the branches in place (no redraw), remembered by the toggle listener
     const open = teamExpand.dataset.teamExpand === "all";
@@ -17268,6 +17350,21 @@ document.addEventListener("input", event => {
   const leadId = field.dataset.leadRef;
   const keep = state.trainerLost?.leadId === leadId ? state.trainerLost : {};
   state.trainerLost = { ...keep, leadId, ...(reason ? { reason: reason.value } : { note: note.value }) };
+});
+
+// ---- Super Admin "Send to a trainer" (rule 106): the search filters the list IN PLACE (no redraw); both kept in state ----
+document.addEventListener("input", event => {
+  const search = event.target.closest("[data-super-handoff-search]");
+  const pick = event.target.closest("[data-super-handoff-to]");
+  if (!search && !pick) return;
+  const leadId = (search || pick).dataset.leadRef;
+  const keep = state.superHandoff?.leadId === leadId ? state.superHandoff : {};
+  state.superHandoff = { ...keep, leadId, ...(search ? { q: search.value } : { toTrainerId: pick.value }) };
+  if (search) {
+    const list = search.closest(".super-handoff")?.querySelector("[data-super-handoff-to]");
+    const byId = new Map((superHandoffList?.trainers || []).map(t => [String(t.id), t]));
+    list?.querySelectorAll("option").forEach(option => { option.hidden = !superHandoffMatches(byId.get(option.value) || {}, search.value); });
+  }
 });
 
 // ---- Trainer "Send to someone in your downline" pick (rule 105): kept in state for the same reason ----

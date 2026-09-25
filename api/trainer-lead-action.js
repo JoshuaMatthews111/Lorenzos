@@ -27,6 +27,9 @@
 //     column when the row has one: assigned_trainer_name / trainer_name / assigned_trainer) — nothing else — guarded
 //     by version, then audit_events (trainer_lead_handoff) + lead_events (trainer_handoff). No funnel event fits, so
 //     lifecycle_events is skipped. Summary: "Sent to {name} (downline)".
+// Rule 106 (Joshua 2026-09-25): a SUPER ADMIN may send ANY lead (assigned or not) to ANY trainer who is ACTIVE on the
+// site AND has an ACTIVE trainer portal login; GET ?handoff_targets=1 (super admin only) lists them. Same write, same
+// logs; summary "Sent to {name} (super admin)". Office admins and trainers are unchanged (rule 105).
 const crypto = require("node:crypto");
 const { supabaseRequest } = require("../lib/sandbox");
 const { authorizeRequest } = require("../lib/portal-auth");
@@ -171,11 +174,91 @@ async function teamHandler(req, res, access) {
 }
 
 const DOWNLINE_ONLY = "You can only send a lead to someone in your downline.";
+const NO_PORTAL = "That trainer is not active on the site with an active portal login, so they cannot take a lead yet.";
 
-// action "handoff": the assigned trainer (or the office) sends the lead DOWN the tree.
+// Rule 106 (Joshua 2026-09-25): a SUPER ADMIN (permission_level super_admin) may send ANY lead to ANY trainer who is
+// ACTIVE on the site AND has an ACTIVE portal login (portal_users role trainer, active, access_status active). The
+// chart does not limit the super admin. Office admins keep rule 105 exactly (from the assignee's downline, never up);
+// trainers keep rule 105 exactly (down only). Practice test rows and office drafts are never listed or accepted.
+async function superHandoffTargets() {
+  const rows = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_SELECT}&status=eq.active&order=full_name.asc`)) || [];
+  const logins = (await supabaseFetch("/rest/v1/portal_users?select=trainer_id,role,active,access_status&role=eq.trainer&active=eq.true&access_status=eq.active")) || [];
+  const withLogin = new Set(logins
+    .filter(login => login.role === "trainer" && login.active === true && String(login.access_status || "") === "active" && login.trainer_id)
+    .map(login => String(login.trainer_id)));
+  return rows
+    .filter(row => String(row.status || "") === "active" && !isTestOrDraftTrainer(row) && !DRAFT_NAMES.has(clean(row.full_name, 80).toLowerCase()) && withLogin.has(String(row.id)))
+    .map(row => ({ id: row.id, slug: clean(row.slug, 120).toLowerCase(), full_name: row.full_name || "", place: placeLabel(row) }));
+}
+
+// GET ?handoff_targets=1: the super admin's searchable list (name + city). Anyone else: 403.
+async function targetsHandler(res, access) {
+  if (!access.isSuperAdmin) return reply(res, 403, { ok: false, message: "Only a Super Admin can send a lead to any trainer." });
+  const trainers = await superHandoffTargets();
+  return reply(res, 200, { ok: true, trainers, count: trainers.length });
+}
+
+// The one write every hand-off makes (rule 91 / 105 / 106): PATCH trainer_id (+ the trainer-name column when present),
+// version guarded; audit_events trainer_lead_handoff + lead_events trainer_handoff; no lifecycle_events; no text/email.
+async function writeHandoff(res, access, before, note, { targetRow, targetSlug, fromSlug, path, tag }) {
+  const targetName = targetRow.full_name || "";
+  const changes = { trainer_id: targetRow.id };
+  for (const column of TRAINER_NAME_COLUMNS) if (column in before) changes[column] = targetName;
+  let summary = `Sent to ${targetName} (${tag})`;
+  if (note) summary += `. Note: ${note}`;
+
+  const requestId = crypto.randomUUID();
+  const rows = await supabaseFetch(`/rest/v1/leads?id=eq.${encodeURIComponent(before.id)}&version=eq.${encodeURIComponent(before.version || 1)}`, {
+    method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(changes)
+  });
+  const record = rows?.[0];
+  if (!record) return reply(res, 409, { ok: false, conflict: true, message: "The lead changed a moment ago. Reload and try again." });
+
+  const actorId = access.actor?.id || access.user?.id || null;
+  const by = access.isSuperAdmin && tag === "super admin" ? "super_admin" : access.isAdmin ? "office" : "trainer";
+  await supabaseFetch("/rest/v1/audit_events", {
+    method: "POST", headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      actor_user_id: actorId, actor_email: access.actor?.email || null, actor_name: access.actor?.name || null,
+      action: "trainer_lead_handoff", entity_type: "lead", entity_id: String(record.id), summary,
+      before_data: { trainer_id: before.trainer_id || null, status: before.status },
+      after_data: { trainer_id: record.trainer_id || null, status: record.status, to_trainer_name: targetName, from_slug: fromSlug, to_slug: targetSlug, ...path },
+      request_id: requestId
+    })
+  });
+  // No funnel word fits a handoff (lifecycle_events skipped); the lead's own timeline still records it.
+  await supabaseFetch("/rest/v1/lead_events", {
+    method: "POST", headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      lead_id: record.id, event_type: "trainer_handoff", previous_status: before.status, new_status: record.status,
+      actor_user_id: actorId, note: note || null,
+      event_key: `lead:${record.id}:handoff:${record.version || record.updated_at}`,
+      occurred_at: new Date().toISOString(),
+      raw_payload: { request_id: requestId, by, from_trainer_id: before.trainer_id || null, to_trainer_id: targetRow.id, to_trainer_name: targetName, from_slug: fromSlug, to_slug: targetSlug, ...path }
+    })
+  });
+  return reply(res, 200, {
+    ok: true, message: `Sent to ${targetName}.`,
+    record: { id: record.id, trainer_id: record.trainer_id, trainer_name: targetName, status: record.status, version: record.version || null }
+  });
+}
+
+// action "handoff": a super admin sends the lead to any portal trainer (rule 106); the assigned trainer (or an office
+// admin) sends it DOWN the tree (rule 105).
 async function handoff(res, access, body, before, note) {
   const toTrainerId = clean(body.to_trainer_id, 80);
   if (!toTrainerId) return reply(res, 400, { ok: false, message: "Pick the person in your downline who takes this lead." });
+  if (access.isSuperAdmin) {
+    if (toTrainerId === String(before.trainer_id || "")) return reply(res, 409, { ok: false, message: "This lead is already with that trainer." });
+    const target = (await superHandoffTargets()).find(t => String(t.id) === toTrainerId);
+    if (!target) return reply(res, 403, { ok: false, message: NO_PORTAL });
+    let fromSlug = "";
+    if (before.trainer_id) {
+      const [from] = (await supabaseFetch(`/rest/v1/trainers?select=slug&id=eq.${encodeURIComponent(String(before.trainer_id))}&limit=1`)) || [];
+      fromSlug = clean(from?.slug, 120).toLowerCase();
+    }
+    return writeHandoff(res, access, before, note, { targetRow: target, targetSlug: target.slug, fromSlug, path: { owner: false, super_admin: true }, tag: "super admin" });
+  }
   // The downline is measured from the trainer the lead is assigned to (the caller, or for the office the assignee).
   const fromTrainerId = access.isAdmin ? String(before.trainer_id || "") : String(access.trainerId || "");
   if (!fromTrainerId) return reply(res, 409, { ok: false, message: "This lead has no trainer yet. Assign it from the office instead." });
@@ -192,47 +275,7 @@ async function handoff(res, access, body, before, note) {
   let target = null;
   for (const [slug, row] of bySlug) if (String(row.id) === toTrainerId) { target = { slug, row }; break; }
   if (!target || !H.canSendTo(tree, fromSlug, target.slug)) return reply(res, 403, { ok: false, message: DOWNLINE_ONLY });
-  const targetName = target.row.full_name || "";
-
-  const changes = { trainer_id: target.row.id };
-  for (const column of TRAINER_NAME_COLUMNS) if (column in before) changes[column] = targetName;
-  let summary = `Sent to ${targetName} (downline)`;
-  if (note) summary += `. Note: ${note}`;
-
-  const requestId = crypto.randomUUID();
-  const rows = await supabaseFetch(`/rest/v1/leads?id=eq.${encodeURIComponent(before.id)}&version=eq.${encodeURIComponent(before.version || 1)}`, {
-    method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(changes)
-  });
-  const record = rows?.[0];
-  if (!record) return reply(res, 409, { ok: false, conflict: true, message: "The lead changed a moment ago. Reload and try again." });
-
-  const actorId = access.actor?.id || access.user?.id || null;
-  const path = { from_slug: fromSlug, to_slug: target.slug, owner: fromSlug === tree.owner };
-  await supabaseFetch("/rest/v1/audit_events", {
-    method: "POST", headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({
-      actor_user_id: actorId, actor_email: access.actor?.email || null, actor_name: access.actor?.name || null,
-      action: "trainer_lead_handoff", entity_type: "lead", entity_id: String(record.id), summary,
-      before_data: { trainer_id: before.trainer_id || null, status: before.status },
-      after_data: { trainer_id: record.trainer_id || null, status: record.status, to_trainer_name: targetName, ...path },
-      request_id: requestId
-    })
-  });
-  // No funnel word fits a handoff (lifecycle_events skipped); the lead's own timeline still records it.
-  await supabaseFetch("/rest/v1/lead_events", {
-    method: "POST", headers: { Prefer: "return=minimal" },
-    body: JSON.stringify({
-      lead_id: record.id, event_type: "trainer_handoff", previous_status: before.status, new_status: record.status,
-      actor_user_id: actorId, note: note || null,
-      event_key: `lead:${record.id}:handoff:${record.version || record.updated_at}`,
-      occurred_at: new Date().toISOString(),
-      raw_payload: { request_id: requestId, by: access.isAdmin ? "office" : "trainer", from_trainer_id: before.trainer_id || null, to_trainer_id: target.row.id, to_trainer_name: targetName, ...path }
-    })
-  });
-  return reply(res, 200, {
-    ok: true, message: `Sent to ${targetName}.`,
-    record: { id: record.id, trainer_id: record.trainer_id, trainer_name: targetName, status: record.status, version: record.version || null }
-  });
+  return writeHandoff(res, access, before, note, { targetRow: target.row, targetSlug: target.slug, fromSlug, path: { owner: fromSlug === tree.owner }, tag: "downline" });
 }
 
 module.exports = async function handler(req, res) {
@@ -245,7 +288,10 @@ module.exports = async function handler(req, res) {
   try {
     const access = await authorizeRequest(req, res, { require: "any", message: "Sign in to the portal first." });
     if (!access) return;
-    if (req.method === "GET") return await teamHandler(req, res, access);
+    if (req.method === "GET") {
+      if (String(req.query?.handoff_targets || "") === "1") return await targetsHandler(res, access);
+      return await teamHandler(req, res, access);
+    }
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const action = clean(body.action, 30);
     const leadId = clean(body.lead_id, 80);

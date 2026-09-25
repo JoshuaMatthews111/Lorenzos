@@ -45,13 +45,18 @@ const TRAINERS = [
   { id: "t-e", full_name: "Eve Ellis", market: "Durham", state: "New Hampshire", slug: "eve-e", status: "inactive", headshot_url: null },
   { id: "t-g", full_name: "Gus Gray", market: "Panama City", state: "Florida", slug: "gus-g", status: "active", headshot_url: null },
   { id: "t-s", full_name: "Sam Stranger", market: "Austin", state: "Texas", slug: "sam-stranger", status: "active", headshot_url: null },
-  { id: "t-x", full_name: "Test Trainer", market: "Akron", state: "OH", slug: "test-trainer", status: "active", headshot_url: null }
+  { id: "t-x", full_name: "Test Trainer", market: "Akron", state: "OH", slug: "test-trainer", status: "active", headshot_url: null },
+  // Rule 106 fixtures: Nia is active on the site but has NO portal login; Rex has a login whose access is revoked.
+  { id: "t-n", full_name: "Nia Nolog", market: "Tampa", state: "Florida", slug: "nia-nolog", status: "active", headshot_url: null },
+  { id: "t-r", full_name: "Rex Revoked", market: "Dayton", state: "Ohio", slug: "rex-revoked", status: "active", headshot_url: null }
 ];
 const USERS = [
   ["u-own", "t-own", "olga@example.com"], ["u-a", "t-a", "amy@example.com"], ["u-b", "t-b", "ben@example.com"], ["u-c", "t-c", "cal@example.com"],
   ["u-d", "t-d", "dee@example.com"], ["u-g", "t-g", "gus@example.com"], ["u-s", "t-s", "sam@example.com"]
 ].map(([user_id, trainer_id, email]) => ({ user_id, role: "trainer", permission_level: "trainer", trainer_id, active: true, access_status: "active", email, first_name: email.split("@")[0], last_name: "T" }))
-  .concat([{ user_id: "u-office", role: "admin", permission_level: "office_admin", active: true, access_status: "active", email: "angela@example.com", first_name: "Angela", last_name: "Office" }]);
+  .concat([{ user_id: "u-office", role: "admin", permission_level: "office_admin", active: true, access_status: "active", email: "angela@example.com", first_name: "Angela", last_name: "Office" }])
+  .concat([{ user_id: "u-super", role: "admin", permission_level: "super_admin", active: true, access_status: "active", email: "joshua@example.com", first_name: "Joshua", last_name: "Super" }])
+  .concat([{ user_id: "u-r", role: "trainer", permission_level: "trainer", trainer_id: "t-r", active: true, access_status: "revoked", email: "rex@example.com", first_name: "rex", last_name: "T" }]);
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 function world({ status = "office_contacted", trainer = "t-b", chart = CHART, extra = {} } = {}) {
@@ -264,6 +269,65 @@ test("bad input writes nothing: missing person, same trainer, stale version, ano
   assert.equal(w.writes.length, 0, "nothing was written");
 });
 
+// ---- Rule 106: a SUPER ADMIN may send any lead to any trainer active on the site with an active portal login ----
+test("super admin: GET ?handoff_targets=1 lists every active trainer WITH an active portal login (name + city), nobody else; others get 403", async () => {
+  world();
+  const res = await get({ handoff_targets: "1" }, "u-super-token");
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.deepEqual(res.body.trainers.map(t => t.id).sort(), ["t-a", "t-b", "t-c", "t-d", "t-g", "t-own", "t-s"], "no login (Nia), revoked login (Rex), inactive (Eve) and the test row never listed");
+  assert.deepEqual(res.body.trainers.find(t => t.id === "t-a"), { id: "t-a", slug: "amy-a", full_name: "Amy Able", place: "Boston, MA" });
+  for (const token of ["u-office-token", "u-b-token", "u-own-token"]) assert.equal((await get({ handoff_targets: "1" }, token)).statusCode, 403, token);
+});
+
+test("super admin -> any portal trainer: up, sideways, off the chart, even an unassigned lead; same guarded PATCH + logs", async () => {
+  for (const [to, trainer] of [["t-a", "t-b"], ["t-own", "t-b"], ["t-c", "t-b"], ["t-s", "t-b"], ["t-d", null]]) {
+    const w = world({ trainer, status: "evaluation_scheduled" });
+    const res = await post({ action: "handoff", lead_id: w.id, to_trainer_id: to, expected_version: 3 }, "u-super-token");
+    assert.equal(res.statusCode, 200, `${to}: ${JSON.stringify(res.body)}`);
+    assert.deepEqual(w.myLeads(to), [w.id]);
+    const patches = w.writes.filter(x => x.table === "leads");
+    assert.equal(patches.length, 1);
+    assert.deepEqual(Object.keys(patches[0].body), ["trainer_id"], "minimal PATCH, as today");
+    assert.equal(w.store.leads[0].status, "evaluation_scheduled", "status untouched");
+    assert.equal(w.store.leads[0].version, 4, "version guarded write");
+    assert.equal(w.store.audit_events[0].action, "trainer_lead_handoff");
+    assert.match(w.store.audit_events[0].summary, /^Sent to .+ \(super admin\)$/);
+    assert.equal(w.store.audit_events[0].actor_email, "joshua@example.com");
+    assert.equal(w.store.lead_events[0].event_type, "trainer_handoff");
+    assert.equal(w.store.lead_events[0].raw_payload.by, "super_admin");
+    assert.equal(w.store.lifecycle_events.length, 0);
+  }
+});
+
+test("super admin -> a trainer with no portal login (or a revoked one, or inactive, or a test row) is refused and nothing is written", async () => {
+  for (const to of ["t-n", "t-r", "t-e", "t-x", "nobody"]) {
+    const w = world();
+    const res = await post({ action: "handoff", lead_id: w.id, to_trainer_id: to }, "u-super-token");
+    assert.equal(res.statusCode, 403, `${to}: ${JSON.stringify(res.body)}`);
+    assert.match(res.body.message, /active portal login/);
+    assert.equal(w.writes.length, 0, to);
+  }
+  const w = world();
+  assert.equal((await post({ action: "handoff", lead_id: w.id, to_trainer_id: "t-b" }, "u-super-token")).statusCode, 409, "already with that trainer");
+  assert.equal((await post({ action: "handoff", lead_id: w.id, to_trainer_id: "t-a", expected_version: 1 }, "u-super-token")).statusCode, 409, "stale version");
+  assert.equal(w.writes.length, 0);
+});
+
+test("office admin is unchanged by rule 106: still only the assignee's downline, never up, never to a no-login trainer", async () => {
+  const up = world();
+  assert.equal((await post({ action: "handoff", lead_id: up.id, to_trainer_id: "t-a" }, "u-office-token")).statusCode, 403);
+  const off = world();
+  assert.equal((await post({ action: "handoff", lead_id: off.id, to_trainer_id: "t-s" }, "u-office-token")).statusCode, 403);
+  const none = world({ trainer: null });
+  assert.equal((await post({ action: "handoff", lead_id: none.id, to_trainer_id: "t-d" }, "u-office-token")).statusCode, 409, "an unassigned lead still needs the office's own assign tools");
+  const down = world();
+  const ok = await post({ action: "handoff", lead_id: down.id, to_trainer_id: "t-d" }, "u-office-token");
+  assert.equal(ok.statusCode, 200);
+  assert.equal(down.store.audit_events[0].summary, "Sent to Dee Dunn (downline)");
+  assert.equal(down.store.lead_events[0].raw_payload.by, "office");
+  assert.equal(up.writes.length + off.writes.length + none.writes.length, 0);
+});
+
 // ---- The portal ------------------------------------------------------------------------------------------
 const app = read("trainer-backoffice/app.js");
 const css = read("trainer-backoffice/styles.css");
@@ -327,4 +391,33 @@ test("portal: confirm names the person, toast 'Sent to {name}', the lead leaves 
   assert.match(api, /require\("\.\.\/lib\/sandbox"\)/, "rule 5: every table call through supabaseRequest");
   assert.match(api, /require\("\.\.\/lib\/hierarchy"\)/, "the one home of the tree helpers");
   assert.doesNotMatch(api, /\/auth\/v1\/user/, "sign-in is checked only by lib/portal-auth (rule 37)");
+});
+
+test("portal (rule 106): the Super Admin sees a searchable 'Send to a trainer' list on the office lead panel; office admins and trainers do not", () => {
+  const draw = (superAdmin, q = "") => {
+    const ctx = {
+      isSuperAdmin: () => superAdmin, remoteReady: true, escapeHtml, loadSuperHandoffTargets: () => null,
+      superHandoffList: { trainers: [
+        { id: "t-a", full_name: "Amy Able", place: "Boston, MA" }, { id: "t-b", full_name: "Ben Baker", place: "Crestview, FL" },
+        { id: "t-d", full_name: "Dee Dunn", place: "Navarre, FL" }
+      ] },
+      state: { superHandoff: q ? { leadId: "l1", q } : null }, lead: { id: "l1", remoteId: "r1", owner: "Priya", trainerRemoteId: "t-b" }
+    };
+    vm.runInNewContext(`${fn("superHandoffMatches")}\n${fn("superHandoffBox")}\nthis.out = superHandoffBox(lead);`, ctx);
+    return ctx.out;
+  };
+  assert.equal(draw(false), "", "office admin: nothing new");
+  const box = draw(true);
+  assert.match(box, /Send to a trainer/);
+  assert.match(box, /data-super-handoff-search/);
+  assert.match(box, /<option value="t-a">Amy Able · Boston, MA<\/option>/);
+  assert.doesNotMatch(box, /value="t-b"/, "the current trainer is not offered");
+  assert.match(box, /2 trainers with a portal login/);
+  assert.match(box, /data-super-handoff-send/);
+  const filtered = draw(true, "navarre");
+  assert.match(filtered, /<option value="t-a" hidden>/, "search hides non-matches in place");
+  assert.match(filtered, /<option value="t-d">Dee Dunn/);
+  assert.match(app, /<label>Assigned office owner\$\{officeAssigneeSelect\("lead", lead\.id, lead\.assignedUserId\)\}<\/label>\$\{superHandoffBox\(lead\)\}/, "drawn in the office lead panel");
+  assert.match(fn("trainerHandoffBox"), /if \(session\.role === "admin" \|\| !lead\?\.remoteId\) return "";/, "the trainer box is unchanged");
+  assert.match(app, /fetch\("\/api\/trainer-lead-action\?handoff_targets=1"/);
 });
