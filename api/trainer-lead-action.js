@@ -12,20 +12,26 @@
 // writes any other field (no eval time, no booking, no deal, no client). DO-NOT-BREAK rule 83; rule 7 (trainers
 // write only through their own doors); every table call goes through supabaseRequest (rule 5).
 //
-// Same-state team (Joshua 2026-09-16): "put those who are in the same state in their downline" until the MLM tree
-// is known. A trainer's downline = every ACTIVE trainer in the SAME state (Ohio == OH), drafts and the caller left out.
-//   GET ?team=1[&trainer_id=<id>]  -> { ok, trainer_id, state: "OH", trainers: [{ id, full_name, market, state, base_zip, slug }] }
-//     trainer_id is only honoured for the office (admin); a trainer always sees their own downline.
+// The trainer hierarchy (Joshua 2026-09-25, from the owner's chart "Hierarchy - 9-23-26"; DO-NOT-BREAK rule 105).
+// It replaces the same-state team of 2026-09-16. The tree is site_settings key "trainer_hierarchy" (server only);
+// the pure tree helpers are lib/hierarchy.js. A lead only ever moves DOWN: never up, never sideways.
+//   GET ?team=1[&trainer_id=<id>]  -> { ok, me, rank, rank_label, is_owner, upline: [...], downline: [...nested...], count }
+//     me/upline/downline entries: { id, slug, full_name, place, headshot_url, rank, rank_label, depth, children }
+//     upline = owner first, the caller's own parent last. downline = EVERY descendant, nested, each one only if the
+//     trainer row is ACTIVE on this site (not on the site = not listed; their listed people move up a level).
+//     The owner (lorenzo-miller) gets the whole tree. trainer_id is only honoured for the office (admin).
 //   POST { action: "handoff", lead_id, to_trainer_id, note?, expected_version? }
-//     The assigned trainer (or the office) hands the lead to a teammate in the downline; anyone else -> 403
-//     "Only a trainer in your state can take this lead." The PATCH writes leads.trainer_id (plus the trainer-name
+//     The assigned trainer (or the office, measured from the assignee) may send the lead ONLY to an ACTIVE trainer
+//     in that downline (the owner: anyone active on the tree); anything else -> 403 "You can only send a lead to
+//     someone in your downline." and nothing is written. The PATCH writes leads.trainer_id (plus the trainer-name
 //     column when the row has one: assigned_trainer_name / trainer_name / assigned_trainer) — nothing else — guarded
 //     by version, then audit_events (trainer_lead_handoff) + lead_events (trainer_handoff). No funnel event fits, so
-//     lifecycle_events is skipped. Summary: "Handed off to {name} (same-state team)".
+//     lifecycle_events is skipped. Summary: "Sent to {name} (downline)".
 const crypto = require("node:crypto");
 const { supabaseRequest } = require("../lib/sandbox");
 const { authorizeRequest } = require("../lib/portal-auth");
 const P = require("../lib/pipeline"); // Joshua 2026-09-16: "log the deal" trainer text after Eval completed
+const H = require("../lib/hierarchy"); // rule 105: the one home of the tree helpers
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -45,7 +51,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STATE_CODES = {"alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC", "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA", "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY"};
 const STATE_CODE_SET = new Set(Object.values(STATE_CODES));
 const DRAFT_NAMES = new Set(["new trainer draft", "new trainer"]);
-const DRAFT_STATES = new Set(["state pending"]);
 // 2026-09-22 safety net: practice test rows ("Test …", "O'Brien Test 🐶 …") and office drafts (slug office-draft-…)
 // never show in a hand-off list, even while still marked active.
 function isTestOrDraftTrainer(row) {
@@ -84,57 +89,114 @@ function stateCode(value) {
   return STATE_CODES[text.toLowerCase()] || "";
 }
 
-const TEAM_SELECT = "id,full_name,market,state,base_zip,slug,status";
-const teamRow = t => ({ id: t.id, full_name: t.full_name || "", market: t.market || "", state: t.state || "", base_zip: t.base_zip || "", slug: t.slug || "" });
+// "Milton" + "Florida" -> "Milton, FL"; "Pensacola, FL" stays as it is.
+function placeLabel(row) {
+  const market = clean(row?.market, 80);
+  const code = stateCode(row?.state) || clean(row?.state, 40);
+  if (!market) return code;
+  if (market.includes(",") || !code) return market;
+  return `${market}, ${code}`;
+}
 
-// The downline of one trainer: every ACTIVE trainer in the same state, drafts and the trainer left out.
-// Returns { trainer, state, trainers } or null when the trainer row is not there.
-async function sameStateTeam(trainerId) {
+// The headshot the site already shows (Find a Trainer): trainers.headshot_url, with the same file-name clean-up as
+// the portal's safeTrainerAssetUrl ("Karemela Sefferin 360_x_360.jpg" -> karemela-sefferin-360-x-360.jpg).
+// Only our own /assets/ files and this project's public Storage objects pass; anything else -> "".
+function headshotUrl(value) {
+  const url = clean(value, 400);
+  const asset = url.match(/^\/?(assets\/(?:trainer-headshots|trainer-bio-photos)\/)([^?#]+)$/i);
+  if (asset) {
+    let decoded = asset[2];
+    try { decoded = decodeURIComponent(asset[2]); } catch { /* keep as is */ }
+    const extension = /\.([a-z0-9]{2,5})$/i.test(decoded) ? decoded.split(".").pop().toLowerCase() : "jpg";
+    const stem = decoded.replace(/\.[^.]+$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return stem ? `/${asset[1]}${stem}.${extension}` : "";
+  }
+  if (url.startsWith(`${SUPABASE_URL}/storage/v1/object/public/`) && !/["'<>\s]/.test(url)) return url;
+  return "";
+}
+
+const TEAM_SELECT = "id,full_name,market,state,slug,status,headshot_url";
+const person = (row, node) => ({
+  id: row.id, slug: row.slug || "", full_name: row.full_name || "", place: placeLabel(row), headshot_url: headshotUrl(row.headshot_url),
+  rank: node?.rank || "", rank_label: H.rankLabel(node?.rank)
+});
+
+// The chart + every ACTIVE trainer on this site. Returns { tree, bySlug } (tree.ok false when the chart is missing
+// or does not validate: then nobody can hand anything off — fail closed).
+async function loadHierarchy() {
+  const [setting] = (await supabaseFetch(`/rest/v1/site_settings?select=value&key=eq.${H.SETTINGS_KEY}&limit=1`)) || [];
+  const tree = H.readTree(setting?.value);
+  const rows = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_SELECT}&status=eq.active&order=full_name.asc`)) || [];
+  const bySlug = new Map();
+  for (const row of rows) {
+    if (String(row.status || "") !== "active" || isTestOrDraftTrainer(row) || DRAFT_NAMES.has(clean(row.full_name, 80).toLowerCase())) continue;
+    const slug = clean(row.slug, 120).toLowerCase();
+    if (slug) bySlug.set(slug, row);
+  }
+  return { tree, bySlug };
+}
+
+// One trainer's view of the tree. Returns null when the trainer row is not there.
+async function hierarchyView(trainerId) {
   const id = clean(trainerId, 80);
   if (!id) return null;
   const [self] = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_SELECT}&id=eq.${encodeURIComponent(id)}&limit=1`)) || [];
   if (!self) return null;
-  const state = stateCode(self.state);
-  if (!state) return { trainer: teamRow(self), state: "", trainers: [] };
-  const rows = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_SELECT}&status=eq.active&order=full_name.asc`)) || [];
-  const trainers = rows.filter(row =>
-    String(row.id) !== String(self.id)
-    && String(row.status || "") === "active"
-    && !DRAFT_NAMES.has(clean(row.full_name, 80).toLowerCase())
-    && !DRAFT_STATES.has(clean(row.state, 60).toLowerCase())
-    && !isTestOrDraftTrainer(row)
-    && stateCode(row.state) === state
-  ).map(teamRow);
-  return { trainer: teamRow(self), state, trainers };
+  const { tree, bySlug } = await loadHierarchy();
+  const slug = clean(self.slug, 120).toLowerCase();
+  const node = tree.ok ? tree.nodes.get(slug) : null;
+  const listed = s => bySlug.has(s);
+  const downline = node ? H.nestedDownline(tree, slug, listed, (s, n) => person(bySlug.get(s), n)) : [];
+  const upline = node ? H.uplineOf(tree, slug).filter(listed).reverse().map(s => person(bySlug.get(s), tree.nodes.get(s))) : [];
+  return {
+    tree, bySlug, slug,
+    body: {
+      me: person(self, node), rank: node?.rank || "", rank_label: H.rankLabel(node?.rank), is_owner: Boolean(tree.ok && slug === tree.owner),
+      on_chart: Boolean(node), chart_ok: tree.ok, updated_from: tree.ok ? tree.updated_from : "",
+      upline, downline, count: H.flattenNested(downline).length
+    }
+  };
 }
 
-// GET ?team=1: the caller's downline (the office may pass trainer_id to see any trainer's).
+// GET ?team=1: the caller's hierarchy view (the office may pass trainer_id to see any trainer's).
 async function teamHandler(req, res, access) {
   if (String(req.query?.team || "") !== "1") return reply(res, 400, { ok: false, message: "Use ?team=1." });
   const asked = clean(req.query?.trainer_id, 80);
   const trainerId = access.isAdmin && asked ? asked : access.trainerId;
   if (!trainerId) return reply(res, 400, { ok: false, message: "Pass trainer_id to see a trainer's team." });
-  const team = await sameStateTeam(trainerId);
-  if (!team) return reply(res, 404, { ok: false, message: "That trainer record was not found." });
-  return reply(res, 200, { ok: true, trainer_id: team.trainer.id, state: team.state, trainers: team.trainers });
+  const view = await hierarchyView(trainerId);
+  if (!view) return reply(res, 404, { ok: false, message: "That trainer record was not found." });
+  if (!view.tree.ok) console.error("trainer_hierarchy_invalid", JSON.stringify(view.tree.errors || []).slice(0, 500));
+  return reply(res, 200, { ok: true, trainer_id: view.body.me.id, ...view.body });
 }
 
-// action "handoff": the assigned trainer (or the office) hands the lead to a same-state teammate.
+const DOWNLINE_ONLY = "You can only send a lead to someone in your downline.";
+
+// action "handoff": the assigned trainer (or the office) sends the lead DOWN the tree.
 async function handoff(res, access, body, before, note) {
   const toTrainerId = clean(body.to_trainer_id, 80);
-  if (!toTrainerId) return reply(res, 400, { ok: false, message: "Pick the teammate who takes this lead." });
+  if (!toTrainerId) return reply(res, 400, { ok: false, message: "Pick the person in your downline who takes this lead." });
   // The downline is measured from the trainer the lead is assigned to (the caller, or for the office the assignee).
   const fromTrainerId = access.isAdmin ? String(before.trainer_id || "") : String(access.trainerId || "");
   if (!fromTrainerId) return reply(res, 409, { ok: false, message: "This lead has no trainer yet. Assign it from the office instead." });
   if (toTrainerId === fromTrainerId) return reply(res, 409, { ok: false, message: "This lead is already with that trainer." });
-  const team = await sameStateTeam(fromTrainerId);
-  if (!team) return reply(res, 404, { ok: false, message: "Your trainer record was not found." });
-  const target = team.trainers.find(t => String(t.id) === toTrainerId);
-  if (!target) return reply(res, 403, { ok: false, message: "Only a trainer in your state can take this lead." });
+  const [from] = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_SELECT}&id=eq.${encodeURIComponent(fromTrainerId)}&limit=1`)) || [];
+  if (!from) return reply(res, 404, { ok: false, message: "Your trainer record was not found." });
+  const { tree, bySlug } = await loadHierarchy();
+  if (!tree.ok) {
+    console.error("trainer_hierarchy_invalid", JSON.stringify(tree.errors || []).slice(0, 500));
+    return reply(res, 403, { ok: false, message: DOWNLINE_ONLY });
+  }
+  const fromSlug = clean(from.slug, 120).toLowerCase();
+  // The target must be ACTIVE on this site AND below the sender on the chart (the owner: anyone on the chart).
+  let target = null;
+  for (const [slug, row] of bySlug) if (String(row.id) === toTrainerId) { target = { slug, row }; break; }
+  if (!target || !H.canSendTo(tree, fromSlug, target.slug)) return reply(res, 403, { ok: false, message: DOWNLINE_ONLY });
+  const targetName = target.row.full_name || "";
 
-  const changes = { trainer_id: target.id };
-  for (const column of TRAINER_NAME_COLUMNS) if (column in before) changes[column] = target.full_name;
-  let summary = `Handed off to ${target.full_name} (same-state team)`;
+  const changes = { trainer_id: target.row.id };
+  for (const column of TRAINER_NAME_COLUMNS) if (column in before) changes[column] = targetName;
+  let summary = `Sent to ${targetName} (downline)`;
   if (note) summary += `. Note: ${note}`;
 
   const requestId = crypto.randomUUID();
@@ -145,13 +207,14 @@ async function handoff(res, access, body, before, note) {
   if (!record) return reply(res, 409, { ok: false, conflict: true, message: "The lead changed a moment ago. Reload and try again." });
 
   const actorId = access.actor?.id || access.user?.id || null;
+  const path = { from_slug: fromSlug, to_slug: target.slug, owner: fromSlug === tree.owner };
   await supabaseFetch("/rest/v1/audit_events", {
     method: "POST", headers: { Prefer: "return=minimal" },
     body: JSON.stringify({
       actor_user_id: actorId, actor_email: access.actor?.email || null, actor_name: access.actor?.name || null,
       action: "trainer_lead_handoff", entity_type: "lead", entity_id: String(record.id), summary,
       before_data: { trainer_id: before.trainer_id || null, status: before.status },
-      after_data: { trainer_id: record.trainer_id || null, status: record.status, to_trainer_name: target.full_name, state: team.state },
+      after_data: { trainer_id: record.trainer_id || null, status: record.status, to_trainer_name: targetName, ...path },
       request_id: requestId
     })
   });
@@ -163,12 +226,12 @@ async function handoff(res, access, body, before, note) {
       actor_user_id: actorId, note: note || null,
       event_key: `lead:${record.id}:handoff:${record.version || record.updated_at}`,
       occurred_at: new Date().toISOString(),
-      raw_payload: { request_id: requestId, by: access.isAdmin ? "office" : "trainer", from_trainer_id: before.trainer_id || null, to_trainer_id: target.id, to_trainer_name: target.full_name, state: team.state }
+      raw_payload: { request_id: requestId, by: access.isAdmin ? "office" : "trainer", from_trainer_id: before.trainer_id || null, to_trainer_id: target.row.id, to_trainer_name: targetName, ...path }
     })
   });
   return reply(res, 200, {
-    ok: true, message: `Handed off to ${target.full_name}.`,
-    record: { id: record.id, trainer_id: record.trainer_id, trainer_name: target.full_name, status: record.status, version: record.version || null }
+    ok: true, message: `Sent to ${targetName}.`,
+    record: { id: record.id, trainer_id: record.trainer_id, trainer_name: targetName, status: record.status, version: record.version || null }
   });
 }
 

@@ -1592,7 +1592,9 @@ COLLECTED; service-dog gold tag YES; milestones later.
     no password is set, changed or removed (rule 33). After the token exchange the trainer goes through the SAME
     `finishPortalSignIn` as a password login. Tests: `tests/sandbox-trainer-login.test.mjs` (5).
 91. **A same-state hand-off writes ONLY `trainer_id` (+ `assigned_trainer_name` when the row has it), guarded by
-    `version`.** `api/trainer-lead-action.js` GET `?team=1` = every ACTIVE trainer in the caller's state ("Ohio" ==
+    `version`.** _(The same-state downline is SUPERSEDED by rule 105 on 2026-09-25: the downline is now the owner's
+    hierarchy chart. The write rules below — only `trainer_id` + the name column, version guard, the two log rows, no
+    `lifecycle_events` — still hold word for word.)_ `api/trainer-lead-action.js` GET `?team=1` = every ACTIVE trainer in the caller's state ("Ohio" ==
     "OH"; drafts, inactive rows and the caller left out; the office may pass `trainer_id`). POST action `handoff`:
     only the trainer the lead is assigned to (or the office) may hand it off, only to a trainer in that downline
     (403 otherwise, even for the office; cross-state moves stay with the office's own assign tools). No status, no
@@ -2146,3 +2148,63 @@ COLLECTED; service-dog gold tag YES; milestones later.
      single `/api/form-delivery` call when the server email succeeds, the `{op:"enter",via:"contact-us"}` body,
      the opaque-id-only URL, the no-link-no-redirect lanes, the sandbox no-op, the stale-lead guard, and that
      none of the new names appear inside any frozen block.
+
+## The trainer hierarchy: My Team, and leads only go DOWN (added 2026-09-25, Claude, on Joshua's order from the owner's chart)
+
+105. **A trainer can send a lead ONLY to someone in their own downline on the owner's chart; the downline never sends
+     up or sideways; Lorenzo (the owner) sees the whole team and can send to anyone on it; and nobody who is not an
+     ACTIVE trainer on the site is ever listed or accepted.** Source: Lorenzo's official chart "Hierarchy - 9-23-26",
+     relayed by Joshua 2026-09-25: "send a lead to someone in your downline", "the downline can never send up",
+     "a nicely designed hierarchy tab … My Team", "Lorenzo is the owner … the only one who sees the full list".
+     Supersedes the same-state downline of rule 91 (its write rules still hold).
+     - **Record before the change (stamp 20260924live26, commit 62242c6):** `GET /api/trainer-lead-action?team=1`
+       answered every ACTIVE trainer in the caller's STATE; the hand-off box read "Hand off to your downline", the
+       dashboard carried a "Your team in <state>" panel ("Your downline for now is every Lorenzo's trainer in your
+       state"); 0 `trainer_lead_handoff` audit rows on live; live leads 301 (290 not QA); 528 tests + audit green.
+     - **The chart is DATA, server only.** `site_settings` key `trainer_hierarchy` in BOTH schemas
+       (`supabase/migrations/20260925120000_trainer_hierarchy.sql`): `{ owner_slug: "lorenzo-miller", updated_from:
+       "Hierarchy - 9-23-26", nodes: [{ slug, parent_slug, rank }] }` — 31 nodes (Lorenzo + the 30 on the chart;
+       every slug verified in `public.trainers` AND `practice.trainers`, same ids). Restrictive policy
+       `trainer_hierarchy_server_only` on both tables (the rule 84 / rule 101 pattern), created before the row: no
+       browser login reads or writes the chart; the API reads it with the service role. The practice pull never
+       copies `site_settings` (rule 46), so the practice row is only ever changed on purpose. To change the tree,
+       write a new migration that replaces the value in both schemas; `validateTree()` must pass on it first.
+     - **Ranks = the chart's ring colours** (`lib/hierarchy.js` `RANKS`; badges `.team-rank-<key>`, photo rings
+       `.team-ring-<key>`): Owner (gold) lorenzo-miller; Senior Vice President (grey) john-delbane, emilio-marotta;
+       Regional Director (red) shavon-striggles; Master Trainer (black) daniel-bainbridge; Team Coordinator (yellow)
+       tristan-gray, jacob-perez, carolina-perez, michael-king, robert-wesling, eric-hardaway, eric-beck; Executive
+       Team Trainer (green) victoria-bayleigh-morris, bailey-brown, clark-patton; Team Trainer (light blue) the other 16.
+     - **ONE home for the tree logic: `lib/hierarchy.js`** (pure, no I/O): `validateTree` (owner present and
+       parentless, every parent on the chart, no loops, every node reachable from the owner, known ranks, no
+       duplicates), `readTree`, `uplineOf`, `downlineOf`, `isInDownline`, `canSendTo`, `nestedDownline`. An invalid
+       or missing chart fails CLOSED: every hand-off 403, nobody listed.
+     - **`GET /api/trainer-lead-action?team=1`** = `{ ok, me, rank, rank_label, is_owner, on_chart, chart_ok, upline,
+       downline, count }`: the upline owner-first; the downline = ALL descendants, nested with depth, each entry only
+       when that trainer row is ACTIVE on this site (an inactive person drops out and the people under them move up a
+       level, so nobody below is lost; practice test rows / drafts never show). The owner's downline is the whole
+       tree. Entries carry id, slug, name, place ("Milton, FL"), headshot (only `/assets/trainer-headshots|
+       trainer-bio-photos/…` cleaned like `safeTrainerAssetUrl`, or this project's public Storage), rank. NO lead
+       counts (rule 34: numbers come from metrics.js; rule 7: no trainer sees another trainer's leads). The office may
+       pass `trainer_id`; a trainer never can.
+     - **`POST {action:"handoff"}`**: the target must be ACTIVE and `canSendTo(chart, sender, target)` — below the
+       sender (the owner: anyone on the chart). Up, sideways, inactive, off the chart, a test row, unknown → **403
+       "You can only send a lead to someone in your downline."** and NOTHING is written. The office keeps its powers:
+       its own assign tools are untouched; through this door it hands off from the ASSIGNEE's downline, never up.
+       The write is rule 91's exactly: PATCH `leads.trainer_id` (+ the trainer-name column when present), version
+       guarded; `audit_events` `trainer_lead_handoff` ("Sent to {name} (downline)", with from/to slugs) +
+       `lead_events` `trainer_handoff`; no `lifecycle_events`; no text, no email. The lead then shows in the
+       receiver's My Leads because My Leads is `trainerLeads(currentTrainerId())` by `trainer_id` (rule 7).
+     - **Portal:** trainer tab **"My Team"** right after My Leads (menu, phone strip, one-page section, Page Editor
+       preview list). "Your upline" chips (owner first), the "You" card (photo, name, place, rank badge, how many
+       people below), then the downline as an expandable org tree (`<details>`; the first three levels open; opened /
+       closed branches survive redraws via `trainerTeamOpen`; "Open all" / "Close all"); phones (<= 640px) tighten the
+       indent. Owner: "The whole team", from John DelBane down. Leaf: "No one reports to you yet." The hand-off box
+       ("Send to someone in your downline", names indented by level with the city, button "Send") lists ONLY the
+       caller's downline; a trainer with no one below them gets NOTHING on the card and one line in the lead panel
+       ("No one reports to you yet, so there is no one to send this lead to."). Confirm names the person; toast
+       "Sent to {name}"; the lead leaves the sender's board. The dashboard's same-state "Your team" panel is GONE.
+     Pins: `tests/trainer-hierarchy.test.mjs` (helpers: cycles, missing parents, unknown slugs, up/sideways/self,
+     inactive drop-out, the stored chart = 31 nodes and its ranks, the server-only policies),
+     `tests/trainer-handoff.test.mjs` (API: down allowed incl. past an inactive middle person; up / owner / sideways /
+     inactive / stranger / test row / unknown 403 with no writes; owner to anyone; office from the assignee; fail
+     closed; portal: My Team after My Leads, leaf gets no box, wording, rank colours), `tests/trainer-calendar.test.mjs`.

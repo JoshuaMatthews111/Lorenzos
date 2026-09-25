@@ -3860,6 +3860,7 @@ function portalPreviewViews() {
   return [
     { id: "dashboard", label: "Trainer Dashboard" },
     { id: "leads", label: "My Leads" },
+    { id: "team", label: "My Team" },
     { id: "deals", label: "Clients" },
     { id: "myPage", label: "My Trainer Page" },
     { id: "submitMedia", label: "Submit Photos/Videos" },
@@ -5040,6 +5041,8 @@ function trainerNav() {
     // Rachel 2026-09-24: the "Lead Pipeline" tab (2026-09-23) is gone; its board now IS the My Leads board.
     // A saved or linked view=leadPipeline lands here (TRAINER_MOVED_VIEWS).
     ["leads", "My Leads", "lead", badges.myLeads],
+    // Joshua 2026-09-25 (rule 105): the trainer hierarchy from the owner's chart, right after My Leads.
+    ["team", "My Team", "users"],
     ["deals", "Clients", "trophy", badges.paymentsDue],
     ["myPage", "My Trainer Page", "monitor"],
     ["submitMedia", "Submit Photos/Videos", "media", badges.mediaPending],
@@ -5121,6 +5124,7 @@ function renderTopbar() {
   } : {
     dashboard: ["Dashboard", "Your numbers, your pipeline and your clients on one page. Scroll down to work."],
     leads: ["My Leads", "See office notes and outcomes for leads assigned to you."],
+    team: ["My Team", "Who you report to and who reports to you. You can send a lead to anyone below you."],
     deals: ["Clients", "Record each client you sold and how the balance is arranged. Your clients, your revenue, your Track 500 countdown."],
     myPage: ["My Trainer Page", "This page is controlled, published, and locked by Lorenzo's office."],
     performance: ["Performance", "Basic lead and conversion numbers from office-managed tracking."],
@@ -6678,7 +6682,11 @@ const trainerScreens = {
         ["trophy", "Sold", figures.won, "Became a client", figures.won ? "up" : ""],
         ["message", "Lost", figures.lost, figures.lost ? "Call these back" : "None right now", figures.lost ? "down" : ""],
         ["star", "Clients", clientFigures.clients, `Track 500 · ${clientFigures.clientsToGo} to go`, clientFigures.clients ? "up" : ""]
-      ])}</div>${trainerCalendarPanel()}${trainerTeamPanel()}`;
+      ])}</div>${trainerCalendarPanel()}`;
+  },
+  // Joshua 2026-09-25 (rule 105): the hierarchy tab. Upline on top, "You", then the downline as an org tree.
+  team() {
+    return trainerTeamView();
   },
   deals() {
     return trainerDealsView();
@@ -9769,16 +9777,28 @@ function trainerLeadActionsBox(lead) {
   </section>`;
 }
 
-// ---- Same-state team (Joshua 2026-09-16) ------------------------------------
-// "Put those who are in the same state in their downline" until the MLM tree is known. The downline comes from
-// GET /api/trainer-lead-action?team=1 (every active Lorenzo's trainer in the trainer's state), loaded once per
-// session and kept here. A lead card / the lead panel offers "Hand off to a teammate"; the dashboard lists the team.
-// The picked teammate lives in state.trainerHandoff so a background redraw never loses it (same idea as trainerLost).
-let trainerTeam = null;          // { state: "OH", trainers: [{ id, full_name, market, ... }], error? } once loaded
+// ---- My Team: the trainer hierarchy (Joshua 2026-09-25, owner's chart "Hierarchy - 9-23-26"; rule 105) ----
+// "Send a lead to someone in your downline": a lead only moves DOWN the tree, never up, never sideways. The tree
+// comes from GET /api/trainer-lead-action?team=1 (the caller's upline, the caller, and every ACTIVE person below
+// them, nested; the owner, Lorenzo, gets the whole tree). Loaded once per sign-in and kept here. It replaced the
+// same-state team of 2026-09-16. The picked person lives in state.trainerHandoff so a background redraw never loses
+// it (same idea as trainerLost); which branches are open lives in trainerTeamOpen for the same reason.
+let trainerTeam = null;          // { me, rank, rank_label, is_owner, upline: [...], downline: [...nested], flat: [...], count, error? }
 let trainerTeamPromise = null;   // the one in-flight load
+const trainerTeamOpen = new Map(); // slug -> open? (a branch the trainer opened or closed by hand)
+
+function flattenTrainerTeam(list, out = []) {
+  for (const person of Array.isArray(list) ? list : []) {
+    out.push(person);
+    flattenTrainerTeam(person.children, out);
+  }
+  return out;
+}
 
 function loadTrainerTeam() {
   if (trainerTeam || trainerTeamPromise || session.role === "admin") return trainerTeamPromise;
+  // The Page Editor's portal preview draws the trainer screens for an office login: there is no downline to load.
+  if (portalUser?.role === "admin") return null;
   // Not signed in to the live portal yet (or demo data): nothing to load; the next redraw after sign-in tries again.
   if (!remoteReady || !window.LDTT_PORTAL?.accessToken) return null;
   trainerTeamPromise = (async () => {
@@ -9787,9 +9807,13 @@ function loadTrainerTeam() {
       const response = await fetch("/api/trainer-lead-action?team=1", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load your team (${response.status}).`);
-      trainerTeam = { state: payload.state || "", trainers: Array.isArray(payload.trainers) ? payload.trainers : [] };
+      const downline = Array.isArray(payload.downline) ? payload.downline : [];
+      trainerTeam = {
+        me: payload.me || null, rank: payload.rank || "", rank_label: payload.rank_label || "", is_owner: payload.is_owner === true,
+        upline: Array.isArray(payload.upline) ? payload.upline : [], downline, flat: flattenTrainerTeam(downline)
+      };
     } catch (error) {
-      trainerTeam = { state: "", trainers: [], error: error.message || "Could not load your team." };
+      trainerTeam = { me: null, upline: [], downline: [], flat: [], error: error.message || "Could not load your team." };
     } finally {
       trainerTeamPromise = null;
       if (typeof render === "function") render();
@@ -9798,39 +9822,86 @@ function loadTrainerTeam() {
   return trainerTeamPromise;
 }
 
-function trainerTeamStateLabel() {
-  const code = trainerTeam?.state || "";
-  return code ? (US_STATE_NAMES[code] || code) : "your state";
-}
-
-// The "Hand off to a teammate" control: a teammate list + one button. Drawn on each open lead card and in the
-// lead panel's "Update this lead" box. Only trainers see it (the office assigns from its own tools).
+// The "Send to someone in your downline" control: the caller's downline, in tree order, indented by level, name +
+// city, and one button. Drawn on each open lead card and in the lead panel's "Update this lead" box. Only trainers
+// see it (the office assigns from its own tools). A trainer with no one below them gets NOTHING on the card and one
+// plain line in the panel.
 function trainerHandoffBox(lead, where = "panel") {
   if (session.role === "admin" || !lead?.remoteId) return "";
   loadTrainerTeam();
-  if (!trainerTeam) return remoteReady ? `<p class="field-hint trainer-handoff-note">Loading your team…</p>` : "";
-  if (trainerTeam.error) return `<p class="field-hint trainer-handoff-note">${escapeHtml(trainerTeam.error)} <button type="button" class="btn btn-outline btn-small" data-trainer-team-reload>Try again</button></p>`;
-  if (!trainerTeam.trainers.length) return `<p class="field-hint trainer-handoff-note">No other Lorenzo's trainer in ${escapeHtml(trainerTeamStateLabel())} yet, so there is no one to hand this lead to.</p>`;
+  const onCard = where === "card";
+  if (!trainerTeam) return onCard || !remoteReady ? "" : `<p class="field-hint trainer-handoff-note">Loading your team…</p>`;
+  if (trainerTeam.error) return onCard ? "" : `<p class="field-hint trainer-handoff-note">${escapeHtml(trainerTeam.error)} <button type="button" class="btn btn-outline btn-small" data-trainer-team-reload>Try again</button></p>`;
+  if (!trainerTeam.flat.length) return onCard ? "" : `<p class="field-hint trainer-handoff-note">No one reports to you yet, so there is no one to send this lead to.</p>`;
   const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
-  const options = trainerTeam.trainers.map(t => `<option value="${escapeHtml(t.id)}" ${pick.toTrainerId === t.id ? "selected" : ""}>${escapeHtml(t.full_name)}${t.market ? ` · ${escapeHtml(t.market)}` : ""}</option>`).join("");
-  return `<div class="trainer-handoff-box${where === "card" ? " is-card" : ""}">
-    <label class="has-optional-mark">Hand off to your downline<select data-trainer-handoff-to data-lead-ref="${escapeHtml(lead.id)}" aria-label="Hand off ${escapeHtml(lead.owner || "this lead")} to someone in your downline"><option value="">Pick someone in your downline</option>${options}</select></label>
-    <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="handoff" data-lead-ref="${escapeHtml(lead.id)}">Hand off</button>
+  const options = trainerTeam.flat.map(t => {
+    const depth = Math.max(1, Number(t.depth) || 1);
+    const indent = depth > 1 ? `${"   ".repeat(depth - 2)} └ ` : "";
+    return `<option value="${escapeHtml(t.id)}" ${pick.toTrainerId === t.id ? "selected" : ""}>${escapeHtml(indent)}${escapeHtml(t.full_name)}${t.place ? ` · ${escapeHtml(t.place)}` : ""}</option>`;
+  }).join("");
+  return `<div class="trainer-handoff-box${onCard ? " is-card" : ""}">
+    <label class="has-optional-mark">Send to someone in your downline<select data-trainer-handoff-to data-lead-ref="${escapeHtml(lead.id)}" aria-label="Send ${escapeHtml(lead.owner || "this lead")} to someone in your downline"><option value="">Pick a name</option>${options}</select></label>
+    <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="handoff" data-lead-ref="${escapeHtml(lead.id)}">Send</button>
   </div>`;
 }
 
-// Dashboard panel: who is on the trainer's same-state team.
-function trainerTeamPanel() {
-  if (session.role === "admin") return "";
-  loadTrainerTeam();
-  const note = `<p class="field-hint">Your downline for now is every Lorenzo's trainer in your state. The office can change this later.</p>`;
-  let body;
-  if (!trainerTeam) body = `<p class="panel-copy">${remoteReady ? "Loading your team…" : "Sign in to the live portal to see your team."}</p>`;
-  else if (trainerTeam.error) body = `<p class="panel-copy">${escapeHtml(trainerTeam.error)}</p><button type="button" class="btn btn-outline btn-small" data-trainer-team-reload>Try again</button>`;
-  else if (!trainerTeam.trainers.length) body = `<p class="panel-copy">No other Lorenzo's trainer in ${escapeHtml(trainerTeamStateLabel())} yet. When one joins, they show up here and you can hand leads to them.</p>`;
-  else body = `<ul class="trainer-team-list">${trainerTeam.trainers.map(t => `<li><strong>${escapeHtml(t.full_name)}</strong><span>${escapeHtml(t.market || t.state || "")}</span></li>`).join("")}</ul>`;
-  return panel(`Your team in ${escapeHtml(trainerTeamStateLabel())}`, "", `${body}${note}`, "pad");
+// Rank badges wear the chart's ring colours (styles.css .team-rank-<key>).
+const TEAM_RANK_KEYS = ["owner", "senior_vice_president", "regional_director", "master_trainer", "team_coordinator", "executive_team_trainer", "team_trainer"];
+const teamRankKey = rank => (TEAM_RANK_KEYS.includes(rank) ? rank : "none");
+
+function teamRankBadge(person) {
+  return person?.rank_label ? `<span class="team-rank team-rank-${teamRankKey(person.rank)}">${escapeHtml(person.rank_label)}</span>` : "";
 }
+
+function teamInitials(name) {
+  return String(name || "").split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0]).join("").toUpperCase() || "?";
+}
+
+function teamAvatar(person, size = "") {
+  const photo = String(person?.headshot_url || "");
+  const safe = /^(\/assets\/|https:\/\/)/.test(photo) ? photo : "";
+  return `<span class="team-avatar${size ? ` is-${size}` : ""} team-ring-${teamRankKey(person?.rank)}" aria-hidden="true"><span>${escapeHtml(teamInitials(person?.full_name))}</span>${safe ? `<img src="${escapeHtml(safe)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : ""}</span>`;
+}
+
+function teamNodeOpen(person) {
+  if (trainerTeamOpen.has(person.slug)) return trainerTeamOpen.get(person.slug);
+  return (Number(person.depth) || 1) <= 3; // the first three levels open; deeper branches wait for a tap
+}
+
+function teamNode(person) {
+  const kids = Array.isArray(person.children) ? person.children : [];
+  const below = flattenTrainerTeam(kids).length;
+  const card = `<div class="team-card">${teamAvatar(person)}<div class="team-card-text"><strong>${escapeHtml(person.full_name)}</strong>${person.place ? `<small>${escapeHtml(person.place)}</small>` : ""}</div><div class="team-card-meta">${teamRankBadge(person)}${below ? `<span class="team-card-count">${below} below</span>` : ""}</div></div>`;
+  if (!kids.length) return `<li class="team-node is-leaf">${card}</li>`;
+  return `<li class="team-node"><details data-team-node="${escapeHtml(person.slug)}"${teamNodeOpen(person) ? " open" : ""}><summary aria-label="${escapeHtml(person.full_name)}: ${below} below. Tap to open or close.">${card}</summary><ul class="team-tree-children">${kids.map(teamNode).join("")}</ul></details></li>`;
+}
+
+// The My Team tab. Your upline (small, owner first), then You, then your downline as an expandable org tree.
+// The owner sees the whole organisation from the top. No lead counts (rule 34 + rule 7: numbers come from metrics.js
+// and a trainer never sees another trainer's leads).
+function trainerTeamView() {
+  if (portalUser?.role === "admin") return `<div class="team-view"><p class="panel-copy">Each trainer sees their own place on the team chart here: who they report to and everyone below them. Lorenzo sees the whole team.</p></div>`;
+  loadTrainerTeam();
+  if (!trainerTeam) return `<div class="team-view"><p class="panel-copy">${remoteReady ? "Loading your team…" : "Sign in to the live portal to see your team."}</p></div>`;
+  if (trainerTeam.error) return `<div class="team-view"><p class="panel-copy">${escapeHtml(trainerTeam.error)}</p><button type="button" class="btn btn-outline btn-small" data-trainer-team-reload>Try again</button></div>`;
+  const team = trainerTeam;
+  const me = team.me || {};
+  const count = team.flat.length;
+  const upline = team.upline.length
+    ? `<section class="team-upline" aria-label="Your upline"><span class="team-eyebrow">Your upline</span><ol class="team-upline-chain">${team.upline.map(p => `<li><span class="team-chip">${teamAvatar(p, "sm")}<strong>${escapeHtml(p.full_name)}</strong>${teamRankBadge(p)}</span></li>`).join("")}</ol></section>`
+    : "";
+  const meCard = `<article class="team-me">${teamAvatar(me, "lg")}<div class="team-me-text"><span class="team-you">You</span><h3>${escapeHtml(me.full_name || "")}</h3>${me.place ? `<p>${escapeHtml(me.place)}</p>` : ""}${teamRankBadge(me)}</div><div class="team-me-count"><strong>${count}</strong><span>${team.is_owner ? `${count === 1 ? "person" : "people"} on the team` : `${count === 1 ? "person" : "people"} in your downline`}</span></div></article>`;
+  const tree = count
+    ? `<section class="team-tree-wrap" aria-label="${team.is_owner ? "The whole team" : "Your downline"}"><div class="team-tree-head"><div><span class="team-eyebrow">${team.is_owner ? "The whole team" : "Your downline"}</span><p class="field-hint">${team.is_owner ? "You can send a lead to anyone here." : "You can send a lead to anyone here. Leads only go down the chart, never up."}</p></div><div class="row-actions"><button type="button" class="btn btn-outline btn-small" data-team-expand="all">Open all</button><button type="button" class="btn btn-outline btn-small" data-team-expand="none">Close all</button></div></div><ul class="team-tree">${team.downline.map(teamNode).join("")}</ul></section>`
+    : `<section class="team-empty"><strong>No one reports to you yet.</strong><p>When someone joins the team under you, they show here and you can send them leads.</p></section>`;
+  return `<div class="team-view">${upline}${meCard}${tree}</div>`;
+}
+
+// A branch opened or closed by hand stays that way through background redraws ("toggle" does not bubble).
+document.addEventListener("toggle", event => {
+  const branch = event.target;
+  if (branch?.matches?.("details[data-team-node]")) trainerTeamOpen.set(branch.dataset.teamNode, branch.open);
+}, true);
 
 // ---- My calendar (meeting 2026-09-16) ---------------------------------------
 // Trainers see their own Google booking calendar and their upcoming booked evaluations on the dashboard.
@@ -10091,10 +10162,11 @@ async function trainerLeadAction(button) {
   if (action === "contacted" && !window.confirm(`Mark ${lead.owner} as contacted? The lead moves to Contacted on your board (the office sees it as ${leadStatusLabel("Office Contacted")}).`)) return;
   let teammate = null;
   if (action === "handoff") {
+    // Rule 105: only a name from the caller's own downline can be picked; the server checks it again.
     const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
-    teammate = (trainerTeam?.trainers || []).find(t => t.id === pick.toTrainerId) || null;
+    teammate = (trainerTeam?.flat || []).find(t => t.id === pick.toTrainerId) || null;
     if (!teammate) { showToast("Pick who in your downline takes this lead."); return; }
-    if (!window.confirm(`Hand ${lead.owner} off to ${teammate.full_name}? The lead leaves your list.`)) return;
+    if (!window.confirm(`Send ${lead.owner} to ${teammate.full_name}? The lead moves to ${teammate.full_name}'s My Leads and leaves your board.`)) return;
     body.to_trainer_id = teammate.id;
   }
   button.disabled = true;
@@ -10109,7 +10181,7 @@ async function trainerLeadAction(button) {
     if (action === "handoff") {
       state.trainerHandoff = null;
       if (state.selectedLeadId === lead.id || state.selectedLeadId === lead.remoteId) state.selectedLeadId = "";
-      showToast(`Handed off to ${teammate.full_name}`);
+      showToast(`Sent to ${teammate.full_name}`);
     } else {
       showToast(payload.message || "Saved.");
     }
@@ -14298,6 +14370,12 @@ document.addEventListener("click", async event => {
   const trainerAction = event.target.closest("[data-trainer-lead-action]");
   if (trainerAction && trainerAction.tagName !== "SELECT") { trainerLeadAction(trainerAction); return; } // the Alpha select saves on change, not on click
   if (event.target.closest("[data-trainer-team-reload]")) { trainerTeam = null; loadTrainerTeam(); render(); return; }
+  const teamExpand = event.target.closest("[data-team-expand]");
+  if (teamExpand) { // My Team "Open all" / "Close all": flips the branches in place (no redraw), remembered by the toggle listener
+    const open = teamExpand.dataset.teamExpand === "all";
+    document.querySelectorAll("details[data-team-node]").forEach(branch => { branch.open = open; trainerTeamOpen.set(branch.dataset.teamNode, open); });
+    return;
+  }
   if (event.target.closest("[data-trainer-calendar-reload]")) { trainerCalendar = null; loadTrainerCalendar(); render(); return; }
   if (event.target.closest("[data-trainer-phone-reload]")) { trainerPhoneChange = null; loadTrainerPhoneChange(); render(); return; }
   const trainerPhoneButton = event.target.closest("[data-trainer-phone-request], [data-trainer-phone-cancel]");
@@ -17192,7 +17270,7 @@ document.addEventListener("input", event => {
   state.trainerLost = { ...keep, leadId, ...(reason ? { reason: reason.value } : { note: note.value }) };
 });
 
-// ---- Trainer "Hand off to a teammate" pick (same-state team, 2026-09-16): kept in state for the same reason ----
+// ---- Trainer "Send to someone in your downline" pick (rule 105): kept in state for the same reason ----
 document.addEventListener("input", event => {
   const pick = event.target.closest("[data-trainer-handoff-to]");
   if (!pick) return;

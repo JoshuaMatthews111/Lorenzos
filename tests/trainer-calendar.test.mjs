@@ -116,11 +116,12 @@ test("no token: refused", async () => {
   assert.equal(res.statusCode, 403);
 });
 
-test("source: My calendar sits on the trainer dashboard, between the tiles and Your team, and not in the admin screens", () => {
+test("source: My calendar sits on the trainer dashboard, below the tiles (the same-state team panel left for My Team, rule 105), and not in the admin screens", () => {
   const app = read("trainer-backoffice/app.js");
   const trainerStart = app.indexOf("const trainerScreens = {");
   const dashboard = app.slice(trainerStart, app.indexOf("deals() {", trainerStart));
-  assert.ok(dashboard.includes("${trainerCalendarPanel()}${trainerTeamPanel()}"), "calendar panel below the tiles, above Your team");
+  assert.ok(dashboard.includes("])}</div>${trainerCalendarPanel()}`;"), "calendar panel below the tiles, last on the dashboard");
+  assert.ok(!app.includes("trainerTeamPanel"), "2026-09-25: the same-state team panel is gone; the team is its own tab, My Team");
   const adminStart = app.indexOf("const adminScreens = {");
   assert.ok(!app.slice(adminStart, trainerStart).includes("trainerCalendarPanel"), "no calendar panel in the admin screens");
   assert.ok(app.includes('fetch("/api/trainer-calendar"'), "loaded from the API");
