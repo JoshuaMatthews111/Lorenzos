@@ -147,3 +147,46 @@ test("the door is the trainer's own (rule 7) and uses the schema switch (rule 5)
   assert.match(app, /\$\{trainerLeadActionsBox\(lead\)\}/);
   assert.match(app, /fetch\("\/api\/trainer-lead-action"/);
 });
+
+// Rachel 2026-09-24: "Mark contacted". A trainer moves their OWN New Inquiry lead to office_contacted
+// (shown as "Office/Trainer Contacted"). Only from new_inquiry: on the office Leads board "Engaged Lead: No
+// Outcome" comes AFTER "Office Contacted", so an engaged lead would move backwards. Same door, same guards.
+test("contacted: New Inquiry -> office_contacted, logged like an office change, nothing else written", async () => {
+  const w = world("new_inquiry");
+  const res = await call({ action: "contacted", lead_id: w.id, expected_version: 3 });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(w.store.leads[0].status, "office_contacted", "the DB value is the unchanged status key (rule 10)");
+  assert.equal(res.body.message, "Marked contacted. The office sees it.");
+  const patch = w.writes.find(x => x.table === "leads");
+  assert.deepEqual(patch.body, { status: "office_contacted" }, "no other lead field is written");
+  assert.equal(w.store.audit_events[0].action, "trainer_lead_contacted");
+  assert.equal(w.store.audit_events[0].actor_email, "harley@example.com");
+  assert.deepEqual([w.store.audit_events[0].before_data.status, w.store.audit_events[0].after_data.status], ["new_inquiry", "office_contacted"]);
+  assert.deepEqual([w.store.lead_events[0].event_type, w.store.lead_events[0].previous_status, w.store.lead_events[0].new_status], ["status_changed", "new_inquiry", "office_contacted"]);
+  assert.equal(w.store.lifecycle_events.length, 0, "office_contacted is not a funnel step, exactly like an office change");
+  assert.deepEqual(w.writes.map(x => x.table).sort(), ["audit_events", "lead_events", "leads"], "no text, no email, no other table");
+});
+
+test("contacted: refused (409, plain words, nothing written) from every status other than New Inquiry", async () => {
+  for (const status of ["office_contacted", "engaged_no_outcome", "follow_up_call_needed", "evaluation_scheduled", "evaluation_complete", "became_client", "lost_price_concern", "do_not_contact", "archived"]) {
+    const w = world(status);
+    const res = await call({ action: "contacted", lead_id: w.id });
+    assert.equal(res.statusCode, 409, status);
+    assert.match(res.body.message, /Only a New Inquiry lead can be marked contacted/);
+    assert.equal(w.writes.length, 0, `${status}: nothing written`);
+    assert.equal(w.store.leads[0].status, status);
+  }
+});
+
+test("contacted: another trainer is refused (403) and a stale version is refused (409); nothing written", async () => {
+  const other = world("new_inquiry");
+  assert.equal((await call({ action: "contacted", lead_id: other.id }, "u-other-token")).statusCode, 403);
+  assert.equal(other.writes.length, 0);
+  const stale = world("new_inquiry");
+  const res = await call({ action: "contacted", lead_id: stale.id, expected_version: 2 });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.conflict, true);
+  assert.equal(stale.writes.length, 0);
+  assert.equal(stale.store.leads[0].status, "new_inquiry");
+  assert.equal((await call({ action: "contacted", lead_id: stale.id }, "")).statusCode === 200, false, "no token, no change");
+});

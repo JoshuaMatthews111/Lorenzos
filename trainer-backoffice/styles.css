@@ -5434,24 +5434,25 @@ body.is-sandbox .login-card::after{content:"Sandbox copy — the whole team shar
   .sales-column { flex-basis: 200px; }
 }
 
-/* Rachel 2026-09-23: "mobile friendly" is a named requirement for the trainer's Lead Pipeline.
-   On a phone the seven columns stack full width and read top to bottom instead of scrolling
-   sideways inside a 560px box. Scoped to .trainer-lead-pipeline so the OFFICE board is untouched. */
+/* Rachel 2026-09-23/24: "mobile friendly" is a named requirement for the trainer's board (now the My Leads
+   board, the office Leads columns). On a phone the eight columns stack full width and read top to bottom
+   instead of scrolling sideways inside a 560px box. Scoped to .trainer-leads-board so the OFFICE boards are
+   untouched. Desktop keeps the sideways scroll (.sales-board), which rememberSidewaysScroll() restores. */
 @media (max-width: 720px) {
-  .sales-board.trainer-lead-pipeline {
+  .sales-board.trainer-leads-board {
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
     overflow-x: visible;
   }
-  .sales-board.trainer-lead-pipeline .sales-column {
+  .sales-board.trainer-leads-board .sales-column {
     flex: 1 1 auto;
     min-width: 0;
     width: 100%;
     max-height: none;
   }
-  .sales-board.trainer-lead-pipeline .sales-column-body { overflow-y: visible; }
-  .sales-board.trainer-lead-pipeline .sales-column-head { position: sticky; top: 0; z-index: 1; }
+  .sales-board.trainer-leads-board .sales-column-body { overflow-y: visible; }
+  .sales-board.trainer-leads-board .sales-column-head { position: sticky; top: 0; z-index: 1; }
 }
 
 /* Lead journey — what the bot did / will do, per lead */

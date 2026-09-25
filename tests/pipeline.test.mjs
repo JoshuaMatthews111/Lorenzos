@@ -272,7 +272,7 @@ test("a booking sends pathway 2 once (customer + the practice trainer-alert test
   assert.equal(h2[0].body.service_address, "4815 Orchard Rd, Garfield Heights, OH 44128");
   assert.match(h2[0].body.safety_flag, /SAFETY/);
   // Joshua 2026-09-23: the trainer's link is their OWN portal, never the office /staff portal.
-  assert.match(h2[0].body.trainer_portal_link, new RegExp(`/trainer-backoffice\\?view=leadPipeline&lead=${lead.id}$`));
+  assert.match(h2[0].body.trainer_portal_link, new RegExp(`/trainer-backoffice\\?view=leads&lead=${lead.id}$`));
   assert.ok(!h2[0].body.trainer_portal_link.includes("/staff"), "a trainer is never sent to the office portal");
   assert.match(h2[0].body.link, new RegExp(`/staff\\?view=leads&lead=${lead.id}$`), "the office link stays the office portal");
   const saved = db.leads[0];
@@ -358,7 +358,7 @@ test("a trainer is never sent to the office /staff portal", () => {
   const trainerLink = P.trainerLeadLink(id);
   const staffLink = P.staffLeadLink(id);
   assert.ok(!trainerLink.includes("/staff"), "the trainer link must not point at the office portal");
-  assert.match(trainerLink, /\/trainer-backoffice\?view=leadPipeline&lead=11111111-2222-3333-4444-555555555555$/);
+  assert.match(trainerLink, /\/trainer-backoffice\?view=leads&lead=11111111-2222-3333-4444-555555555555$/);
   assert.match(staffLink, /\/staff\?view=leads&lead=11111111-2222-3333-4444-555555555555$/, "office/operations links are unchanged");
   assert.notEqual(trainerLink, staffLink);
 

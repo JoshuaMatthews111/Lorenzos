@@ -2012,35 +2012,54 @@ COLLECTED; service-dog gold tag YES; milestones later.
 
 ## Trainer Lead Pipeline: one board, two readers (added 2026-09-23, Rachel via Joshua)
 
-102. **The trainer's "Lead Pipeline" tab and the office Sales board are drawn by ONE function.**
-     Before this, the trainer's board came from `METRICS.TRAINER_PIPELINE_STAGES`, which lumps
-     `new_inquiry` + `office_contacted` + `engaged_no_outcome` into one column LABELLED "New Inquiry":
-     the office engaged a lead and the trainer's board still read "New Inquiry". The two boards read
-     the same lead differently. Fixed by extracting the office board's column/card markup into
-     `salesBoardColumnsHtml(buckets, { deals, columnCounts, moreSuffix })` in `trainer-backoffice/app.js`.
-     - The OFFICE (`salesPipelineBoard()`) calls it with its Sales rows, its deals and its column counts.
-       Its rendered HTML is byte-for-byte what it was before the extraction — never change that without
-       re-proving it.
-     - The TRAINER (`trainerScreens.leadPipeline()` → `trainerLeadPipelineBoard()`) calls the SAME function
-       with `METRICS.salesBuckets(trainerLeadPipelineRows(), SALES_STAGES)` and `deals: []`.
-       Never fork this into a second board; never give the trainer's board its own stage list.
-     - **Rule 7 is the whole point:** the rows are `trainerLeads(currentTrainerId())` and nothing else.
-       No office money tiles (In Pipeline / Evaluations Booked / Won / Close Rate), no deal cards, no status
-       dropdown, no office-note editing, no archive/delete, no assignment. A tapped card opens
-       `trainerLeadDetailPanel()` — the trainer's own read-only panel with their own actions (Eval completed,
-       Lost + reason, the Alpha question, hand-off through `api/trainer-lead-action.js`, rule 83).
-     - `do_not_contact` and `archived` are held out (rule 80: a trainer is never handed someone to call who
-       is on that list). They are in no `SALES_STAGES` column, so without the hold-out the `salesStageFor`
-       fallback would show them under "Captured & Responded".
-     - The tab sits directly ABOVE "My Leads" in `trainerNav()`, and the old "My Pipeline" board inside
-       My Leads STAYS — nothing was removed. The Page Editor's portal preview list matches the menu (rule 80).
-     - `sourceLegend()` / `badgeLegend()` are the office's own functions, so the key reads identically.
-     - Mobile: `.sales-board.trainer-lead-pipeline` stacks to one column under 720px. Every phone override is
-       scoped to that class so the office board is untouched.
-     Pins: `tests/trainer-lead-pipeline-2026-09-23.test.mjs` (8): nav order + badge from metrics.js, the seven
-     SALES_STAGES labels with no "New Inquiry" column, an engaged lead in "Captured & Responded" for office AND
-     trainer, strict scoping + the never-call hold-out, no tiles / no deal cards, one renderer, the legends,
-     the phone CSS scoped to the trainer board.
+102. **A trainer's leads live in ONE place, My Leads, and its board mirrors the office Leads board exactly.**
+     (Rewritten 2026-09-24 on Rachel's request, owner agreed. It replaces the 2026-09-23 rule, which added a
+     separate "Lead Pipeline" tab drawn from the office SALES board.)
+     - **Why:** the old My Leads board used `METRICS.TRAINER_PIPELINE_STAGES`, which lumped `new_inquiry` +
+       `office_contacted` + `engaged_no_outcome` into one column LABELLED "New Inquiry". Rachel's proof: Shavon
+       Striggles's lead Chloe Williams is `engaged_no_outcome` (the office spoke to her 9/10) yet sat under "New
+       Inquiry", so a trainer would call someone already contacted. `TRAINER_PIPELINE_STAGES`, `trainerStageFor`
+       and `trainerPipeline` are DELETED from metrics.js. Never give the trainer board its own stage list again.
+     - **The board:** `trainerPipelineBoard()` (My Leads → "My Pipeline", with the office's own `sourceLegend()` +
+       `badgeLegend()`) draws `METRICS.trainerLeadBoard(leads)` = `leadBoardColumns(trainerBoardRows(leads),
+       BOARD_COLUMNS, boardStatus)`: the SAME columns, order, words and bucketing as the office `leadKanban()`.
+       Headers go through `leadStatusLabel()` like the office's.
+     - **Rule 7 is the whole point:** rows are `trainerLeads(currentTrainerId())` only. `do_not_contact` and
+       `archived` are held out (`METRICS.TRAINER_HIDDEN_DB_STATUSES`, rule 80); Bad Lead sits in Lost as on the
+       office board but never gets a "call" prompt. The CARD stays the trainer's (`.trainer-card`, next step, hand-off):
+       no status dropdown, no drag/drop, no notes editing, no archive/delete, no assignment. A tap opens
+       `trainerLeadDetailPanel()` with the trainer's own actions through `api/trainer-lead-action.js` (rule 83).
+     - **Dashboard tiles read that board (rule 34):** New Inquiries = its "New Inquiry" column (contacted / engaged
+       leads no longer count), Lost = its "Lost" column (boardStatus; Evaluation Cancelled has its own column now and
+       no longer counts as Lost). Eval Scheduled / Eval Completed / Sold / Clients unchanged.
+     - **The "Lead Pipeline" tab is GONE** from `trainerNav()`, `trainerScreens`, the screen titles and the Page
+       Editor preview list. `TRAINER_MOVED_VIEWS = { leadPipeline: "leads" }` sends a saved view to My Leads, and
+       `applyUrlState()` reads `?view=leadPipeline` as `leads`, so an alert already sent
+       (`/trainer-backoffice?view=leadPipeline&lead=<id>`) opens My Leads with that lead's panel. New trainer links
+       (`lib/pipeline.js` `trainerLeadLink`) are `/trainer-backoffice?view=leads&lead=<id>`.
+     - **Sideways scroll:** the board is `.sales-board.trainer-board.trainer-leads-board`; `.sales-board` is in
+       `SIDEWAYS_SCROLL_SELECTOR`, so opening a lead keeps its place. Phones (<= 720px): the columns stack full width
+       (every phone override scoped to `.trainer-leads-board`, so the office boards are untouched).
+     - **The office Sales board** still draws through `salesBoardColumnsHtml()` (its HTML unchanged); it is the only
+       caller now.
+     - **"Office Contacted" is SHOWN as "Office/Trainer Contacted" in both portals — label only (rule 10).** The DB
+       value stays `office_contacted` and the app's internal status value stays the string "Office Contacted"
+       (`leadStatusToDb`, option VALUES, `data-drop-status`, filters, saved state, every METRICS list). ONE display
+       function, `leadStatusLabel()` → `METRICS.statusLabel()`, is used wherever a status is shown: both board
+       headers, the office status dropdown text (options now carry an explicit `value`), the status filter text and
+       chip, status pills, the trainer panel, the closed hint, the re-engage panel, toasts. Never rename the value.
+     - **"Mark contacted" (trainer):** `POST /api/trainer-lead-action {action:"contacted"}` moves the trainer's OWN lead
+       `new_inquiry` → `office_contacted` only (on the office board "Engaged Lead: No Outcome" comes AFTER "Office
+       Contacted", so an engaged lead is refused rather than moved backwards). Anything else → 409 "Only a New Inquiry
+       lead can be marked contacted…". Same auth, ownership (403), version guard (409), `audit_events`
+       (`trainer_lead_contacted`) and `lead_events` status_changed; no `lifecycle_events` row (office_contacted is not a
+       funnel step, same as an office change). Sends no text and no email. The button shows in the trainer lead panel
+       only when the lead is New Inquiry; confirm → toast → reload.
+     Pins: `tests/trainer-lead-pipeline-2026-09-23.test.mjs` (10: tab gone, old links land on My Leads, trainer headers
+     == office headers, Chloe in Engaged for both, strict scoping + hold-out, no office controls, sideways scroll,
+     phone CSS, Sales renderer, Mark contacted only for New Inquiry), `tests/status-label-2026-09-24.test.mjs` (7),
+     `tests/trainer-lead-action.test.mjs` (3 new: allowed, refused, wrong trainer + stale version),
+     `tests/trainer-portal-2026-09-12.test.mjs` (board + tiles).
 
 ## Contact Us goes live: ZIP required, then the trainers, then the same pipeline (added 2026-09-24, Claude, on Joshua's order)
 

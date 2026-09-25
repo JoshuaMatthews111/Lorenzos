@@ -193,7 +193,7 @@ test("the portal offers it to trainers: team loaded once from the GET, a Hand of
   assert.match(app, /let trainerTeam = null;/, "cached once per session in a module variable");
   assert.match(app, /data-trainer-lead-action="handoff"/, "the Hand off button");
   assert.match(app, /data-trainer-handoff-to/, "the teammate list");
-  assert.match(app, /\$\{id === "sold" \? "" : trainerHandoffBox\(lead, "card"\)\}/, "on each open trainer lead card");
+  assert.match(app, /\$\{stage === "sold" \? "" : trainerHandoffBox\(lead, "card"\)\}/, "on each open trainer lead card");
   assert.match(app, /\$\{trainerTeamPanel\(\)\}/, "the dashboard panel");
   assert.match(app, /Your downline for now is every Lorenzo's trainer in your state\. The office can change this later\./);
   assert.match(app, /showToast\(`Handed off to \$\{teammate\.full_name\}`\)/);

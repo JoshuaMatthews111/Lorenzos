@@ -50,8 +50,9 @@ test("2. Canceled / Refunded and Canceled / Write off exist everywhere statuses 
   assert.ok(lostStage[3].includes("canceled_refunded") && lostStage[3].includes("canceled_write_off"), "Sales tab: Lost column");
   assert.ok(!M.SALES_STAGES.find(s => s[0] === "won")[3].some(s => /canceled/.test(s)), "never Won");
   const leads = [{ status: "Canceled / Refunded" }, { status: "Canceled / Write off" }, { status: "Became a Client" }];
-  assert.equal(M.trainerStageFor(leads[0]), "lost");
-  assert.equal(M.trainerStageFor(leads[1]), "lost");
+  // 2026-09-24: the trainer board is the office Leads board (METRICS.trainerLeadBoard), so both sit in Lost there too.
+  const trainerBoard = new Map(M.trainerLeadBoard(leads));
+  assert.deepEqual(trainerBoard.get("Lost").map(l => l.status), ["Canceled / Refunded", "Canceled / Write off"]);
   assert.equal(M.trainerDashboard(leads, []).lost, 2);
   assert.equal(M.trainerDashboard(leads, []).won, 1);
   const board = Object.fromEntries(M.leadBoardColumnCounts(leads));

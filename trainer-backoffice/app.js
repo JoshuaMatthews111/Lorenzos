@@ -753,16 +753,17 @@ function hasOperationalRows(data = {}) {
 
 function applyUrlState() {
   const params = new URLSearchParams(window.location.search);
-  const view = params.get("view");
+  // Rachel 2026-09-24: the retired trainer "leadPipeline" view is read as "leads" (My Leads for a trainer).
+  const view = params.get("view") === "leadPipeline" ? "leads" : params.get("view");
   const trainerId = params.get("trainer");
   if (view) state.activeView = view;
   if (trainerId && state.trainers.some(t => t.id === trainerId)) state.selectedTrainerId = trainerId;
   // Rule 72: a trainer alert text (and, from step 3b, the office booking email) links straight to one
   // lead: /staff?view=leads&lead=<id>. leadDetailPanel() finds it by its database id at draw time.
   // Joshua 2026-09-23: the TRAINER portal honours the same deep link on its own path —
-  // /trainer-backoffice?view=leadPipeline&lead=<id> opens that trainer's own Lead Pipeline with the
-  // lead drawer already on it. Only fall back to the office "leads" screen when no view was asked
-  // for, so /staff?lead=<id> and /staff?view=leads&lead=<id> behave exactly as they did before.
+  // /trainer-backoffice?view=leads&lead=<id> opens that trainer's own My Leads with the lead drawer
+  // already on it (2026-09-24: links already sent with view=leadPipeline land there too). Only fall
+  // back to the office "leads" screen when no view was asked for, so /staff?lead=<id> and /staff?view=leads&lead=<id> behave exactly as they did before.
   // This runs at load, before the sign-in box, so the lead survives the login.
   const leadId = params.get("lead");
   if (leadId && /^[0-9a-f-]{36}$/i.test(leadId)) {
@@ -3858,7 +3859,6 @@ function mainWebsitePages() {
 function portalPreviewViews() {
   return [
     { id: "dashboard", label: "Trainer Dashboard" },
-    { id: "leadPipeline", label: "Lead Pipeline" },
     { id: "leads", label: "My Leads" },
     { id: "deals", label: "Clients" },
     { id: "myPage", label: "My Trainer Page" },
@@ -5037,9 +5037,8 @@ function trainerNav() {
   // Communications screen still opens from a New Inquiry card ("Log a call"), so logging contact keeps working.
   return [
     ["dashboard", "Dashboard", "dashboard"],
-    // Rachel 2026-09-23: the office board, the trainer's own leads, directly ABOVE My Leads. The old
-    // "My Pipeline" board inside My Leads stays for now — nothing was removed.
-    ["leadPipeline", "Lead Pipeline", "lead", badges.myLeads],
+    // Rachel 2026-09-24: the "Lead Pipeline" tab (2026-09-23) is gone; its board now IS the My Leads board.
+    // A saved or linked view=leadPipeline lands here (TRAINER_MOVED_VIEWS).
     ["leads", "My Leads", "lead", badges.myLeads],
     ["deals", "Clients", "trophy", badges.paymentsDue],
     ["myPage", "My Trainer Page", "monitor"],
@@ -5051,6 +5050,9 @@ function trainerNav() {
 
 // Trainer screens that left the menu on 2026-09-12. A saved screen pointing at one opens the Dashboard.
 const TRAINER_RETIRED_VIEWS = ["performance"];
+// Rachel 2026-09-24: screens that MOVED. The Lead Pipeline tab became the My Leads board, so a saved view, a
+// bookmark or an old alert link (/trainer-backoffice?view=leadPipeline&lead=<id>) opens My Leads with the lead.
+const TRAINER_MOVED_VIEWS = { leadPipeline: "leads" };
 
 function renderSidebar() {
   const isAdmin = session.role === "admin";
@@ -5118,7 +5120,6 @@ function renderTopbar() {
     settings: ["Settings", "Portal access, database status, and account controls."]
   } : {
     dashboard: ["Dashboard", "Your numbers, your pipeline and your clients on one page. Scroll down to work."],
-    leadPipeline: ["Lead Pipeline", "The same board the office sees, showing only your leads."],
     leads: ["My Leads", "See office notes and outcomes for leads assigned to you."],
     deals: ["Clients", "Record each client you sold and how the balance is arranged. Your clients, your revenue, your Track 500 countdown."],
     myPage: ["My Trainer Page", "This page is controlled, published, and locked by Lorenzo's office."],
@@ -5166,6 +5167,7 @@ function renderView() {
   }
   if (session.role === "admin" && !canAccessAdminView(state.activeView)) state.activeView = "dashboard";
   if (session.role !== "admin" && TRAINER_RETIRED_VIEWS.includes(state.activeView)) state.activeView = "dashboard";
+  if (session.role !== "admin" && TRAINER_MOVED_VIEWS[state.activeView]) state.activeView = TRAINER_MOVED_VIEWS[state.activeView];
   // freshness: no silent local-only mode. A login without a live payload sees the
   // blocking notice (Retry / Sign out) instead of stale or sample rows.
   if (session.loggedIn && !remoteReady && !remoteLoading && window.LDTT_PORTAL?.enabled && !(session.demoUsername && state.demoOfflineAccepted)) {
@@ -6681,14 +6683,10 @@ const trainerScreens = {
     const trainer = trainerById(currentTrainerId());
     return `<div class="dashboard-grid">${panel("My Locked Trainer Landing Page", `<a class="btn btn-red" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">Open Full Page</a>`, lockedPageCard(trainer), "pad")}${panel("Locked Page Details", "", lockedPageDetails(trainer), "pad")}</div>${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}`;
   },
-  // Rachel 2026-09-23: the office board with the trainer's own leads only. Same columns, same wording,
-  // same badges, same card, same legends as the office Leads screen — one renderer draws both.
-  leadPipeline() {
-    return panel("Lead Pipeline", "", `<p class="panel-copy">This is the same board the office works from. It shows only your leads, in the stage the office has them in right now.</p>${sourceLegend()}${badgeLegend()}${trainerLeadPipelineBoard()}`, "pad");
-  },
+  // Rachel 2026-09-24: ONE place for a trainer's leads. The board mirrors the office Leads board (same columns,
+  // order, labels and bucketing, their own leads only), with the office's own legends; then every lead + notes.
   leads() {
-    // The working board first (New Inquiry -> Lost), then every assigned lead with office notes.
-    return `${panel("My Pipeline", "", trainerPipelineBoard(trainerLeads(currentTrainerId())), "pad")}${panel("All My Leads & Office Notes", "", leadPipelineTable(false), "pad")}`;
+    return `${panel("My Pipeline", "", `${sourceLegend()}${badgeLegend()}${trainerPipelineBoard(trainerLeads(currentTrainerId()))}`, "pad")}${panel("All My Leads & Office Notes", "", leadPipelineTable(false), "pad")}`;
   },
   performance() {
     const trainer = trainerById(currentTrainerId());
@@ -7478,11 +7476,11 @@ function followUpTextsPanel() {
   if (!d) return panel(title, "", `<p class="panel-copy">The follow-up plan did not load: ${escapeHtml(followUpState.error)}. Reload the page to try again.</p>`, "pad");
   const c = d.counts || {};
   const when = r => r.group === "new" && r.next?.at ? `Text ${r.next.step} (${r.next.kind === "link" ? "booking link" : "Lorenzo's text"}, ${r.next.label}) on ${new Date(r.next.at).toLocaleString()}` : "Backlog: Lorenzo's text once, when sending is switched on";
-  const rows = (d.sample || []).map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(METRICS.LEAD_STATUS_FROM_DB?.[r.status] || r.status)}</td><td>${escapeHtml(r.received ? new Date(r.received).toLocaleString() : "")}</td><td>${escapeHtml(when(r))}</td></tr>`).join("");
+  const rows = (d.sample || []).map(r => `<tr><td>${escapeHtml(r.name)}</td><td>${escapeHtml(leadStatusLabel(METRICS.LEAD_STATUS_FROM_DB?.[r.status] || r.status))}</td><td>${escapeHtml(r.received ? new Date(r.received).toLocaleString() : "")}</td><td>${escapeHtml(when(r))}</td></tr>`).join("");
   return panel(title, "", `<p class="panel-copy"><strong>Sending is OFF. Nothing here is sent to anybody.</strong> This is the saved plan, so it is ready when you switch it on.</p>
     <div class="followup-text"><span>Text 1 (15 min), from ${escapeHtml(d.sender || "Lorenzo")}</span><pre>${escapeHtml(d.text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre></div><div class="followup-text"><span>Texts 2-4 (40 min, 24 h, 48 h): the booking link again</span><pre>${escapeHtml(d.link_text || "")}\n\n${escapeHtml(d.opt_out || "")}</pre><small>{{first_name}} becomes the lead's first name; {{booking_link}} their own booking link.</small></div>
-    <p class="field-hint"><strong>When:</strong> ${escapeHtml((d.steps || []).join(", "))} after the lead comes in, only while they have not booked. Quiet hours ${escapeHtml(d.quiet_hours || "")}: a text waits until 8 AM. <strong>Who:</strong> SMS consent, a phone number, still New Inquiry / Office Contacted / Engaged, not booked, not the recruiting or office-call lane.</p>
-    <p class="field-hint"><strong>On the practice copy right now:</strong> ${escapeHtml(String(c.new || 0))} in their first 48 hours · ${escapeHtml(String(c.backlog || 0))} older (the backlog; ${escapeHtml(String(c.backlog_contacted || 0))} of them in Office Contacted) · ${escapeHtml(String(c.not_eligible || 0))} with consent but not eligible. The practice copy's leads can be behind live.</p>
+    <p class="field-hint"><strong>When:</strong> ${escapeHtml((d.steps || []).join(", "))} after the lead comes in, only while they have not booked. Quiet hours ${escapeHtml(d.quiet_hours || "")}: a text waits until 8 AM. <strong>Who:</strong> SMS consent, a phone number, still New Inquiry / Office/Trainer Contacted / Engaged, not booked, not the recruiting or office-call lane.</p>
+    <p class="field-hint"><strong>On the practice copy right now:</strong> ${escapeHtml(String(c.new || 0))} in their first 48 hours · ${escapeHtml(String(c.backlog || 0))} older (the backlog; ${escapeHtml(String(c.backlog_contacted || 0))} of them in Office/Trainer Contacted) · ${escapeHtml(String(c.not_eligible || 0))} with consent but not eligible. The practice copy's leads can be behind live.</p>
     <div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Received</th><th>Would get</th></tr></thead><tbody>${rows || `<tr><td colspan="4">No leads would get these texts right now.</td></tr>`}</tbody></table></div>`, "pad");
 }
 
@@ -8707,7 +8705,7 @@ function leadOptionLabel(label, count) {
 function activeLeadFilterLabels(admin = true) {
   const labels = [];
   if (admin && state.leadTrainerFilter !== "All") labels.push(`Trainer: ${trainerName(state.leadTrainerFilter)}`);
-  if (admin && state.leadStatusFilter !== "All") labels.push(`Status: ${state.leadStatusFilter}`);
+  if (admin && state.leadStatusFilter !== "All") labels.push(`Status: ${leadStatusLabel(state.leadStatusFilter)}`);
   if (admin && (state.leadStageFilter || "All") !== "All") labels.push(`Reached: ${conversionStageLabel(state.leadStageFilter)}`);
   if (admin && state.leadSmsFilter !== "All") labels.push(`SMS: ${state.leadSmsFilter}`);
   if (admin && state.leadOwnerFilter !== "All") labels.push(`Owner: ${state.leadOwnerFilter === "Me" ? "Assigned to me" : state.leadOwnerFilter === "Unassigned" ? "Unassigned" : portalActorLabel(state.leadOwnerFilter)}`);
@@ -9521,14 +9519,30 @@ function trainerDealsView() {
   return `${trainerClientTiles(figures)}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Clients", "", trainerDealsTable(deals), "pad")}`;
 }
 
-// ---- Trainer working board (meeting 2026-09-12) ----------------------------
-// Same look as the office Sales board. Trainers cannot open the office lead panel, so each card carries
-// what they need: name, dog, market, phone, eval time, and the next step in plain words.
+// ---- Trainer working board = the OFFICE Leads board, their own leads (Rachel 2026-09-24) ----------------
+// Rachel's proof: Chloe Williams (engaged_no_outcome, the office spoke to her 9/10) sat under "New Inquiry" on
+// Shavon's board, because the old trainer board lumped three statuses into one column labelled "New Inquiry".
+// Now the columns, their order and their words are the office Leads board's (METRICS.BOARD_COLUMNS via
+// METRICS.trainerLeadBoard, bucketed by the same boardStatus()), so a lead reads the same to office and trainer.
+// Rule 7: the rows are trainerLeads(currentTrainerId()) and nothing else; Do Not Contact / Archived are held out
+// (rule 80). The CARD stays the trainer's own: no status dropdown, no notes editing, no archive/delete, no
+// assignment. A tap opens trainerLeadDetailPanel() (Eval completed, Mark contacted, Lost + reason, Alpha, hand-off).
+// Class .sales-board keeps rememberSidewaysScroll() covering it (SIDEWAYS_SCROLL_SELECTOR).
+const TRAINER_BOARD_TONE = {
+  "New Inquiry": "marketing", "Office Contacted": "marketing", "Engaged Lead: No Outcome": "marketing",
+  "Evaluation Scheduled": "marketing", "Evaluation Cancelled": "winback", "Evaluation Complete": "sales",
+  "Became a Client": "won", "Lost": "lost"
+};
+const TRAINER_BOARD_STEP = {
+  "New Inquiry": "inquiry", "Office Contacted": "contacted", "Engaged Lead: No Outcome": "contacted",
+  "Evaluation Scheduled": "scheduled", "Evaluation Cancelled": "cancelled", "Evaluation Complete": "completed",
+  "Became a Client": "sold", "Lost": "lost"
+};
+
 function trainerPipelineBoard(leads) {
-  const board = METRICS.trainerPipeline(leads);
-  const tone = { inquiry: "marketing", scheduled: "marketing", completed: "sales", sold: "won", lost: "lost" };
-  const columns = METRICS.TRAINER_PIPELINE_STAGES.map(([id, label]) => {
-    const items = METRICS.newestFirst(board.get(id) || [], lead => lead.createdAt);
+  const columns = METRICS.trainerLeadBoard(leads).map(([column, rows]) => {
+    const stage = TRAINER_BOARD_STEP[column] || "";
+    const items = METRICS.newestFirst(rows, lead => lead.createdAt);
     const cards = items.slice(0, 25).map(lead => {
       const market = leadMarketLabel(lead);
       const tel = String(lead.phone || "").replace(/[^0-9+]/g, "");
@@ -9538,42 +9552,18 @@ function trainerPipelineBoard(leads) {
         <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}</small>
         ${tel ? `<small><a href="tel:${escapeHtml(tel)}">${escapeHtml(formatPhoneNumber(lead.phone))}</a></small>` : ""}
         ${trainerCardEvalLine(lead)}
-        ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
-        ${trainerCardNextStep(lead, id)}
-        ${id === "sold" ? "" : trainerHandoffBox(lead, "card")}
+        ${stage === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
+        ${trainerCardNextStep(lead, stage)}
+        ${stage === "sold" ? "" : trainerHandoffBox(lead, "card")}
       </article>`;
     }).join("");
-    const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more in My Leads</p>` : "";
-    return `<section class="sales-column ${tone[id]}">
-      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${items.length}</span></header>
+    const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more in All My Leads below</p>` : "";
+    return `<section class="sales-column ${TRAINER_BOARD_TONE[column] || "marketing"}" data-board-column="${escapeHtml(column)}">
+      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(leadStatusLabel(column))}</span><span class="sales-count">${rows.length}</span></header>
       <div class="sales-column-body">${cards || `<p class="sales-empty">No leads in this stage yet.</p>`}${more}</div>
     </section>`;
   }).join("");
-  return `<div class="sales-board trainer-board">${columns}</div>`;
-}
-
-// ---- The trainer's Lead Pipeline: the OFFICE board, their leads only (Rachel 2026-09-23) ------
-// Rule 7: the rows are `trainerLeads(currentTrainerId())` and nothing else, so another trainer's lead can
-// never be drawn here. Rule 34: the buckets come from METRICS.salesBuckets over METRICS.SALES_STAGES — the
-// same call the office board makes — so office and trainer read every lead the same way. No money tiles and
-// no deal cards: those are office figures and would be wrong for one trainer.
-// Do Not Contact and Archived leads are held out (rule 80: a trainer is never handed someone to call who is
-// on that list). They are not in any SALES_STAGES column; without this they would fall into the "captured"
-// fallback and appear under "Captured & Responded".
-const TRAINER_PIPELINE_HIDDEN_DB_STATUSES = ["do_not_contact", "archived"];
-
-function trainerLeadPipelineRows(leads = trainerLeads(currentTrainerId())) {
-  return leads
-    // Demo/offline rows carry only the UI status; metrics.js's own map gives them the db status the
-    // office board buckets on. A real row already has dbStatus and is passed through untouched.
-    .map(lead => (lead.dbStatus ? lead : { ...lead, dbStatus: METRICS.LEAD_STATUS_TO_DB[lead.status] || "" }))
-    .filter(lead => !TRAINER_PIPELINE_HIDDEN_DB_STATUSES.includes(lead.dbStatus));
-}
-
-function trainerLeadPipelineBoard(leads = trainerLeads(currentTrainerId())) {
-  const buckets = METRICS.salesBuckets(trainerLeadPipelineRows(leads), SALES_STAGES);
-  const columns = salesBoardColumnsHtml(buckets, { deals: [], moreSuffix: "more in My Leads" });
-  return `<div class="sales-board trainer-board trainer-lead-pipeline">${columns}</div>`;
+  return `<div class="sales-board trainer-board trainer-leads-board">${columns}</div>`;
 }
 
 function trainerCardEvalLine(lead) {
@@ -9593,6 +9583,13 @@ function trainerCardNextStep(lead, stage) {
   if (stage === "inquiry") {
     return `<p class="trainer-card-next">${texted ? "We texted the booking link. No booking yet: call to introduce yourself." : "No booking text went out. Call to introduce yourself."}</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
   }
+  // Rachel 2026-09-24: already reached by the office or the trainer. The office notes (tap the card) say what was said.
+  if (stage === "contacted") {
+    return `<p class="trainer-card-next">Already contacted. Tap to read the office notes, then follow up to book the evaluation.</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
+  }
+  if (stage === "cancelled") {
+    return `<p class="trainer-card-next">The evaluation was cancelled. Call to rebook it.</p>`;
+  }
   // Rule 81: trainers cannot open the office lead panel, so the pre-evaluation answers sit on the card.
   if (stage === "scheduled") {
     // Meeting [0:54:13]: no answers yet = a chance for the trainer to pre-call and go through them.
@@ -9602,7 +9599,8 @@ function trainerCardNextStep(lead, stage) {
     return `${flags}<p class="trainer-card-next is-done">Pre-evaluation questions answered ✓ Tap to read them.</p>`;
   }
   // Only what we know: the booking-link text is recorded; win-back texts are not (yet), so never claim them.
-  if (stage === "lost") {
+  // A Bad Lead sits in Lost (as on the office board) but is never a lead to call.
+  if (stage === "lost" && lead.status !== "Bad Lead") {
     return `<p class="trainer-card-next is-lost">${texted ? "They got our booking text but did not book. Call to find out what happened." : "Call to find out what happened."}</p>`;
   }
   return "";
@@ -9662,7 +9660,7 @@ function trainerLeadDetailPanel() {
   const canDeal = lead.status !== "Became a Client";
   return `<aside class="lead-detail-panel trainer-lead-panel" aria-label="Lead details"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button>
     <span class="portal-tag">Lead details</span><h2>${escapeHtml(lead.owner)}</h2>
-    <p class="trainer-lead-status"><span class="status live">${escapeHtml(lead.status || "New Inquiry")}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}</p>
+    <p class="trainer-lead-status"><span class="status live">${escapeHtml(leadStatusLabel(lead.status || "New Inquiry"))}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}</p>
     <div class="row-actions trainer-lead-actions">${tel ? `<a class="btn btn-red btn-small" href="tel:${escapeHtml(tel)}">Call</a>` : ""}${email ? `<a class="btn btn-outline btn-small" href="mailto:${escapeHtml(email)}">Email</a>` : ""}<button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>${canDeal ? `<button type="button" class="btn btn-outline btn-small" data-deal-from-lead="${escapeHtml(lead.remoteId || lead.id)}">Submit a deal for this client</button>` : ""}</div>
     ${trainerLeadActionsBox(lead)}
     <section class="detail-note-block"><span>Contact</span><div class="lead-contact-grid">${row("Phone", phone)}${row("Email", email)}<div class="wide"><span>Address</span><strong>${escapeHtml(client.address || lead.address || "—")}</strong></div></div></section>
@@ -9675,7 +9673,7 @@ function trainerLeadDetailPanel() {
 }
 
 // ---- Trainer actions on their own leads (Joshua 2026-09-14, option A; rule 83) ----
-// Eval completed / Lost (with a reason) / Added to Alpha, through api/trainer-lead-action.js (the trainer's own
+// Mark contacted (Rachel 2026-09-24, New Inquiry only) / Eval completed / Lost (with a reason) / Added to Alpha, through api/trainer-lead-action.js (the trainer's own
 // door, rule 7). The picked reason and note live in state.trainerLost so a background redraw never loses them.
 const TRAINER_LOST_REASONS = [["price", "Price concern"], ["not_ready", "Not ready yet"], ["other_provider", "Chose another trainer"], ["no_response", "No response"], ["complaint", "Complaint"]];
 
@@ -9689,6 +9687,7 @@ function trainerLeadActionsBox(lead) {
   return `<section class="detail-note-block trainer-lead-update"><span>Update this lead</span>
     <div class="row-actions">
       ${lead.status === "Evaluation Scheduled" ? `<button type="button" class="btn btn-red btn-small" data-trainer-lead-action="eval_completed" data-lead-ref="${escapeHtml(lead.id)}">Eval completed</button>` : ""}
+      ${lead.status === "New Inquiry" ? `<button type="button" class="btn btn-red btn-small" data-trainer-lead-action="contacted" data-lead-ref="${escapeHtml(lead.id)}">Mark contacted</button>` : ""}
     </div>
     <label class="trainer-alpha-question">Have you logged this lead in Alpha?
       <select class="select-pill" data-trainer-lead-action="alpha" data-lead-ref="${escapeHtml(lead.id)}">
@@ -9697,7 +9696,7 @@ function trainerLeadActionsBox(lead) {
         <option value="no"${alphaAnswer === "no" ? " selected" : ""}>No, not yet</option>
       </select>
     </label>
-    ${closed ? `<p class="field-hint">This lead is closed (${escapeHtml(lead.status)}). Ask the office to reopen it.</p>` : `<div class="trainer-lost-box">
+    ${closed ? `<p class="field-hint">This lead is closed (${escapeHtml(leadStatusLabel(lead.status))}). Ask the office to reopen it.</p>` : `<div class="trainer-lost-box">
       <label>Lost? Why<select data-trainer-lost-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${reasons}</select></label>
       <label>Note for the office <span class="hint">(optional)</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
       <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="lost" data-lead-ref="${escapeHtml(lead.id)}">Mark lost</button>
@@ -10023,6 +10022,8 @@ async function trainerLeadAction(button) {
     body.note = pick.note || "";
   }
   if (action === "eval_completed" && !window.confirm(`Mark ${lead.owner}'s evaluation as completed?`)) return;
+  // Rachel 2026-09-24: New Inquiry -> Office/Trainer Contacted (the server allows only that move).
+  if (action === "contacted" && !window.confirm(`Mark ${lead.owner} as contacted? The lead moves to ${leadStatusLabel("Office Contacted")} on your board and the office board.`)) return;
   let teammate = null;
   if (action === "handoff") {
     const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
@@ -10213,15 +10214,10 @@ function salesPipelineView() {
   return `${tabsRow}${salesPipelineBoard()}`;
 }
 
-// ---- ONE board renderer, two callers (Rachel 2026-09-23, meeting 2026-09-12) -------------------
-// "Trainers need the SAME board the office sees." Before this, the trainer's board was drawn from
-// METRICS.TRAINER_PIPELINE_STAGES, which lumps new_inquiry + office_contacted + engaged_no_outcome into one
-// column LABELLED "New Inquiry" — so a lead the office had already engaged still read "New Inquiry" to the
-// trainer. This function is the office's board markup, lifted out unchanged, so the two can never drift again:
-//   - the office calls it with its Sales rows and its deals (deal cards in the Won column, office-only);
-//   - the trainer calls it with their OWN leads and no deals (rule 7), so no other trainer's lead and no
-//     money card can ever appear.
-// Columns, labels, tones, card markup and reading order are identical in both modes.
+// ---- The office Sales board's columns (extracted 2026-09-23) ------------------------------------
+// Lifted out of salesPipelineBoard() unchanged (its HTML is byte-for-byte what it was). On 2026-09-23 the trainer's
+// "Lead Pipeline" tab called it too; on 2026-09-24 (Rachel) that tab was removed and the trainer's My Leads board
+// mirrors the office LEADS board instead (trainerPipelineBoard). The office Sales board is the only caller now.
 function salesBoardColumnsHtml(buckets, { deals = [], columnCounts = null, moreSuffix = "more" } = {}) {
   return SALES_STAGES.map(([id, label, tone]) => {
     const items = buckets.get(id) || [];
@@ -10333,7 +10329,7 @@ function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const filterOptions = { useWorkspaceFilters: admin };
   const rows = filteredLeadRows(baseRows, filterOptions);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong>${leadDogLabel(lead, "dot") ? `<small>${escapeHtml(leadDogLabel(lead, "dot"))}</small>` : ""}</div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><div class="source-cell">${leadSourceBadge(lead)}<div><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></div></div></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(lead.status)}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong>${leadDogLabel(lead, "dot") ? `<small>${escapeHtml(leadDogLabel(lead, "dot"))}</small>` : ""}</div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><div class="source-cell">${leadSourceBadge(lead)}<div><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></div></div></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(leadStatusLabel(lead.status))}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
   const detailedSheet = leadSheetView(rows);
   return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}${admin && (state.leadStageFilter || "All") !== "All" ? ` <button class="btn btn-outline btn-small" type="button" data-clear-lead-stage>Clear "${escapeHtml(conversionStageLabel(state.leadStageFilter))}" filter</button>` : ""}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${admin ? leadDetailPanel() : ""}`; // audit 2026-09-24, rule 7: the office panel (status, notes, archive, delete) is never drawn for a trainer; the trainer opens trainerLeadDetailPanel()
 }
@@ -10352,7 +10348,7 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
   const trainerOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All trainers", leadFilterCount(baseRows, { leadTrainerFilter: "All" })))}</option>`]
     .concat(state.trainers.map(t => `<option value="${t.id}" ${state.leadTrainerFilter === t.id ? "selected" : ""}>${escapeHtml(leadOptionLabel(t.name, leadFilterCount(baseRows, { leadTrainerFilter: t.id })))}</option>`));
   const statusOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All statuses", leadFilterCount(baseRows, { leadStatusFilter: "All" })))}</option>`]
-    .concat(leadStatuses.map(status => `<option value="${escapeHtml(status)}" ${state.leadStatusFilter === status ? "selected" : ""}>${escapeHtml(leadOptionLabel(status, leadFilterCount(baseRows, { leadStatusFilter: status })))}</option>`));
+    .concat(leadStatuses.map(status => `<option value="${escapeHtml(status)}" ${state.leadStatusFilter === status ? "selected" : ""}>${escapeHtml(leadOptionLabel(leadStatusLabel(status), leadFilterCount(baseRows, { leadStatusFilter: status })))}</option>`));
   const smsOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All SMS choices", leadFilterCount(baseRows, { leadSmsFilter: "All" })))}</option>`]
     .concat(LEAD_SMS_FILTER_OPTIONS.map(value => `<option value="${value}" ${state.leadSmsFilter === value ? "selected" : ""}>${escapeHtml(leadOptionLabel(value, leadFilterCount(baseRows, { leadSmsFilter: value })))}</option>`));
   const ownerOptions = [
@@ -10369,8 +10365,12 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
 
 const boardColumns = METRICS?.BOARD_COLUMNS || [];
 function boardStatus(status) { return METRICS.boardStatus(status); }
+// Rachel 2026-09-24: the ONE place a lead status becomes screen words. "Office Contacted" shows as
+// "Office/Trainer Contacted"; every other status shows as itself. The VALUE never changes (rule 10): option values,
+// data-drop-status, filters, saved state and leadStatusToDb all keep "Office Contacted" / office_contacted.
+function leadStatusLabel(status) { return METRICS.statusLabel(status); }
 function leadKanban(rows) {
-  return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${column}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who"><strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div>${leadCardDetailLines(lead)}${leadAssignmentLine(lead)}<div class="lead-card-sources">${leadAlphaToggle(lead)}${leadSourceBadge(lead)}</div></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
+  return `<div class="lead-kanban">${METRICS.leadBoardColumns(rows, boardColumns, boardStatus).map(([column, cards]) => { return `<section class="kanban-column" data-drop-status="${column}"><header><strong>${escapeHtml(leadStatusLabel(column))}</strong><span>${cards.length}</span></header><div class="kanban-cards">${cards.map(lead => `<article class="lead-card${leadAssignedHighlightClass(lead)}" draggable="true" data-lead-card="${lead.id}" data-open-lead="${lead.id}"><div class="lead-card-top"><span class="lead-card-who"><strong>${escapeHtml(lead.owner)}</strong></span><span>${formatDateTime(lead.createdAt)}</span></div>${leadCardDetailLines(lead)}${leadAssignmentLine(lead)}<div class="lead-card-sources">${leadAlphaToggle(lead)}${leadSourceBadge(lead)}</div></article>`).join("") || `<p class="empty-column">Drop leads here</p>`}</div></section>`; }).join("")}</div>`;
 }
 
 function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
@@ -10388,7 +10388,7 @@ function leadDetailPanel() {
 }
 
 function statusSelect(lead) {
-  return `<select class="select-pill" data-lead-status="${lead.id}">${leadStatuses.map(status => `<option ${lead.status === status ? "selected" : ""}>${escapeHtml(status)}</option>`).join("")}</select>`;
+  return `<select class="select-pill" data-lead-status="${lead.id}">${leadStatuses.map(status => `<option value="${escapeHtml(status)}" ${lead.status === status ? "selected" : ""}>${escapeHtml(leadStatusLabel(status))}</option>`).join("")}</select>`;
 }
 
 function leadStatusCounts(rows) {
@@ -12363,7 +12363,7 @@ function convertedLeadQueue() {
   const rows = allLeadRows().filter(lead => conversionStatuses().includes(lead.status));
   return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Paid / Won Lead</th><th>Trainer</th><th>Status</th><th>Contact</th><th>Client Record</th><th>Action</th></tr></thead><tbody>${rows.map(lead => {
     const client = findClientForLead(lead);
-    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.service)}</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td><span class="status won">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}<small>${escapeHtml(lead.email || "—")}</small></td><td>${client ? `<span class="status live">In Client Database</span><small>${escapeHtml(client.status)}</small>` : `<span class="status draft">Needs client record</span>`}</td><td><button class="btn ${client ? "btn-outline" : "btn-red"}" data-convert-lead="${escapeHtml(lead.id)}">${client ? "Update Client" : "Add To Clients"}</button></td></tr>`;
+    return `<tr><td><strong>${escapeHtml(lead.owner)}</strong><small>${escapeHtml(lead.dog)} · ${escapeHtml(lead.service)}</small></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td><span class="status won">${escapeHtml(leadStatusLabel(lead.status))}</span></td><td>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}<small>${escapeHtml(lead.email || "—")}</small></td><td>${client ? `<span class="status live">In Client Database</span><small>${escapeHtml(client.status)}</small>` : `<span class="status draft">Needs client record</span>`}</td><td><button class="btn ${client ? "btn-outline" : "btn-red"}" data-convert-lead="${escapeHtml(lead.id)}">${client ? "Update Client" : "Add To Clients"}</button></td></tr>`;
   }).join("") || `<tr><td colspan="6">No converted clients yet. When a lead moves to Became a Client, it appears here.</td></tr>`}</tbody></table></div><p class="panel-copy">This queue connects the office lead outcome to the Client Database. Conversion means a confirmed client event, not a click or form submit.</p>`;
 }
 
@@ -12674,7 +12674,7 @@ function lostReasonsTable() {
   // Same rows as the Lost tile (METRICS.lostLeadRows, rule 34) and the same
   // report date range; it used to be all-time and computed inline.
   const lost = METRICS?.lostLeadRows ? METRICS.lostLeadRows(filteredReportLeadRows()) : [];
-  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Trainer</th><th>Office Note</th></tr></thead><tbody>${lost.map(lead => `<tr><td>${escapeHtml(lead.owner)}${leadDogLabel(lead) ? `<small>${escapeHtml(leadDogLabel(lead))}</small>` : ""}</td><td><span class="status lost">${escapeHtml(lead.status)}</span></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="4">No lost leads match the current filters.</td></tr>`}</tbody></table></div>`;
+  return `<div class="table-wrap"><table class="data-table"><thead><tr><th>Lead</th><th>Status</th><th>Trainer</th><th>Office Note</th></tr></thead><tbody>${lost.map(lead => `<tr><td>${escapeHtml(lead.owner)}${leadDogLabel(lead) ? `<small>${escapeHtml(leadDogLabel(lead))}</small>` : ""}</td><td><span class="status lost">${escapeHtml(leadStatusLabel(lead.status))}</span></td><td>${escapeHtml(trainerName(lead.trainerId))}</td><td>${escapeHtml(lead.note || "—")}</td></tr>`).join("") || `<tr><td colspan="4">No lost leads match the current filters.</td></tr>`}</tbody></table></div>`;
 }
 
 function socialIconSvg(label) {
@@ -16111,7 +16111,7 @@ document.addEventListener("change", async event => {
       () => persistLeadWorkflow(lead),
       {
         type: "Lead",
-        detail: `${lead?.owner || "Lead"} moved to ${lead?.status || statusField.value}${lead?.trainer ? ` for ${lead.trainer}` : ""}.`
+        detail: `${lead?.owner || "Lead"} moved to ${leadStatusLabel(lead?.status || statusField.value)}${lead?.trainer ? ` for ${lead.trainer}` : ""}.`
       }
     );
     else saveState("Lead status updated");
@@ -16464,11 +16464,11 @@ document.addEventListener("drop", event => {
   const lead = updateLeadRecord(draggedLeadId, { status: column.dataset.dropStatus === "Lost" ? "Lost / No Response" : column.dataset.dropStatus });
   draggedLeadId = "";
   render();   // same reason as the status dropdown: land the card in its new column now
-  if (remoteReady) runRemoteMutation("Lead moved to " + column.dataset.dropStatus, () => persistLeadWorkflow(lead), {
+  if (remoteReady) runRemoteMutation("Lead moved to " + leadStatusLabel(column.dataset.dropStatus), () => persistLeadWorkflow(lead), {
     type: "Lead",
-    detail: `${lead?.owner || "Lead"} was dragged to ${lead?.status || column.dataset.dropStatus}${lead?.trainer ? ` for ${lead.trainer}` : ""}.`
+    detail: `${lead?.owner || "Lead"} was dragged to ${leadStatusLabel(lead?.status || column.dataset.dropStatus)}${lead?.trainer ? ` for ${lead.trainer}` : ""}.`
   });
-  else saveState("Lead moved to " + column.dataset.dropStatus);
+  else saveState("Lead moved to " + leadStatusLabel(column.dataset.dropStatus));
 });
 
 document.addEventListener("submit", async event => {

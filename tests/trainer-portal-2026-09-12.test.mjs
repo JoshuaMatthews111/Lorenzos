@@ -22,34 +22,45 @@ const app = read("trainer-backoffice/app.js");
 
 const lead = (id, status, extra = {}) => ({ id, status, createdAt: `2026-09-${String(10 + id.length).padStart(2, "0")}T12:00:00Z`, ...extra });
 
-test("trainer board: every listed status lands in exactly one column; cancelled sits with Lost; never-call statuses and unknown are not drawn", () => {
+// Rachel 2026-09-24: the trainer board IS the office Leads board (METRICS.BOARD_COLUMNS, bucketed by boardStatus),
+// the trainer's own leads only, Do Not Contact / Archived held out (rule 80). The old five-stage list that lumped
+// New Inquiry + Office Contacted + Engaged into one "New Inquiry" column is gone.
+test("trainer board: the office Leads columns in the office order; every drawn lead sits in exactly one column; Do Not Contact / Archived never drawn", () => {
   const leads = [
     lead("a", "New Inquiry"), lead("b", "Office Contacted"), lead("c", "Engaged Lead: No Outcome"),
     lead("d", "Evaluation Scheduled"), lead("e", "Evaluation Complete"), lead("f", "Became a Client"),
-    lead("g", "Lost - Price Concern"), lead("h", "Evaluation Cancelled"), lead("i", "Archived"), lead("j", "Something Else"),
+    lead("g", "Lost / Price Concern"), lead("h", "Evaluation Cancelled"), lead("i", "Archived"),
     lead("k", "Do Not Contact"), lead("l", "Bad Lead")
   ];
-  const board = metrics.trainerPipeline(leads);
-  assert.deepEqual([...board.keys()], ["inquiry", "scheduled", "completed", "sold", "lost"]);
-  assert.deepEqual(board.get("inquiry").map(l => l.id), ["a", "b", "c"]);
-  assert.deepEqual(board.get("scheduled").map(l => l.id), ["d"]);
-  assert.deepEqual(board.get("completed").map(l => l.id), ["e"]);
-  assert.deepEqual(board.get("sold").map(l => l.id), ["f"]);
-  assert.deepEqual(board.get("lost").map(l => l.id), ["g", "h"], "a trainer is never told to call Do Not Contact, Bad Lead or Archived");
-  assert.equal([...board.values()].flat().length, leads.length - 4);
-  assert.deepEqual(metrics.TRAINER_PIPELINE_STAGES.map(s => s[1]), ["New Inquiry", "Eval Scheduled", "Eval Completed", "Sold", "Lost"]);
+  const board = new Map(metrics.trainerLeadBoard(leads));
+  assert.deepEqual([...board.keys()], metrics.BOARD_COLUMNS, "same columns, same order as the office board");
+  const ids = column => board.get(column).map(l => l.id);
+  assert.deepEqual(ids("New Inquiry"), ["a"]);
+  assert.deepEqual(ids("Office Contacted"), ["b"]);
+  assert.deepEqual(ids("Engaged Lead: No Outcome"), ["c"]);
+  assert.deepEqual(ids("Evaluation Scheduled"), ["d"]);
+  assert.deepEqual(ids("Evaluation Cancelled"), ["h"]);
+  assert.deepEqual(ids("Evaluation Complete"), ["e"]);
+  assert.deepEqual(ids("Became a Client"), ["f"]);
+  assert.deepEqual(ids("Lost"), ["g", "l"], "Lost = boardStatus Lost, like the office; never Do Not Contact or Archived");
+  assert.equal([...board.values()].flat().length, leads.length - 2);
+  // Same bucketing as the office board for every lead the trainer is shown.
+  const office = new Map(metrics.leadBoardColumns(metrics.trainerBoardRows(leads)));
+  metrics.BOARD_COLUMNS.forEach(column => assert.deepEqual(ids(column), office.get(column).map(l => l.id), column));
 });
 
 test("trainer dashboard tiles agree with the board (rule 34: one source)", () => {
-  const leads = [lead("a", "New Inquiry"), lead("d", "Evaluation Scheduled"), lead("dd", "Evaluation Scheduled"), lead("e", "Evaluation Complete"), lead("f", "Became a Client"), lead("g", "Lost - Not Ready")];
+  const leads = [lead("a", "New Inquiry"), lead("b", "Office Contacted"), lead("c", "Engaged Lead: No Outcome"), lead("d", "Evaluation Scheduled"), lead("dd", "Evaluation Scheduled"), lead("e", "Evaluation Complete"), lead("f", "Became a Client"), lead("g", "Lost / Not Ready"), lead("h", "Evaluation Cancelled"), lead("k", "Do Not Contact")];
   const dash = metrics.trainerDashboard(leads, [{ status: "Pending" }]);
-  const board = metrics.trainerPipeline(leads);
-  assert.equal(dash.assigned, 6);
-  assert.equal(dash.newInquiries, board.get("inquiry").length, "New Inquiries tile (2026-09-14) = the board's first column");
-  assert.equal(dash.evalScheduled, board.get("scheduled").length);
-  assert.equal(dash.evalCompleted, board.get("completed").length);
-  assert.equal(dash.won, board.get("sold").length);
-  assert.equal(dash.lost, board.get("lost").length);
+  const board = new Map(metrics.trainerLeadBoard(leads));
+  assert.equal(dash.assigned, 10);
+  assert.equal(dash.newInquiries, board.get("New Inquiry").length, "New Inquiries = the board's New Inquiry column");
+  assert.equal(dash.newInquiries, 1, "a contacted or engaged lead is no longer counted as a New Inquiry");
+  assert.equal(dash.evalScheduled, board.get("Evaluation Scheduled").length);
+  assert.equal(dash.evalCompleted, board.get("Evaluation Complete").length);
+  assert.equal(dash.won, board.get("Became a Client").length);
+  assert.equal(dash.lost, board.get("Lost").length);
+  assert.equal(dash.lost, 1, "Evaluation Cancelled has its own column now; Do Not Contact is never shown to a trainer");
   assert.equal(dash.pendingSubmissions, 1, "the old figure is still there");
 });
 
@@ -96,7 +107,7 @@ test("one page (Joshua 2026-09-14): every tab is a section in menu order, a tab 
   // Joshua 2026-09-15: "we don't need the assigned lead card anymore" — six tiles.
   assert.deepEqual(tiles, ["New Inquiries", "Evaluations Scheduled", "Evaluations Completed", "Sold", "Lost", "Clients"]);
   assert.doesNotMatch(dash, /Assigned Leads & Office Notes|My Locked Trainer Page|trainerPipelineBoard|trainerClientsSummary/);
-  assert.match(app, /  leads\(\) \{\n[^\n]*\n    return `\$\{panel\("My Pipeline", "", trainerPipelineBoard\(trainerLeads\(currentTrainerId\(\)\)\), "pad"\)\}\$\{panel\("All My Leads & Office Notes"/);
+  assert.match(app, /  leads\(\) \{\n    return `\$\{panel\("My Pipeline", "", `\$\{sourceLegend\(\)\}\$\{badgeLegend\(\)\}\$\{trainerPipelineBoard\(trainerLeads\(currentTrainerId\(\)\)\)\}`, "pad"\)\}\$\{panel\("All My Leads & Office Notes"/);
   const onePage = app.match(/function trainerOnePage\(\) \{[\s\S]*?\n\}\n/)[0];
   assert.match(onePage, /const nav = trainerNav\(\);/, "sections follow the menu order");
   assert.match(onePage, /id="trainer-sec-\$\{view\}" data-spy-view="\$\{view\}"/);

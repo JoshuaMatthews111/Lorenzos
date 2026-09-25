@@ -145,7 +145,7 @@ test("screens: opens on Dashboard, lead details with the pre-evaluation question
   assert.match(app, /if \(jump && jump !== "dashboard"\) requestAnimationFrame\(\(\) => scrollToTrainerSection\(jump, false\)\);/);
   assert.match(app, /else \{ state\.activeView = "dashboard"; window\.scrollTo\(0, 0\); markTrainerTab\("dashboard"\); \}/);
   // Joshua 2026-09-23: the one exception — a trainer who arrived on the deep link in their alert text
-  // (/trainer-backoffice?view=leadPipeline&lead=<id>) opens on that lead's own tab, not the Dashboard.
+  // (/trainer-backoffice?view=leads&lead=<id>; old view=leadPipeline links land there too) opens on My Leads.
   assert.match(app, /else if \(state\.selectedLeadId && trainerOnePageViews\(\)\.includes\(state\.activeView\)\) \{\n\s*const landing = state\.activeView;\n\s*markTrainerTab\(landing\);\n\s*requestAnimationFrame\(\(\) => scrollToTrainerSection\(landing, false\)\);\n\s*\}/);
   // The deep link itself: an explicit ?view= is honoured, so the trainer portal is not forced to the
   // office "leads" screen, and /staff?lead=<id> still falls back to it.

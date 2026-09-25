@@ -75,6 +75,11 @@
     archived: "Archived"
   };
 
+  // Display words only (Rachel 2026-09-24): the status VALUE "Office Contacted" / office_contacted never changes
+  // (rule 10); every screen shows it as "Office/Trainer Contacted" because trainers now mark it too.
+  const STATUS_DISPLAY_LABELS = { "Office Contacted": "Office/Trainer Contacted" };
+  const statusLabel = status => STATUS_DISPLAY_LABELS[status] || status;
+
   const BOARD_COLUMNS = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"];
   const LEAD_STATUS_COUNT_ORDER = ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client"];
   const APPLICATION_COLUMNS = ["New Application", "Under Review", "Discovery Call Inquiry", "Interview Scheduled", "Moved Forward", "Declined", "Archived"];
@@ -451,38 +456,32 @@
   const TRACK500_CLIENT_GOAL = 500;
   const TRACK500_REVENUE_GOAL = 1250000;
 
-  // The trainer's working board (meeting 2026-09-12): New Inquiry -> Eval Scheduled -> Eval Completed
-  // -> Sold -> Lost. A lead sits in at most one column. Cancelled evaluations need a person to call, so
-  // they sit with Lost. Bad Lead, Do Not Contact and Archived are NOT drawn: the trainer must never be
-  // told to call them. A status that is not listed is not drawn.
-  const TRAINER_PIPELINE_STAGES = [
-    ["inquiry",   "New Inquiry",    ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome"]],
-    ["scheduled", "Eval Scheduled", ["Evaluation Scheduled"]],
-    ["completed", "Eval Completed", ["Evaluation Complete"]],
-    ["sold",      "Sold",           ["Became a Client"]],
-    ["lost",      "Lost",           ["Lost", "Evaluation Cancelled"]]
-  ];
-  function trainerStageFor(lead) {
-    const raw = String((lead && lead.status) || "New Inquiry");
-    const status = /^(Lost|Canceled)/.test(raw) ? "Lost" : raw; // Canceled / Refunded and Canceled / Write off sit with Lost
-    const found = TRAINER_PIPELINE_STAGES.find(([, , statuses]) => statuses.includes(status));
-    return found ? found[0] : null;
-  }
-  function trainerPipeline(leads) {
-    const buckets = new Map(TRAINER_PIPELINE_STAGES.map(([id]) => [id, []]));
-    list(leads).forEach(lead => { const id = trainerStageFor(lead); if (id) buckets.get(id).push(lead); });
-    return buckets;
-  }
+  // The trainer's working board = the OFFICE Leads board, their own leads only (Rachel 2026-09-24, owner agreed).
+  // Before this the trainer had its own five-stage list that lumped New Inquiry + Office Contacted + Engaged Lead:
+  // No Outcome into one column LABELLED "New Inquiry", so a lead the office had already reached still read "New
+  // Inquiry" to the trainer (Chloe Williams, engaged_no_outcome since 9/10). Now there is ONE column list
+  // (BOARD_COLUMNS) and ONE bucketing (boardStatus) for office and trainer alike. Do Not Contact and Archived are
+  // held out for a trainer (rule 80: never hand a trainer someone on that list); on the office board they sit in Lost.
+  const TRAINER_HIDDEN_DB_STATUSES = ["do_not_contact", "archived"];
+  const trainerHiddenLead = lead => {
+    const db = (lead && lead.dbStatus) || LEAD_STATUS_TO_DB[(lead && lead.status) || ""] || "";
+    return TRAINER_HIDDEN_DB_STATUSES.includes(db);
+  };
+  const trainerBoardRows = leads => list(leads).filter(lead => !trainerHiddenLead(lead));
+  const trainerLeadBoard = leads => leadBoardColumns(trainerBoardRows(leads), BOARD_COLUMNS, boardStatus);
 
   function trainerDashboard(leads, submissions) {
-    const board = trainerPipeline(leads);
+    // Tiles read the trainer's own board (2026-09-24): New Inquiries = its "New Inquiry" column (no longer
+    // counting leads the office or trainer already contacted), Lost = its "Lost" column (boardStatus, like
+    // the office; Evaluation Cancelled now has its own column and no longer counts as Lost).
+    const board = new Map(trainerLeadBoard(leads));
     return {
-      newInquiries: board.get("inquiry").length,
+      newInquiries: board.get("New Inquiry").length,
       assigned: count(leads),
       evalScheduled: countByStatus(leads, "Evaluation Scheduled"),
       evalCompleted: countByStatus(leads, "Evaluation Complete"),
       won: wonCount(leads),
-      lost: board.get("lost").length,
+      lost: board.get("Lost").length,
       pendingSubmissions: list(submissions).filter(s => s.status === "Pending").length
     };
   }
@@ -538,7 +537,8 @@
     trainerDeals, paymentsDueNow,
     applicationRows, applicationNeedsAction, applicationTiles, applicationColumns, applicationColumnCounts,
     clientCounts, wonCount, trainerDashboard, trainerPerformance, trainerStats, navBadgeCounts,
-    TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_PIPELINE_STAGES, trainerStageFor, trainerPipeline,
+    TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_HIDDEN_DB_STATUSES, trainerBoardRows, trainerLeadBoard,
+    STATUS_DISPLAY_LABELS, statusLabel,
     escapeCsv, csvDocument, csvRowCount
   };
 });

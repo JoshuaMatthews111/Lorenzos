@@ -1,5 +1,8 @@
 // Trainer actions on their OWN leads (Joshua 2026-09-14, option A; meeting 2026-09-12 [0:09:36], [0:12:06]).
-//   POST { action: "eval_completed" | "lost" | "alpha", lead_id, expected_version?, reason?, note?, value? }
+//   POST { action: "contacted" | "eval_completed" | "lost" | "alpha", lead_id, expected_version?, reason?, note?, value? }
+//   - contacted (Rachel 2026-09-24): a New Inquiry lead -> office_contacted (shown as "Office/Trainer Contacted").
+//     ONLY from new_inquiry: on the office Leads board "Engaged Lead: No Outcome" comes AFTER "Office Contacted",
+//     so moving an engaged lead here would move it backwards. Anything else -> 409. No text, no email is sent.
 //   - eval_completed: an Evaluation Scheduled lead -> evaluation_complete.
 //   - lost: an open lead -> the Lost status for the reason picked (price / not_ready / other_provider /
 //     no_response / complaint), with an optional short note for the office.
@@ -183,7 +186,7 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const action = clean(body.action, 30);
     const leadId = clean(body.lead_id, 80);
-    if (!["eval_completed", "lost", "alpha", "handoff"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
+    if (!["contacted", "eval_completed", "lost", "alpha", "handoff"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
     if (!UUID.test(leadId)) return reply(res, 400, { ok: false, message: "That lead id is not complete." });
 
     const [before] = (await supabaseFetch(`/rest/v1/leads?select=*&id=eq.${encodeURIComponent(leadId)}&limit=1`)) || [];
@@ -199,7 +202,11 @@ module.exports = async function handler(req, res) {
     if (action === "handoff") return await handoff(res, access, body, before, note);
     let changes;
     let summary;
-    if (action === "eval_completed") {
+    if (action === "contacted") {
+      if (before.status !== "new_inquiry") return reply(res, 409, { ok: false, message: "Only a New Inquiry lead can be marked contacted. This lead is already past that step." });
+      changes = { status: "office_contacted" };
+      summary = "Trainer marked the lead contacted (Office/Trainer Contacted).";
+    } else if (action === "eval_completed") {
       if (before.status !== "evaluation_scheduled") return reply(res, 409, { ok: false, message: "Only a lead in Evaluation Scheduled can be marked Eval completed." });
       changes = { status: "evaluation_complete" };
       summary = "Trainer marked the evaluation completed.";
@@ -261,7 +268,7 @@ module.exports = async function handler(req, res) {
       });
     }
     if (action === "eval_completed") await P.afterEvalCompleted({ lead: record }).catch(error => console.error("after_eval_completed_failed", String(error?.message || error)));
-    const message = action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
+    const message = action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
     return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha ?? null, version: record.version || null } });
   } catch (error) {
     const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;

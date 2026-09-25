@@ -226,7 +226,7 @@ test("new inquiry: the routed trainer is texted through pathway 2 (trainer branc
     assert.match(post.trainer_message, /Pat Client\n\(440\) 555-0199/);
     assert.ok(!/ZIP/.test(post.trainer_message), "no ZIP in the trainer's new-inquiry text");
     // Joshua 2026-09-23 (bug he caught): the trainer lands in THEIR OWN portal, never the office one.
-    assert.match(post.trainer_message, /\/trainer-backoffice\?view=leadPipeline&lead=/);
+    assert.match(post.trainer_message, /\/trainer-backoffice\?view=leads&lead=/);
     assert.ok(!/\/staff/.test(post.trainer_message), "a trainer text never sends the trainer to the office portal");
     assert.equal(post.customer_message, "");
     assert.equal(post.practice, false);
