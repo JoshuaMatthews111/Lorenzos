@@ -22,8 +22,9 @@ const MAKE_WORDS = {
   booking_link: "Hi {first_name}, this is Lorenzo’s Dog Training Team. We received your request for help with {problem}.\n\nYou can schedule your complimentary evaluation here:\n{booking_link}\n\nReply STOP to opt out.", // meeting 2026-09-16: no "reply to this message" (replies go nowhere)
   booking_confirmation: "Hi {first_name} — you’re confirmed with {trainer_first_name} from Lorenzo’s Dog Training Team.\n\n📅 {appointment_day}, {appointment_date} at {appointment_time}\n📍 {service_address}\n\nBefore your trainer arrives, please complete these quick questions about {dog_name} so we can make the most of your evaluation:\n{pre_eval_link}\n\nWe look forward to meeting you.",
   trainer_new_eval: "🔔 NEW LDTT EVALUATION\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\nDog: {dog_name}\nPrimary concern: {problem}\n{safety_flag}\nPlease call the client today to introduce yourself, then mark CONTACTED: {trainer_portal_link}",
-  ops_new_lead: "New LDTT lead: {client_name}, ZIP {zip}, {problem}. From: {source}. {next_step} {link}",
-  ops_eval_booked: "Evaluation booked: {client_name} with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. It is now in Eval Scheduled. {link}",
+  // Lorenzo, Zoom 2026-09-24: Operations gets the client's phone where the ZIP was.
+  ops_new_lead: "New LDTT lead: {client_name}, {phone}, {problem}. From: {source}. {next_step} {link}",
+  ops_eval_booked: "Evaluation booked: {client_name}, {phone}, with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. It is now in Eval Scheduled. {link}",
   // Joshua 2026-09-16: "instruct them to log in and log the deal in the portal using this link" (after Eval completed).
   trainer_log_deal: "🚨🚨 Track 500 - Eval completed 🚨🚨\n{first_name} {last_name} ({dog_name}).\nPlease log in to the trainer portal and log the deal here: {trainer_portal_link}",
   // Joshua 2026-09-17: the trainer's new-inquiry text (pathway 2, trainer branch, pathway "new_inquiry").
@@ -198,4 +199,45 @@ test("appointment_date reads \"September 15, 2026\" (Joshua 2026-09-17): the sam
   const src = readFileSync(resolve(import.meta.dirname, "../lib/pipeline.js"), "utf8");
   assert.match(src, /date: date\.toLocaleDateString\("en-US", \{ \.\.\.opts, month: "long", day: "numeric", year: "numeric" \}\)/);
   assert.match(src, /day: date\.toLocaleDateString\("en-US", \{ \.\.\.opts, weekday: "long" \}\)/, "appointment_day stays the weekday name");
+});
+
+// Lorenzo, Zoom 2026-09-24: "New Track 500 lead ... zip code" - why the ZIP? Operations texts carry the client's
+// PHONE instead (like the trainer's new-inquiry text since 2026-09-23). The words in use on live/practice are the
+// SAVED Track 500 templates from 2026-09-16, so their exact old wording is read as the new wording.
+test("Operations texts show the client's phone, never the ZIP, including the saved Track 500 templates in use", async () => {
+  const P = require("../lib/pipeline.js");
+  const saved = {
+    texts: {
+      ops_new_lead: { active: "t-track500-ops-new", templates: [{ id: "t-track500-ops-new", name: "Track 500 (Lorenzo)", words: "🚨🚨 New Track 500 lead 🚨🚨\n{client_name}, ZIP {zip}, {problem}. From: {source}. {next_step} {link}" }] },
+      ops_eval_booked: { active: "t-track500-ops-booked", templates: [{ id: "t-track500-ops-booked", name: "Track 500 (meeting 12 Sep)", words: "🚨🚨 Track 500 - Eval booked 🚨🚨\n{client_name} with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. {link}" }] }
+    }
+  };
+  assert.equal(X.wordsFor(saved, "ops_new_lead"), "🚨🚨 New Track 500 lead 🚨🚨\n{client_name}, {phone}, {problem}. From: {source}. {next_step} {link}");
+  assert.equal(X.wordsFor(saved, "ops_eval_booked"), "🚨🚨 Track 500 - Eval booked 🚨🚨\n{client_name}, {phone}, with {trainer_name}, {appointment_day} {appointment_date} at {appointment_time}. {link}");
+  for (const key of ["ops_new_lead", "ops_eval_booked"]) {
+    const words = X.wordsFor(saved, key);
+    assert.ok(!X.check(key, words).error, `${key}: the upgraded words pass the editor's checks`);
+    assert.doesNotMatch(words, /ZIP|\{zip\}/, key);
+    assert.ok(X.TEXTS.find(t => t.key === key).fields.includes("phone"), `${key} offers {phone}`);
+    assert.doesNotMatch(X.TEXTS.find(t => t.key === key).words + X.TEXTS.find(t => t.key === key).offered.words, /ZIP|\{zip\}/);
+    assert.equal(X.view(saved).texts.find(t => t.key === key).offered, null, "the editor shows the saved template as the offered one");
+  }
+  // Words the office typed differently are left exactly as typed.
+  const own = { texts: { ops_new_lead: { active: "t1", templates: [{ id: "t1", name: "Mine", words: "Lead {client_name} ZIP {zip}" }] } } };
+  assert.equal(X.wordsFor(own, "ops_new_lead"), "Lead {client_name} ZIP {zip}");
+  // Rendering: a formatted phone, or plain words when there is none - never "{phone}" and never a blank gap.
+  assert.equal(P.opsPhoneWords("7707571331"), "(770) 757-1331");
+  assert.equal(P.opsPhoneWords("+1 770-757-1331"), "(770) 757-1331");
+  assert.equal(P.opsPhoneWords(""), "no phone on file");
+  assert.equal(P.opsPhoneWords(null), "no phone on file");
+  const fields = { client_name: "Chloe Williams", phone: P.opsPhoneWords(""), zip: "30223", problem: "pulling", source: "Ad page", next_step: "Booking link texted.", link: "https://x/staff", trainer_name: "Shavon Striggles", appointment_day: "Friday", appointment_date: "September 25, 2026", appointment_time: "10:00 AM ET" };
+  for (const key of ["ops_new_lead", "ops_eval_booked"]) {
+    const text = X.render(X.wordsFor(saved, key), fields);
+    assert.match(text, /no phone on file/);
+    assert.doesNotMatch(text, /\{|30223|, ,|\(\)/, key);
+  }
+  // Both call sites fill {phone}; the new-lead one keeps {zip} for any older saved wording.
+  const src = read("lib/pipeline.js");
+  assert.match(src, /sendOpsAlert\("eval_booked", \{\n[^}]*phone: opsPhoneWords\(booking\?\.client\?\.phone \|\| lead\.phone\)/);
+  assert.match(src, /sendOpsAlert\("new_lead", \{\n[\s\S]{0,300}phone: opsPhoneWords\(won\.phone\),\n    zip: clean\(won\.zip, 10\),/);
 });

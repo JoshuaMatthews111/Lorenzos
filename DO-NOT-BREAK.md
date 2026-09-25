@@ -2010,56 +2010,76 @@ COLLECTED; service-dog gold tag YES; milestones later.
       in-flight lead never twice; the resume guards; the Resend helper (pacing, Retry-After, bounded, ordinary
       callers one attempt); the dialable guard; and the maxDuration + opt-in wiring.
 
-## Trainer Lead Pipeline: one board, two readers (added 2026-09-23, Rachel via Joshua)
+## Trainer Lead Pipeline: one place, a six-column TASK board (added 2026-09-23, Rachel via Joshua; rewritten 2026-09-24 night, Lorenzo)
 
-102. **A trainer's leads live in ONE place, My Leads, and its board mirrors the office Leads board exactly.**
-     (Rewritten 2026-09-24 on Rachel's request, owner agreed. It replaces the 2026-09-23 rule, which added a
-     separate "Lead Pipeline" tab drawn from the office SALES board.)
-     - **Why:** the old My Leads board used `METRICS.TRAINER_PIPELINE_STAGES`, which lumped `new_inquiry` +
-       `office_contacted` + `engaged_no_outcome` into one column LABELLED "New Inquiry". Rachel's proof: Shavon
-       Striggles's lead Chloe Williams is `engaged_no_outcome` (the office spoke to her 9/10) yet sat under "New
-       Inquiry", so a trainer would call someone already contacted. `TRAINER_PIPELINE_STAGES`, `trainerStageFor`
-       and `trainerPipeline` are DELETED from metrics.js. Never give the trainer board its own stage list again.
-     - **The board:** `trainerPipelineBoard()` (My Leads → "My Pipeline", with the office's own `sourceLegend()` +
-       `badgeLegend()`) draws `METRICS.trainerLeadBoard(leads)` = `leadBoardColumns(trainerBoardRows(leads),
-       BOARD_COLUMNS, boardStatus)`: the SAME columns, order, words and bucketing as the office `leadKanban()`.
-       Headers go through `leadStatusLabel()` like the office's.
-     - **Rule 7 is the whole point:** rows are `trainerLeads(currentTrainerId())` only. `do_not_contact` and
-       `archived` are held out (`METRICS.TRAINER_HIDDEN_DB_STATUSES`, rule 80); Bad Lead sits in Lost as on the
-       office board but never gets a "call" prompt. The CARD stays the trainer's (`.trainer-card`, next step, hand-off):
-       no status dropdown, no drag/drop, no notes editing, no archive/delete, no assignment. A tap opens
-       `trainerLeadDetailPanel()` with the trainer's own actions through `api/trainer-lead-action.js` (rule 83).
-     - **Dashboard tiles read that board (rule 34):** New Inquiries = its "New Inquiry" column (contacted / engaged
-       leads no longer count), Lost = its "Lost" column (boardStatus; Evaluation Cancelled has its own column now and
-       no longer counts as Lost). Eval Scheduled / Eval Completed / Sold / Clients unchanged.
-     - **The "Lead Pipeline" tab is GONE** from `trainerNav()`, `trainerScreens`, the screen titles and the Page
-       Editor preview list. `TRAINER_MOVED_VIEWS = { leadPipeline: "leads" }` sends a saved view to My Leads, and
-       `applyUrlState()` reads `?view=leadPipeline` as `leads`, so an alert already sent
-       (`/trainer-backoffice?view=leadPipeline&lead=<id>`) opens My Leads with that lead's panel. New trainer links
-       (`lib/pipeline.js` `trainerLeadLink`) are `/trainer-backoffice?view=leads&lead=<id>`.
-     - **Sideways scroll:** the board is `.sales-board.trainer-board.trainer-leads-board`; `.sales-board` is in
-       `SIDEWAYS_SCROLL_SELECTOR`, so opening a lead keeps its place. Phones (<= 720px): the columns stack full width
-       (every phone override scoped to `.trainer-leads-board`, so the office boards are untouched).
-     - **The office Sales board** still draws through `salesBoardColumnsHtml()` (its HTML unchanged); it is the only
-       caller now.
-     - **"Office Contacted" is SHOWN as "Office/Trainer Contacted" in both portals — label only (rule 10).** The DB
-       value stays `office_contacted` and the app's internal status value stays the string "Office Contacted"
-       (`leadStatusToDb`, option VALUES, `data-drop-status`, filters, saved state, every METRICS list). ONE display
-       function, `leadStatusLabel()` → `METRICS.statusLabel()`, is used wherever a status is shown: both board
-       headers, the office status dropdown text (options now carry an explicit `value`), the status filter text and
-       chip, status pills, the trainer panel, the closed hint, the re-engage panel, toasts. Never rename the value.
+102. **A trainer's leads live in ONE place, My Leads, and its board is a six-column TASK board — NOT a mirror of the
+     office board.** History: 2026-09-23 added a "Lead Pipeline" tab (office SALES board); 2026-09-24 commit 8e4433d
+     removed the tab and made My Leads a full 8-column mirror of the office Leads board. The same night (Zoom,
+     Joshua + Lorenzo) the owner OVERRULED the mirror: *"it should not mirror exactly like the admin. Admin is
+     looking for holes and gaps and efficiency leaks. The trainers is looking for did I do this, this and this.
+     This is more so task driven."* / *"Not a lot of clutter."* Joshua: "So only one that we're adding is contacted,
+     is that right?" Lorenzo: "Correct." Engaged Lead: No Outcome gets NO trainer column ("we know it's no outcome
+     if there's no sale") but must never sit under New Inquiry (Rachel's bug: Chloe Williams, engaged by the office
+     9/10, showed as New Inquiry on Shavon Striggles's board). Never turn the trainer board back into the office
+     board, and never lump contacted/engaged leads into New Inquiry again.
+     - **The columns, in this order, by DATABASE status** (`METRICS.TRAINER_PIPELINE_STAGES`, `trainerStageFor`,
+       `trainerPipeline`, `trainerLeadBoard` in metrics.js — rule 34; app.js never buckets):
+       | Column | DB statuses |
+       |---|---|
+       | New Inquiry | `new_inquiry` ONLY |
+       | Contacted | `office_contacted` (+ its old twin `follow_up_call_needed`), `engaged_no_outcome` |
+       | Eval Scheduled | `evaluation_scheduled` |
+       | Eval Completed | `evaluation_complete` |
+       | Sold | `became_client` |
+       | Lost | every `lost_*`, `bad_lead`, `evaluation_cancelled`, `canceled_refunded`, `canceled_write_off` |
+       `do_not_contact` and `archived` are NEVER drawn (rule 80), nor is any status not listed. The trainer header is
+       simply "Contacted" (Lorenzo: "just contacted"). Bad Lead sits in Lost but never gets a "call" prompt; a cancelled
+       evaluation in Lost says "The evaluation was cancelled. Call to rebook it." (This supersedes rule 80's older
+       "Bad Lead is NOT drawn".) No office legends on the trainer board (no clutter).
+     - **Dashboard tiles = board columns** (`METRICS.trainerDashboard`): New Inquiries = New Inquiry (new_inquiry only),
+       Evaluations Scheduled = Eval Scheduled, Evaluations Completed = Eval Completed, Sold = Sold, Lost = Lost,
+       Clients = `METRICS.trainerDeals`. `contacted` is computed (= the Contacted column) but has no tile.
+     - **The OFFICE Leads board is untouched:** 8 columns (`BOARD_COLUMNS` / `boardStatus`), Engaged Lead: No Outcome
+       kept (the office asked on the call), "Office/Trainer Contacted" label kept. Its HTML is byte-for-byte what
+       8e4433d drew (sha256 `69dae2df…d229` on the all-statuses fixture, pinned in the test).
+     - **Kept from 8e4433d:** rule 7 scoping (`trainerLeads(currentTrainerId())` only); the CARD is the trainer's (no
+       status dropdown, no drag/drop, no notes editing, no archive/delete, no assignment); a tap opens
+       `trainerLeadDetailPanel()`; the "Lead Pipeline" tab stays GONE (`TRAINER_MOVED_VIEWS = { leadPipeline: "leads" }`,
+       `applyUrlState()` reads `?view=leadPipeline` as `leads`; new links `/trainer-backoffice?view=leads&lead=<id>`);
+       sideways-scroll memory (`.sales-board.trainer-board.trainer-leads-board`); phone stacking (<= 720px, scoped to
+       `.trainer-leads-board`); the office Sales board is the only caller of `salesBoardColumnsHtml()`.
+     - **"Office Contacted" is SHOWN as "Office/Trainer Contacted" everywhere EXCEPT the trainer board header
+       ("Contacted") — label only (rule 10).** The value stays `office_contacted` / "Office Contacted"; ONE display
+       function, `leadStatusLabel()` → `METRICS.statusLabel()`. Never rename the value.
      - **"Mark contacted" (trainer):** `POST /api/trainer-lead-action {action:"contacted"}` moves the trainer's OWN lead
-       `new_inquiry` → `office_contacted` only (on the office board "Engaged Lead: No Outcome" comes AFTER "Office
-       Contacted", so an engaged lead is refused rather than moved backwards). Anything else → 409 "Only a New Inquiry
-       lead can be marked contacted…". Same auth, ownership (403), version guard (409), `audit_events`
-       (`trainer_lead_contacted`) and `lead_events` status_changed; no `lifecycle_events` row (office_contacted is not a
-       funnel step, same as an office change). Sends no text and no email. The button shows in the trainer lead panel
-       only when the lead is New Inquiry; confirm → toast → reload.
-     Pins: `tests/trainer-lead-pipeline-2026-09-23.test.mjs` (10: tab gone, old links land on My Leads, trainer headers
-     == office headers, Chloe in Engaged for both, strict scoping + hold-out, no office controls, sideways scroll,
-     phone CSS, Sales renderer, Mark contacted only for New Inquiry), `tests/status-label-2026-09-24.test.mjs` (7),
-     `tests/trainer-lead-action.test.mjs` (3 new: allowed, refused, wrong trainer + stale version),
-     `tests/trainer-portal-2026-09-12.test.mjs` (board + tiles).
+       `new_inquiry` → `office_contacted` only (it lands in the trainer's Contacted column; an engaged lead is refused
+       rather than moved backwards). Anything else → 409. Same auth, ownership (403), version guard (409),
+       `audit_events` (`trainer_lead_contacted`) and `lead_events`; no `lifecycle_events` row. Sends no text, no email.
+     Pins: `tests/trainer-lead-pipeline-2026-09-23.test.mjs` (six headers, Chloe in Contacted, office board sha256,
+     scoping + hold-out, no office controls, sideways scroll, phone CSS, Sales renderer, Mark contacted),
+     `tests/trainer-portal-2026-09-12.test.mjs` (columns + tiles), `tests/status-label-2026-09-24.test.mjs`,
+     `tests/trainer-lead-action.test.mjs`. Proof on real data 2026-09-24: Shavon's 2 live leads → Chloe Williams in
+     Contacted, Sharon Serrano Ahmed in Sold.
+
+104. **Operations (Lorenzo) texts show the client's PHONE, not the ZIP; every "not sent" line says why (2026-09-24,
+     Zoom).** Lorenzo showed his "New Track 500 lead … ZIP …" text: "why does it have the ZIP?"
+     - `lib/pipeline-texts.js`: `ops_new_lead` = "New LDTT lead: {client_name}, {phone}, {problem}. From: {source}.
+       {next_step} {link}" (Track 500 offered: "🚨🚨 New Track 500 lead 🚨🚨\n{client_name}, {phone}, …");
+       `ops_eval_booked` = "Evaluation booked: {client_name}, {phone}, with {trainer_name}, …" (Track 500 offered the
+       same). `{zip}` stays a declared field (and in the payload) only so an older saved wording never renders blank.
+     - **The words IN USE on live and practice are SAVED templates** (site_settings `pipeline_texts`, activated
+       2026-09-16, still holding the old ZIP words in the row). `RETIRED_WORDS` reads a saved template whose words are
+       EXACTLY an old wording as its replacement (no data write); words typed differently are left alone; the next
+       save of that template stores the new words.
+     - `lib/pipeline.js`: both Operations payloads carry `phone: opsPhoneWords(...)` ("(770) 757-1331", or "no phone
+       on file" — never "{phone}" or a blank). Eval booked uses the booking's client phone, else the lead's.
+     - **"What happened with this person" (rule 87) and the office pipeline notices** show every not-sent line as
+       "Not sent: <plain reason>" through ONE mapper, `journeyNotSentReason()` (e.g. "the client did not agree to
+       texts", "no phone number on file", "the phone number cannot exist …", "no phone number is saved for Lorenzo
+       (Operations) in Settings", "the trainer's own phone number is not loaded yet …"). It only rewords what the
+       pipeline recorded; an unknown reason shows as recorded; none recorded says so. Never a bare "Not sent".
+     Pins: `tests/pipeline-texts.test.mjs` (wording, saved-template upgrade, never "{phone}"/blank),
+     `tests/journey-not-sent-2026-09-24.test.mjs`.
 
 ## Contact Us goes live: ZIP required, then the trainers, then the same pipeline (added 2026-09-24, Claude, on Joshua's order)
 

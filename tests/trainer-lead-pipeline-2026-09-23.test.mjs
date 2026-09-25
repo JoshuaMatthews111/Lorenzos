@@ -1,12 +1,13 @@
-// Trainer lead board (Rachel, Business Operations Director, owner agreed) — REWRITTEN 2026-09-24.
-// 2026-09-23 added a separate "Lead Pipeline" tab drawn from the office SALES board. 2026-09-24 replaced it:
-//   - the tab is GONE; trainers manage leads in ONE place, My Leads;
-//   - the My Leads board mirrors the office LEADS board exactly: METRICS.BOARD_COLUMNS, same order, same words,
-//     bucketed by the same boardStatus(), only the signed-in trainer's own leads (rule 7), Do Not Contact /
-//     Archived held out (rule 80);
-//   - a saved / bookmarked / texted view=leadPipeline lands on My Leads with the lead open.
-// The bug this pins: Shavon Striggles's lead Chloe Williams is engaged_no_outcome (the office spoke to her on 9/10)
-// but sat under "New Inquiry" on Shavon's board, so a trainer would call someone already contacted.
+// Trainer lead board (Rachel, Business Operations Director) — REWRITTEN 2026-09-24 TWICE.
+// 2026-09-23 added a separate "Lead Pipeline" tab drawn from the office SALES board. 2026-09-24 (commit 8e4433d)
+// removed that tab and made My Leads a full mirror of the office Leads board (8 columns). The same night, on Zoom,
+// Lorenzo overruled the mirror: "it should not mirror exactly like the admin ... The trainers is looking for did I
+// do this, this and this ... Not a lot of clutter." Agreed: the pre-8e4433d trainer board plus ONE column:
+//   New Inquiry | Contacted | Eval Scheduled | Eval Completed | Sold | Lost
+// "Contacted" holds Office/Trainer Contacted AND Engaged Lead: No Outcome, so Shavon Striggles's lead Chloe
+// Williams (engaged_no_outcome, the office spoke to her on 9/10) is in Contacted, never New Inquiry (Rachel's bug).
+// Kept from 8e4433d: the tab is gone, view=leadPipeline lands on My Leads, trainer-only cards, Mark contacted,
+// sideways-scroll memory, phone stacking. The OFFICE Leads board is byte-for-byte what 8e4433d drew.
 // Run: node --test tests/   Nothing here talks to the real project.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -14,6 +15,7 @@ import vm from "node:vm";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { createHash } from "node:crypto";
 
 const require = createRequire(import.meta.url);
 const root = resolve(import.meta.dirname, "..");
@@ -49,7 +51,7 @@ function context(extra = {}) {
 function renderBoards(leads, trainerLeadsFor = () => leads) {
   const ctx = context({ trainerLeads: trainerLeadsFor, currentTrainerId: () => "shavon-striggles" });
   vm.runInNewContext(
-    `${oneLine("leadStatusLabel")}\n${constant("TRAINER_BOARD_TONE")}\n${constant("TRAINER_BOARD_STEP")}\n` +
+    `${oneLine("leadStatusLabel")}\n${constant("TRAINER_BOARD_TONE")}\n` +
     `${fn("trainerCardEvalLine")}\n${fn("trainerCardNextStep")}\n${fn("trainerPipelineBoard")}\n` +
     `var boardColumns = METRICS.BOARD_COLUMNS;\nfunction boardStatus(status) { return METRICS.boardStatus(status); }\n${fn("leadKanban")}\n` +
     `this.trainer = trainerPipelineBoard(trainerLeads(currentTrainerId()));\nthis.office = leadKanban(this.officeRows || []);`,
@@ -93,24 +95,39 @@ test("a saved, bookmarked or texted view=leadPipeline lands on My Leads with the
   assert.doesNotMatch(read("lib/pipeline.js").match(/function trainerLeadLink[\s\S]*?\n\}/)[0], /leadPipeline/);
 });
 
-test("My Leads draws the OFFICE Leads columns: same columns, same order, same words as the office board", () => {
+const SIX = ["New Inquiry", "Contacted", "Eval Scheduled", "Eval Completed", "Sold", "Lost"];
+
+test("My Leads draws SIX task columns (Lorenzo 2026-09-24), not the office's eight, with no office legends", () => {
   const { trainer, office } = renderBoards([lead("a", "new_inquiry")]);
-  assert.deepEqual(trainerHeaders(trainer), officeHeaders(office), "trainer headers == office headers");
-  assert.deepEqual(trainerHeaders(trainer), ["New Inquiry", "Office/Trainer Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"]);
-  assert.match(app, /  leads\(\) \{\n    return `\$\{panel\("My Pipeline", "", `\$\{sourceLegend\(\)\}\$\{badgeLegend\(\)\}\$\{trainerPipelineBoard\(trainerLeads\(currentTrainerId\(\)\)\)\}`/, "My Leads carries the board with the office legends");
+  assert.deepEqual(trainerHeaders(trainer), SIX);
+  assert.deepEqual(officeHeaders(office), ["New Inquiry", "Office/Trainer Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"], "the office board keeps its eight");
+  assert.match(app, /  leads\(\) \{\n    return `\$\{panel\("My Pipeline", "", trainerPipelineBoard\(trainerLeads\(currentTrainerId\(\)\)\), "pad"\)\}/, "My Leads = the board, no legends (\"not a lot of clutter\")");
+  assert.doesNotMatch(fn("trainerPipelineBoard"), /BOARD_COLUMNS|boardStatus|leadStatusLabel/, "the trainer board never borrows the office columns or words");
 });
 
-test("Chloe Williams (engaged_no_outcome) sits in \"Engaged Lead: No Outcome\" for the office AND the trainer, never New Inquiry", () => {
-  const rows = [lead("chloe", "engaged_no_outcome", { owner: "Chloe Williams" }), lead("n", "new_inquiry"), lead("o", "office_contacted"), lead("s", "evaluation_scheduled")];
+test("Chloe Williams (engaged_no_outcome) is in \"Contacted\" for the trainer, never New Inquiry; the office still shows Engaged Lead: No Outcome", () => {
+  const rows = [lead("chloe", "engaged_no_outcome", { owner: "Chloe Williams" }), lead("n", "new_inquiry"), lead("o", "office_contacted"), lead("s", "evaluation_scheduled"), lead("c", "evaluation_cancelled"), lead("b", "bad_lead"), lead("r", "canceled_refunded")];
   const { trainer, office } = renderBoards(rows);
-  assert.ok(trainerColumn(trainer, "Engaged Lead: No Outcome").includes("Chloe Williams"));
-  assert.ok(!trainerColumn(trainer, "New Inquiry").includes("Chloe Williams"), "the old lumped column is gone");
-  assert.ok(officeColumn(office, "Engaged Lead: No Outcome").includes("Chloe Williams"));
-  assert.ok(trainerColumn(trainer, "Office/Trainer Contacted").includes("Owner o"));
+  assert.ok(trainerColumn(trainer, "Contacted").includes("Chloe Williams"));
+  assert.ok(!trainerColumn(trainer, "New Inquiry").includes("Chloe Williams"));
+  assert.ok(trainerColumn(trainer, "Contacted").includes("Owner o"), "Office/Trainer Contacted lands in Contacted too");
   assert.ok(trainerColumn(trainer, "New Inquiry").includes("Owner n"));
-  // Column counts agree column by column.
+  assert.ok(officeColumn(office, "Engaged Lead: No Outcome").includes("Chloe Williams"), "the office board is unchanged");
+  for (const id of ["c", "b", "r"]) assert.ok(trainerColumn(trainer, "Lost").includes(`Owner ${id}`), `${id} in Lost`);
+  assert.match(trainerColumn(trainer, "Lost"), /The evaluation was cancelled\. Call to rebook it\./);
   const counts = html => [...html.matchAll(/<span class="sales-count">(\d+)<\/span>/g)].map(m => Number(m[1]));
-  assert.deepEqual(counts(trainer), metrics.leadBoardColumnCounts(rows).map(([, n]) => n));
+  assert.deepEqual(counts(trainer), [1, 2, 1, 0, 0, 3], "column counts come from metrics.js");
+  assert.deepEqual(counts(trainer), metrics.trainerLeadBoard(rows).map(([, r]) => r.length));
+});
+
+test("the OFFICE Leads board is byte-for-byte what 8e4433d drew (same rows, every status)", () => {
+  // Every DB status, rendered by the REAL leadKanban with the same leaf stubs the 8e4433d proof used.
+  const dbs = ["new_inquiry", "office_contacted", "follow_up_call_needed", "engaged_no_outcome", "evaluation_scheduled", "evaluation_cancelled", "evaluation_complete", "became_client", "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "lost_no_trainer_area", "canceled_refunded", "canceled_write_off", "bad_lead", "do_not_contact", "archived"];
+  const rows = dbs.map((db, i) => ({ id: `f${i}`, dbStatus: db, status: metrics.LEAD_STATUS_FROM_DB[db], owner: `Owner ${i} <${db}>`, dog: "Rex", createdAt: `2026-09-${String(10 + (i % 15)).padStart(2, "0")}T12:00:00Z` }));
+  const ctx = { METRICS: metrics, escapeHtml, formatDateTime: v => String(v), leadCardDetailLines: l => `<p>${escapeHtml(l.dog || "")}</p>`, leadAssignmentLine: () => "", leadAlphaToggle: () => "", leadSourceBadge: () => "<span class=\"source-badge\"></span>", leadAssignedHighlightClass: () => "", rows };
+  vm.runInNewContext(`${oneLine("leadStatusLabel")}\nvar boardColumns = METRICS.BOARD_COLUMNS;\nfunction boardStatus(status) { return METRICS.boardStatus(status); }\n${fn("leadKanban")}\nthis.html = leadKanban(rows);`, ctx);
+  assert.equal(createHash("sha256").update(ctx.html).digest("hex"), "69dae2df45850a752c2ca3a496db2a4c7d5eabc07ba671b8f96f4818a659d229", "sha256 of the office board at 8e4433d");
+  assert.deepEqual(metrics.BOARD_COLUMNS, ["New Inquiry", "Office Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"]);
 });
 
 test("strict scoping (rule 7): only the signed-in trainer's leads, and never a Do Not Contact / Archived lead (rule 80)", () => {
@@ -120,7 +137,7 @@ test("strict scoping (rule 7): only the signed-in trainer's leads, and never a D
   assert.ok(trainer.includes("Owner m1"));
   assert.ok(!trainer.includes("Owner x1"), "another trainer's lead is never drawn");
   assert.ok(!trainer.includes("Owner m2") && !trainer.includes("Owner m3"), "Do Not Contact / Archived are never handed to a trainer");
-  assert.ok(trainerColumn(trainer, "Lost").includes("Owner m4"), "Bad Lead sits in Lost, as on the office board");
+  assert.ok(trainerColumn(trainer, "Lost").includes("Owner m4"), "Bad Lead sits in Lost");
   assert.ok(!trainerColumn(trainer, "Lost").includes("Call to find out"), "but a Bad Lead is never a lead to call");
 });
 

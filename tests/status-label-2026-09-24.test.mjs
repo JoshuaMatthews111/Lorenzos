@@ -74,9 +74,9 @@ test("office status dropdown: every option VALUE unchanged, the words are the la
   assert.match(fn("leadWorkspaceControls"), /<option value="\$\{escapeHtml\(status\)\}"[^`]*leadOptionLabel\(leadStatusLabel\(status\)/, "the status FILTER keeps its values, shows the label");
 });
 
-test("trainer board: the column header shows the new words", () => {
-  const html = render(`${constant("TRAINER_BOARD_TONE")}\n${constant("TRAINER_BOARD_STEP")}\n${fn("trainerCardEvalLine")}\n${fn("trainerCardNextStep")}\n${fn("trainerPipelineBoard")}\nthis.out = trainerPipelineBoard(this.rows);`, { rows: [contacted] });
-  assert.match(html, /<span class="sales-stage">Office\/Trainer Contacted<\/span><span class="sales-count">1<\/span>/);
+test("trainer board (Lorenzo, Zoom 2026-09-24): an Office/Trainer Contacted lead sits under the plain header \"Contacted\"", () => {
+  const html = render(`${constant("TRAINER_BOARD_TONE")}\n${fn("trainerCardEvalLine")}\n${fn("trainerCardNextStep")}\n${fn("trainerPipelineBoard")}\nthis.out = trainerPipelineBoard(this.rows);`, { rows: [contacted] });
+  assert.match(html, /<section class="sales-column marketing" data-board-column="contacted">\s*<header class="sales-column-head"><span class="sales-stage">Contacted<\/span><span class="sales-count">1<\/span>/);
   assert.doesNotMatch(visibleText(html), BARE);
 });
 

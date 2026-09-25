@@ -6668,6 +6668,10 @@ const trainerScreens = {
         // Joshua 2026-09-14: New Inquiries first, Clients last; the office-notes table above the board is gone
         // (it broke the page flow: tiles -> pipeline -> clients). My Leads still has the full table.
         // Joshua 2026-09-15: "we don't need the assigned lead card anymore" — tile removed, numbers unchanged.
+        // 2026-09-24 (six-column task board): each lead tile is one board column, from METRICS.trainerDashboard:
+        // New Inquiries = New Inquiry (new_inquiry only), Evaluations Scheduled = Eval Scheduled, Evaluations
+        // Completed = Eval Completed, Sold = Sold (became_client), Lost = Lost (lost_*, bad lead, cancelled eval,
+        // canceled_*). Contacted has its column on the board, no tile. Clients = METRICS.trainerDeals.
         ["lead", "New Inquiries", figures.newInquiries, figures.newInquiries ? "Call to introduce yourself" : "None waiting", figures.newInquiries ? "up" : ""],
         ["calendar", "Evaluations Scheduled", figures.evalScheduled, "Booked for you", figures.evalScheduled ? "up" : ""],
         ["report", "Evaluations Completed", figures.evalCompleted, "Done by you", figures.evalCompleted ? "up" : ""],
@@ -6683,10 +6687,10 @@ const trainerScreens = {
     const trainer = trainerById(currentTrainerId());
     return `<div class="dashboard-grid">${panel("My Locked Trainer Landing Page", `<a class="btn btn-red" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">Open Full Page</a>`, lockedPageCard(trainer), "pad")}${panel("Locked Page Details", "", lockedPageDetails(trainer), "pad")}</div>${panel("What Trainers Can Do", "", trainerAllowedList(), "pad")}`;
   },
-  // Rachel 2026-09-24: ONE place for a trainer's leads. The board mirrors the office Leads board (same columns,
-  // order, labels and bucketing, their own leads only), with the office's own legends; then every lead + notes.
+  // ONE place for a trainer's leads (Rachel 2026-09-24): the six-column task board (Lorenzo, Zoom 2026-09-24: "not
+  // a lot of clutter", so no office legends here), then every lead + office notes.
   leads() {
-    return `${panel("My Pipeline", "", `${sourceLegend()}${badgeLegend()}${trainerPipelineBoard(trainerLeads(currentTrainerId()))}`, "pad")}${panel("All My Leads & Office Notes", "", leadPipelineTable(false), "pad")}`;
+    return `${panel("My Pipeline", "", trainerPipelineBoard(trainerLeads(currentTrainerId())), "pad")}${panel("All My Leads & Office Notes", "", leadPipelineTable(false), "pad")}`;
   },
   performance() {
     const trainer = trainerById(currentTrainerId());
@@ -9195,6 +9199,51 @@ function journeyWhen(value) {
   return value ? formatDateTime(value) : "";
 }
 
+// Joshua, Zoom 2026-09-24: every "not sent" line on the journey says WHY, in plain words. The pipeline already
+// records a reason on each text/email it skipped (lib/pipeline.js); this turns the technical wording into words the
+// office reads at a glance. It only ever explains what was recorded - it never invents a reason. An unknown reason
+// is shown as recorded; no reason at all says so.
+const JOURNEY_NOT_SENT_REASONS = [
+  [/no sms consent/i, () => "the client did not agree to texts"],
+  [/not a dialable|area code or exchange/i, () => "the phone number cannot exist (its area code or exchange is not a real US one)"],
+  [/no textable phone/i, lead => (String(lead?.phone || "").replace(/\D/g, "") ? "the phone number on file cannot exist (it is not a 10-digit US number)" : "no phone number on file")],
+  [/not an active tester phone/i, () => "practice copy: that phone is not on the tester list, so nothing was sent to it"],
+  [/no operations phone/i, () => "no phone number is saved for Lorenzo (Operations) in Settings"],
+  [/no operations email/i, () => "no email address is saved for Lorenzo (Operations) in Settings"],
+  [/still on the shared office number/i, () => "the trainer's own phone number is not loaded yet (they are still on the office line)"],
+  [/trainer has no phone on file/i, () => "the trainer has no phone number on file"],
+  [/no tester phone saved/i, () => "practice copy: no tester phone is saved for the trainer text"],
+  [/no calendar trainer/i, () => "no trainer with a calendar was matched to this lead"],
+  [/no trainer serves this zip|no trainer within/i, () => "no trainer serves this ZIP yet, so there was no booking link; the office follows up"],
+  [/no booking link/i, () => "there was no booking link for this lead"],
+  [/: no booking-link text/i, () => "this kind of request does not get a booking link"],
+  [/make (pathway \d |operations )?address is not set|make address is not set/i, () => "the texting connection is not set up on this site"],
+  [/make answered (\d+)/i, (lead, m) => `the texting service refused it (error ${m[1]})`],
+  [/timed out/i, () => "the texting service did not answer in time"],
+  [/already handled/i, () => "it had already gone out for this booking"],
+  [/newer booking replaced/i, () => "a newer booking replaced this one; only the newer one is sent"],
+  [/lead has no email|no email address for this/i, () => "the client has no email address on file"],
+  [/no address is saved for this email/i, () => "no email address is saved for it in Settings"],
+  [/trainer emails are held/i, () => "trainer emails are switched off for now"],
+  [/resend did not send/i, () => "the email service refused it"],
+  [/test record/i, () => "this is a test record"]
+];
+function journeyNotSentReason(reason, lead) {
+  const text = String(reason || "").trim();
+  if (!text) return "no reason was recorded";
+  for (const [pattern, words] of JOURNEY_NOT_SENT_REASONS) {
+    const match = text.match(pattern);
+    if (match) return words(lead, match);
+  }
+  return text.replace(/\.$/, "");
+}
+// The customer / trainer halves of a booking notice's combined notes ("Customer: ... Trainer alert: ...").
+function journeyNotePart(notes, who) {
+  const text = String(notes || "");
+  const parts = text.split(/(?=Customer:|Trainer alert:)/).map(part => part.trim()).filter(Boolean);
+  return parts.find(part => part.startsWith(who)) || "";
+}
+
 function journeyStepState(step, lead) {
   const raw = leadRawPayload(lead);
   const pipeline = raw.pipeline && typeof raw.pipeline === "object" ? raw.pipeline : {};
@@ -9206,13 +9255,14 @@ function journeyStepState(step, lead) {
     if (!record || typeof record !== "object") return null;
     if (record.status === "sent") return { state: "done", detail: `${doneText}${record.at ? ` ${journeyWhen(record.at)}` : ""}${record.to_last4 ? ` to …${record.to_last4}` : record.to ? ` to ${record.to}` : ""}` };
     if (record.status === "queued") return { state: "todo", detail: record.reason || "Waiting to send" };
-    return { state: "skipped", detail: `Not sent: ${record.reason || record.notes || record.status || "no reason saved"}` };
+    return { state: "skipped", detail: `Not sent${record.status === "failed" ? " (it failed)" : ""}: ${journeyNotSentReason(record.reason || record.notes, lead)}` };
   };
+  const noRecord = () => ({ state: "skipped", detail: "Not sent: nothing was recorded for this step (the lead may have come in before this text existed)" });
   switch (step.key) {
     case "captured": return { state: "done", detail: journeyWhen(lead.createdAt) || "Received" };
-    case "link": return fromRecord(pipeline.new_lead_text, "Sent") || { state: "skipped", detail: pipeline.lane?.key && pipeline.lane.key !== "booking" ? "Not for this lead (another lane)" : lead.smsConsent === false ? "Not sent: no SMS consent" : "Not sent" };
-    case "care": return fromRecord(pipeline.care_text, "Sent") || { state: "skipped", detail: "Not sent" };
-    case "ops_new": return fromRecord(pipeline.ops_new_lead, "Sent") || { state: "skipped", detail: "Not sent" };
+    case "link": return fromRecord(pipeline.new_lead_text, "Sent") || (pipeline.lane?.key && pipeline.lane.key !== "booking" ? { state: "skipped", detail: "Not for this lead (another lane)" } : lead.smsConsent === false ? { state: "skipped", detail: `Not sent: ${journeyNotSentReason("No SMS consent", lead)}` } : noRecord());
+    case "care": return fromRecord(pipeline.care_text, "Sent") || noRecord();
+    case "ops_new": return fromRecord(pipeline.ops_new_lead, "Sent") || noRecord();
     case "followup": return { state: "off", detail: "Built. Not sending yet (waits for Joshua's go)." };
     case "booked":
       if (booked) return { state: "done", detail: `${booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead))}${booking.trainer_name ? ` with ${booking.trainer_name}` : ""}` };
@@ -9221,20 +9271,20 @@ function journeyStepState(step, lead) {
     case "confirm": {
       if (!booked) return { state: "todo", detail: "Waits for the booking" };
       const t = notice.texts || {};
-      return t.status === "sent" && t.customer_last4 ? { state: "done", detail: `Sent ${journeyWhen(t.at)} to …${t.customer_last4}` } : { state: "skipped", detail: `Not sent: ${t.notes || t.reason || "no customer text"}` };
+      return t.status === "sent" && t.customer_last4 ? { state: "done", detail: `Sent ${journeyWhen(t.at)} to …${t.customer_last4}` } : { state: "skipped", detail: `Not sent${t.status === "failed" ? " (it failed)" : ""}: ${journeyNotSentReason(journeyNotePart(t.notes || t.reason, "Customer:") || t.reason || t.notes, lead)}` };
     }
     case "alert": {
       if (!booked) return { state: "todo", detail: "Waits for the booking" };
       const t = notice.texts || {};
-      return t.status === "sent" && t.trainer_last4 ? { state: "done", detail: `Sent ${journeyWhen(t.at)} to …${t.trainer_last4}` } : { state: "skipped", detail: `Not sent: ${t.notes || t.reason || "no trainer text"}` };
+      return t.status === "sent" && t.trainer_last4 ? { state: "done", detail: `Sent ${journeyWhen(t.at)} to …${t.trainer_last4}` } : { state: "skipped", detail: `Not sent${t.status === "failed" ? " (it failed)" : ""}: ${journeyNotSentReason(journeyNotePart(t.notes || t.reason, "Trainer alert:") || t.reason || t.notes, lead)}` };
     }
-    case "ops_booked": return booked ? fromRecord(notice.ops_alert, "Sent") || { state: "skipped", detail: "Not sent" } : { state: "todo", detail: "Waits for the booking" };
+    case "ops_booked": return booked ? fromRecord(notice.ops_alert, "Sent") || noRecord() : { state: "todo", detail: "Waits for the booking" };
     case "email": {
       if (!booked) return { state: "todo", detail: "Waits for the booking" };
       const e = notice.office_email || {};
       if (e.status === "sent") return { state: "done", detail: `Sent ${journeyWhen(e.sent_at)} to ${(e.to || []).join(", ")}` };
       if (e.status === "queued") return { state: "todo", detail: "Queued: waiting for the email key" };
-      return { state: "skipped", detail: `Not sent: ${e.reason || e.status || "no email saved"}` };
+      return { state: "skipped", detail: `Not sent${e.status === "failed" ? " (it failed)" : ""}: ${journeyNotSentReason(e.reason, lead)}` };
     }
     case "preeval": return booking.pre_eval?.submitted_at ? { state: "done", detail: `Answered ${journeyWhen(booking.pre_eval.submitted_at)}. The text to the trainer is built, not sending yet.` } : { state: "off", detail: booked ? "Not answered yet. The text to the trainer is built, not sending yet." : "Waits for the booking" };
     case "closed": return { state: "off", detail: "Built. Not sending yet (waits for Joshua's go)." };
@@ -9519,29 +9569,20 @@ function trainerDealsView() {
   return `${trainerClientTiles(figures)}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Clients", "", trainerDealsTable(deals), "pad")}`;
 }
 
-// ---- Trainer working board = the OFFICE Leads board, their own leads (Rachel 2026-09-24) ----------------
-// Rachel's proof: Chloe Williams (engaged_no_outcome, the office spoke to her 9/10) sat under "New Inquiry" on
-// Shavon's board, because the old trainer board lumped three statuses into one column labelled "New Inquiry".
-// Now the columns, their order and their words are the office Leads board's (METRICS.BOARD_COLUMNS via
-// METRICS.trainerLeadBoard, bucketed by the same boardStatus()), so a lead reads the same to office and trainer.
-// Rule 7: the rows are trainerLeads(currentTrainerId()) and nothing else; Do Not Contact / Archived are held out
-// (rule 80). The CARD stays the trainer's own: no status dropdown, no notes editing, no archive/delete, no
+// ---- Trainer working board: a TASK board (Zoom 2026-09-24, Lorenzo) -------------------------------------
+// "It should not mirror exactly like the admin. Admin is looking for holes and gaps and efficiency leaks. The
+// trainers is looking for did I do this, this and this ... Not a lot of clutter." Six columns, from
+// METRICS.trainerLeadBoard (rule 34, metrics.js owns the bucketing): New Inquiry | Contacted | Eval Scheduled |
+// Eval Completed | Sold | Lost. "Contacted" = Office/Trainer Contacted + Engaged Lead: No Outcome, so a lead the
+// office already reached (Chloe Williams, engaged 9/10) never reads "New Inquiry" to the trainer.
+// Rule 7: the rows are trainerLeads(currentTrainerId()) and nothing else; Do Not Contact / Archived are never drawn
+// (rule 80). The CARD is the trainer's own: no status dropdown, no notes editing, no archive/delete, no
 // assignment. A tap opens trainerLeadDetailPanel() (Eval completed, Mark contacted, Lost + reason, Alpha, hand-off).
 // Class .sales-board keeps rememberSidewaysScroll() covering it (SIDEWAYS_SCROLL_SELECTOR).
-const TRAINER_BOARD_TONE = {
-  "New Inquiry": "marketing", "Office Contacted": "marketing", "Engaged Lead: No Outcome": "marketing",
-  "Evaluation Scheduled": "marketing", "Evaluation Cancelled": "winback", "Evaluation Complete": "sales",
-  "Became a Client": "won", "Lost": "lost"
-};
-const TRAINER_BOARD_STEP = {
-  "New Inquiry": "inquiry", "Office Contacted": "contacted", "Engaged Lead: No Outcome": "contacted",
-  "Evaluation Scheduled": "scheduled", "Evaluation Cancelled": "cancelled", "Evaluation Complete": "completed",
-  "Became a Client": "sold", "Lost": "lost"
-};
+const TRAINER_BOARD_TONE = { inquiry: "marketing", contacted: "marketing", scheduled: "marketing", completed: "sales", sold: "won", lost: "lost" };
 
 function trainerPipelineBoard(leads) {
-  const columns = METRICS.trainerLeadBoard(leads).map(([column, rows]) => {
-    const stage = TRAINER_BOARD_STEP[column] || "";
+  const columns = METRICS.trainerLeadBoard(leads).map(([label, rows, stage]) => {
     const items = METRICS.newestFirst(rows, lead => lead.createdAt);
     const cards = items.slice(0, 25).map(lead => {
       const market = leadMarketLabel(lead);
@@ -9558,8 +9599,8 @@ function trainerPipelineBoard(leads) {
       </article>`;
     }).join("");
     const more = items.length > 25 ? `<p class="sales-more">+ ${items.length - 25} more in All My Leads below</p>` : "";
-    return `<section class="sales-column ${TRAINER_BOARD_TONE[column] || "marketing"}" data-board-column="${escapeHtml(column)}">
-      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(leadStatusLabel(column))}</span><span class="sales-count">${rows.length}</span></header>
+    return `<section class="sales-column ${TRAINER_BOARD_TONE[stage] || "marketing"}" data-board-column="${escapeHtml(stage)}">
+      <header class="sales-column-head"><span class="sales-stage">${escapeHtml(label)}</span><span class="sales-count">${rows.length}</span></header>
       <div class="sales-column-body">${cards || `<p class="sales-empty">No leads in this stage yet.</p>`}${more}</div>
     </section>`;
   }).join("");
@@ -9583,12 +9624,14 @@ function trainerCardNextStep(lead, stage) {
   if (stage === "inquiry") {
     return `<p class="trainer-card-next">${texted ? "We texted the booking link. No booking yet: call to introduce yourself." : "No booking text went out. Call to introduce yourself."}</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
   }
-  // Rachel 2026-09-24: already reached by the office or the trainer. The office notes (tap the card) say what was said.
+  // Contacted column (Office/Trainer Contacted or Engaged Lead: No Outcome): already reached by the office or the
+  // trainer. The office notes (tap the card) say what was said.
   if (stage === "contacted") {
     return `<p class="trainer-card-next">Already contacted. Tap to read the office notes, then follow up to book the evaluation.</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
   }
-  if (stage === "cancelled") {
-    return `<p class="trainer-card-next">The evaluation was cancelled. Call to rebook it.</p>`;
+  // A cancelled evaluation sits in Lost (as on the trainer board before 2026-09-24): a person calls to rebook it.
+  if (stage === "lost" && lead.status === "Evaluation Cancelled") {
+    return `<p class="trainer-card-next is-lost">The evaluation was cancelled. Call to rebook it.</p>`;
   }
   // Rule 81: trainers cannot open the office lead panel, so the pre-evaluation answers sit on the card.
   if (stage === "scheduled") {
@@ -9599,7 +9642,7 @@ function trainerCardNextStep(lead, stage) {
     return `${flags}<p class="trainer-card-next is-done">Pre-evaluation questions answered ✓ Tap to read them.</p>`;
   }
   // Only what we know: the booking-link text is recorded; win-back texts are not (yet), so never claim them.
-  // A Bad Lead sits in Lost (as on the office board) but is never a lead to call.
+  // A Bad Lead sits in Lost but is never a lead to call.
   if (stage === "lost" && lead.status !== "Bad Lead") {
     return `<p class="trainer-card-next is-lost">${texted ? "They got our booking text but did not book. Call to find out what happened." : "Call to find out what happened."}</p>`;
   }
@@ -10022,8 +10065,9 @@ async function trainerLeadAction(button) {
     body.note = pick.note || "";
   }
   if (action === "eval_completed" && !window.confirm(`Mark ${lead.owner}'s evaluation as completed?`)) return;
-  // Rachel 2026-09-24: New Inquiry -> Office/Trainer Contacted (the server allows only that move).
-  if (action === "contacted" && !window.confirm(`Mark ${lead.owner} as contacted? The lead moves to ${leadStatusLabel("Office Contacted")} on your board and the office board.`)) return;
+  // Rachel 2026-09-24: New Inquiry -> office_contacted (the server allows only that move). It lands in the trainer's
+  // "Contacted" column; the office board shows it as Office/Trainer Contacted.
+  if (action === "contacted" && !window.confirm(`Mark ${lead.owner} as contacted? The lead moves to Contacted on your board (the office sees it as ${leadStatusLabel("Office Contacted")}).`)) return;
   let teammate = null;
   if (action === "handoff") {
     const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
@@ -11782,7 +11826,7 @@ function leadPipelineNotices(lead) {
     if (!item || typeof item !== "object") return "";
     if (item.status === "sent") return "sent";
     if (item.status === "sending") return "sending…";
-    return `${item.status === "failed" ? "FAILED" : "not sent"}${item.reason ? `: ${item.reason}` : ""}`;
+    return `${item.status === "failed" ? "FAILED" : "not sent"}: ${journeyNotSentReason(item.reason || item.notes, lead)}`; // plain words (2026-09-24)
   };
   const lines = [];
   // Rule 73: which lane the pipeline took (Contact Us "I want to..." answer, or an evaluation request).
