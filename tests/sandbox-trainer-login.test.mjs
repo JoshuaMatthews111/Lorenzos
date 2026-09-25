@@ -192,7 +192,12 @@ test("email-only sign-in and the ?as= link exist only on the practice copy; a ty
   assert.match(auto, /searchParams\.get\("as"\)/, "reads ?as=");
   assert.match(auto, /searchParams\.delete\("as"\);[\s\S]{0,200}history\.replaceState\(/, "removes ?as= from the URL before signing in");
   assert.match(auto, /if \(session\?\.loggedIn\) \{[\s\S]{0,300}signOut\(\)[\s\S]{0,300}session = \{ loggedIn: false, role: "" \};/, "someone else already signed in is signed out first");
-  assert.match(auto, /await sandboxEmailSignIn\(\{ email, status, remember: false \}\);/, "the link uses the same passwordless door");
+  assert.match(auto, /await sandboxEmailSignIn\(\{ email, status, remember: false, adminToken \}\);/, "the link uses the same passwordless door");
+  // Security 2026-09-24: the practice sign-in route needs a signed-in super admin, and this link signs the admin
+  // out first - so it must take the admin's pass BEFORE signing out and hand it over, or it is always refused.
+  const takeAt = auto.indexOf("const adminToken = session?.loggedIn");
+  const signOutAt = auto.indexOf("window.LDTT_PORTAL.signOut()");
+  assert.ok(takeAt > -1 && signOutAt > -1 && takeAt < signOutAt, "the admin pass is taken before the admin is signed out");
   assert.doesNotMatch(auto, /password/i, "the link never touches a password");
-  assert.match(auto, /const status = document\.getElementById\("loginStatus"\);[\s\S]*?await sandboxEmailSignIn\(\{ email, status, remember: false \}\);/, "errors (the server's 403 included) land in the login status");
+  assert.match(auto, /const status = document\.getElementById\("loginStatus"\);[\s\S]*?await sandboxEmailSignIn\(\{ email, status, remember: false, adminToken \}\);/, "errors (the server's 403 included) land in the login status");
 });
