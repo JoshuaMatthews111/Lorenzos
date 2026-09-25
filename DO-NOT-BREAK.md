@@ -2208,3 +2208,25 @@ COLLECTED; service-dog gold tag YES; milestones later.
      `tests/trainer-handoff.test.mjs` (API: down allowed incl. past an inactive middle person; up / owner / sideways /
      inactive / stranger / test row / unknown 403 with no writes; owner to anyone; office from the assignee; fail
      closed; portal: My Team after My Leads, leaf gets no box, wording, rank colours), `tests/trainer-calendar.test.mjs`.
+     Verification 2026-09-25 (practice copy, signed in through `sandbox-trainer-login` from the saved super-admin
+     session in a separate context; the admin was never signed out; no password typed):
+     - 542 tests + audit green at 4faed6a. Practice preview `dpl_9tN6LdN6pdaJg1kXbdYfMsZyYVVW` aliased to
+       ldtt-sandbox.vercel.app (previous practice target `dpl_mZwzPiQob3LmESYgyhngNJtCjWJC`).
+     - My Team: Lorenzo = owner view; Daniel Bainbridge = 16 below, upline Lorenzo > Shavon; Karemela Sefferin = leaf
+       ("No one reports to you yet.", upline of 7). On PRACTICE john-delbane, emilio-marotta and clark-patton are
+       `inactive` in `practice.trainers`, so the practice owner view starts at Shavon (27 people) and Clark is not
+       listed — the not-on-the-site rule working; on LIVE all 31 are active. Chloe Chisolm (leaf, 3 leads): 0 hand-off
+       boxes on cards, the one plain line in the panel. No horizontal scroll at 375px.
+     - Upward refused: Daniel -> Shavon (`2565397d…`, a qa test lead) = 403 "You can only send a lead to someone in
+       your downline."; the lead stayed at version 9, no log rows.
+     - One real practice hand-off: test lead TEST TEST (`59f927b7…`, raw_payload.qa true) Daniel -> Tristan Gray
+       through the card: confirm named Tristan, toast "Sent to Tristan Gray", gone from Daniel's board, on Tristan's
+       New Inquiry column; `trainer_id` + `assigned_trainer_name` changed, status untouched, one `trainer_lead_handoff`
+       audit row + one `trainer_handoff` lead event, no lifecycle row. Handed back by the office (super admin,
+       `operational-mutation` update of trainer_id + name) — now with Daniel again at version 11.
+     - LIVE: production `dpl_3v1ZygUySneenZNBAJY2sk8d5Qav` (stamp 20260924live27), lorenzosdogtrainingteam.com
+       `/api/environment` = LIVE / public; live app.js + styles.css sha256 = the commit's; `public.site_settings`
+       `trainer_hierarchy` present (31 nodes, md5 11396f5b… = practice), anon REST read returns nothing. No hand-off
+       was done on live; live leads 301 (290 not QA) and 0 `trainer_lead_handoff` rows before and after.
+       Rollback: `npx vercel rollback dpl_AAQW4yiNZtNXzvMQzodT9UucAJB3 --yes` (live26). The data row is harmless to
+       the older code (it never reads it); to remove it see the migration's Undo lines.
