@@ -84,9 +84,9 @@ test("portal: a blue 'Recycled' badge with a tooltip naming when they first came
   assert.match(ctx.line, /They first came in Aug 2, 2026, 11:00 AM/);
   assert.equal(ctx.trainerNoStamp, "", "a trainer never matches across leads in the browser (rule 7)");
   assert.match(ctx.trainerStamp, /Recycled<\/span>/, "the trainer's server-stamped row wears it");
-  assert.match(app, /\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}`;\n  return `\$\{leadCardEvalLine\(lead\)\}/, "office Leads card");
-  assert.match(app, /\$\{track500Tag\(lead\)\}\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}<\/small>/, "Sales card");
-  assert.match(app, /<h2>\$\{escapeHtml\(lead\.owner\)\}\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}<\/h2>\$\{recycledLine\(lead\)\}/, "office lead panel");
+  assert.match(app, /\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}(\$\{officeTurnTag\(lead\)\})?`;\n  return `\$\{leadCardEvalLine\(lead\)\}/, "office Leads card");
+  assert.match(app, /\$\{track500Tag\(lead\)\}\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}(\$\{officeTurnTag\(lead\)\})?<\/small>/, "Sales card");
+  assert.match(app, /<h2>\$\{escapeHtml\(lead\.owner\)\}\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}(\$\{officeTurnTag\(lead\)\})?<\/h2>(\$\{officeTurnLine\(lead\)\})?\$\{recycledLine\(lead\)\}/, "office lead panel");
   assert.match(fn(app, "trainerPipelineBoard"), /\$\{track500Tag\(lead\)\}\$\{recycledTag\(lead\)\}<\/small>/, "trainer card");
   assert.match(fn(app, "trainerLeadDetailPanel"), /\$\{recycledTag\(lead\)\}<\/p>\$\{recycledLine\(lead\)\}/, "trainer lead panel");
   assert.match(read("trainer-backoffice/styles.css"), /\.lead-tag-recycled \{[^}]*color: #1d4ed8/, "blue");

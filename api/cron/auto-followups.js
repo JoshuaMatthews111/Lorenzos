@@ -45,7 +45,11 @@ module.exports = async function handler(req, res) {
     const callReminders = await P.runTrainerCallReminders()
       .catch(error => ({ on: false, message: `call reminders failed: ${String(error?.message || error)}` }));
     if (callReminders.on) console.log("trainer_call_reminders_run", JSON.stringify({ checked: callReminders.checked, sent: callReminders.sent?.length || 0, skipped: callReminders.skipped?.length || 0 }));
-    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders });
+    // Zoom 2026-09-24: ONE "Office's turn" email a day (switch office_turn_digest, default OFF; no per-lead email).
+    const officeTurn = await P.runOfficeTurnDigest()
+      .catch(error => ({ on: false, message: `office's-turn digest failed: ${String(error?.message || error)}` }));
+    if (officeTurn.ran) console.log("office_turn_digest_run", JSON.stringify({ day: officeTurn.last_date, leads: officeTurn.leads, email: officeTurn.email?.status }));
+    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });

@@ -630,6 +630,34 @@
   }
 
   // -------------------------------------------------------------------------
+  // "Office's turn" (Zoom 2026-09-24, Lorenzo: "after the 24 hours ... the office needs to be notified that the time is
+  // up. So this has been bot touched three times and now it's time for the office."). A PIPELINE lead (it has
+  // raw_payload.pipeline.entered_at) that has not booked, not asked for a callback and is still New Inquiry / Office
+  // Contacted / Engaged Lead: No Outcome becomes the office's turn when its automatic follow-up chain has finished (the
+  // last step, "care", is recorded) OR 24 hours after it entered the pipeline (which is also when the chain would end,
+  // and the only clock while automatic follow-ups are switched off). Display only; no count moves. nowMs is passed in.
+  // -------------------------------------------------------------------------
+  const OFFICE_TURN_DB_STATUSES = ["new_inquiry", "office_contacted", "follow_up_call_needed", "engaged_no_outcome"];
+  const OFFICE_TURN_AFTER_MS = 24 * 60 * 60 * 1000;
+  function officeTurn(lead, nowMs) {
+    if (!lead || isQaLead(lead)) return null;
+    const db = (lead.dbStatus || LEAD_STATUS_TO_DB[lead.status] || lead.status || "").toString();
+    if (!OFFICE_TURN_DB_STATUSES.includes(db)) return null;
+    const raw = rawOf(lead);
+    const pipeline = raw.pipeline && typeof raw.pipeline === "object" ? raw.pipeline : null;
+    const entered = pipeline ? timestampValue(pipeline.entered_at) : 0;
+    if (!entered) return null;
+    const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+    if (booking.slot_start || booking.requested_at || booking.callback) return null;
+    const care = (Array.isArray(pipeline.followups) ? pipeline.followups : []).find(step => step && step.step === "care" && step.status && step.status !== "sending");
+    if (care) return { since: care.at || new Date(entered + OFFICE_TURN_AFTER_MS).toISOString(), why: "chain_done" };
+    const now = Number(nowMs);
+    if (Number.isFinite(now) && now - entered >= OFFICE_TURN_AFTER_MS) return { since: new Date(entered + OFFICE_TURN_AFTER_MS).toISOString(), why: "24h" };
+    return null;
+  }
+  const officeTurnRows = (rows, nowMs) => list(rows).filter(lead => officeTurn(lead, nowMs));
+
+  // -------------------------------------------------------------------------
   // CSV: the same rows the screen shows, one line each.
   // -------------------------------------------------------------------------
   const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -655,7 +683,7 @@
     clientCounts, wonCount, trainerDashboard, trainerPerformance, trainerStats, navBadgeCounts,
     TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_PIPELINE_STAGES, TRAINER_HIDDEN_DB_STATUSES, trainerDbStatus, trainerStageFor,
     trainerPipeline, trainerBoardRows, trainerLeadBoard,
-    STATUS_DISPLAY_LABELS, statusLabel, personMatchKeys, recycledIndex,
+    STATUS_DISPLAY_LABELS, statusLabel, personMatchKeys, recycledIndex, OFFICE_TURN_DB_STATUSES, OFFICE_TURN_AFTER_MS, officeTurn, officeTurnRows,
     escapeCsv, csvDocument, csvRowCount
   };
 });
