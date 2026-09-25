@@ -77,7 +77,8 @@ module.exports = async function handler(req, res) {
         const result = await E.dryRun({
           pools: pools.length ? pools : E.POOLS,
           maxAgeDays: Number.isFinite(maxAge) && maxAge > 0 ? Math.floor(maxAge) : null,
-          reengageSince: B.clean(req.query?.reengage_since, 40)
+          reengageSince: B.clean(req.query?.reengage_since, 40),
+          includeBooked: String(req.query?.include_booked || "") === "1"
         });
         return res.status(200).json({ ok: true, ...result });
       }

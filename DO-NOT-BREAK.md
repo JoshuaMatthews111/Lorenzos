@@ -2315,6 +2315,7 @@ office's-turn, no call reminder, no email campaign.
      "contact"})`. Runner on rule 101's pattern: disarm first (the claim moves `updated_at`), per-person once ever
      (`pipeline.email_campaigns[<id>]`), dedupe by email, optional `max_age_days`, qa held out, excluded DNC / archived /
      became_client / bad_lead / the hard-no Lost statuses / opted-out emails (`clients.email_consent=false`) / no email,
+     and by default anyone whose evaluation is booked or done (`include_booked:true` lets them in; Joshua to confirm),
      Resend paced 600 ms + 429 retries, practice copy max 3 to the practice inbox. Super Admin only: `GET
      /api/pipeline?op=email_campaign` (read-only dry run), `op=email_campaign_preview&lead_id=`, `POST
      op:"email_campaign_save"` (arming needs pools + send_at). **Arming it with a past send_at emails real people.**

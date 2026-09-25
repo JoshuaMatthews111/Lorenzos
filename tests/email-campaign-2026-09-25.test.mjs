@@ -74,6 +74,10 @@ test("pools match the office dashboard buckets; exclusions: qa, DNC, archived, c
   assert.equal(why({}, { qa: true }), "test row");
   for (const status of ["do_not_contact", "archived", "became_client", "bad_lead", "lost_no_trainer_area", "lost_method_not_a_fit", "lost_dog_not_qualified", "lost_chose_another_provider"]) assert.match(why({ status }), /^status /, status);
   for (const status of ["lost_no_response", "lost_price_concern", "evaluation_cancelled", "new_inquiry"]) assert.equal(why({ status }), "", `${status} may get it (maybe later)`);
+  for (const status of ["evaluation_scheduled", "evaluation_complete"]) {
+    assert.equal(why({ status }), `already booked (${status})`, "a booked / evaluated person is not 'still looking for help' (default)");
+    assert.equal(why({ status }, {}, { includeBooked: true }), "", "include_booked:true lets them back in");
+  }
   assert.equal(why({ email: "" }), "no email address");
   assert.equal(why({ email: "Gone@X.com" }), "opted out of email");
   assert.equal(why({ created_at: "2026-06-01T00:00:00Z" }, {}, { maxAgeDays: 60 }), "older than 60 days");
@@ -209,5 +213,5 @@ test("the office door: dry run + preview are read-only and SUPER ADMIN only; arm
   assert.match(api, /if \(campaign\.armed && \(!campaign\.pools\.length \|\| !campaign\.send_at\)\) return res\.status\(400\)/);
   assert.match(read("api/cron/auto-followups.js"), /const emailCampaign = await E\.runEmailCampaign\(\)\n\s*\.catch\(/);
   const E = load();
-  assert.deepEqual(E.normalizeCampaign({}), { armed: false, send_at: "", pools: [], max_age_days: null, campaign_id: "angela_2026_09" });
+  assert.deepEqual(E.normalizeCampaign({}), { armed: false, send_at: "", pools: [], max_age_days: null, campaign_id: "angela_2026_09", include_booked: false });
 });
