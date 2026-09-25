@@ -555,6 +555,57 @@
   }
 
   // -------------------------------------------------------------------------
+  // Recycled leads (Zoom 2026-09-24, Lorenzo + Angela): "how do we know if they were new inquiries or somebody
+  // that came back?" A lead is RECYCLED when an OLDER lead exists for the same person: the same email
+  // (case-insensitive) or the same 10-digit phone. DISPLAY ONLY: nothing about lead creation, logging or any count
+  // changes. Two linear passes and one Map, so the whole board costs O(rows).
+  // -------------------------------------------------------------------------
+  function personMatchKeys(row) {
+    const keys = [];
+    const raw = rawOf(row);
+    const email = String((row && row.email) || (raw.booking && raw.booking.client && raw.booking.client.email) || "").trim().toLowerCase();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) keys.push(`e:${email}`);
+    const digits = String((row && row.phone) || "").replace(/\D/g, "");
+    const ten = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+    // A real US number only: placeholders such as 0000000000 or 1111111111 never make two people one.
+    if (/^[2-9]\d{2}[2-9]\d{6}$/.test(ten) && !/^(\d)\1{9}$/.test(ten)) keys.push(`p:${ten}`);
+    return keys;
+  }
+  // Map lead id -> { firstAt, firstLeadId, count } for every lead that has an older twin. Rows that share an email
+  // or a phone are one person, and so are the rows linked through them (a lead with the email of the first and the
+  // phone of the second joins both), so "first came in" is that person's EARLIEST lead. Union-find over the keys.
+  function recycledIndex(rows) {
+    const items = list(rows);
+    const parent = items.map((_, i) => i);
+    const find = i => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+    const ownerOfKey = new Map();
+    items.forEach((row, i) => {
+      for (const key of personMatchKeys(row)) {
+        if (ownerOfKey.has(key)) parent[find(i)] = find(ownerOfKey.get(key)); else ownerOfKey.set(key, i);
+      }
+    });
+    const at = row => timestampValue((row && (row.createdAt || row.created_at)) || "");
+    const older = (a, b) => at(a) < at(b) || (at(a) === at(b) && String(a.id) < String(b.id));
+    const earliest = new Map(); // root -> row
+    const size = new Map();
+    items.forEach((row, i) => {
+      if (!personMatchKeys(row).length) return;
+      const root = find(i);
+      size.set(root, (size.get(root) || 0) + 1);
+      const best = earliest.get(root);
+      if (!best || older(row, best)) earliest.set(root, row);
+    });
+    const out = new Map();
+    items.forEach((row, i) => {
+      if (!personMatchKeys(row).length) return;
+      const root = find(i);
+      const first = earliest.get(root);
+      if (first && first !== row && first.id !== row.id) out.set(row.id, { firstAt: first.createdAt || first.created_at || "", firstLeadId: first.id, count: size.get(root) || 2 });
+    });
+    return out;
+  }
+
+  // -------------------------------------------------------------------------
   // CSV: the same rows the screen shows, one line each.
   // -------------------------------------------------------------------------
   const escapeCsv = value => `"${String(value ?? "").replace(/"/g, '""')}"`;
@@ -580,7 +631,7 @@
     clientCounts, wonCount, trainerDashboard, trainerPerformance, trainerStats, navBadgeCounts,
     TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_PIPELINE_STAGES, TRAINER_HIDDEN_DB_STATUSES, trainerDbStatus, trainerStageFor,
     trainerPipeline, trainerBoardRows, trainerLeadBoard,
-    STATUS_DISPLAY_LABELS, statusLabel,
+    STATUS_DISPLAY_LABELS, statusLabel, personMatchKeys, recycledIndex,
     escapeCsv, csvDocument, csvRowCount
   };
 });

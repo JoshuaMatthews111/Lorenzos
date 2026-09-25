@@ -1175,6 +1175,9 @@ function remoteLeadToUi(row) {
     delivery_email: raw.delivery_email || "attempted",
     delivery_supabase: "confirmed",
     rawPayload: raw,
+    // Recycled badge for trainers (server-stamped, display only; api/operational-data.js stampRecycled).
+    recycledFirstAt: row.recycled_first_at || "",
+    recycledCount: Number(row.recycled_count) || 0,
     visits: 1
   };
 }
@@ -9203,6 +9206,37 @@ function needsCallTag(lead) {
   return leadNeedsOfficeCall(lead) ? ` <span class="lead-tag-needs-call" title="No trainer calendar for this ZIP. The office told this client it will reach out - call them.">Needs a call</span>` : "";
 }
 
+// Recycled (Zoom 2026-09-24, Lorenzo + Angela: "a recycle icon ... it would say recycled in blue"). A lead is Recycled
+// when an OLDER lead exists for the same person (same email, or same 10-digit phone). DISPLAY ONLY: lead creation,
+// logging and every count are unchanged. The office matches over every loaded lead with METRICS.recycledIndex (rule 34;
+// one pass, a Map, cached per loaded list); a trainer (who loads only their own leads, rule 7) gets the same answer
+// stamped on each of their rows by the server (recycled_first_at, api/operational-data.js).
+const RECYCLE_ICON = `<svg class="recycle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2.5 9.2 7.3h2V9h1.6V7.3h2L12 2.5Zm-6.4 7.9-2.8 4.8 1.4.8-1 1.7c-.6 1.1.2 2.4 1.5 2.4h4.1v-1.6H4.9l1-1.7 1.4.8V10.4H5.6Zm12.8 0-1.4.8-1-1.7-1.4.8 1 1.7-1.4.8 5.4 0 0-5.4-.2.1V10.4Zm-3.7 7.3v-2.3l-4.8 2.8 4.8 2.8v-1.7h3.2c1.3 0 2.1-1.3 1.5-2.4l-.5-.9-1.4.8.5.9h-3.3Z"/></svg>`;
+let recycledCache = { rows: null, length: -1, index: new Map() };
+function recycledInfo(lead) {
+  if (!lead) return null;
+  if (lead.recycledFirstAt) return { firstAt: lead.recycledFirstAt, count: Number(lead.recycledCount) || 2 };
+  if (session.role !== "admin") return null;
+  const rows = state.leads || [];
+  if (recycledCache.rows !== rows || recycledCache.length !== rows.length) {
+    recycledCache = { rows, length: rows.length, index: METRICS.recycledIndex(METRICS.leadRows(rows)) };
+  }
+  return recycledCache.index.get(lead.id) || null;
+}
+function recycledTag(lead) {
+  const info = recycledInfo(lead);
+  if (!info) return "";
+  const first = info.firstAt ? formatDate(info.firstAt) : "";
+  const title = `Recycled: this person came back.${first ? ` They first came in ${first}.` : ""}`;
+  return ` <span class="lead-tag-recycled" title="${escapeHtml(title)}">${RECYCLE_ICON}Recycled</span>`;
+}
+function recycledLine(lead) {
+  const info = recycledInfo(lead);
+  if (!info) return "";
+  const first = info.firstAt ? formatDateTime(info.firstAt) : "";
+  return `<p class="lead-recycled-line">${RECYCLE_ICON}<span><strong>Recycled.</strong> This person came back${first ? `. They first came in ${escapeHtml(first)}` : ""}${info.count > 2 ? ` (${info.count} requests in all)` : ""}.</span></p>`;
+}
+
 // A deal's Track 500 mark follows its lead: the same ad-page rule, nothing else.
 function dealTrack500Tag(deal) {
   const lead = deal?.lead_id ? (state.leads || []).find(l => (l.remoteId || l.id) === deal.lead_id) : null;
@@ -9619,7 +9653,7 @@ function trainerPipelineBoard(leads) {
       // 2026-09-14: tapping a card opens the lead's full details (trainerLeadDetailPanel).
       return `<article class="sales-card trainer-card" data-open-lead="${escapeHtml(lead.id)}" title="Open ${escapeHtml(lead.owner)}'s details">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
-        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}</small>
+        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")}${market ? ` &middot; <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}${recycledTag(lead)}</small>
         ${tel ? `<small><a href="tel:${escapeHtml(tel)}">${escapeHtml(formatPhoneNumber(lead.phone))}</a></small>` : ""}
         ${trainerCardEvalLine(lead)}
         ${stage === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
@@ -9732,7 +9766,7 @@ function trainerLeadDetailPanel() {
   const canDeal = lead.status !== "Became a Client";
   return `<aside class="lead-detail-panel trainer-lead-panel" aria-label="Lead details"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button>
     <span class="portal-tag">Lead details</span><h2>${escapeHtml(lead.owner)}</h2>
-    <p class="trainer-lead-status"><span class="status live">${escapeHtml(leadStatusLabel(lead.status || "New Inquiry"))}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}</p>
+    <p class="trainer-lead-status"><span class="status live">${escapeHtml(leadStatusLabel(lead.status || "New Inquiry"))}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}${recycledTag(lead)}</p>${recycledLine(lead)}
     <div class="row-actions trainer-lead-actions">${tel ? `<a class="btn btn-red btn-small" href="tel:${escapeHtml(tel)}">Call</a>` : ""}${email ? `<a class="btn btn-outline btn-small" href="mailto:${escapeHtml(email)}">Email</a>` : ""}<button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>${canDeal ? `<button type="button" class="btn btn-outline btn-small" data-deal-from-lead="${escapeHtml(lead.remoteId || lead.id)}">Submit a deal for this client</button>` : ""}</div>
     ${trainerLeadActionsBox(lead)}
     <section class="detail-note-block"><span>Contact</span><div class="lead-contact-grid">${row("Phone", phone)}${row("Email", email)}<div class="wide"><span>Address</span><strong>${escapeHtml(client.address || lead.address || "—")}</strong></div></div></section>
@@ -10450,7 +10484,7 @@ function salesBoardColumnsHtml(buckets, { deals = [], columnCounts = null, moreS
     const cards = dealCards + items.slice(0, 25).map(lead => `
       <article class="sales-card" data-open-lead="${escapeHtml(lead.id)}">
         <header>${leadSourceBadge(lead)}<strong>${escapeHtml(lead.owner)}</strong></header>
-        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}${serviceDogTag(lead)}${track500Tag(lead)}${needsCallTag(lead)}</small>
+        <small>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} &middot; ${escapeHtml(lead.originLabel || "Website contact form")}${serviceDogTag(lead)}${track500Tag(lead)}${needsCallTag(lead)}${recycledTag(lead)}</small>
         <small class="sales-card-trainer">${salesTrainerLine(lead)}</small>
         ${leadCardEvalLine(lead)}
         ${id === "lost" && lead.lostReason ? `<small class="sales-card-reason">${escapeHtml(lead.lostReason)}</small>` : ""}
@@ -10600,7 +10634,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}</h2><p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}${recycledTag(lead)}</h2>${recycledLine(lead)}<p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 function statusSelect(lead) {
@@ -11953,7 +11987,7 @@ function leadCardDetailLines(lead) {
   // Meeting 2026-09-11: the market name is bold on the card.
   const market = leadMarketLabel(lead);
   const rest = [formatPhoneNumber(lead.phone) || lead.email || "", `SMS ${lead.smsConsent}`].filter(Boolean).join(" · ");
-  const line2 = `${market ? `<strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${market && rest ? " · " : ""}${escapeHtml(rest)}${serviceDogTag(lead)}${track500Tag(lead)}${needsCallTag(lead)}`;
+  const line2 = `${market ? `<strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${market && rest ? " · " : ""}${escapeHtml(rest)}${serviceDogTag(lead)}${track500Tag(lead)}${needsCallTag(lead)}${recycledTag(lead)}`;
   return `${leadCardEvalLine(lead)}${line1 ? `<p>${escapeHtml(line1)}</p>` : ""}<small>${line2}</small>`;
 }
 

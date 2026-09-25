@@ -3,6 +3,7 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SU
 const crypto = require("node:crypto");
 const { isSandbox, supabaseRequest } = require("../lib/sandbox");
 const { authorizeRequest } = require("../lib/portal-auth");
+const METRICS = require("../trainer-backoffice/metrics.js"); // rule 34: the Recycled badge's matching (recycledIndex)
 
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
@@ -643,6 +644,21 @@ async function loadAdminOperationalData(unavailableCapabilities, omit = new Set(
   };
 }
 
+// Recycled badge for TRAINERS (Zoom 2026-09-24; display only). A trainer loads only their own leads (rule 7), so the
+// browser cannot see an older lead of the same person that sits with someone else. The server matches the person
+// across every non-QA lead with the same metrics.js helper the office uses (same email, or same 10-digit phone) and
+// adds ONLY two read-only fields to the trainer's OWN rows: recycled_first_at (when that person first came in) and
+// recycled_count. Nothing else about another lead is sent, and nothing is written.
+async function stampRecycled(leads) {
+  if (!Array.isArray(leads) || !leads.length) return;
+  const everyone = await supabaseFetchAll("/rest/v1/leads?select=id,created_at,email,phone,qa:raw_payload->>qa&order=created_at.asc");
+  const index = METRICS.recycledIndex((everyone || []).filter(row => row.qa !== "true"));
+  for (const row of leads) {
+    const hit = index.get(row.id);
+    if (hit) { row.recycled_first_at = hit.firstAt || ""; row.recycled_count = hit.count || 2; }
+  }
+}
+
 async function loadTrainerOperationalData(portalUser, unavailableCapabilities, omit = new Set()) {
   const trainerId = portalUser.trainer_id;
   const [trainers, pages, leads, submissions, events] = await Promise.all([
@@ -655,6 +671,7 @@ async function loadTrainerOperationalData(portalUser, unavailableCapabilities, o
       .catch(() => optionalSupabaseFetchAll(`/rest/v1/site_events?select=${SITE_EVENT_COLUMNS}&trainer_id=eq.${encodeURIComponent(trainerId)}&order=created_at.desc`, "site_events", unavailableCapabilities).then(slimSiteEvents))
   ]);
   if (!trainers[0]) throw new Error("Trainer profile was not found for this portal account.");
+  await stampRecycled(leads).catch(error => console.error("recycled_stamp_failed", String(error?.message || error)));
   const leadIds = leads.map(row => row.id);
   const submissionIds = submissions.map(row => row.id);
   const noteEntityIds = [trainerId, ...leadIds, ...submissionIds];

@@ -6042,3 +6042,10 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
 .super-handoff .super-handoff-list { width: 100%; min-height: 9rem; border: 1px solid rgba(148, 163, 184, .7); border-radius: 8px; padding: 4px; font: inherit; background: var(--panel, #fff); }
 .super-handoff .super-handoff-list option { padding: 4px 6px; }
 .super-handoff .btn { justify-self: start; }
+
+/* Recycled (Zoom 2026-09-24): a small BLUE recycle badge on a lead whose person came in before. Display only. */
+.lead-tag-recycled { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; font-size: 11px; font-weight: 800; letter-spacing: .02em; color: #1d4ed8; background: #eff6ff; border: 1.5px solid #2563eb; border-radius: 999px; padding: 0 8px 0 5px; margin-left: 4px; vertical-align: 1px; }
+.lead-tag-recycled .recycle-icon { width: 12px; height: 12px; flex: none; }
+.lead-detail-panel h2 .lead-tag-recycled { font-size: 13px; vertical-align: 4px; }
+.lead-recycled-line { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 10px; padding: 8px 10px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: .9rem; }
+.lead-recycled-line .recycle-icon { width: 16px; height: 16px; flex: none; margin-top: 2px; color: #2563eb; }
