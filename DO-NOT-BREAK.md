@@ -2230,3 +2230,93 @@ COLLECTED; service-dog gold tag YES; milestones later.
        was done on live; live leads 301 (290 not QA) and 0 `trainer_lead_handoff` rows before and after.
        Rollback: `npx vercel rollback dpl_AAQW4yiNZtNXzvMQzodT9UucAJB3 --yes` (live26). The data row is harmless to
        the older code (it never reads it); to remove it see the migration's Undo lines.
+
+## The 2026-09-24 owner call, built 2026-09-25 (Lorenzo + Angela + Joshua; stamp 20260925live28)
+
+Record before these changes (stamp 20260924live27, commit fd1c1e6): 542 tests + audit green; live leads 301 (290 not
+QA); the office "Lost reason" box offered ten free-text reasons and changed no status; a drop on the office Lost column
+filed "Lost / No Response"; the trainer Lost box offered price / not ready / other provider / no response / complaint;
+the archive cron protected only archived / became_client / do_not_contact; the hand-off box was down-only for everyone;
+`auto_followups` OFF on live (so the 15 min / 30 min / 24 h follow-up texts are NOT running on live); no recycled, no
+office's-turn, no call reminder, no email campaign.
+
+106. **A SUPER ADMIN can send any lead to ANY trainer who is active on the site AND has an active trainer portal login.**
+     `api/trainer-lead-action.js`: `GET ?handoff_targets=1` (super admin only, else 403) lists every ACTIVE trainer
+     (test rows / drafts never) with a `portal_users` row role trainer, active, access_status `active`; `POST
+     {action:"handoff"}` from a super admin accepts exactly that list (assigned or unassigned lead; up, sideways, off the
+     chart), else 403 "…not active on the site with an active portal login…" and nothing written. The write is rule
+     91/105's exactly (version guard, `trainer_id` (+ name column) only, `audit_events` `trainer_lead_handoff` "Sent to
+     {name} (super admin)", `lead_events` `trainer_handoff` by `super_admin`, no lifecycle, no text/email). OFFICE ADMINS
+     and TRAINERS are unchanged (rule 105). Portal: the office lead panel shows "Send to a trainer" (search box filters
+     the list in place, `data-super-handoff-search` on the rule 14 list) to a Super Admin only.
+     Pins: `tests/trainer-handoff.test.mjs` (super admin any portal trainer; no-login / revoked / inactive / test refused;
+     office admin unchanged; the box).
+
+107. **Recycled = an OLDER lead exists for the same person (same email any case, or the same real 10-digit phone).
+     DISPLAY ONLY.** `METRICS.recycledIndex` (union-find over email/phone keys, linear; placeholder phones like
+     0000000000 never match; "first came in" = that person's earliest lead). Office: over every loaded non-QA lead
+     (cached per loaded list). Trainers (rule 7: they load only their own leads): `api/operational-data.js
+     stampRecycled` adds ONLY `recycled_first_at` + `recycled_count` to the trainer's own rows. A small BLUE recycle badge
+     "Recycled" (tooltip "They first came in …") on office Leads + Sales cards, both lead panels (plus a line) and trainer
+     cards. Lead creation, logging and every count are unchanged. Pins: `tests/recycled-2026-09-25.test.mjs`.
+
+108. **Lost is a HARD NO; everything else is Archive (maybe later).** Lorenzo: "Lost would be there's no need in us
+     contacting them again." `METRICS.HARD_NO_LOST_REASONS` = no trainer in their area (`lost_no_trainer_area`), doesn't
+     believe in our training method (`lost_method_not_a_fit`, NEW), dog doesn't qualify (`lost_dog_not_qualified`, NEW),
+     went with a competitor (`lost_chose_another_provider`). `METRICS.ARCHIVE_REASONS` = not ready / money, talking it
+     over with family, can't reach them, other.
+     - The two new statuses are in the CHECK of BOTH schemas (`supabase/migrations/20260925130000_lost_hard_no_statuses.sql`,
+       applied 2026-09-25, additive) and in every status map: metrics.js (Leads board Lost, Sales Lost, trainer Lost),
+       app.js (`leadStatuses`, `leadStatusToDb`, communications closed list), `api/communications.js`,
+       `lib/metrics-crosscheck.js`, `lib/pipeline.js` CLOSED_STATUSES (which now also carries the real
+       `lost_price_concern` / `lost_chose_another_provider` / `lost_client_complaint` names it was missing: fewer texts,
+       never more). Every existing key and value unchanged (rule 10).
+     - Office: the "Lost" list offers ONLY the four hard no's; a pick asks first, then moves the lead to that status and
+       saves the plain words in `lost_reason`; an old free-text reason shows as "Earlier reason: …". The status dropdown no
+       longer OFFERS the four soft Lost statuses (a lead already on one still shows it, "(earlier reason)"). A drop on the
+       Lost column opens the lead instead of filing "Lost / No Response". The panel's Archive takes an optional reason:
+       `operational-mutation` `archive` + `archive_reason` merges `raw_payload.archive_reason {reason,label,at,by,by_name}`;
+       without one it writes exactly what it always wrote. Restore is unchanged.
+     - Trainer: "Lost? Only a hard no" (the four) and "Archive (maybe later)" (the four) are two picks with one shared
+       note. `trainer-lead-action` `lost` refuses the old soft reasons (400, "…means Archive (maybe later)") and writes
+       `status` + `lost_reason`; `archive` writes `status archived`, `archived_at`, `raw_payload.archive_reason` (by trainer),
+       from open statuses only.
+     - The daily archive cron never archives the four hard-no statuses (`PROTECTED_STATUSES`). The soft Lost statuses
+       archive after 30 days as before. No existing row was rewritten (the office recategorizes the Lost leads by hand).
+     Pins: `tests/lost-archive-2026-09-25.test.mjs`, `tests/trainer-lead-action.test.mjs`, `tests/status-label-2026-09-24.test.mjs`.
+
+109. **"I called the client" + ONE 30-minute reminder, behind `trainer_call_reminders` (default OFF, OFF on live).**
+     Evaluation Scheduled trainer cards and the trainer panel show "I called the client" until it is checked off
+     (`trainer-lead-action` `intro_called`: `raw_payload.pipeline.trainer_intro_called_at`, audit + a
+     `trainer_intro_called` lead event, NO status change, a second tap writes nothing). `lib/pipeline.js
+     runTrainerCallReminders` (the */15 cron): a lead in `evaluation_scheduled` whose `booking.booked_at` is 30 min..48 h
+     old, the eval still ahead, not qa, not checked off and never claimed gets ONE text through the pathway 2 TRAINER
+     route (`customer_phone` empty) with the `trainer_call_reminder` words (rule 84 editor). Claim-first on
+     `pipeline.trainer_call_reminder`: never twice. Phone rules = every trainer text (`trainerTextPhone`). Pipeline
+     settings saves now KEEP any switch the screen did not send (`KEPT_WHEN_ABSENT`: `trainer_emails_hold`,
+     `trainer_call_reminders`, `office_turn_digest`) — before this a save from the office screen would have released
+     `trainer_emails_hold`. Pins: `tests/trainer-call-reminder-2026-09-25.test.mjs`, `tests/pipeline.test.mjs` (five
+     trainer links).
+
+110. **"Office's turn": an orange badge, plus ONE optional daily email behind `office_turn_digest` (default OFF, OFF on
+     live).** `METRICS.officeTurn`: a pipeline lead (`pipeline.entered_at`), not qa, no booking / request / callback,
+     still new_inquiry / office_contacted / follow_up_call_needed / engaged_no_outcome, whose follow-up chain finished
+     (a recorded `care` step) or that entered 24 h ago. Badge on office Leads + Sales cards and the office lead panel,
+     never for trainers. `runOfficeTurnDigest` (the */15 cron): after 9 AM Eastern, once per day (claim-first on
+     `site_settings` `office_turn_digest_log`, the claim moves `updated_at`), to the office TEAM list only (practice:
+     practice_email_to), nothing sent when the list is empty. No per-lead email (Rachel asked for fewer).
+     Pins: `tests/office-turn-2026-09-25.test.mjs`.
+
+111. **Angela's lead email is READY BUT NOT SENT: `site_settings` `email_campaign` ships `armed:false`, no `send_at`, no
+     pools, in both schemas, behind the restrictive `email_campaign_server_only` policy (created before the row;
+     `supabase/migrations/20260925140000_email_campaign_server_only.sql`).** `lib/email-campaign.js`: her words exactly
+     (only the signature brand, the tagline "Serious Training. Serious Results." and the email opt-out line added),
+     subject "What would you change about your dog's behavior?", both buttons to `reengageBookingLink(lead, {noZip:
+     "contact"})`. Runner on rule 101's pattern: disarm first (the claim moves `updated_at`), per-person once ever
+     (`pipeline.email_campaigns[<id>]`), dedupe by email, optional `max_age_days`, qa held out, excluded DNC / archived /
+     became_client / bad_lead / the hard-no Lost statuses / opted-out emails (`clients.email_consent=false`) / no email,
+     Resend paced 600 ms + 429 retries, practice copy max 3 to the practice inbox. Super Admin only: `GET
+     /api/pipeline?op=email_campaign` (read-only dry run), `op=email_campaign_preview&lead_id=`, `POST
+     op:"email_campaign_save"` (arming needs pools + send_at). **Arming it with a past send_at emails real people.**
+     Also fixed: the re-engage claim now moves `site_settings.updated_at` itself (the table has no trigger).
+     Pins: `tests/email-campaign-2026-09-25.test.mjs`.
