@@ -528,7 +528,7 @@ async function leadAction(access, body) {
   const closedStatuses = new Set([
     "archived", "do_not_contact", "bad_lead", "became_client",
     "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
-    "lost_client_complaint", "lost_no_trainer_area"
+    "lost_client_complaint", "lost_no_trainer_area", "lost_method_not_a_fit", "lost_dog_not_qualified"
   ]);
   if (operation === "claim_lead" && closedStatuses.has(lead.status)) {
     throw Object.assign(new Error("This lead is closed and cannot be assigned."), { status: 409 });

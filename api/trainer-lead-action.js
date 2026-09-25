@@ -4,8 +4,10 @@
 //     ONLY from new_inquiry: on the office Leads board "Engaged Lead: No Outcome" comes AFTER "Office Contacted",
 //     so moving an engaged lead here would move it backwards. Anything else -> 409. No text, no email is sent.
 //   - eval_completed: an Evaluation Scheduled lead -> evaluation_complete.
-//   - lost: an open lead -> the Lost status for the reason picked (price / not_ready / other_provider /
-//     no_response / complaint), with an optional short note for the office.
+//   - lost (Zoom 2026-09-24): an open lead -> the Lost status for ONE of the four hard-no reasons (no_trainer_area /
+//     method_not_a_fit / dog_not_qualified / competitor) + lost_reason in plain words, with an optional note.
+//   - archive: an open lead -> archived (+ archived_at, raw_payload.archive_reason) for a maybe-later reason
+//     (not_ready_money / family / unreachable / other). The office can Restore it.
 //   - alpha: added_to_alpha yes / no.
 // Only the trainer the lead is assigned to (leads.trainer_id) or the office. The write is version-guarded, then
 // logged exactly like an office change: audit_events, lifecycle_events (the funnel) and lead_events. It never
@@ -39,16 +41,21 @@ const H = require("../lib/hierarchy"); // rule 105: the one home of the tree hel
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 
-const LOST_REASONS = {
-  price: "lost_price_concern",
-  not_ready: "lost_not_ready",
-  other_provider: "lost_chose_another_provider",
-  no_response: "lost_no_response",
-  complaint: "lost_client_complaint"
-};
+const METRICS = require("../trainer-backoffice/metrics.js"); // the Lost / Archive vocabulary (one list for portal + API)
+
+// Lost vs Archive (Zoom 2026-09-24, Lorenzo: "Lost would be there's no need in us contacting them again").
+// "lost" takes ONLY the four hard-no reasons; "archive" takes the maybe-later reasons. other_provider is kept as an
+// alias of competitor so a portal page opened before this change still works for that one reason.
+const LOST_REASONS = Object.fromEntries(METRICS.HARD_NO_LOST_REASONS.map(([key, , status]) => [key, status]));
+LOST_REASONS.other_provider = "lost_chose_another_provider";
+const LOST_LABELS = Object.fromEntries(METRICS.HARD_NO_LOST_REASONS.map(([key, label]) => [key, label]));
+LOST_LABELS.other_provider = LOST_LABELS.competitor;
+const SOFT_REASONS = new Set(["price", "not_ready", "no_response", "complaint"]); // the old trainer choices: now Archive
+const ARCHIVE_LABELS = Object.fromEntries(METRICS.ARCHIVE_REASONS);
 // Same funnel words as api/operational-mutation.js LIFECYCLE_STATUS_EVENTS.
 const LIFECYCLE = { evaluation_complete: "evaluation_completed", lost_no_response: "lost_no_response" };
-const CLOSED = new Set(["became_client", "archived", "do_not_contact", "bad_lead", "lost_no_trainer_area", "canceled_refunded", "canceled_write_off", ...Object.values(LOST_REASONS)]);
+const CLOSED = new Set(["became_client", "archived", "do_not_contact", "bad_lead", "canceled_refunded", "canceled_write_off",
+  ...METRICS.HARD_NO_LOST_STATUSES, ...METRICS.SOFT_LOST_STATUSES, "lost_chose_another_provider"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Same table as lib/booking.js US_STATE_CODES (not exported there): full name -> code, so "Ohio" == "OH".
 const STATE_CODES = {"alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR", "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE", "district of columbia": "DC", "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID", "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS", "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD", "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS", "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV", "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY", "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK", "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC", "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT", "vermont": "VT", "virginia": "VA", "washington": "WA", "west virginia": "WV", "wisconsin": "WI", "wyoming": "WY"};
@@ -295,7 +302,7 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const action = clean(body.action, 30);
     const leadId = clean(body.lead_id, 80);
-    if (!["contacted", "eval_completed", "lost", "alpha", "handoff"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
+    if (!["contacted", "eval_completed", "lost", "archive", "alpha", "handoff"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
     if (!UUID.test(leadId)) return reply(res, 400, { ok: false, message: "That lead id is not complete." });
 
     const [before] = (await supabaseFetch(`/rest/v1/leads?select=*&id=eq.${encodeURIComponent(leadId)}&limit=1`)) || [];
@@ -320,11 +327,27 @@ module.exports = async function handler(req, res) {
       changes = { status: "evaluation_complete" };
       summary = "Trainer marked the evaluation completed.";
     } else if (action === "lost") {
-      const status = LOST_REASONS[clean(body.reason, 30)];
+      const reason = clean(body.reason, 30);
+      if (SOFT_REASONS.has(reason)) return reply(res, 400, { ok: false, message: "Lost is only for a hard no now. Price, not ready, no answer or a complaint means Archive (maybe later)." });
+      const status = LOST_REASONS[reason];
       if (!status) return reply(res, 400, { ok: false, message: "Pick why the client was lost." });
       if (CLOSED.has(before.status)) return reply(res, 409, { ok: false, message: "This lead is already closed. Ask the office to change it." });
-      changes = { status };
-      summary = `Trainer marked the lead lost (${status.replace(/^lost_/, "").replace(/_/g, " ")}).`;
+      changes = { status, lost_reason: LOST_LABELS[reason] };
+      summary = `Trainer marked the lead lost: ${LOST_LABELS[reason]}.`;
+    } else if (action === "archive") {
+      // "Archive (maybe later)": the lead leaves the trainer's board (rule 80: archived is never drawn for a trainer),
+      // stays on file with its reason, and the office can bring it back at any time (Restore).
+      const reason = clean(body.reason, 30);
+      const label = ARCHIVE_LABELS[reason];
+      if (!label) return reply(res, 400, { ok: false, message: "Pick why this lead is archived for later." });
+      if (CLOSED.has(before.status)) return reply(res, 409, { ok: false, message: "This lead is already closed. Ask the office to change it." });
+      const at = new Date().toISOString();
+      const raw = before.raw_payload && typeof before.raw_payload === "object" ? before.raw_payload : {};
+      changes = {
+        status: "archived", archived_at: at,
+        raw_payload: { ...raw, archive_reason: { reason, label, ...(note ? { note } : {}), at, by: "trainer", by_name: access.actor?.name || "" } }
+      };
+      summary = `Trainer archived the lead for later: ${label}.`;
     } else {
       // Joshua 2026-09-23: the trainer answers "Have you logged this lead in Alpha?" Yes / No, and can
       // clear the answer back to blank. Blank (null) means "not answered yet" - different from No.
@@ -377,7 +400,7 @@ module.exports = async function handler(req, res) {
       });
     }
     if (action === "eval_completed") await P.afterEvalCompleted({ lead: record }).catch(error => console.error("after_eval_completed_failed", String(error?.message || error)));
-    const message = action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
+    const message = action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : action === "archive" ? "Archived for later. The office sees it and can bring it back." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
     return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha ?? null, version: record.version || null } });
   } catch (error) {
     const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;

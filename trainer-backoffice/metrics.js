@@ -42,6 +42,9 @@
     "Lost / Chose Another Provider": "lost_chose_another_provider",
     "Lost: Client Complaint": "lost_client_complaint",
     "Lost: No Trainer in the Area": "lost_no_trainer_area",
+    // Zoom 2026-09-24 (Lorenzo): two more HARD NO statuses. Added, never renamed (rule 10).
+    "Lost: Doesn't Believe in Our Training Method": "lost_method_not_a_fit",
+    "Lost: Dog Doesn't Qualify": "lost_dog_not_qualified",
     // Meeting 2026-09-16: two closed statuses for a sale that came apart. They count with Lost, never as sold.
     "Canceled / Refunded": "canceled_refunded",
     "Canceled / Write off": "canceled_write_off",
@@ -49,6 +52,27 @@
     "Do Not Contact": "do_not_contact",
     "Archived": "archived"
   };
+  // Lost vs Archive (Zoom 2026-09-24, Lorenzo: "Lost would be there's no need in us contacting them again").
+  // LOST = a hard no, exactly four reasons: no trainer in their area, does not believe in our training method, the dog
+  // does not qualify (health, age...), went with a competitor. EVERYTHING ELSE is ARCHIVE ("we may come back six months
+  // or we may do TTRG for them"): not ready / money, talking it over with family, cannot reach them, other.
+  // [key, plain words, database status]. The office Lost list and the trainer Lost action offer ONLY these.
+  const HARD_NO_LOST_REASONS = [
+    ["no_trainer_area", "No trainer in their area", "lost_no_trainer_area"],
+    ["method_not_a_fit", "Doesn't believe in our training method", "lost_method_not_a_fit"],
+    ["dog_not_qualified", "Dog doesn't qualify (health, age, etc.)", "lost_dog_not_qualified"],
+    ["competitor", "Went with a competitor", "lost_chose_another_provider"]
+  ];
+  const HARD_NO_LOST_STATUSES = HARD_NO_LOST_REASONS.map(([, , status]) => status);
+  // The older "soft" Lost statuses keep working on the rows that carry them (the office recategorizes the 84 by hand);
+  // they are no longer OFFERED as a new choice.
+  const SOFT_LOST_STATUSES = ["lost_no_response", "lost_price_concern", "lost_not_ready", "lost_client_complaint"];
+  const ARCHIVE_REASONS = [
+    ["not_ready_money", "Not ready / money"],
+    ["family", "Talking it over with family"],
+    ["unreachable", "Can't reach them"],
+    ["other", "Other"]
+  ];
   const LEAD_STATUS_FROM_DB = Object.fromEntries(Object.entries(LEAD_STATUS_TO_DB).map(([label, value]) => [value, label]));
   LEAD_STATUS_FROM_DB.follow_up_call_needed = "Office Contacted";
 
@@ -94,7 +118,7 @@
     // Label only (meeting 2026-09-11): renamed from the old trainer-hands wording. Key and statuses unchanged (rule 10).
     ["evaluated", "Eval Completed",         "sales",     ["evaluation_complete"]],
     ["won",       "Won",                    "won",       ["became_client"]],
-    ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead", "canceled_refunded", "canceled_write_off"]],
+    ["lost",      "Lost",                   "lost",      ["lost_price_concern", "lost_not_ready", "lost_chose_another_provider", "lost_client_complaint", "bad_lead", "canceled_refunded", "canceled_write_off", "lost_method_not_a_fit", "lost_dog_not_qualified"]],
     ["winback",   "Win-back",               "winback",   ["lost_no_response", "follow_up_call_needed", "evaluation_cancelled", "lost_no_trainer_area"]]
   ];
 
@@ -476,7 +500,7 @@
     ["sold",      "Sold",           ["became_client"]],
     ["lost",      "Lost",           ["lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
                                      "lost_client_complaint", "lost_no_trainer_area", "bad_lead", "evaluation_cancelled",
-                                     "canceled_refunded", "canceled_write_off"]]
+                                     "canceled_refunded", "canceled_write_off", "lost_method_not_a_fit", "lost_dog_not_qualified"]]
   ];
   const TRAINER_HIDDEN_DB_STATUSES = ["do_not_contact", "archived"];
   // The row's database status. A real row carries it (normalizeLeadRow -> dbStatus); a demo/offline row carries
@@ -617,7 +641,7 @@
   const csvRowCount = csv => Math.max(0, String(csv || "").split("\n").length - 1);
 
   return {
-    LEAD_STATUS_TO_DB, LEAD_STATUS_FROM_DB, APPLICATION_STATUS_FROM_DB, BOARD_COLUMNS, LEAD_STATUS_COUNT_ORDER, APPLICATION_COLUMNS,
+    LEAD_STATUS_TO_DB, LEAD_STATUS_FROM_DB, APPLICATION_STATUS_FROM_DB, HARD_NO_LOST_REASONS, HARD_NO_LOST_STATUSES, SOFT_LOST_STATUSES, ARCHIVE_REASONS, BOARD_COLUMNS, LEAD_STATUS_COUNT_ORDER, APPLICATION_COLUMNS,
     CONVERSION_STATUSES, SALES_STAGES, CONVERSION_STAGE_RANK, CONVERSION_STAGES, DASHBOARD_BUCKET_NAMES,
     count, parseTimestamp, timestampValue, newestFirst,
     isQaLead, isQaApplication, excludeQa,

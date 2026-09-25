@@ -16,8 +16,8 @@ async function act({ action, ok = true, value = "yes", alphaAnswer = "" }) {
   const lead = { id: "L1", remoteId: "r1", version: 3, owner: "Pat", status: "Evaluation Scheduled", alphaAnswer };
   const button = { dataset: { trainerLeadAction: action, leadRef: "L1" }, tagName: action === "alpha" ? "SELECT" : "BUTTON", value, disabled: false };
   const ctx = {
-    state: { leads: [lead], trainerLost: { leadId: "L1", reason: "price", note: "Too far" }, trainerHandoff: null, selectedLeadId: "L1" },
-    trainerTeam: null, showToast: () => {}, render: () => {}, reloadRemoteData: async () => {},
+    state: { leads: [lead], trainerLost: { leadId: "L1", reason: "competitor", note: "Too far" }, trainerHandoff: null, selectedLeadId: "L1" },
+    TRAINER_LOST_REASONS: [["competitor", "Went with a competitor"]], trainerTeam: null, showToast: () => {}, render: () => {}, reloadRemoteData: async () => {},
     window: { confirm: () => true, LDTT_PORTAL: { accessToken: async () => "t" } },
     fetch: async () => ({ ok, status: ok ? 200 : 409, json: async () => (ok ? { ok: true } : { ok: false, message: "Changed by someone else" }) })
   };
@@ -29,12 +29,12 @@ async function act({ action, ok = true, value = "yes", alphaAnswer = "" }) {
 
 test("answering Alpha keeps the Lost reason and note the trainer typed", async () => {
   const { state } = await act({ action: "alpha" });
-  assert.equal(state.trainerLost?.reason, "price");
+  assert.equal(state.trainerLost?.reason, "competitor");
   assert.equal(state.trainerLost?.note, "Too far");
 });
 
 test("Eval completed keeps it too; a Lost save empties it", async () => {
-  assert.equal((await act({ action: "eval_completed" })).state.trainerLost?.reason, "price");
+  assert.equal((await act({ action: "eval_completed" })).state.trainerLost?.reason, "competitor");
   assert.equal((await act({ action: "lost" })).state.trainerLost, null);
 });
 

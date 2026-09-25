@@ -1,6 +1,8 @@
 const { supabaseRequest } = require("../lib/sandbox");
 const { authorizeRequest } = require("../lib/portal-auth");
 const crypto = require("node:crypto");
+// The four "Archive (maybe later)" reasons (Zoom 2026-09-24), from the portal's one vocabulary file.
+const ARCHIVE_REASON_LABELS = Object.fromEntries(require("../trainer-backoffice/metrics.js").ARCHIVE_REASONS);
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -584,6 +586,17 @@ async function archiveRecord(admin, body, requestId) {
   }
   const changes = { archived_at: new Date().toISOString(), archived_by: admin.actor.id };
   if (config.fields.has("status") || ["lead", "application", "client", "trainer", "submission"].includes(entityType)) changes.status = "archived";
+  // Lost vs Archive (Zoom 2026-09-24): the office may say WHY a lead is archived for later. Optional (the card's quick
+  // Archive button sends none, exactly as before); a reason must be one of the four maybe-later reasons. Kept on
+  // raw_payload.archive_reason (merged into the stored raw_payload, nothing else in it changes); Restore is unchanged.
+  const archiveReason = entityType === "lead" ? clean(body.archive_reason, 40) : "";
+  if (archiveReason) {
+    const label = ARCHIVE_REASON_LABELS[archiveReason];
+    if (!label) return { status: 400, body: { ok: false, message: "That archive reason is not one of the choices." } };
+    const stored = before.raw_payload && typeof before.raw_payload === "object" && !Array.isArray(before.raw_payload) ? before.raw_payload : {};
+    const note = clean(body.archive_note, 300);
+    changes.raw_payload = { ...stored, archive_reason: { reason: archiveReason, label, ...(note ? { note } : {}), at: changes.archived_at, by: "office", by_name: admin.actor.name || admin.actor.email || "" } };
+  }
   const rows = await supabaseFetch(`/rest/v1/${config.table}?id=eq.${encodeURIComponent(id)}`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },

@@ -65,11 +65,17 @@ test("office Leads board: header shows the new words, the drop value keeps the o
 });
 
 test("office status dropdown: every option VALUE unchanged, the words are the label", () => {
-  const html = render(`${constant("leadStatuses")}\n${fn("statusSelect")}\nthis.out = statusSelect(this.lead);`, { lead: contacted });
+  // Lost vs Archive (Zoom 2026-09-24): the four older soft Lost statuses are no longer OFFERED, except on a lead that has one.
+  const soft = new Set(metrics.SOFT_LOST_STATUSES.map(v => metrics.LEAD_STATUS_FROM_DB[v]));
+  const html = render(`${constant("leadStatuses")}\n${fn("statusSelect")}\nthis.out = statusSelect(this.lead);`, { lead: contacted, SOFT_LOST_LABELS: soft });
   assert.match(html, /<option value="Office Contacted" selected>Office\/Trainer Contacted<\/option>/);
   const values = [...html.matchAll(/<option value="([^"]*)"/g)].map(m => m[1].replace(/&amp;/g, "&"));
   const list = vm.runInNewContext(`${constant("leadStatuses")}; leadStatuses`);
-  assert.deepEqual(values, [...list], "one option per status, value = the status itself (what the change handler saves)");
+  assert.deepEqual(values, [...list].filter(status => !soft.has(status)), "one option per status, value = the status itself (what the change handler saves)");
+  const oldLost = render(`${constant("leadStatuses")}\n${fn("statusSelect")}\nthis.out = statusSelect(this.lead);`, { lead: { ...contacted, status: "Lost / Price Concern" }, SOFT_LOST_LABELS: soft });
+  assert.match(oldLost, /<option value="Lost \/ Price Concern" selected>Lost \/ Price Concern \(earlier reason\)<\/option>/, "a lead already on a soft Lost status still shows it (nothing moves)");
+  assert.doesNotMatch(oldLost, /Lost \/ No Response/);
+  assert.ok(list.includes("Lost: Doesn't Believe in Our Training Method") && list.includes("Lost: Dog Doesn't Qualify"), "the two new hard-no statuses are offered");
   assert.doesNotMatch(visibleText(html), BARE);
   assert.match(fn("leadWorkspaceControls"), /<option value="\$\{escapeHtml\(status\)\}"[^`]*leadOptionLabel\(leadStatusLabel\(status\)/, "the status FILTER keeps its values, shows the label");
 });

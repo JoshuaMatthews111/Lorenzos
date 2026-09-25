@@ -261,6 +261,9 @@ const leadStatuses = [
   "Lost / Chose Another Provider",
   "Lost: Client Complaint",
   "Lost: No Trainer in the Area",
+  // Zoom 2026-09-24 (Lorenzo): the two new hard-no Lost statuses (rule 10: added, nothing renamed).
+  "Lost: Doesn't Believe in Our Training Method",
+  "Lost: Dog Doesn't Qualify",
   // Meeting 2026-09-16: two closed statuses for a sale that came apart. They count with Lost (not sold).
   "Canceled / Refunded",
   "Canceled / Write off",
@@ -787,6 +790,8 @@ const leadStatusToDb = {
   "Lost / Chose Another Provider": "lost_chose_another_provider",
   "Lost: Client Complaint": "lost_client_complaint",
   "Lost: No Trainer in the Area": "lost_no_trainer_area",
+  "Lost: Doesn't Believe in Our Training Method": "lost_method_not_a_fit",
+  "Lost: Dog Doesn't Qualify": "lost_dog_not_qualified",
   "Canceled / Refunded": "canceled_refunded",
   "Canceled / Write off": "canceled_write_off",
   "Bad Lead": "bad_lead",
@@ -5398,7 +5403,8 @@ function communicationsLeadIsActive(lead) {
   return !new Set([
     "archived", "do_not_contact", "bad_lead", "became_client",
     "lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
-    "lost_client_complaint", "lost_no_trainer_area", "canceled_refunded", "canceled_write_off"
+    "lost_client_complaint", "lost_no_trainer_area", "canceled_refunded", "canceled_write_off",
+    "lost_method_not_a_fit", "lost_dog_not_qualified"
   ]).has(lead.dbStatus || "");
 }
 
@@ -9781,7 +9787,11 @@ function trainerLeadDetailPanel() {
 // ---- Trainer actions on their own leads (Joshua 2026-09-14, option A; rule 83) ----
 // Mark contacted (Rachel 2026-09-24, New Inquiry only) / Eval completed / Lost (with a reason) / Added to Alpha, through api/trainer-lead-action.js (the trainer's own
 // door, rule 7). The picked reason and note live in state.trainerLost so a background redraw never loses them.
-const TRAINER_LOST_REASONS = [["price", "Price concern"], ["not_ready", "Not ready yet"], ["other_provider", "Chose another trainer"], ["no_response", "No response"], ["complaint", "Complaint"]];
+// Lost vs Archive (Zoom 2026-09-24, Lorenzo: "Lost would be there's no need in us contacting them again"). Lost = the four
+// hard no's ONLY (same keys and words as METRICS.HARD_NO_LOST_REASONS; the server maps them). Everything else is
+// "Archive (maybe later)" (METRICS.ARCHIVE_REASONS): the lead leaves the trainer's board and the office can bring it back.
+const TRAINER_LOST_REASONS = [["no_trainer_area", "No trainer in their area"], ["method_not_a_fit", "Doesn't believe in our training method"], ["dog_not_qualified", "Dog doesn't qualify (health, age, etc.)"], ["competitor", "Went with a competitor"]];
+const TRAINER_ARCHIVE_REASONS = [["not_ready_money", "Not ready / money"], ["family", "Talking it over with family"], ["unreachable", "Can't reach them"], ["other", "Other"]];
 
 function trainerLeadActionsBox(lead) {
   if (!lead.remoteId) return "";
@@ -9790,6 +9800,7 @@ function trainerLeadActionsBox(lead) {
   const alphaAnswer = lead.alphaAnswer || "";
   const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
   const reasons = TRAINER_LOST_REASONS.map(([value, label]) => `<option value="${value}" ${pick.reason === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  const archiveReasons = TRAINER_ARCHIVE_REASONS.map(([value, label]) => `<option value="${value}" ${pick.archiveReason === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("");
   return `<section class="detail-note-block trainer-lead-update"><span>Update this lead</span>
     <div class="row-actions">
       ${lead.status === "Evaluation Scheduled" ? `<button type="button" class="btn btn-red btn-small" data-trainer-lead-action="eval_completed" data-lead-ref="${escapeHtml(lead.id)}">Eval completed</button>` : ""}
@@ -9803,9 +9814,11 @@ function trainerLeadActionsBox(lead) {
       </select>
     </label>
     ${closed ? `<p class="field-hint">This lead is closed (${escapeHtml(leadStatusLabel(lead.status))}). Ask the office to reopen it.</p>` : `<div class="trainer-lost-box">
-      <label>Lost? Why<select data-trainer-lost-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${reasons}</select></label>
-      <label>Note for the office <span class="hint">(optional)</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
+      <label>Lost? Only a hard no: we won't contact them again<select data-trainer-lost-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${reasons}</select></label>
       <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="lost" data-lead-ref="${escapeHtml(lead.id)}">Mark lost</button>
+      <label>Archive (maybe later): they may come back<select data-trainer-archive-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${archiveReasons}</select></label>
+      <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="archive" data-lead-ref="${escapeHtml(lead.id)}">Archive for later</button>
+      <label>Note for the office <span class="hint">(optional)</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
     </div>`}
     ${closed ? "" : trainerHandoffBox(lead)}
   </section>`;
@@ -10265,8 +10278,16 @@ async function trainerLeadAction(button) {
   if (action === "lost") {
     const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
     if (!pick.reason) { showToast("Pick why the client was lost."); return; }
-    if (!window.confirm(`Mark ${lead.owner} as lost?`)) return;
+    const words = (TRAINER_LOST_REASONS.find(([value]) => value === pick.reason) || [])[1] || "";
+    if (!window.confirm(`Mark ${lead.owner} as lost: ${words}? Lost is a hard no: nobody contacts them again.`)) return;
     body.reason = pick.reason;
+    body.note = pick.note || "";
+  }
+  if (action === "archive") {
+    const pick = state.trainerLost?.leadId === lead.id ? state.trainerLost : {};
+    if (!pick.archiveReason) { showToast("Pick why this lead is archived for later."); return; }
+    if (!window.confirm(`Archive ${lead.owner} for later? The lead leaves your board. The office keeps it and can bring it back.`)) return;
+    body.reason = pick.archiveReason;
     body.note = pick.note || "";
   }
   if (action === "eval_completed" && !window.confirm(`Mark ${lead.owner}'s evaluation as completed?`)) return;
@@ -10290,7 +10311,8 @@ async function trainerLeadAction(button) {
     if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
     // Audit 2026-09-24: only a Lost save (or the lead leaving the list) empties the Lost box; answering the Alpha
     // question or Eval completed used to wipe a reason + note the trainer had already typed.
-    if (action === "lost" || action === "handoff") state.trainerLost = null;
+    if (action === "lost" || action === "handoff" || action === "archive") state.trainerLost = null;
+    if (action === "archive" && (state.selectedLeadId === lead.id || state.selectedLeadId === lead.remoteId)) state.selectedLeadId = "";
     if (action === "handoff") {
       state.trainerHandoff = null;
       if (state.selectedLeadId === lead.id || state.selectedLeadId === lead.remoteId) state.selectedLeadId = "";
@@ -10634,11 +10656,38 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}${recycledTag(lead)}</h2>${recycledLine(lead)}<p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost reason<select class="select-pill" data-lead-lost-reason="${lead.id}"><option value="">Select reason</option>${["No response","Price concern","Chose another provider","Not ready","Client complaint","No trainer in the area","Location issue","Schedule conflict","Not a fit","Other"].map(r => `<option ${lead.lostReason === r ? "selected" : ""}>${r}</option>`).join("")}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label><div class="row-actions"><button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}${recycledTag(lead)}</h2>${recycledLine(lead)}<p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost <small class="field-hint">(a hard no: nobody contacts them again)</small><select class="select-pill" data-lead-lost-reason="${lead.id}">${officeLostOptions(lead)}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label>${officeArchiveReasonLine(lead)}<div class="row-actions office-archive-row">${lead.status === "Archived" ? "" : `<label>Archive (maybe later): why?<select class="select-pill" data-lead-archive-reason="${lead.id}">${officeArchiveOptions(lead)}</select></label>`}<button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
+// Lost vs Archive (Zoom 2026-09-24). The older soft Lost statuses (no response, price, not ready, complaint) are no
+// longer OFFERED as a new status; a lead that already carries one still shows it (marked "earlier reason") so nothing
+// on the 84 existing rows moves until the office recategorizes them by hand. Values never change (rule 10).
+const SOFT_LOST_LABELS = new Set((METRICS?.SOFT_LOST_STATUSES || []).map(value => leadStatusFromDb[value]).filter(Boolean));
 function statusSelect(lead) {
-  return `<select class="select-pill" data-lead-status="${lead.id}">${leadStatuses.map(status => `<option value="${escapeHtml(status)}" ${lead.status === status ? "selected" : ""}>${escapeHtml(leadStatusLabel(status))}</option>`).join("")}</select>`;
+  const offered = leadStatuses.filter(status => !SOFT_LOST_LABELS.has(status) || status === lead.status);
+  return `<select class="select-pill" data-lead-status="${lead.id}">${offered.map(status => `<option value="${escapeHtml(status)}" ${lead.status === status ? "selected" : ""}>${escapeHtml(leadStatusLabel(status))}${SOFT_LOST_LABELS.has(status) ? " (earlier reason)" : ""}</option>`).join("")}</select>`;
+}
+
+// The office "Lost" list = the four hard no's ONLY; picking one moves the lead to that Lost status (asked first).
+function officeLostOptions(lead) {
+  const db = leadStatusToDb[lead.status] || "";
+  const current = (METRICS.HARD_NO_LOST_REASONS || []).find(([, , status]) => status === db);
+  const earlier = !current && lead.lostReason ? `<option value="" selected disabled>Earlier reason: ${escapeHtml(lead.lostReason)}</option>` : "";
+  const reasons = (METRICS.HARD_NO_LOST_REASONS || []).map(([key, label]) => `<option value="${escapeHtml(key)}"${current && current[0] === key ? " selected" : ""}>${escapeHtml(label)}</option>`).join("");
+  return `${earlier}<option value=""${current || earlier ? "" : " selected"}>Pick a hard-no reason</option>${reasons}`;
+}
+
+// "Archive (maybe later)": the reason rides with the office archive (raw_payload.archive_reason, server side).
+function officeArchiveOptions(lead) {
+  const pick = state.officeArchive?.leadId === lead.id ? state.officeArchive.reason : "";
+  return `<option value="">Pick a reason (optional)</option>${(METRICS.ARCHIVE_REASONS || []).map(([key, label]) => `<option value="${escapeHtml(key)}"${pick === key ? " selected" : ""}>${escapeHtml(label)}</option>`).join("")}`;
+}
+
+function officeArchiveReasonLine(lead) {
+  const why = leadRawPayload(lead).archive_reason;
+  if (lead.status !== "Archived" || !why?.label) return "";
+  const who = why.by === "trainer" ? `the trainer${why.by_name ? ` (${why.by_name})` : ""}` : why.by_name || "the office";
+  return `<p class="field-hint office-archive-why">Archived for later: <strong>${escapeHtml(why.label)}</strong>${why.note ? ` · "${escapeHtml(why.note)}"` : ""} · by ${escapeHtml(who)}${why.at ? ` on ${escapeHtml(formatDate(why.at))}` : ""}. Restore brings it back.</p>`;
 }
 
 function leadStatusCounts(rows) {
@@ -14408,16 +14457,21 @@ document.addEventListener("click", async event => {
   if (archiveLead) {
     event.stopPropagation();
     const archiveTarget = state.leads.find(item => item.id === archiveLead.dataset.archiveLead);
-    if (!window.confirm(`Archive ${archiveTarget?.owner || "this lead"}?\n\nIt leaves the live pipeline but stays on file, stays searchable, and can be put back at any time.`)) return;
+    // Lost vs Archive (Zoom 2026-09-24): the lead panel can say WHY (optional; the card's quick button sends none).
+    const archiveWhy = state.officeArchive?.leadId === archiveLead.dataset.archiveLead
+      ? (METRICS.ARCHIVE_REASONS || []).find(([key]) => key === state.officeArchive.reason) : null;
+    if (!window.confirm(`Archive ${archiveTarget?.owner || "this lead"}${archiveWhy ? ` (${archiveWhy[1]})` : ""}?\n\nIt leaves the live pipeline but stays on file, stays searchable, and can be put back at any time.`)) return;
     const lead = updateLeadRecord(archiveLead.dataset.archiveLead, { status: "Archived" });
     state.selectedLeadId = "";
+    state.officeArchive = null;
     if (remoteReady) runRemoteMutation("Lead archived; record preserved", () => window.LDTT_PORTAL.operationalMutation({
       operation: "archive",
       entity_type: "lead",
       id: lead.remoteId,
       expected_version: lead.version,
       expected_updated_at: lead.updatedAt,
-      summary: `${lead.owner || "Lead"} archived`
+      ...(archiveWhy ? { archive_reason: archiveWhy[0] } : {}),
+      summary: `${lead.owner || "Lead"} archived${archiveWhy ? `: ${archiveWhy[1]}` : ""}`
     }), {
       type: "Lead",
       detail: `${lead?.owner || "Lead"} was archived by ${currentActorLabel()}.`
@@ -16466,12 +16520,23 @@ document.addEventListener("change", async event => {
   if (trainerAlpha) { trainerLeadAction(trainerAlpha); return; } // "Have you logged this lead in Alpha?" Yes / No / blank
   const lostReason = event.target.closest("[data-lead-lost-reason]");
   if (lostReason) {
-    const lead = updateLeadRecord(lostReason.dataset.leadLostReason, { lostReason: lostReason.value });
-    if (remoteReady) runRemoteMutation("Lost reason saved", () => persistLeadRecord(lead), {
+    // Lost vs Archive (Zoom 2026-09-24): a pick is one of the four hard no's and moves the lead to that Lost status.
+    const reason = (METRICS.HARD_NO_LOST_REASONS || []).find(([key]) => key === lostReason.value);
+    if (!reason) { render(); return; }
+    const current = (state.leads || []).find(item => String(item.id) === String(lostReason.dataset.leadLostReason));
+    if (!window.confirm(`Mark ${current?.owner || "this lead"} as Lost: ${reason[1]}?\n\nLost is a hard no: nobody contacts them again. If they may come back later, use "Archive (maybe later)" instead.`)) { render(); return; }
+    const lead = updateLeadRecord(lostReason.dataset.leadLostReason, { status: leadStatusFromDb[reason[2]], lostReason: reason[1] });
+    render();
+    if (remoteReady) runRemoteMutation("Marked lost", () => persistLeadWorkflow(lead), {
       type: "Lead",
-      detail: `${lead?.owner || "Lead"} lost reason updated to "${lostReason.value || "none"}".`
+      detail: `${lead?.owner || "Lead"} marked Lost: ${reason[1]}.`
     });
-    else saveState("Lost reason saved");
+    else saveState("Marked lost");
+    return;
+  }
+  const archiveReason = event.target.closest("[data-lead-archive-reason]");
+  if (archiveReason) {
+    state.officeArchive = { leadId: archiveReason.dataset.leadArchiveReason, reason: archiveReason.value };
     return;
   }
   const dnc = event.target.closest("[data-lead-dnc]");
@@ -16720,7 +16785,16 @@ document.addEventListener("drop", event => {
   const column = event.target.closest("[data-drop-status]");
   if (!column || !draggedLeadId) return;
   event.preventDefault();
-  const lead = updateLeadRecord(draggedLeadId, { status: column.dataset.dropStatus === "Lost" ? "Lost / No Response" : column.dataset.dropStatus });
+  // Lost vs Archive (Zoom 2026-09-24): dropping on Lost used to file the lead as "Lost / No Response" - which is now an
+  // Archive reason, not a Lost one. The drop now opens the lead so the office picks a hard-no reason or archives it.
+  if (column.dataset.dropStatus === "Lost") {
+    state.selectedLeadId = draggedLeadId;
+    draggedLeadId = "";
+    render();
+    showToast("Pick a Lost reason (a hard no) or Archive it (maybe later) in the lead panel.");
+    return;
+  }
+  const lead = updateLeadRecord(draggedLeadId, { status: column.dataset.dropStatus });
   draggedLeadId = "";
   render();   // same reason as the status dropdown: land the card in its new column now
   if (remoteReady) runRemoteMutation("Lead moved to " + leadStatusLabel(column.dataset.dropStatus), () => persistLeadWorkflow(lead), {
@@ -17378,12 +17452,13 @@ document.addEventListener("input", event => {
 // ---- Trainer "Lost? Why" + note (rule 83): kept in state so a background redraw never loses them ----
 document.addEventListener("input", event => {
   const reason = event.target.closest("[data-trainer-lost-reason]");
+  const archive = event.target.closest("[data-trainer-archive-reason]");
   const note = event.target.closest("[data-trainer-lost-note]");
-  const field = reason || note;
+  const field = reason || archive || note;
   if (!field) return;
   const leadId = field.dataset.leadRef;
   const keep = state.trainerLost?.leadId === leadId ? state.trainerLost : {};
-  state.trainerLost = { ...keep, leadId, ...(reason ? { reason: reason.value } : { note: note.value }) };
+  state.trainerLost = { ...keep, leadId, ...(reason ? { reason: reason.value } : archive ? { archiveReason: archive.value } : { note: note.value }) };
 });
 
 // ---- Super Admin "Send to a trainer" (rule 106): the search filters the list IN PLACE (no redraw); both kept in state ----

@@ -180,7 +180,7 @@ test("the office Sales board keeps its shared renderer, and it is the only calle
 test("Mark contacted: offered in the trainer's lead panel only for a New Inquiry lead", () => {
   const box = status => {
     const ctx = context({ trainerHandoffBox: () => "" });
-    vm.runInNewContext(`${oneLine("leadStatusLabel")}\n${constant("TRAINER_LOST_REASONS")}\n${fn("trainerLeadActionsBox")}\nthis.html = trainerLeadActionsBox(this.lead);`,
+    vm.runInNewContext(`${oneLine("leadStatusLabel")}\n${constant("TRAINER_LOST_REASONS")}\n${constant("TRAINER_ARCHIVE_REASONS")}\n${fn("trainerLeadActionsBox")}\nthis.html = trainerLeadActionsBox(this.lead);`,
       Object.assign(ctx, { lead: { id: "l1", remoteId: "65f976c2-d72c-4678-9b5f-2d96064454b3", owner: "Chloe", status } }));
     return ctx.html;
   };

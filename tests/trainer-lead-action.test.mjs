@@ -80,24 +80,69 @@ test("eval completed: only from Evaluation Scheduled; logged like an office chan
   assert.equal(again.statusCode, 409, "a lead that is not Evaluation Scheduled cannot be marked");
 });
 
-test("lost: needs a reason; maps to the Lost statuses; no-response feeds the funnel; a closed lead is refused", async () => {
-  const price = world("office_contacted");
-  assert.equal((await call({ action: "lost", lead_id: price.id })).statusCode, 400);
-  const ok = await call({ action: "lost", lead_id: price.id, reason: "price", note: "Wants to wait until spring" });
-  assert.equal(ok.statusCode, 200, JSON.stringify(ok.body));
-  assert.equal(price.store.leads[0].status, "lost_price_concern");
-  assert.equal(price.store.lifecycle_events.length, 0, "only no-response is a funnel event, like the office");
-  assert.equal(price.store.lead_events[0].note, "Wants to wait until spring");
-  assert.match(price.store.audit_events[0].summary, /Note: Wants to wait until spring/);
-  const quiet = world("evaluation_complete");
-  await call({ action: "lost", lead_id: quiet.id, reason: "no_response" });
-  assert.equal(quiet.store.leads[0].status, "lost_no_response");
-  assert.equal(quiet.store.lifecycle_events[0].event_type, "lost_no_response");
-  for (const closed of ["became_client", "do_not_contact", "archived", "lost_not_ready"]) {
-    const w = world(closed);
-    assert.equal((await call({ action: "lost", lead_id: w.id, reason: "price" })).statusCode, 409, closed);
+test("lost (Zoom 2026-09-24): ONLY the four hard-no reasons, each to its status + plain words; the old soft reasons now say Archive; a closed lead is refused", async () => {
+  const none = world("office_contacted");
+  assert.equal((await call({ action: "lost", lead_id: none.id })).statusCode, 400);
+  for (const [reason, status, words] of [
+    ["no_trainer_area", "lost_no_trainer_area", "No trainer in their area"],
+    ["method_not_a_fit", "lost_method_not_a_fit", "Doesn't believe in our training method"],
+    ["dog_not_qualified", "lost_dog_not_qualified", "Dog doesn't qualify (health, age, etc.)"],
+    ["competitor", "lost_chose_another_provider", "Went with a competitor"],
+    ["other_provider", "lost_chose_another_provider", "Went with a competitor"]
+  ]) {
+    const w = world("office_contacted");
+    const ok = await call({ action: "lost", lead_id: w.id, reason, note: "Told us on the phone" });
+    assert.equal(ok.statusCode, 200, `${reason}: ${JSON.stringify(ok.body)}`);
+    assert.equal(w.store.leads[0].status, status, reason);
+    assert.equal(w.store.leads[0].lost_reason, words, reason);
+    assert.deepEqual(Object.keys(w.writes.find(x => x.table === "leads").body), ["status", "lost_reason"]);
+    assert.equal(w.store.lifecycle_events.length, 0, "a hard no is not a funnel event");
+    assert.equal(w.store.lead_events[0].note, "Told us on the phone");
+    assert.match(w.store.audit_events[0].summary, new RegExp(`lost: ${words.replace(/[().]/g, "\\$&")}\\. Note: Told us on the phone`));
+  }
+  for (const soft of ["price", "not_ready", "no_response", "complaint"]) {
+    const w = world("office_contacted");
+    const res = await call({ action: "lost", lead_id: w.id, reason: soft });
+    assert.equal(res.statusCode, 400, soft);
+    assert.match(res.body.message, /Archive \(maybe later\)/);
     assert.equal(w.writes.length, 0);
   }
+  for (const closed of ["became_client", "do_not_contact", "archived", "lost_not_ready", "lost_dog_not_qualified", "lost_method_not_a_fit"]) {
+    const w = world(closed);
+    assert.equal((await call({ action: "lost", lead_id: w.id, reason: "competitor" })).statusCode, 409, closed);
+    assert.equal(w.writes.length, 0);
+  }
+});
+
+test("archive (maybe later): archived + archived_at + raw_payload.archive_reason, kept restorable; soft reasons only; closed refused", async () => {
+  const w = world("engaged_no_outcome", { raw_payload: { pipeline: { entered_at: "2026-09-20T00:00:00Z" }, source_page: "contact.html" } });
+  const res = await call({ action: "archive", lead_id: w.id, reason: "family", note: "Talking to her husband", expected_version: 3 });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.equal(res.body.message, "Archived for later. The office sees it and can bring it back.");
+  const row = w.store.leads[0];
+  assert.equal(row.status, "archived");
+  assert.ok(row.archived_at);
+  assert.deepEqual(row.raw_payload.pipeline, { entered_at: "2026-09-20T00:00:00Z" }, "the rest of raw_payload is kept");
+  assert.equal(row.raw_payload.source_page, "contact.html");
+  assert.deepEqual([row.raw_payload.archive_reason.reason, row.raw_payload.archive_reason.label, row.raw_payload.archive_reason.note, row.raw_payload.archive_reason.by], ["family", "Talking it over with family", "Talking to her husband", "trainer"]);
+  assert.deepEqual(Object.keys(w.writes.find(x => x.table === "leads").body).sort(), ["archived_at", "raw_payload", "status"]);
+  assert.equal(w.store.audit_events[0].action, "trainer_lead_archive");
+  assert.deepEqual([w.store.lead_events[0].previous_status, w.store.lead_events[0].new_status], ["engaged_no_outcome", "archived"]);
+  for (const [reason, label] of [["not_ready_money", "Not ready / money"], ["unreachable", "Can't reach them"], ["other", "Other"]]) {
+    const x = world("new_inquiry");
+    assert.equal((await call({ action: "archive", lead_id: x.id, reason })).statusCode, 200, reason);
+    assert.equal(x.store.leads[0].raw_payload.archive_reason.label, label);
+  }
+  const bad = world("new_inquiry");
+  assert.equal((await call({ action: "archive", lead_id: bad.id, reason: "competitor" })).statusCode, 400, "a hard no is Lost, not Archive");
+  assert.equal((await call({ action: "archive", lead_id: bad.id })).statusCode, 400);
+  for (const closed of ["became_client", "archived", "lost_no_trainer_area"]) {
+    const x = world(closed);
+    assert.equal((await call({ action: "archive", lead_id: x.id, reason: "family" })).statusCode, 409, closed);
+  }
+  const other = world("new_inquiry");
+  assert.equal((await call({ action: "archive", lead_id: other.id, reason: "family" }, "u-other-token")).statusCode, 403, "only the trainer it is assigned to");
+  assert.equal(bad.writes.length + other.writes.length, 0);
 });
 
 test("added to Alpha: yes / no, no status change, audited", async () => {

@@ -20,10 +20,21 @@ const ARCHIVE_AFTER_DAYS = Math.max(1, Number(process.env.ARCHIVE_AFTER_DAYS || 
 // do_not_contact is protected for a different and more important reason: it is a
 // suppression record. If it drops off the working board someone can ring a person
 // who explicitly asked us not to. It must stay visible forever.
+//
+// Lost vs Archive (Zoom 2026-09-24, Lorenzo): a HARD NO stays Lost - "there's no need in us contacting them again" -
+// so the four hard-no Lost statuses are never swept into Archived (which means "maybe later"). The older soft Lost
+// statuses are NOT protected and behave exactly as before.
+const HARD_NO_LOST_STATUSES = [
+  "lost_no_trainer_area",
+  "lost_method_not_a_fit",
+  "lost_dog_not_qualified",
+  "lost_chose_another_provider"
+];
 const PROTECTED_STATUSES = [
   "archived",
   "became_client",
-  "do_not_contact"
+  "do_not_contact",
+  ...HARD_NO_LOST_STATUSES
 ];
 
 async function supabaseFetch(path, options = {}) {
@@ -158,3 +169,6 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, message: error.message || "Archiving failed." });
   }
 };
+
+module.exports.PROTECTED_STATUSES = PROTECTED_STATUSES;
+module.exports.HARD_NO_LOST_STATUSES = HARD_NO_LOST_STATUSES;
