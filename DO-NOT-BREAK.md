@@ -2408,3 +2408,19 @@ office's-turn, no call reminder, no email campaign.
      10-digit number with an area code not starting 0/1 saves through `persistLeadFields(lead, {phone})` (audit
      entry "phone corrected from ... to ..."); anything else is refused and the box resets. raw_payload.phone keeps
      what was submitted. Pins: `tests/phone-leading-one-2026-09-25.test.mjs`.
+
+118. **One shared temporary password for trainers, and a welcome email for every NEW trainer (Joshua 2026-09-25).**
+     Existing trainers: Joshua set the shared temporary password himself (SQL, 12:41 PM and 1:00 PM) on every trainer
+     who had not signed in, plus the Trainer Admin login; his own tool `Second Brain/Env Vault/ldtt-live/
+     verify-trainer-logins.mjs` then signed in as all 27 (+ Trainer Admin): 27 OK, 0 FAIL (17:02 UTC). Own passwords,
+     never touched: Lorenzo Miller, Daniel Bainbridge, Shavon Striggles, Brady DeRemer, Eric Beck (Daniel's
+     must_change_password cleared; Trainer Admin's cleared = permanent). New trainers: `api/ensure-trainer-user.js`
+     creates the login with a random password (the login service refuses the shared one as "weak", 2026-09-18), then
+     `rpc/ldtt_set_new_trainer_temp_password` (service_role only; changes a login ONLY when it is an active trainer
+     row still marked temporary and has never signed in) sets the password from the Vercel setting
+     LDTT_TRAINER_SHARED_TEMP_PASSWORD (Joshua's; capital first, "!" last, no spaces - otherwise unused), then emails
+     the trainer (Resend, idempotency `trainer-welcome:<user id>`) the portal link, username and temporary password
+     with the logo footer. The shared password is never returned to the screen. Setting missing / RPC refused = no
+     email, the old one-time random password is shown, and the office is told why. Practice copy: no login, no
+     email. The office's final onboarding screen shows a green "Welcome email SENT to ..." or an orange "NOT sent:
+     <reason>" box. Claude never sets or tests a password. Pins: `tests/trainer-welcome-email-2026-09-25.test.mjs`.

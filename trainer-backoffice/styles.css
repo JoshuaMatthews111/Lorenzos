@@ -6066,3 +6066,8 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
 /* Missy 2026-09-25: the office corrects a wrong phone number in the lead panel. */
 .lead-contact-grid .lead-phone-input { width: 100%; margin-top: 4px; }
 .lead-contact-grid .field-hint { display: block; margin-top: 4px; font-size: .72rem; color: #64748b; text-transform: none; letter-spacing: 0; }
+
+/* Joshua 2026-09-25: the final onboarding screen says whether the trainer's welcome email went out. */
+.welcome-email-notice { margin: 12px 0; padding: 12px 14px; border-radius: 8px; font-weight: 700; line-height: 1.4; }
+.welcome-email-notice.is-sent { background: #e9f8ef; border: 1px solid #7cc79a; color: #14532d; }
+.welcome-email-notice.is-not-sent { background: #fff4e5; border: 1px solid #f0b35a; color: #7a3d00; }

@@ -2203,6 +2203,16 @@ async function ensureTrainerPortalAccount(trainer) {
   // The temporary password is random per trainer now; it is shown once (invite
   // message + toast) and never stored. Reset it from Portal Access if lost.
   trainer.temporaryPassword = result.created && result.temporary_password ? result.temporary_password : TRAINER_TEMP_PASSWORD_NOTICE;
+  // Joshua 2026-09-25: a new login uses the office's shared temporary password and the trainer is emailed their
+  // sign-in details (api/ensure-trainer-user.js). The office sees what happened here and on the final screen.
+  const welcome = result.login_email || null;
+  trainer.welcomeEmailStatus = welcome
+    ? welcome.status === "sent"
+      ? `Welcome email SENT to ${welcome.to} with the portal link, their username and the temporary password.`
+      : `Welcome email NOT sent: ${welcome.reason || "unknown reason"}`
+    : "";
+  if (welcome?.status === "sent") showToast(`Trainer login created. Welcome email sent to ${welcome.to} with their sign-in details.`, 12000);
+  else if (welcome) showToast(trainer.welcomeEmailStatus, 15000);
   if (result.created && result.temporary_password) showToast(`Trainer login created. Temporary password: ${result.temporary_password} — copy it from the invite message now; it is not shown again.`, 20000);
   // onboarding: the API just changed the trainers row; keep our version in step so
   // the publish save that follows is not refused as "updated by another staff member".
@@ -2266,6 +2276,7 @@ async function publishTrainerPageWorkflow(trainer, publish) {
     } else if (savedTrainer && savedTrainer !== trainer) {
       savedTrainer.portalInviteStatus = trainer.portalInviteStatus;
       if (trainer.temporaryPassword) savedTrainer.temporaryPassword = trainer.temporaryPassword;
+      if (trainer.welcomeEmailStatus) savedTrainer.welcomeEmailStatus = trainer.welcomeEmailStatus;
     }
     const published = await window.LDTT_PORTAL.loadPublishedTrainer((savedTrainer || trainer).slug, { includeDraft: false });
     if (!published?.page?.published_content || Number(published.page.published_revision || 0) < 1) {
@@ -11476,7 +11487,8 @@ function showTrainerInviteDialog(trainer) {
     `View Bio page: ${publicSiteOrigin()}${trainerBioHref(trainer)}`,
     window.LDTT_IS_SANDBOX ? "Find a Trainer: listed on the practice copy's Find a Trainer page" : "Find a Trainer: live directory sync will include this published trainer",
     "Reviews: approved destinations remain attached to this trainer page",
-    loginLine
+    loginLine,
+    ...(trainer.welcomeEmailStatus ? [trainer.welcomeEmailStatus] : [])
   ];
   const dialog = document.createElement("dialog");
   dialog.className = "action-confirmation-dialog trainer-invite-dialog";
@@ -11484,6 +11496,7 @@ function showTrainerInviteDialog(trainer) {
     <div class="action-confirmation-icon">✓</div>
     <h2>Trainer page published.</h2>
     <p>${escapeHtml(trainer.name || "This trainer")} is ready with a locked landing page and portal access.</p>
+    ${trainer.welcomeEmailStatus ? `<p class="welcome-email-notice ${/^Welcome email SENT/.test(trainer.welcomeEmailStatus) ? "is-sent" : "is-not-sent"}" role="status">${escapeHtml(trainer.welcomeEmailStatus)}</p>` : ""}
     ${actionConfirmationList(publishItems)}
     <textarea id="${inviteId}" readonly>${escapeHtml(trainerInviteText(trainer))}</textarea>
     <div class="row-actions">

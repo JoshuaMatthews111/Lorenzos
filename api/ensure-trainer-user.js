@@ -38,6 +38,73 @@ function temporaryPassword() {
   return strongEnough(configured) ? configured : generateTemporaryPassword();
 }
 
+// Joshua 2026-09-25: every NEW trainer login uses the office's ONE shared temporary password and the trainer is
+// emailed the sign-in details as soon as the office finishes onboarding. The password lives only in the Vercel setting
+// LDTT_TRAINER_SHARED_TEMP_PASSWORD (set by Joshua; never in code). Shape: capital first, "!" last, no spaces.
+// Unset or the wrong shape = the old behaviour (a random password shown once to the office) and no email.
+function sharedTemporaryPassword(env = process.env) {
+  const value = String(env.LDTT_TRAINER_SHARED_TEMP_PASSWORD || "");
+  return /^[A-Z]\S{6,}!$/.test(value) ? value : "";
+}
+
+const TRAINER_PORTAL_URL = "https://www.lorenzosdogtrainingteam.com/trainer-backoffice/";
+const LOGO_URL = "https://www.lorenzosdogtrainingteam.com/assets/lorenzo-logo-transparent.png";
+const escHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+
+function trainerWelcomeEmail({ firstName, email, password }) {
+  const name = String(firstName || "").trim().split(/\s+/)[0] || "there";
+  const subject = "Your Lorenzo's Dog Training Team trainer portal login";
+  const lines = [
+    `Hi ${name},`,
+    "",
+    "Welcome to Lorenzo's Dog Training Team. Your trainer portal is ready.",
+    "",
+    `Sign in here: ${TRAINER_PORTAL_URL}`,
+    `Username: ${email}`,
+    `Temporary password: ${password}`,
+    "",
+    "The first time you sign in, the portal asks you to create your own password. After that, use your own.",
+    "",
+    "In the portal you see your leads, your booked evaluations and your team.",
+    "",
+    "Questions? Call the office at (866) 436-4959.",
+    "",
+    "Lorenzo's Dog Training Team",
+    "Serious Training. Serious Results."
+  ];
+  const p = text => `<p style="margin:0 0 14px">${escHtml(text)}</p>`;
+  const html = `<div style="font:16px/1.6 Arial,sans-serif;color:#111;max-width:600px">${p(`Hi ${name},`)}${p("Welcome to Lorenzo's Dog Training Team. Your trainer portal is ready.")}`
+    + `<table style="border-collapse:collapse;margin:6px 0 18px;font-size:15px"><tr><td style="padding:6px 12px 6px 0;color:#555">Sign in here</td><td style="padding:6px 0"><a href="${TRAINER_PORTAL_URL}">${TRAINER_PORTAL_URL}</a></td></tr>`
+    + `<tr><td style="padding:6px 12px 6px 0;color:#555">Username</td><td style="padding:6px 0"><b>${escHtml(email)}</b></td></tr>`
+    + `<tr><td style="padding:6px 12px 6px 0;color:#555">Temporary password</td><td style="padding:6px 0"><b>${escHtml(password)}</b></td></tr></table>`
+    + `<p style="margin:18px 0"><a href="${TRAINER_PORTAL_URL}" style="display:inline-block;background:#d80f35;color:#fff;padding:12px 22px;text-decoration:none;border-radius:6px;font-weight:bold">SIGN IN TO MY PORTAL</a></p>`
+    + p("The first time you sign in, the portal asks you to create your own password. After that, use your own.")
+    + p("In the portal you see your leads, your booked evaluations and your team.")
+    + p("Questions? Call the office at (866) 436-4959.")
+    + `<div style="margin-top:26px;padding-top:16px;border-top:1px solid #e3e3e8;text-align:center"><img src="${LOGO_URL}" alt="Lorenzo's Dog Training Team" width="170" style="width:170px;height:auto"><p style="margin:6px 0 0;font-size:12px;color:#777">Lorenzo's Dog Training Team · Serious Training. Serious Results.</p></div></div>`;
+  return { subject, html, text: lines.join("\n") };
+}
+
+async function setSharedTemporaryPassword(userId, password) {
+  const ok = await supabaseFetch("/rest/v1/rpc/ldtt_set_new_trainer_temp_password", {
+    method: "POST",
+    body: JSON.stringify({ p_user_id: userId, p_password: password })
+  });
+  return ok === true;
+}
+
+async function sendTrainerWelcome({ userId, email, displayName, password }) {
+  try {
+    const M = require("../lib/office-email");
+    const mail = trainerWelcomeEmail({ firstName: displayName, email, password });
+    const config = await M.officeResendConfig();
+    const sent = await M.sendViaResend({ to: [email], subject: mail.subject, html: mail.html, text: mail.text, idempotencyKey: `trainer-welcome:${userId}` }, config);
+    return sent.ok ? { status: "sent", to: email } : { status: "failed", to: email, reason: String(sent.message || "The email service did not accept it.").slice(0, 300) };
+  } catch (error) {
+    return { status: "failed", to: email, reason: String(error?.message || error).slice(0, 300) };
+  }
+}
+
 function cors(response) {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -120,7 +187,7 @@ async function createOrEnableAuthUser(email, displayName) {
   return { userId: created?.id, created: true, password };
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ ok: false, message: "Method not allowed" });
@@ -199,6 +266,21 @@ module.exports = async function handler(req, res) {
       })
     });
 
+    // A NEW live login: switch it to the shared temporary password and email the trainer their sign-in details.
+    let loginEmail = null;
+    let sharedUsed = false;
+    if (authResult.created && authResult.userId && !isSandbox()) {
+      const shared = sharedTemporaryPassword();
+      if (!shared) {
+        loginEmail = { status: "skipped", to: email, reason: "The shared temporary password is not set on the site (LDTT_TRAINER_SHARED_TEMP_PASSWORD), so no welcome email went out. Give the trainer the invite message." };
+      } else if (await setSharedTemporaryPassword(authResult.userId, shared).catch(() => false)) {
+        sharedUsed = true;
+        loginEmail = await sendTrainerWelcome({ userId: authResult.userId, email, displayName, password: shared });
+      } else {
+        loginEmail = { status: "skipped", to: email, reason: "The login was created, but the shared temporary password could not be set, so no welcome email went out. Give the trainer the invite message." };
+      }
+    }
+
     return res.status(200).json({
       ok: true,
       sandbox: isSandbox(),
@@ -207,7 +289,9 @@ module.exports = async function handler(req, res) {
       user_id: authResult.userId,
       created: authResult.created,
       trainer: updatedTrainer ? { version: updatedTrainer.version || null, updated_at: updatedTrainer.updated_at || null } : null,
-      temporary_password: authResult.created ? authResult.password || "" : "",
+      temporary_password: authResult.created && !sharedUsed ? authResult.password || "" : "",
+      shared_temp_password: sharedUsed,
+      login_email: loginEmail,
       ...(isSandbox() ? { message: authResult.practiceNoLogin
         ? "Practice copy: the trainer is enabled and their page can be published here, but no login was created — logins are real and shared with live. Create the login on the live portal when the trainer is real."
         : "Practice copy: the trainer is enabled here and can sign in to the practice copy with the password that email already has. No login was created or changed." } : {})
@@ -215,4 +299,8 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     return res.status(500).json({ ok: false, message: error.message || "Trainer portal access could not be prepared." });
   }
-};
+}
+
+module.exports = handler;
+module.exports.sharedTemporaryPassword = sharedTemporaryPassword;
+module.exports.trainerWelcomeEmail = trainerWelcomeEmail;
