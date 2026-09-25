@@ -7857,22 +7857,30 @@ async function sandboxTrainerSignIn({ select, button, status }) {
 // and the /staff?as=<trainer email> test link (sandboxAutoSignInFromUrl). All three end in the same
 // finishPortalSignIn() as a password sign-in. Errors land in `status` (the server's 403 for a
 // non-trainer email included) and the half-made session is cleared, exactly like the password path.
-async function sandboxEmailSignIn({ email, status, remember = false, label = "", adminToken: givenAdminToken = "" }) {
+// Practice copy only. Asks api/sandbox-trainer-login for a one-time trainer sign-in pass. The route answers only a
+// signed-in SUPER ADMIN (security 2026-09-24), so this must run while that admin's session is still valid.
+async function practiceTrainerTokenHash(address) {
+  const adminToken = await window.LDTT_PORTAL?.accessToken?.().catch?.(() => "") || "";
+  const response = await fetch("/api/sandbox-trainer-login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}) },
+    body: JSON.stringify({ email: address })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.ok || !result.token_hash) throw new Error(result.message || "The practice copy could not sign you in as that trainer.");
+  return result.token_hash;
+}
+
+async function sandboxEmailSignIn({ email, status, remember = false, label = "", tokenHash: mintedTokenHash = "" }) {
   if (window.LDTT_IS_SANDBOX !== true) throw new Error("Passwordless trainer sign-in only exists on the practice copy.");
   const address = String(email || "").trim().toLowerCase();
   status.className = "login-status";
   status.textContent = `Signing in as ${label || address}…`;
   try {
-    // The super admin's pass: handed in by the ?as= link (taken BEFORE it signs the admin out), else the live session.
-    const adminToken = givenAdminToken || await window.LDTT_PORTAL?.accessToken?.().catch?.(() => "") || "";
-    const response = await fetch("/api/sandbox-trainer-login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}) },
-      body: JSON.stringify({ email: address })
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.ok || !result.token_hash) throw new Error(result.message || "The practice copy could not sign you in as that trainer.");
-    await window.LDTT_PORTAL.verifyPracticeTokenHash(result.token_hash, { remember });
+    // The ?as= link mints the trainer pass itself while the super admin is still signed in (signing out
+    // revokes the admin's pass on the server), and hands it over here. Otherwise ask with the live session.
+    const tokenHash = mintedTokenHash || await practiceTrainerTokenHash(address);
+    await window.LDTT_PORTAL.verifyPracticeTokenHash(tokenHash, { remember });
     await finishPortalSignIn(status);
   } catch (error) {
     status.className = "login-status error";
@@ -7931,9 +7939,18 @@ async function sandboxAutoSignInFromUrl() {
     return;
   }
   if (session?.loggedIn && String(portalUser?.email || "").toLowerCase() === email) return; // already that trainer
-  // Security 2026-09-24: minting a practice trainer sign-in needs a signed-in SUPER ADMIN. Take the admin's pass
-  // now, before this link signs the admin out, or the request that follows would always be refused.
-  const adminToken = session?.loggedIn ? String(await window.LDTT_PORTAL?.accessToken?.().catch?.(() => "") || "") : "";
+  // Security 2026-09-24: minting a practice trainer sign-in needs a signed-in SUPER ADMIN, and signing the admin
+  // out revokes the admin's pass on the server. So mint the trainer pass FIRST, then sign the admin out.
+  let tokenHash = "";
+  if (session?.loggedIn) {
+    try {
+      tokenHash = await practiceTrainerTokenHash(email);
+    } catch (error) {
+      status.className = "login-status error";
+      status.textContent = loginFailureMessage(error, email);
+      return; // the admin stays signed in; nothing was changed
+    }
+  }
   if (session?.loggedIn) {
     try { await window.LDTT_PORTAL.signOut(); } catch { /* a stale session must not block the test link */ }
     portalUser = null;
@@ -7947,7 +7964,7 @@ async function sandboxAutoSignInFromUrl() {
   if (trainerButton && !trainerButton.classList.contains("active")) trainerButton.click(); // the link is a trainer door
   const username = card?.querySelector('#loginForm input[name="username"]');
   if (username) username.value = email;
-  await sandboxEmailSignIn({ email, status, remember: false, adminToken });
+  await sandboxEmailSignIn({ email, status, remember: false, tokenHash });
 }
 
 function suggestedPortalPassword() {

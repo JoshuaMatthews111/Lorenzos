@@ -135,7 +135,7 @@ test("the browser only draws the box on the practice copy and reuses the passwor
   assert.match(html, /id="sandboxTrainerLogin" hidden/, "the box ships hidden");
   assert.match(app, /async function setupSandboxTrainerLogin\(\) \{\s*if \(window\.LDTT_IS_SANDBOX !== true/, "shown only when /api/environment said sandbox");
   assert.match(app, /async function sandboxTrainerSignIn\([^)]*\) \{\s*if \(window\.LDTT_IS_SANDBOX !== true\) return;/, "the click does nothing off the practice copy");
-  assert.match(app, /await window\.LDTT_PORTAL\.verifyPracticeTokenHash\(result\.token_hash, \{ remember \}\);\s*await finishPortalSignIn\(status\);/, "same post-login path as a password sign-in");
+  assert.match(app, /await window\.LDTT_PORTAL\.verifyPracticeTokenHash\(tokenHash, \{ remember \}\);\s*await finishPortalSignIn\(status\);/, "same post-login path as a password sign-in");
   assert.match(app, /await window\.LDTT_PORTAL\.signIn\(username, password, \{ remember: [^}]+\}\);[\s\S]{0,400}await finishPortalSignIn\(status\);/, "the password login uses the shared path too");
   assert.match(app, /document\.body\.classList\.add\("is-sandbox"\);\s*setupSandboxTrainerLogin\(\);/, "set up only once /api/environment answered sandbox");
   assert.match(app, /const portalBoot = applyEnvironmentBadge\(\)\.finally\(\(\) => bootstrapApplication\(\)\);\s*portalBoot\.finally\(\(\) => sandboxAutoSignInFromUrl\(\)\);/, "the boot order is environment -> bootstrap -> ?as= auto sign-in");
@@ -157,9 +157,14 @@ test("email-only sign-in and the ?as= link exist only on the practice copy; a ty
   assert.match(app, /async function sandboxEmailSignIn\([^)]*\) \{\s*if \(window\.LDTT_IS_SANDBOX !== true\) throw/, "the shared door throws off the practice copy");
   const doorStart = app.indexOf("async function sandboxEmailSignIn");
   const door = app.slice(doorStart, app.indexOf("\n}\n", doorStart) + 3); // the function body only, not the comments after it
-  assert.match(door, /fetch\("\/api\/sandbox-trainer-login", \{\s*method: "POST"/, "POST /api/sandbox-trainer-login");
-  assert.match(door, /verifyPracticeTokenHash\(result\.token_hash, \{ remember \}\);\s*await finishPortalSignIn\(status\);/, "token exchange then the shared post-login path");
-  assert.match(door, /body: JSON\.stringify\(\{ email: address \}\)/, "the request carries the email only");
+  // 2026-09-24: the request lives in practiceTrainerTokenHash() so the ?as= link can mint the pass BEFORE it signs
+  // the super admin out (sign-out revokes the admin's pass). The door exchanges whichever pass it is given.
+  const mintStart = app.indexOf("async function practiceTrainerTokenHash");
+  const mint = app.slice(mintStart, app.indexOf("\n}\n", mintStart) + 3);
+  assert.match(mint, /fetch\("\/api\/sandbox-trainer-login", \{\s*method: "POST"/, "POST /api/sandbox-trainer-login");
+  assert.match(mint, /body: JSON\.stringify\(\{ email: address \}\)/, "the request carries the email only");
+  assert.match(mint, /Authorization: `Bearer \$\{adminToken\}`/, "the request carries the super admin's pass");
+  assert.match(door, /verifyPracticeTokenHash\(tokenHash, \{ remember \}\);\s*await finishPortalSignIn\(status\);/, "token exchange then the shared post-login path");
   assert.doesNotMatch(door, /elements\.password|password:|signIn\(/, "the passwordless door never sends or reads a password");
 
   // 1. Empty password on the login form -> no-password path, gated by sandboxEmailOnlyLoginActive (sandbox + Trainer mode).
@@ -192,12 +197,13 @@ test("email-only sign-in and the ?as= link exist only on the practice copy; a ty
   assert.match(auto, /searchParams\.get\("as"\)/, "reads ?as=");
   assert.match(auto, /searchParams\.delete\("as"\);[\s\S]{0,200}history\.replaceState\(/, "removes ?as= from the URL before signing in");
   assert.match(auto, /if \(session\?\.loggedIn\) \{[\s\S]{0,300}signOut\(\)[\s\S]{0,300}session = \{ loggedIn: false, role: "" \};/, "someone else already signed in is signed out first");
-  assert.match(auto, /await sandboxEmailSignIn\(\{ email, status, remember: false, adminToken \}\);/, "the link uses the same passwordless door");
-  // Security 2026-09-24: the practice sign-in route needs a signed-in super admin, and this link signs the admin
-  // out first - so it must take the admin's pass BEFORE signing out and hand it over, or it is always refused.
-  const takeAt = auto.indexOf("const adminToken = session?.loggedIn");
+  assert.match(auto, /await sandboxEmailSignIn\(\{ email, status, remember: false, tokenHash \}\);/, "the link uses the same passwordless door");
+  // Security 2026-09-24: the practice sign-in route needs a signed-in super admin, and signing the admin out REVOKES
+  // the admin's pass on the server. So the link must mint the trainer pass FIRST, then sign the admin out.
+  const mintAt = auto.indexOf("tokenHash = await practiceTrainerTokenHash(email)");
   const signOutAt = auto.indexOf("window.LDTT_PORTAL.signOut()");
-  assert.ok(takeAt > -1 && signOutAt > -1 && takeAt < signOutAt, "the admin pass is taken before the admin is signed out");
+  assert.ok(mintAt > -1 && signOutAt > -1 && mintAt < signOutAt, "the trainer pass is minted before the admin is signed out");
+  assert.match(app, /const tokenHash = mintedTokenHash \|\| await practiceTrainerTokenHash\(address\);/, "a pass handed in is used as is");
   assert.doesNotMatch(auto, /password/i, "the link never touches a password");
-  assert.match(auto, /const status = document\.getElementById\("loginStatus"\);[\s\S]*?await sandboxEmailSignIn\(\{ email, status, remember: false, adminToken \}\);/, "errors (the server's 403 included) land in the login status");
+  assert.match(auto, /const status = document\.getElementById\("loginStatus"\);[\s\S]*?await sandboxEmailSignIn\(\{ email, status, remember: false, tokenHash \}\);/, "errors (the server's 403 included) land in the login status");
 });
