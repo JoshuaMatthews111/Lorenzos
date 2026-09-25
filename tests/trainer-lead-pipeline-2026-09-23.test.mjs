@@ -95,28 +95,31 @@ test("a saved, bookmarked or texted view=leadPipeline lands on My Leads with the
   assert.doesNotMatch(read("lib/pipeline.js").match(/function trainerLeadLink[\s\S]*?\n\}/)[0], /leadPipeline/);
 });
 
-const SIX = ["New Inquiry", "Contacted", "Eval Scheduled", "Eval Completed", "Sold", "Lost"];
+const EIGHT = ["New Inquiry", "Office/Trainer Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"];
 
-test("My Leads draws SIX task columns (Lorenzo 2026-09-24), not the office's eight, with no office legends", () => {
+// Rachel 2026-09-25 (Lorenzo agreed the same day): the trainer's My Leads board MIRRORS the office Leads board.
+test("My Leads draws the office's EIGHT columns with the office's words (Rachel 2026-09-25), with no office legends", () => {
   const { trainer, office } = renderBoards([lead("a", "new_inquiry")]);
-  assert.deepEqual(trainerHeaders(trainer), SIX);
-  assert.deepEqual(officeHeaders(office), ["New Inquiry", "Office/Trainer Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"], "the office board keeps its eight");
+  assert.deepEqual(trainerHeaders(trainer), EIGHT);
+  assert.deepEqual(officeHeaders(office), EIGHT, "the office board keeps its eight, and the trainer's match");
   assert.match(app, /  leads\(\) \{\n    return `\$\{panel\("My Pipeline", "", trainerPipelineBoard\(trainerLeads\(currentTrainerId\(\)\)\), "pad"\)\}/, "My Leads = the board, no legends (\"not a lot of clutter\")");
   assert.doesNotMatch(fn("trainerPipelineBoard"), /BOARD_COLUMNS|boardStatus|leadStatusLabel/, "the trainer board never borrows the office columns or words");
 });
 
-test("Chloe Williams (engaged_no_outcome) is in \"Contacted\" for the trainer, never New Inquiry; the office still shows Engaged Lead: No Outcome", () => {
+test("Chloe Williams (engaged_no_outcome) is in Engaged Lead: No Outcome on BOTH boards, never New Inquiry", () => {
   const rows = [lead("chloe", "engaged_no_outcome", { owner: "Chloe Williams" }), lead("n", "new_inquiry"), lead("o", "office_contacted"), lead("s", "evaluation_scheduled"), lead("c", "evaluation_cancelled"), lead("b", "bad_lead"), lead("r", "canceled_refunded")];
   const { trainer, office } = renderBoards(rows);
-  assert.ok(trainerColumn(trainer, "Contacted").includes("Chloe Williams"));
+  assert.ok(trainerColumn(trainer, "Engaged Lead: No Outcome").includes("Chloe Williams"));
   assert.ok(!trainerColumn(trainer, "New Inquiry").includes("Chloe Williams"));
-  assert.ok(trainerColumn(trainer, "Contacted").includes("Owner o"), "Office/Trainer Contacted lands in Contacted too");
+  assert.ok(!trainerColumn(trainer, "Office/Trainer Contacted").includes("Chloe Williams"), "spoken to is not the voicemail column");
+  assert.ok(trainerColumn(trainer, "Office/Trainer Contacted").includes("Owner o"));
   assert.ok(trainerColumn(trainer, "New Inquiry").includes("Owner n"));
   assert.ok(officeColumn(office, "Engaged Lead: No Outcome").includes("Chloe Williams"), "the office board is unchanged");
-  for (const id of ["c", "b", "r"]) assert.ok(trainerColumn(trainer, "Lost").includes(`Owner ${id}`), `${id} in Lost`);
-  assert.match(trainerColumn(trainer, "Lost"), /The evaluation was cancelled\. Call to rebook it\./);
+  assert.ok(trainerColumn(trainer, "Evaluation Cancelled").includes("Owner c"));
+  assert.match(trainerColumn(trainer, "Evaluation Cancelled"), /The evaluation was cancelled\. Call to rebook it\./);
+  for (const id of ["b", "r"]) assert.ok(trainerColumn(trainer, "Lost").includes(`Owner ${id}`), `${id} in Lost`);
   const counts = html => [...html.matchAll(/<span class="sales-count">(\d+)<\/span>/g)].map(m => Number(m[1]));
-  assert.deepEqual(counts(trainer), [1, 2, 1, 0, 0, 3], "column counts come from metrics.js");
+  assert.deepEqual(counts(trainer), [1, 1, 1, 1, 1, 0, 0, 2], "column counts come from metrics.js");
   assert.deepEqual(counts(trainer), metrics.trainerLeadBoard(rows).map(([, r]) => r.length));
 });
 

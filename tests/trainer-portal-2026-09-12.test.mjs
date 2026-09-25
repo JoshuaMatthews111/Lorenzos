@@ -22,10 +22,11 @@ const app = read("trainer-backoffice/app.js");
 
 const lead = (id, status, extra = {}) => ({ id, status, createdAt: `2026-09-${String(10 + id.length).padStart(2, "0")}T12:00:00Z`, ...extra });
 
-// Lorenzo, Zoom 2026-09-24 (overruling the 8-column mirror of the same day): the trainer board is a TASK board,
-// "not a lot of clutter" - the pre-2026-09-24 board plus ONE column, Contacted. Bucketed by database status in
-// metrics.js (TRAINER_PIPELINE_STAGES). Do Not Contact / Archived never drawn (rule 80).
-test("trainer board: six columns New Inquiry | Contacted | Eval Scheduled | Eval Completed | Sold | Lost; every drawn lead in exactly one; Do Not Contact / Archived never drawn", () => {
+// Rachel 2026-09-25 (Lorenzo agreed the same day): the trainer board MIRRORS the office Leads board: the same eight
+// columns and words. Bucketed by database status in metrics.js (TRAINER_PIPELINE_STAGES). Do Not Contact /
+// Archived never drawn (rule 80).
+const EIGHT = ["New Inquiry", "Office/Trainer Contacted", "Engaged Lead: No Outcome", "Evaluation Scheduled", "Evaluation Cancelled", "Evaluation Complete", "Became a Client", "Lost"];
+test("trainer board: the office's eight columns; every drawn lead in exactly one; Do Not Contact / Archived never drawn", () => {
   const leads = [
     lead("a", "New Inquiry"), lead("b", "Office Contacted"), lead("c", "Engaged Lead: No Outcome"),
     lead("d", "Evaluation Scheduled"), lead("e", "Evaluation Complete"), lead("f", "Became a Client"),
@@ -33,19 +34,22 @@ test("trainer board: six columns New Inquiry | Contacted | Eval Scheduled | Eval
     lead("k", "Do Not Contact"), lead("l", "Bad Lead"), lead("m", "Canceled / Refunded"), lead("n", "Office Contacted", { dbStatus: "follow_up_call_needed" })
   ];
   const board = new Map(metrics.trainerLeadBoard(leads));
-  assert.deepEqual([...board.keys()], ["New Inquiry", "Contacted", "Eval Scheduled", "Eval Completed", "Sold", "Lost"]);
+  assert.deepEqual([...board.keys()], EIGHT);
   assert.deepEqual(metrics.TRAINER_PIPELINE_STAGES.map(s => s[1]), [...board.keys()], "one list in metrics.js (rule 34)");
+  assert.deepEqual(metrics.BOARD_COLUMNS.map(metrics.statusLabel), EIGHT, "the same words as the office Leads board");
   const ids = column => board.get(column).map(l => l.id);
   assert.deepEqual(ids("New Inquiry"), ["a"], "new_inquiry ONLY");
-  assert.deepEqual(ids("Contacted"), ["b", "c", "n"], "Office/Trainer Contacted + Engaged Lead: No Outcome");
-  assert.deepEqual(ids("Eval Scheduled"), ["d"]);
-  assert.deepEqual(ids("Eval Completed"), ["e"]);
-  assert.deepEqual(ids("Sold"), ["f"]);
-  assert.deepEqual(ids("Lost"), ["g", "h", "l", "m"], "lost_*, cancelled evaluation, bad lead, canceled_*");
+  assert.deepEqual(ids("Office/Trainer Contacted"), ["b", "n"], "called, no conversation (and the old follow-up twin)");
+  assert.deepEqual(ids("Engaged Lead: No Outcome"), ["c"], "spoke with them, no booking");
+  assert.deepEqual(ids("Evaluation Scheduled"), ["d"]);
+  assert.deepEqual(ids("Evaluation Cancelled"), ["h"]);
+  assert.deepEqual(ids("Evaluation Complete"), ["e"]);
+  assert.deepEqual(ids("Became a Client"), ["f"]);
+  assert.deepEqual(ids("Lost"), ["g", "l", "m"], "lost_*, bad lead, canceled_*");
   assert.equal([...board.values()].flat().length, leads.length - 2, "only Archived + Do Not Contact are left out");
   assert.ok(!metrics.TRAINER_PIPELINE_STAGES.some(s => s[2].includes("do_not_contact") || s[2].includes("archived")));
   // The DB status wins when the row carries one (a real row always does).
-  assert.equal(metrics.trainerStageFor({ status: "New Inquiry", dbStatus: "engaged_no_outcome" }), "contacted");
+  assert.equal(metrics.trainerStageFor({ status: "New Inquiry", dbStatus: "engaged_no_outcome" }), "engaged");
 });
 
 test("trainer dashboard tiles agree with the board (rule 34: one source)", () => {
@@ -55,13 +59,14 @@ test("trainer dashboard tiles agree with the board (rule 34: one source)", () =>
   assert.equal(dash.assigned, 10);
   assert.equal(dash.newInquiries, board.get("New Inquiry").length, "New Inquiries = the board's New Inquiry column");
   assert.equal(dash.newInquiries, 1, "a contacted or engaged lead is never counted as a New Inquiry");
-  assert.equal(dash.contacted, board.get("Contacted").length);
-  assert.equal(dash.contacted, 2);
-  assert.equal(dash.evalScheduled, board.get("Eval Scheduled").length);
-  assert.equal(dash.evalCompleted, board.get("Eval Completed").length);
-  assert.equal(dash.won, board.get("Sold").length);
+  assert.equal(dash.contacted, board.get("Office/Trainer Contacted").length);
+  assert.equal(dash.engaged, board.get("Engaged Lead: No Outcome").length);
+  assert.equal(dash.evalScheduled, board.get("Evaluation Scheduled").length);
+  assert.equal(dash.evalCancelled, board.get("Evaluation Cancelled").length);
+  assert.equal(dash.evalCompleted, board.get("Evaluation Complete").length);
+  assert.equal(dash.won, board.get("Became a Client").length);
   assert.equal(dash.lost, board.get("Lost").length);
-  assert.equal(dash.lost, 2, "Lost / Not Ready + Evaluation Cancelled; Do Not Contact is never shown to a trainer");
+  assert.equal(dash.lost, 1, "Lost / Not Ready; a cancelled evaluation has its own column; Do Not Contact is never shown to a trainer");
   assert.equal(dash.pendingSubmissions, 1, "the old figure is still there");
 });
 

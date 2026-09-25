@@ -9664,17 +9664,15 @@ function trainerDealsView() {
   return `${trainerClientTiles(figures)}${reminders}${panel("Submit a Deal", "", dealFormMarkup(), "pad")}<br>${panel("My Clients", "", trainerDealsTable(deals), "pad")}`;
 }
 
-// ---- Trainer working board: a TASK board (Zoom 2026-09-24, Lorenzo) -------------------------------------
-// "It should not mirror exactly like the admin. Admin is looking for holes and gaps and efficiency leaks. The
-// trainers is looking for did I do this, this and this ... Not a lot of clutter." Six columns, from
-// METRICS.trainerLeadBoard (rule 34, metrics.js owns the bucketing): New Inquiry | Contacted | Eval Scheduled |
-// Eval Completed | Sold | Lost. "Contacted" = Office/Trainer Contacted + Engaged Lead: No Outcome, so a lead the
-// office already reached (Chloe Williams, engaged 9/10) never reads "New Inquiry" to the trainer.
+// ---- Trainer working board: the office's eight columns (Rachel 2026-09-25, Lorenzo agreed) ----------------------
+// Same columns and words as the office Leads board, from METRICS.trainerLeadBoard (rule 34, metrics.js owns the
+// bucketing): New Inquiry | Office/Trainer Contacted | Engaged Lead: No Outcome | Evaluation Scheduled |
+// Evaluation Cancelled | Evaluation Complete | Became a Client | Lost.
 // Rule 7: the rows are trainerLeads(currentTrainerId()) and nothing else; Do Not Contact / Archived are never drawn
 // (rule 80). The CARD is the trainer's own: no status dropdown, no notes editing, no archive/delete, no
 // assignment. A tap opens trainerLeadDetailPanel() (Eval completed, Mark contacted, Lost + reason, Alpha, hand-off).
 // Class .sales-board keeps rememberSidewaysScroll() covering it (SIDEWAYS_SCROLL_SELECTOR).
-const TRAINER_BOARD_TONE = { inquiry: "marketing", contacted: "marketing", scheduled: "marketing", completed: "sales", sold: "won", lost: "lost" };
+const TRAINER_BOARD_TONE = { inquiry: "marketing", contacted: "marketing", engaged: "marketing", scheduled: "marketing", cancelled: "winback", completed: "sales", sold: "won", lost: "lost" };
 
 function trainerPipelineBoard(leads) {
   const columns = METRICS.trainerLeadBoard(leads).map(([label, rows, stage]) => {
@@ -9719,13 +9717,15 @@ function trainerCardNextStep(lead, stage) {
   if (stage === "inquiry") {
     return `<p class="trainer-card-next">${texted ? "We texted the booking link. No booking yet: call to introduce yourself." : "No booking text went out. Call to introduce yourself."}</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
   }
-  // Contacted column (Office/Trainer Contacted or Engaged Lead: No Outcome): already reached by the office or the
-  // trainer. The office notes (tap the card) say what was said.
+  // Office/Trainer Contacted = called, no conversation yet (voicemail). The office notes (tap the card) say more.
   if (stage === "contacted") {
-    return `<p class="trainer-card-next">Already contacted. Tap to read the office notes, then follow up to book the evaluation.</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
+    return `<p class="trainer-card-next">Called, but no conversation yet (voicemail). Tap to read the office notes, then call again to book the evaluation.</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
   }
-  // A cancelled evaluation sits in Lost (as on the trainer board before 2026-09-24): a person calls to rebook it.
-  if (stage === "lost" && lead.status === "Evaluation Cancelled") {
+  // Engaged Lead: No Outcome = someone spoke with them and they did not book.
+  if (stage === "engaged") {
+    return `<p class="trainer-card-next">Spoken to, but no evaluation booked yet. Tap to read the office notes, then follow up to book it.</p><button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>`;
+  }
+  if (stage === "cancelled") {
     return `<p class="trainer-card-next is-lost">The evaluation was cancelled. Call to rebook it.</p>`;
   }
   // Rule 81: trainers cannot open the office lead panel, so the pre-evaluation answers sit on the card.
@@ -10327,7 +10327,7 @@ async function trainerLeadAction(button) {
   if (action === "eval_completed" && !window.confirm(`Mark ${lead.owner}'s evaluation as completed?`)) return;
   // Rachel 2026-09-24: New Inquiry -> office_contacted (the server allows only that move). It lands in the trainer's
   // "Contacted" column; the office board shows it as Office/Trainer Contacted.
-  if (action === "contacted" && !window.confirm(`Mark ${lead.owner} as contacted? The lead moves to Contacted on your board (the office sees it as ${leadStatusLabel("Office Contacted")}).`)) return;
+  if (action === "contacted" && !window.confirm(`Mark ${lead.owner} as contacted? The lead moves to ${leadStatusLabel("Office Contacted")} on your board and the office's.`)) return;
   let teammate = null;
   if (action === "handoff") {
     // Rule 105: only a name from the caller's own downline can be picked; the server checks it again.

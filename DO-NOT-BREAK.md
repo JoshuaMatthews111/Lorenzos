@@ -2384,3 +2384,14 @@ office's-turn, no call reminder, no email campaign.
      ZIP, no calendar, no page, no leads). Before, that login was tied to Eric Beck's REAL record and saw his leads.
      Its password is set by Joshua himself (Portal Access -> Staff Access -> Reset Password); nothing here sets one.
      Migration file: `supabase/migrations/20260925161000_trainer_admin_view_login.sql`.
+
+116. **The trainer's My Leads board MIRRORS the office Leads board (Rachel 2026-09-25; Lorenzo agreed the same day,
+     replacing the six-column board of rule 80 / 2026-09-24).** `metrics.js TRAINER_PIPELINE_STAGES` = the office's
+     eight columns with the office's words: New Inquiry | Office/Trainer Contacted | Engaged Lead: No Outcome |
+     Evaluation Scheduled | Evaluation Cancelled | Evaluation Complete | Became a Client | Lost. "Office/Trainer
+     Contacted" (office_contacted, follow_up_call_needed) = called, no conversation (voicemail); "Engaged Lead: No
+     Outcome" (engaged_no_outcome) = spoke with them, no booking (Chloe Williams). Lost = lost_*, bad_lead, canceled_*.
+     Do Not Contact and Archived are still never drawn for a trainer (rule 80). Card notes per column in
+     `trainerCardNextStep` (engaged / cancelled added); `trainerDashboard` adds `engaged` and `evalCancelled`.
+     The "Lead Pipeline" tab stays removed (2026-09-24). Pins: `tests/trainer-portal-2026-09-12.test.mjs`,
+     `tests/trainer-lead-pipeline-2026-09-23.test.mjs`, `tests/status-label-2026-09-24.test.mjs`.

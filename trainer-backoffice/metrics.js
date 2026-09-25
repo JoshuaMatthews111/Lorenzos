@@ -480,27 +480,25 @@
   const TRACK500_CLIENT_GOAL = 500;
   const TRACK500_REVENUE_GOAL = 1250000;
 
-  // The trainer's working board: a TASK board, not the office board (Zoom 2026-09-24, Lorenzo overruling the
-  // earlier "mirror the office" change: "it should not mirror exactly like the admin. Admin is looking for holes
-  // and gaps and efficiency leaks. The trainers is looking for did I do this, this and this ... Not a lot of
-  // clutter."). It is the trainer board from before 2026-09-24 plus exactly ONE column, "Contacted":
-  //   New Inquiry | Contacted | Eval Scheduled | Eval Completed | Sold | Lost
-  // Bucketed by the DATABASE status. "Contacted" = the office or the trainer already reached them
-  // (office_contacted, its old twin follow_up_call_needed, engaged_no_outcome), so Chloe Williams
-  // (engaged_no_outcome since 9/10) is NOT under New Inquiry any more (Rachel's complaint) and Engaged Lead: No
-  // Outcome gets no column of its own ("we know it's no outcome if there's no sale"). Lost holds every lost_*
-  // status, Bad Lead, a cancelled evaluation and the two canceled_* statuses, as the old board did.
-  // Do Not Contact and Archived are never drawn (rule 80: never hand a trainer someone on that list); any status
-  // not listed here is not drawn either. The OFFICE Leads board (BOARD_COLUMNS / boardStatus) is untouched.
+  // The trainer's working board MIRRORS the office Leads board (Rachel 2026-09-25, Lorenzo agreed the same day,
+  // replacing the six-column task board of 2026-09-24): the same eight columns, the same words, the same status in
+  // each, so the office and the trainer read one board when they talk about a lead:
+  //   New Inquiry | Office/Trainer Contacted | Engaged Lead: No Outcome | Evaluation Scheduled |
+  //   Evaluation Cancelled | Evaluation Complete | Became a Client | Lost
+  // "Office/Trainer Contacted" = called, no conversation (voicemail). "Engaged Lead: No Outcome" = spoke with them,
+  // no booking (Chloe Williams since 9/10). Bucketed by the DATABASE status, like boardStatus() on the office board.
+  // One difference, on purpose: Do Not Contact and Archived are never drawn for a trainer (rule 80).
   const TRAINER_PIPELINE_STAGES = [
-    ["inquiry",   "New Inquiry",    ["new_inquiry"]],
-    ["contacted", "Contacted",      ["office_contacted", "follow_up_call_needed", "engaged_no_outcome"]],
-    ["scheduled", "Eval Scheduled", ["evaluation_scheduled"]],
-    ["completed", "Eval Completed", ["evaluation_complete"]],
-    ["sold",      "Sold",           ["became_client"]],
-    ["lost",      "Lost",           ["lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
-                                     "lost_client_complaint", "lost_no_trainer_area", "bad_lead", "evaluation_cancelled",
-                                     "canceled_refunded", "canceled_write_off", "lost_method_not_a_fit", "lost_dog_not_qualified"]]
+    ["inquiry",   "New Inquiry",              ["new_inquiry"]],
+    ["contacted", "Office/Trainer Contacted", ["office_contacted", "follow_up_call_needed"]],
+    ["engaged",   "Engaged Lead: No Outcome", ["engaged_no_outcome"]],
+    ["scheduled", "Evaluation Scheduled",     ["evaluation_scheduled"]],
+    ["cancelled", "Evaluation Cancelled",     ["evaluation_cancelled"]],
+    ["completed", "Evaluation Complete",      ["evaluation_complete"]],
+    ["sold",      "Became a Client",          ["became_client"]],
+    ["lost",      "Lost",                     ["lost_no_response", "lost_price_concern", "lost_not_ready", "lost_chose_another_provider",
+                                               "lost_client_complaint", "lost_no_trainer_area", "bad_lead",
+                                               "canceled_refunded", "canceled_write_off", "lost_method_not_a_fit", "lost_dog_not_qualified"]]
   ];
   const TRAINER_HIDDEN_DB_STATUSES = ["do_not_contact", "archived"];
   // The row's database status. A real row carries it (normalizeLeadRow -> dbStatus); a demo/offline row carries
@@ -533,17 +531,18 @@
   };
 
   function trainerDashboard(leads, submissions) {
-    // Every tile is one column of the trainer's own board (2026-09-24, six-column task board), so tile == column:
-    //   newInquiries = "New Inquiry" (new_inquiry only)      contacted     = "Contacted"
-    //   evalScheduled = "Eval Scheduled"                     evalCompleted = "Eval Completed"
-    //   won           = "Sold" (became_client)               lost          = "Lost" (lost_*, bad lead, cancelled)
+    // Every figure is one column of the trainer's board (the office's eight columns since 2026-09-25):
+    //   newInquiries = New Inquiry, contacted = Office/Trainer Contacted, engaged = Engaged Lead: No Outcome,
+    //   evalScheduled / evalCancelled / evalCompleted, won = Became a Client, lost = Lost (lost_*, bad lead, canceled_*)
     // assigned = every lead assigned to the trainer (hidden ones included), as before.
     const board = trainerPipeline(leads);
     return {
       newInquiries: board.get("inquiry").length,
       contacted: board.get("contacted").length,
+      engaged: board.get("engaged").length,
       assigned: count(leads),
       evalScheduled: board.get("scheduled").length,
+      evalCancelled: board.get("cancelled").length,
       evalCompleted: board.get("completed").length,
       won: board.get("sold").length,
       lost: board.get("lost").length,
