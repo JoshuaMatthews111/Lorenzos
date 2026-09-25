@@ -2353,3 +2353,16 @@ office's-turn, no call reminder, no email campaign.
        `trainer_log_deal` stays text only.
      - Both keys are in `KEPT_WHEN_ABSENT`, so an office settings save that does not send them keeps the stored values.
      Pins: `tests/timer-start-and-trainer-emails-2026-09-25.test.mjs`.
+
+113. **Angela's email is TWO emails, one button each (Joshua 2026-09-25, 4:50 AM, reading the preview).**
+     `lib/email-campaign.js` `renderEmail({variant})` / `variantOf(lead)`:
+     - `still_looking` (everyone who signed up earlier): subject "What would you change about your dog's behavior?",
+       "Still looking for help with your dog?" through "Choose what works for you", ONE button SCHEDULE MY FREE
+       EVALUATION, then the signature "Lorenzo's Dog Training Team" / "Serious Training. Serious Results." and the opt-out.
+     - `finish_form` (started the booking form - `booking.intake` - but no dog answers and no booking / request /
+       callback): subject "You've already taken the first step", her second-half words, ONE button BOOK MY FREE
+       EVALUATION, the signature, her P.S. and the opt-out. Not the follow-up timer's 30-minute unfinished-form message
+       (that one is unchanged).
+     - Still once per person for the campaign (one of the two emails, never both). The send record and the run summary
+       name the variant; the dry run counts both; preview takes `&variant=`. On 2026-09-25 the 124 were 123 + 1.
+     Pins: `tests/email-campaign-2026-09-25.test.mjs`.

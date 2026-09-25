@@ -22,7 +22,9 @@ function load(sandbox = false) {
   return require("../lib/email-campaign.js");
 }
 
-const ANGELA = [
+const LINK = "https://lorenzosdogtrainingteam.com/dog-training-san-antonio-tx?zip=78245";
+// Joshua 2026-09-25: Angela's one email is split in two, each with ONE button. Her words, in order, in each.
+const STILL_LOOKING = [
   "Hi Diana,",
   "Still looking for help with your dog?",
   "Maybe it's pulling on the leash. Not listening. Jumping. Barking. Reactivity. Anxiety. Aggression. Or maybe you just want a better-trained dog you can confidently enjoy life with.",
@@ -31,28 +33,42 @@ const ANGELA = [
   "That's why we offer a FREE Dog Training Evaluation.",
   "During your evaluation, we'll talk about what you're experiencing, what you'd like to change, and what may be standing between the dog you have today and the relationship you want with your dog.",
   "\u{1F43E} Choose what works for you: Schedule your FREE evaluation online or in person.",
-  "\u{1F449} SCHEDULE MY FREE EVALUATION: https://lorenzosdogtrainingteam.com/dog-training-san-antonio-tx?zip=78245",
-  "No guessing. No pressure. Just an opportunity to get answers and understand your options.",
+  `\u{1F449} SCHEDULE MY FREE EVALUATION: ${LINK}`,
+  "Lorenzo's Dog Training Team",
+  "Serious Training. Serious Results.",
+  "Reply to this email with STOP and we won't email again."
+];
+const FINISH_FORM = [
+  "Hi Diana,",
   "You've already taken the first step by looking for help.",
+  "No guessing. No pressure. Just an opportunity to get answers and understand your options.",
+  `\u{1F449} BOOK MY FREE EVALUATION: ${LINK}`,
   "We're here when you're ready for the next one.",
   "Lorenzo's Dog Training Team",
   "Serious Training. Serious Results.",
   "P.S. Your dog doesn't need to be \"a bad dog\" to need training. Sometimes you simply need the right communication, structure, and guidance. Let's figure out what your dog needs together.",
-  "\u{1F449} BOOK MY FREE EVALUATION: https://lorenzosdogtrainingteam.com/dog-training-san-antonio-tx?zip=78245",
   "Reply to this email with STOP and we won't email again."
 ];
+const buttonsOf = html => [...html.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map(m => [m[1].replace(/&amp;/g, "&"), m[2]]);
 
-test("Angela's words, exactly, in order; subject exact; both buttons to the SAME area link; signature + tagline + opt-out", () => {
+test("two emails, Angela's words in order, ONE button each to the person's area link; signature + tagline + opt-out", () => {
   const E = load();
-  const link = "https://lorenzosdogtrainingteam.com/dog-training-san-antonio-tx?zip=78245";
+  const link = LINK;
   const mail = E.renderEmail({ firstName: "diana", link });
+  assert.equal(mail.variant, "still_looking", "the default is the 'Still looking' email");
   assert.equal(mail.subject, "What would you change about your dog's behavior?");
-  assert.deepEqual(mail.text.split("\n").filter(Boolean), ANGELA);
-  const buttons = [...mail.html.matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map(m => [m[1].replace(/&amp;/g, "&"), m[2]]);
-  assert.deepEqual(buttons, [[link, "SCHEDULE MY FREE EVALUATION"], [link, "BOOK MY FREE EVALUATION"]]);
-  assert.ok(mail.html.indexOf("SCHEDULE MY FREE EVALUATION") < mail.html.indexOf("No guessing"), "button 1 sits after 'Choose what works for you'");
-  assert.ok(mail.html.indexOf("BOOK MY FREE EVALUATION") > mail.html.indexOf("P.S."), "button 2 sits after the P.S.");
-  for (const words of ["Lorenzo&#39;s Dog Training Team", "Serious Training. Serious Results.", "Reply to this email with STOP and we won&#39;t email again."]) assert.ok(mail.html.includes(words), words);
+  assert.deepEqual(mail.text.split("\n").filter(Boolean), STILL_LOOKING);
+  assert.deepEqual(buttonsOf(mail.html), [[link, "SCHEDULE MY FREE EVALUATION"]]);
+  assert.ok(mail.html.indexOf("SCHEDULE MY FREE EVALUATION") < mail.html.indexOf("Serious Training"), "the button sits before the signature");
+  assert.doesNotMatch(mail.html, /No guessing|P\.S\./, "the second half is not in the first email");
+  const finish = E.renderEmail({ firstName: "diana", link, variant: "finish_form" });
+  assert.equal(finish.subject, "You've already taken the first step");
+  assert.deepEqual(finish.text.split("\n").filter(Boolean), FINISH_FORM);
+  assert.deepEqual(buttonsOf(finish.html), [[link, "BOOK MY FREE EVALUATION"]]);
+  assert.doesNotMatch(finish.html, /Still looking|Maybe it&#39;s pulling/, "the first half is not in the second email");
+  for (const m of [mail, finish]) {
+    for (const words of ["Lorenzo&#39;s Dog Training Team", "Serious Training. Serious Results.", "Reply to this email with STOP and we won&#39;t email again."]) assert.ok(m.html.includes(words), words);
+  }
   assert.match(E.renderEmail({ firstName: "Larry or Laura", link }).text, /^Hi there,/, "the same greeting tidy as every client message");
   assert.match(E.renderEmail({ firstName: "TIMOTHY", link }).text, /^Hi Timothy,/);
   assert.doesNotMatch(E.renderEmail({ firstName: "Pat", link: "javascript:alert(1)" }).html, /<a /, "only an https link becomes a button");
@@ -214,4 +230,15 @@ test("the office door: dry run + preview are read-only and SUPER ADMIN only; arm
   assert.match(read("api/cron/auto-followups.js"), /const emailCampaign = await E\.runEmailCampaign\(\)\n\s*\.catch\(/);
   const E = load();
   assert.deepEqual(E.normalizeCampaign({}), { armed: false, send_at: "", pools: [], max_age_days: null, campaign_id: "angela_2026_09", include_booked: false });
+});
+
+test("who gets which email: started the booking form and stopped = 'first step' email; everyone else = 'Still looking'", () => {
+  const E = load();
+  const L = raw => ({ id: randomUUID(), status: "office_contacted", email: "a@x.com", raw_payload: raw });
+  assert.equal(E.variantOf(L({})), "still_looking", "never opened the booking form");
+  assert.equal(E.variantOf(L({ booking: { intake: { zip: "78245" }, dogs: [] } })), "finish_form", "gave the short details, stopped before the dog questions");
+  assert.equal(E.variantOf(L({ booking: { intake: { zip: "78245" } } })), "finish_form");
+  assert.equal(E.variantOf(L({ booking: { intake: { zip: "78245" }, dogs: [{ name: "Rex" }] } })), "still_looking", "answered the dog questions");
+  assert.equal(E.variantOf(L({ booking: { intake: { zip: "78245" }, callback: { zip: "78245" } } })), "still_looking", "asked for a call");
+  assert.equal(E.variantOf(L({ booking: { intake: { zip: "78245" }, requested_at: "2026-09-20T00:00:00Z" } })), "still_looking", "asked for a trainer");
 });

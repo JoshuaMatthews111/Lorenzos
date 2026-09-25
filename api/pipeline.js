@@ -87,7 +87,7 @@ module.exports = async function handler(req, res) {
         if (!access.isSuperAdmin) return res.status(403).json({ ok: false, message: "Only the Super Admin can preview the email campaign." });
         const leadId = B.clean(req.query?.lead_id, 60);
         if (!B.UUID.test(leadId)) return res.status(400).json({ ok: false, message: "Which lead? The lead id is missing." });
-        const preview = await E.preview(leadId);
+        const preview = await E.preview(leadId, { variant: B.clean(req.query?.variant, 20) });
         if (!preview) return res.status(404).json({ ok: false, message: "That lead was not found." });
         return res.status(200).json({ ok: true, ...preview });
       }
