@@ -9,6 +9,8 @@
 //   - archive: an open lead -> archived (+ archived_at, raw_payload.archive_reason) for a maybe-later reason
 //     (not_ready_money / family / unreachable / other). The office can Restore it.
 //   - alpha: added_to_alpha yes / no.
+//   - intro_called (Zoom 2026-09-24): "I called the client" on an Evaluation Scheduled lead -> raw_payload.pipeline.
+//     trainer_intro_called_at (+ audit + a trainer_intro_called lead event). No status change. Stops the reminder.
 // Only the trainer the lead is assigned to (leads.trainer_id) or the office. The write is version-guarded, then
 // logged exactly like an office change: audit_events, lifecycle_events (the funnel) and lead_events. It never
 // writes any other field (no eval time, no booking, no deal, no client). DO-NOT-BREAK rule 83; rule 7 (trainers
@@ -302,7 +304,7 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const action = clean(body.action, 30);
     const leadId = clean(body.lead_id, 80);
-    if (!["contacted", "eval_completed", "lost", "archive", "alpha", "handoff"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
+    if (!["contacted", "eval_completed", "lost", "archive", "alpha", "handoff", "intro_called"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
     if (!UUID.test(leadId)) return reply(res, 400, { ok: false, message: "That lead id is not complete." });
 
     const [before] = (await supabaseFetch(`/rest/v1/leads?select=*&id=eq.${encodeURIComponent(leadId)}&limit=1`)) || [];
@@ -334,6 +336,16 @@ module.exports = async function handler(req, res) {
       if (CLOSED.has(before.status)) return reply(res, 409, { ok: false, message: "This lead is already closed. Ask the office to change it." });
       changes = { status, lost_reason: LOST_LABELS[reason] };
       summary = `Trainer marked the lead lost: ${LOST_LABELS[reason]}.`;
+    } else if (action === "intro_called") {
+      // Zoom 2026-09-24: "I called the client" - the trainer checks off the introduction call after an evaluation is
+      // booked, which stops the 30-minute reminder (lib/pipeline.js runTrainerCallReminders). No status change.
+      if (before.status !== "evaluation_scheduled") return reply(res, 409, { ok: false, message: "This is for a lead in Evaluation Scheduled." });
+      const raw = before.raw_payload && typeof before.raw_payload === "object" ? before.raw_payload : {};
+      const pipeline = raw.pipeline && typeof raw.pipeline === "object" ? raw.pipeline : {};
+      if (pipeline.trainer_intro_called_at) return reply(res, 200, { ok: true, already: true, message: "Already checked off.", record: { id: before.id, status: before.status, version: before.version || null, trainer_intro_called_at: pipeline.trainer_intro_called_at } });
+      const at = new Date().toISOString();
+      changes = { raw_payload: { ...raw, pipeline: { ...pipeline, trainer_intro_called_at: at, trainer_intro_called_by: access.actor?.name || access.actor?.email || (access.isAdmin ? "office" : "trainer") } } };
+      summary = "Trainer checked off: called the client to introduce themselves.";
     } else if (action === "archive") {
       // "Archive (maybe later)": the lead leaves the trainer's board (rule 80: archived is never drawn for a trainer),
       // stays on file with its reason, and the office can bring it back at any time (Restore).
@@ -370,10 +382,21 @@ module.exports = async function handler(req, res) {
         actor_user_id: access.actor?.id || access.user?.id || null, actor_email: access.actor?.email || null, actor_name: access.actor?.name || null,
         action: `trainer_lead_${action}`, entity_type: "lead", entity_id: String(record.id), summary,
         before_data: { status: before.status, added_to_alpha: before.added_to_alpha ?? null },
-        after_data: { status: record.status, added_to_alpha: record.added_to_alpha ?? null },
+        after_data: { status: record.status, added_to_alpha: record.added_to_alpha ?? null, ...(action === "intro_called" ? { trainer_intro_called_at: record.raw_payload?.pipeline?.trainer_intro_called_at || null } : {}) },
         request_id: requestId
       })
     });
+    if (action === "intro_called") {
+      await supabaseFetch("/rest/v1/lead_events", {
+        method: "POST", headers: { Prefer: "return=minimal" },
+        body: JSON.stringify({
+          lead_id: record.id, event_type: "trainer_intro_called", previous_status: before.status, new_status: record.status,
+          actor_user_id: access.actor?.id || access.user?.id || null, note: note || null,
+          event_key: `lead:${record.id}:intro_called`, occurred_at: new Date().toISOString(),
+          raw_payload: { request_id: requestId, by: access.isAdmin ? "office" : "trainer" }
+        })
+      });
+    }
     if (record.status !== before.status) {
       const eventType = LIFECYCLE[record.status];
       if (eventType) {
@@ -400,8 +423,8 @@ module.exports = async function handler(req, res) {
       });
     }
     if (action === "eval_completed") await P.afterEvalCompleted({ lead: record }).catch(error => console.error("after_eval_completed_failed", String(error?.message || error)));
-    const message = action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : action === "archive" ? "Archived for later. The office sees it and can bring it back." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
-    return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha ?? null, version: record.version || null } });
+    const message = action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : action === "archive" ? "Archived for later. The office sees it and can bring it back." : action === "intro_called" ? "Checked off: you called the client. No more reminders for this one." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
+    return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha ?? null, version: record.version || null, ...(action === "intro_called" ? { trainer_intro_called_at: record.raw_payload?.pipeline?.trainer_intro_called_at || null } : {}) } });
   } catch (error) {
     const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;
     return reply(res, status, { ok: false, message: error.message || "The lead could not be updated." });

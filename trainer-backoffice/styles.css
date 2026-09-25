@@ -6049,3 +6049,7 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
 .lead-detail-panel h2 .lead-tag-recycled { font-size: 13px; vertical-align: 4px; }
 .lead-recycled-line { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 10px; padding: 8px 10px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: .9rem; }
 .lead-recycled-line .recycle-icon { width: 16px; height: 16px; flex: none; margin-top: 2px; color: #2563eb; }
+
+/* Zoom 2026-09-24: "I called the client" on an Evaluation Scheduled lead (trainer card + panel). */
+.trainer-called-btn { margin: 4px 0; }
+.trainer-called-done { display: inline-block; font-weight: 700; color: #0c7a45; font-size: .85rem; }

@@ -39,7 +39,13 @@ module.exports = async function handler(req, res) {
     const reengage = await P.runReengageBatch()
       .catch(error => ({ armed: false, message: `re-engage check failed: ${String(error?.message || error)}` }));
     if (reengage.ran) console.log("reengage_batch_run", JSON.stringify({ column: reengage.column, walked: reengage.walked, sent: reengage.sent, texts: reengage.texts_sent, emails: reengage.emails_sent, emails_failed: reengage.emails_failed, already_done: reengage.already_done, resumed: reengage.resumed, stopped_early: reengage.stopped_early, remaining: reengage.remaining, interrupted: (reengage.interrupted || []).length }));
-    return res.status(200).json({ ok: true, ...result, reengage });
+    // Zoom 2026-09-24 (built 2026-09-25): the trainer's "call your client" reminder, 30 minutes after a booking,
+    // ONE text per lead, only while "I called the client" is not checked off. Behind its own switch
+    // (trainer_call_reminders, default OFF): off = a one-line no-op. A failure here never stops the rest.
+    const callReminders = await P.runTrainerCallReminders()
+      .catch(error => ({ on: false, message: `call reminders failed: ${String(error?.message || error)}` }));
+    if (callReminders.on) console.log("trainer_call_reminders_run", JSON.stringify({ checked: callReminders.checked, sent: callReminders.sent?.length || 0, skipped: callReminders.skipped?.length || 0 }));
+    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });

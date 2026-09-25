@@ -321,7 +321,8 @@ test("the portal box: the switch, the override and every role box save through t
     assert.equal((app.match(new RegExp(box, "g")) || []).length >= 1, true, `${box} is on the panel`);
   }
   // Joshua 2026-09-23: the "Automatic follow-ups" switch rides the same save (tests/meeting-2026-09-23.test.mjs).
-  assert.match(app, /practice_real_numbers: realNumbers, practice_trainer_override_phone: trainerOverride, auto_followups: autoFollowups \}\)/, "both ride the existing save_settings op");
+  // 2026-09-25: the two new switches (trainer_call_reminders, office_turn_digest) ride the same save, only when on screen.
+  assert.match(app, /practice_real_numbers: realNumbers, practice_trainer_override_phone: trainerOverride, auto_followups: autoFollowups, \.\.\.newSwitches \}\)/, "all ride the existing save_settings op");
   assert.match(app, /\^data-pipeline-\(email\|label\|trainer-phone\|practice-email\|ops-phone\|live-ops-phone\|live-ops-email\|client-phone\|alpha-email\|trainer-override-phone\)=/, "rule 14: the new boxes keep their text through a redraw");
 });
 
