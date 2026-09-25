@@ -8,7 +8,7 @@
   <link rel="canonical" href="https://www.lorenzosdogtrainingteam.com/dog-training-san-antonio-tx">
   <link rel="icon" type="image/png" href="assets/ldtt-favicon.png">
   <link rel="apple-touch-icon" href="assets/ldtt-favicon.png">
-  <link rel="stylesheet" href="styles.css?v=20260925live32">
+  <link rel="stylesheet" href="styles.css?v=20260925live33">
   <meta property="og:type" content="website">
   <meta property="og:title" content="San Antonio Dog Training | Lorenzo's Dog Training Team">
   <meta property="og:description" content="Request San Antonio, TX dog training from Lorenzo&#39;s Dog Training Team. Obedience training, puppy training, dog behavior modification, and advanced programs with fast local follow-up.">
@@ -938,7 +938,7 @@
         const el = event.target;
         if (!el || el.tagName !== 'INPUT' || (el.name !== 'phone' && el.name !== 'vet_phone')) return;
         let d = String(el.value).replace(/[^0-9]/g, '');
-        if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+        while (d.length > 10 && d.charAt(0) === '1') d = d.slice(1);
         d = d.slice(0, 10);
         el.value = d.length > 6 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : d.length > 3 ? '(' + d.slice(0, 3) + ') ' + d.slice(3) : d;
       }, true);
@@ -962,9 +962,9 @@
     })();
   </script>
   <script src="supabase-config.js"></script>
-  <script src="script.js?v=20260925live32"></script>
-  <script src="market-landing.js?v=20260925live32"></script>
-  <script src="ad-funnel.js?v=20260925live32"></script>
-  <script src="assets/v2/v2.js?v=20260925live32" defer></script>
+  <script src="script.js?v=20260925live33"></script>
+  <script src="market-landing.js?v=20260925live33"></script>
+  <script src="ad-funnel.js?v=20260925live33"></script>
+  <script src="assets/v2/v2.js?v=20260925live33" defer></script>
 </body>
 </html>

@@ -1328,7 +1328,7 @@ initAdFunnelCaptureModal();
 
 document.querySelectorAll('input[name="phone"]').forEach(input=>{
   const formatPhone=()=>{
-    const digits=input.value.replace(/\D/g,'').slice(0,10);
+    let digits=input.value.replace(/\D/g,'');while(digits.length>10&&digits[0]==='1')digits=digits.slice(1);digits=digits.slice(0,10);
     if(digits.length<4) input.value=digits;
     else if(digits.length<7) input.value=`(${digits.slice(0,3)}) ${digits.slice(3)}`;
     else input.value=`(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`;
@@ -1609,7 +1609,7 @@ document.addEventListener("input", function (event) {
   var el = event.target;
   if (!el || el.tagName !== "INPUT" || el.name !== "phone") return;
   var d = String(el.value).replace(/[^0-9]/g, "");
-  if (d.length === 11 && d.charAt(0) === "1") d = d.slice(1);
+  while (d.length > 10 && d.charAt(0) === "1") d = d.slice(1);
   d = d.slice(0, 10);
   el.value = d.length > 6 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : d.length > 3 ? "(" + d.slice(0, 3) + ") " + d.slice(3) : d;
 }, true);

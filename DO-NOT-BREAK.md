@@ -2395,3 +2395,16 @@ office's-turn, no call reminder, no email campaign.
      `trainerCardNextStep` (engaged / cancelled added); `trainerDashboard` adds `engaged` and `evalCancelled`.
      The "Lead Pipeline" tab stays removed (2026-09-24). Pins: `tests/trainer-portal-2026-09-12.test.mjs`,
      `tests/trainer-lead-pipeline-2026-09-23.test.mjs`, `tests/status-label-2026-09-24.test.mjs`.
+
+117. **A phone that autofills "+1 ..." keeps all 10 digits; the office can correct a lead's phone (Missy + Rachel
+     2026-09-25).** Before: script.js's first formatter cut to 10 digits with the 1 still in front ("+1 (216) 555-1234"
+     -> "(121) 655-5123", last digit lost), and the 2026-09-15 fix stripped a 1 only at EXACTLY 11 digits. 16 live
+     leads were saved cut (5 named by the office, 2 after 09-15: Cherie K., Brandi P.); none can be recovered from
+     stored data (raw_payload.phone holds the same cut value) - the office emails those clients. Now every copy
+     strips leading 1s while more than 10 digits remain: script.js (both formatters, including the page-load one),
+     market-landing.js, assets/v2/v2.js, lib/booking-page.js, lib/ad-page-template.js + the 12 dog-training-*.html
+     pages (same line edited in place), trainer-backoffice/app.js formatPhoneWhileTyping. Form fields, FormSubmit and
+     submit-contact are untouched (rule 72). Office lead panel: Phone is a box (`data-lead-phone`); on leaving it, a
+     10-digit number with an area code not starting 0/1 saves through `persistLeadFields(lead, {phone})` (audit
+     entry "phone corrected from ... to ..."); anything else is refused and the box resets. raw_payload.phone keeps
+     what was submitted. Pins: `tests/phone-leading-one-2026-09-25.test.mjs`.
