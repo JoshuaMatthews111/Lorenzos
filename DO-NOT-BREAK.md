@@ -2366,3 +2366,21 @@ office's-turn, no call reminder, no email campaign.
      - Still once per person for the campaign (one of the two emails, never both). The send record and the run summary
        name the variant; the dry run counts both; preview takes `&variant=`. On 2026-09-25 the 124 were 123 + 1.
      Pins: `tests/email-campaign-2026-09-25.test.mjs`.
+
+114. **A trainer (or any non-admin) can NOT change their own role, level, trainer link or access (2026-09-25).**
+     Before: the policy `portal_user_clears_own_password_flag` let a signed-in user UPDATE every column of their own
+     `portal_users` row, so a trainer could set `role='admin'` and pass `private.is_admin()`. Now the BEFORE UPDATE
+     trigger `portal_users_self_update_guard` (public + practice) raises 42501 when a non-admin changes their OWN row's
+     role, permission_level, trainer_id, active, access_status, disabled_at, disabled_by or user_id. Still allowed:
+     their own display_name / first_name / last_name / profile_photo_url / must_change_password (the first-login
+     "Save Permanent Password" RPC), and everything admins and server routes do. Proof on live (rolled back on
+     purpose): as the trainer-demo user, role -> admin was blocked; a display_name update wrote 1 row.
+     Migration file: `supabase/migrations/20260925160000_portal_users_self_update_guard.sql`.
+
+115. **"Trainer Admin" = the office's view of the trainer portal, on its OWN empty record (2026-09-25).** Username
+     `trainer admin` (also `trainer`, `traineradmin`, `trainer-admin`; `supabase.js` signIn aliases) signs in as
+     `trainer-demo@lorenzosdogtrainingteam.com`. Its portal row now points at trainer `trainer-admin` ("Trainer Admin",
+     status `inactive`: off every public trainer list, the super admin "Send to a trainer" list and the team tree; no
+     ZIP, no calendar, no page, no leads). Before, that login was tied to Eric Beck's REAL record and saw his leads.
+     Its password is set by Joshua himself (Portal Access -> Staff Access -> Reset Password); nothing here sets one.
+     Migration file: `supabase/migrations/20260925161000_trainer_admin_view_login.sql`.

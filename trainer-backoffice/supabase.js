@@ -231,7 +231,11 @@
   async function signIn(username, password, options = {}) {
     const aliases = {
       admin: "production@lorenzosdogtrainingteam.com",
-      trainer: "trainer-demo@lorenzosdogtrainingteam.com"
+      trainer: "trainer-demo@lorenzosdogtrainingteam.com",
+      // 2026-09-25: the office's "Trainer Admin" view login (its own empty, non-public trainer record).
+      "trainer admin": "trainer-demo@lorenzosdogtrainingteam.com",
+      traineradmin: "trainer-demo@lorenzosdogtrainingteam.com",
+      "trainer-admin": "trainer-demo@lorenzosdogtrainingteam.com"
     };
     const email = aliases[String(username).trim().toLowerCase()] || String(username).trim().toLowerCase();
     const session = await request("/auth/v1/token?grant_type=password", {
