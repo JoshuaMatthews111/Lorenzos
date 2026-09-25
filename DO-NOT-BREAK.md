@@ -2321,3 +2321,20 @@ office's-turn, no call reminder, no email campaign.
      op:"email_campaign_save"` (arming needs pools + send_at). **Arming it with a past send_at emails real people.**
      Also fixed: the re-engage claim now moves `site_settings.updated_at` itself (the table has no trigger).
      Pins: `tests/email-campaign-2026-09-25.test.mjs`.
+     Verification 2026-09-25 (rules 106-111; practice copy signed in from the saved super-admin session, trainers through
+     `sandbox-trainer-login` in a separate context; the admin was never signed out; no password typed):
+     - 583 tests + audit green at fe322c5. Practice preview `dpl_EiKmLbRzuL8XwSBrpTYUXt1GRMsX` aliased to
+       ldtt-sandbox.vercel.app (PRACTICE / practice). LIVE production `dpl_V7KLE1YmSKGP46fsKF3X4KVhcTkj`
+       (lorenzosdogtrainingteam.com = LIVE / public, stamp 20260925live28, app.js / metrics.js / styles.css sha256 = the
+       commit's on both hosts). Rollback: `npx vercel rollback dpl_3v1ZygUySneenZNBAJY2sk8d5Qav --yes` (live27); both
+       migrations are additive and harmless to the older code.
+     - Practice: super admin list = 25 trainers with a portal login; a real practice send of qa lead TEST TEST Daniel ->
+       Shavon (UP the chart) and back, two `trainer_lead_handoff` "(super admin)" rows, version 11 -> 13. Office Lost list =
+       the four hard no's; status list offers no soft Lost; archive with "Can't reach them" wrote
+       `raw_payload.archive_reason` and a Lost pick wrote `lost_dog_not_qualified` (the new CHECK value), both on qa rows,
+       then put back to New Inquiry. Recycled + Office's turn on the office board (38 / 11 badges) and panel; Lorenzo's
+       trainer card showed "I called the client", the tap stamped it and the card then read "You called the client ✓".
+     - LIVE after deploy: 301 leads / 290 real (unchanged); `auto_followups` false, `trainer_call_reminders` and
+       `office_turn_digest` absent (= OFF), `trainer_emails_hold` true, `email_campaign` armed false / no send_at / no
+       pools, `reengage_batch` armed false; 0 reminder claims, 0 campaign claims, 0 digest rows, 0 live hand-offs; anon REST
+       reads of the server-only keys return nothing; the 06:15 UTC cron tick on live28 answered 200.
