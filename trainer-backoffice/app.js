@@ -9814,7 +9814,7 @@ function trainerHandoffBox(lead, where = "panel") {
   const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
   const options = trainerTeam.trainers.map(t => `<option value="${escapeHtml(t.id)}" ${pick.toTrainerId === t.id ? "selected" : ""}>${escapeHtml(t.full_name)}${t.market ? ` · ${escapeHtml(t.market)}` : ""}</option>`).join("");
   return `<div class="trainer-handoff-box${where === "card" ? " is-card" : ""}">
-    <label>Hand off to a teammate<select data-trainer-handoff-to data-lead-ref="${escapeHtml(lead.id)}" aria-label="Hand off ${escapeHtml(lead.owner || "this lead")} to a teammate"><option value="">Pick a teammate in ${escapeHtml(trainerTeamStateLabel())}</option>${options}</select></label>
+    <label class="has-optional-mark">Hand off to your downline<select data-trainer-handoff-to data-lead-ref="${escapeHtml(lead.id)}" aria-label="Hand off ${escapeHtml(lead.owner || "this lead")} to someone in your downline"><option value="">Pick someone in your downline</option>${options}</select></label>
     <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="handoff" data-lead-ref="${escapeHtml(lead.id)}">Hand off</button>
   </div>`;
 }
@@ -10093,7 +10093,7 @@ async function trainerLeadAction(button) {
   if (action === "handoff") {
     const pick = state.trainerHandoff?.leadId === lead.id ? state.trainerHandoff : {};
     teammate = (trainerTeam?.trainers || []).find(t => t.id === pick.toTrainerId) || null;
-    if (!teammate) { showToast("Pick the teammate who takes this lead."); return; }
+    if (!teammate) { showToast("Pick who in your downline takes this lead."); return; }
     if (!window.confirm(`Hand ${lead.owner} off to ${teammate.full_name}? The lead leaves your list.`)) return;
     body.to_trainer_id = teammate.id;
   }

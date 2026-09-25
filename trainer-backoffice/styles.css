@@ -5787,7 +5787,8 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
 }
 .trainer-handoff-box select:focus { outline: 2px solid #fecdd3; border-color: #c8102e; }
 .trainer-handoff-box .btn { min-height: 40px; }
-.trainer-handoff-box.is-card { font-size: .8rem; }
+.trainer-handoff-box.is-card { font-size: .8rem; grid-template-columns: 1fr; } /* 2026-09-24: stacked on cards, so the pick list is never squeezed to one letter */
+.trainer-handoff-box.is-card select, .trainer-handoff-box.is-card .btn { width: 100%; }
 .trainer-handoff-box.is-card select, .trainer-handoff-box.is-card .btn { min-height: 34px; padding-top: 5px; padding-bottom: 5px; }
 .trainer-handoff-note { margin: 8px 0 0; }
 .trainer-team-list { list-style: none; padding: 0; margin: 0 0 8px; }
