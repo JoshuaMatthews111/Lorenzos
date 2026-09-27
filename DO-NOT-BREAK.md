@@ -2442,7 +2442,7 @@ office's-turn, no call reminder, no email campaign.
      fixed words "MEET THE FOUNDER," + "LORENZO MILLER"; d1 "LORENZO MILLER" under an editable eyebrow; d3 the
      `f_head` pair under "Meet the Founder, Lorenzo Miller". Now every design draws `f_title` (FIELDS, section
      "founder", all designs, max 40; default `FOUNDER_TITLE`) as a two-line `h2.f-title` in the old heading's spot
-     (d1 fs25/lh25 y11 with the tag/paragraphs moved down 3-4 units; d2 fs21/lh21 y17, tag y61, paragraph y81; d3
+     (d1 fs23/lh22 y14 with the tag/paragraphs moved down 3-4 units, compact enough that the office's own element moves on /ads/cleveland (elbox founder:1 dy25) do not run the title into the paragraph; d2 fs21/lh21 y17, tag y61, paragraph y81; d3
      unchanged position) and `f_eyebrow` (now on d2 too; default "From Lorenzo Miller, our founder"). The Site
      Builder 2.0 founder panel and the classic 2.0 editor list both boxes (they read FIELDS). `f_head` is no longer
      drawn or kept. Spanish preview strings added. DATABASE: Arrison's rows were NOT regenerated or reset. Before any
