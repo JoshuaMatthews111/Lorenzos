@@ -2453,30 +2453,37 @@ office's-turn, no call reminder, no email campaign.
      Lorenzo Miller"). Before values: no row had an `f_title`; `f_eyebrow` was "Meet the Founder," (d1: cleveland,
      miramar-beach, san-diego, tallahassee), "Meet the Founder, Lorenzo Miller" (d3: ann-arbor, atlanta, chicago,
      lexington) or absent (d2). Pins: `tests/meeting-2026-09-26.test.mjs` (2, 2).
-121. **Four NEW city ad pages for the Meta campaigns: /dog-training-navarre-fl (Michael King), /dog-training-dallas-tx
-     (Eric Hardaway, Fort Worth), /dog-training-durham-nh (Tristan Gray), /dog-training-flushing-ny (Sean Urena).**
-     They are records in `lib/ad-page-markets.js` built by the SAME `scripts/generate-market-pages.mjs` +
-     `lib/ad-page-template.js renderAdPage` as every other city page, so the head (Meta pixel + Google tag, eventID
-     x2), hero, evaluation form (`ad-form-card ad-form-card-v2 lead booking-intake`, `/api/booking-lead`, trainers-
-     near-you picker), free-guide form, market-landing/ad-funnel/v2.js tracking and footer are the other pages' own
-     code: the form differs from Cleveland's ONLY in the city placeholder and the preselected state (test-pinned).
-     Leads therefore log exactly like today (rule 72/100). The 2.0 look comes from `lib/ad-page-v2-extras.js`
-     (generator-only `options.v2`; styles scoped `.v2x`/`body.v2look`): the training cards with whole icon circles,
-     the "Start Your FREE Evaluation Today" founder video block, Google reviews, the trainer card (photo + bio copied
-     from `public.trainers` 2026-09-26; Sean's headshot copied to `assets/trainer-headshots/sean-urena-360.jpg`;
-     Tristan's "clearer a clearer" typo fixed on this page only), service area, FAQ and the 2.0 footer. A page
-     without `options.v2` renders byte-for-byte as before (the 11 older city pages regenerate identical, checked by
-     sha). `lib/ad-page-template.js cacheVersion` now equals the site stamp (it was stuck at 20260923live10 while the
-     pages were stamped by sed), so regenerating never rolls a stamp back. Wired like the others: sitemap.xml, the
-     office Ad landing page list (`adLandingPageConfigs`), Page Studio's built-in list, `lib/pipeline.js`
-     AREA_AD_PAGE (navarre, dallas, durham, flushing) and `reengageBookingLink`, which now also considers these
-     pages' own area ZIP (`v2.areaKey` + first zipCodes) when no published 2.0 row has that area (an area WITH a 2.0
-     row keeps using the row's ZIP). Sean Urena's online booking stays paused: the Flushing page does not promise
-     online booking; its trainer card says the office will call, and the form falls back like any market without a
-     bookable trainer. None of the 2.0 rows Arrison edits was renamed or replaced (the public `flushing` 2.0 DRAFT and
-     practice `flushing`/`brooklyn` rows are separate /ads/ pages, untouched apart from rule 120's two keys).
-     Pins: `tests/meeting-2026-09-26.test.mjs` (3, 3, 3); `tests/old-ad-pages-2026-09-23.test.mjs` and
-     `tests/lead-integrity-2026-09-23.test.mjs` now count 15 market pages.
+121. **Four NEW city ad pages for the Meta campaigns: /dog-training-navarre-fl, /dog-training-dallas-tx,
+     /dog-training-durham-nh, /dog-training-flushing-ny.** They are records in `lib/ad-page-markets.js` built by the
+     SAME `scripts/generate-market-pages.mjs` + `lib/ad-page-template.js renderAdPage` as every other city page, so the
+     head (Meta pixel + Google tag, eventID x2), hero, evaluation form (`ad-form-card ad-form-card-v2 lead
+     booking-intake`, `/api/booking-lead`, trainers-near-you picker), free-guide form, market-landing/ad-funnel/v2.js
+     tracking and footer are the other pages' own code: the form differs from Cleveland's ONLY in the city placeholder
+     and the preselected state (test-pinned). Leads therefore log exactly like today (rule 72/100). The 2.0 look comes
+     from `lib/ad-page-v2-extras.js` (generator-only `options.v2`; styles scoped `.v2x`/`body.v2look`): the training
+     cards with whole icon circles, the "Start Your FREE Evaluation Today" founder video block, a Google-reviews block
+     (links to the real reviews; the 2.0 review quotes are not used because each names a trainer), service area, FAQ
+     (+ FAQPage JSON-LD) and the 2.0 footer. **Joshua 2026-09-26: NO trainer names and NO trainer photos on these four
+     pages** (no trainer card, no "with trainer X", not in alt text, meta or JSON-LD; `trainers` = "Lorenzo's certified
+     trainers"; hero photos are generic training photos). The office's own report list (`adLandingPageConfigs`, portal
+     only) still names each market's trainer. **SEO (Joshua 2026-09-26):** each page has its own `title` and
+     `description` (market record; `marketToContent` passes `description` only when a market has one, so the older
+     pages keep the template sentence byte for byte), a keyword H1 ("Dog Training in <City> ..."), a service intro
+     paragraph under the cards, local card alt text, area H2/paragraph, FAQ questions with the local search terms, and
+     the ProfessionalService JSON-LD `areaServed` (8 places). Brand words only (Serious Training. Serious Results.,
+     FREE evaluation, Lorenzo's proven method, 40+ years, 12 states, real results, behavior solutions, calm, confident
+     dog); no prices, stats or reviews invented. A page without `options.v2` renders byte-for-byte as before (the 11
+     older city pages regenerate identical). `lib/ad-page-template.js cacheVersion` now equals the site stamp (it was
+     stuck at 20260923live10 while the pages were stamped by sed), so regenerating never rolls a stamp back. Wired like
+     the others: sitemap.xml, the office Ad landing page list, Page Studio's built-in list, `lib/pipeline.js`
+     AREA_AD_PAGE (navarre, dallas, durham, flushing) and `reengageBookingLink`, which now also considers these pages'
+     own area ZIP (`v2.areaKey` + first zipCodes) when no published 2.0 row has that area (an area WITH a 2.0 row keeps
+     using the row's ZIP). The Flushing trainer's online booking stays paused: the Flushing page promises an office
+     call, never online booking. None of the 2.0 rows Arrison edits was renamed or replaced (the public `flushing` 2.0
+     DRAFT and practice `flushing`/`brooklyn` rows are separate /ads/ pages, untouched apart from rule 120's two keys).
+     History: build 35's first production deploy (dpl_7zyttNi1hYnDQkmB8HeRFSC5Xw7c) still carried trainer cards and
+     trainer photos; it was replaced the same evening by the no-names build. Pins: `tests/meeting-2026-09-26.test.mjs`
+     (3, 3, 3); `tests/old-ad-pages-2026-09-23.test.mjs` and `tests/lead-integrity-2026-09-23.test.mjs` count 15.
 122. **Ann Arbor is OFF the ad campaign: /dog-training-ann-arbor-mi (and .html) 308 to /contact** (`vercel.json`
      redirects, permanent) so links in emails already sent still land. The page file is deleted and the record moved
      to `retiredMarkets` in `lib/ad-page-markets.js`: no page generated, not in sitemap.xml, not in Page Studio's

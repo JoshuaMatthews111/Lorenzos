@@ -88,6 +88,7 @@ const scriptsOf = file => [...read(file).matchAll(/<script[^>]*src="([^"]+)"/g)]
 
 test("3. the four new pages exist and their lead form + scripts are an existing city page's, byte for byte", () => {
   const base = formOf("dog-training-cleveland-oh.html");
+  const titles = new Set(), descs = new Set();
   assert.match(base, /^<form class="ad-form-card ad-form-card-v2 lead booking-intake"\n\s+data-kind="evaluation"\n\s+data-endpoint="\/api\/booking-lead"/);
   for (const slug of NEW) {
     const file = `${slug}.html`;
@@ -110,16 +111,34 @@ test("3. the four new pages exist and their lead form + scripts are an existing 
     assert.match(html, /\.v2x-cimg\{height:150px;overflow:hidden\}[\s\S]*\.v2x-cic\{position:absolute;left:50%;top:150px;transform:translate\(-50%,-50%\)/, "circle hangs from the card at the photo edge");
     assert.match(html, /\.v2x-cimg\{height:130px\}\.v2x-cic\{top:130px;/, "same on a phone");
     assert.match(html, new RegExp(`<h2 class="v2x-ftitle">${TITLE}</h2>`), `${slug}: founder block title`);
-    assert.match(html, /v2x-rvs/); assert.match(html, /v2x-tcard/); assert.match(html, /v2x-area/); assert.match(html, /v2x-faq/); assert.match(html, /v2x-foot/);
-    assert.match(html, new RegExp(`Meet ${market.trainers}`), `${slug}: trainer card for ${market.trainers}`);
+    assert.match(html, /v2x-rvs/); assert.match(html, /v2x-area/); assert.match(html, /v2x-faq/); assert.match(html, /v2x-foot/);
+    // Joshua 2026-09-26: NO trainer names or trainer photos on these four pages (cards, founder text, alt, meta, JSON-LD).
+    assert.ok(!/v2x-tcard|trainer-headshots|trainer-bio-photos|trainer-bio-|market-photos\/(navarre|dallas|durham)-/.test(html), `${slug}: no trainer card or trainer photo`);
+    assert.ok(!/Michael King|Hardaway|Tristan|Urena|\bSean\b|\bEric\b|\bRobert\b|Bruce|Dylan|Clark Patton|Daniel Bainbridge/.test(html), `${slug}: no trainer name anywhere`);
+    // SEO: a unique title and description with the city, H1 with the city, FAQPage + ProfessionalService JSON-LD with areaServed.
+    const title = html.match(/<title>([^<]+)<\/title>/)[1];
+    const desc = html.match(/<meta name="description" content="([^"]+)">/)[1];
+    assert.ok(title.includes(market.city) && /dog train/i.test(title), `${slug}: title "${title}"`);
+    assert.equal(desc, T.escapeHtml(market.description), `${slug}: its own description`);
+    assert.ok(market.description.includes(market.city) && /dog training/i.test(market.description) && market.description.length <= 210, `${slug}: description with the city, search length`);
+    titles.add(title); descs.add(desc);
+    assert.match(html.match(/<h1>([^<]+)<\/h1>/)[1], new RegExp(`Dog Training in ${market.city}`));
+    const ld = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1]));
+    const biz = ld.find(x => x["@type"] === "ProfessionalService" || x["@type"] === "LocalBusiness");
+    assert.ok(biz && Array.isArray(biz.areaServed) && biz.areaServed.includes(market.city) && biz.areaServed.length >= 7, `${slug}: areaServed`);
+    const faq = ld.find(x => x["@type"] === "FAQPage");
+    assert.ok(faq && faq.mainEntity.length === market.v2.faqs.length, `${slug}: FAQPage JSON-LD`);
+    for (const f of market.v2.faqs) assert.ok(html.includes(`<summary>${T.escapeHtml(f.q)}</summary>`), `${slug}: FAQ shown on the page`);
+    assert.equal((html.match(/<img src="\/assets\/v2\/d2-svc\d\.webp" alt="[^"]+ in /g) || []).length, 6, `${slug}: card photos carry local alt text`);
     assert.ok(!/\bTim\b/.test(html), `${slug}: never "Tim"`);
     assert.ok(!/\b(AI|Claude|ChatGPT|OpenAI)\b/.test(html), `${slug}: no AI tool names`);
     // regenerating gives the committed file (the generator is the source)
     const { page } = { page: m => T.renderAdPage(T.marketToContent(m), { imageAspect: () => null, publicPath: `/${m.slug}`, v2: X.renderV2Extras(m) }) };
     assert.match(page(market), /class="v2x v2x-svc"/);
   }
+  assert.equal(titles.size, 4, "four different titles"); assert.equal(descs.size, 4, "four different descriptions");
   const flushing = read("dog-training-flushing-ny.html");
-  assert.match(flushing, /Send the form and Lorenzo&#39;s office will call you to set up your free evaluation\./, "Flushing: office call (Sean's online booking stays paused)");
+  assert.match(flushing, /Lorenzo&#39;s office calls you to set up your FREE evaluation/, "Flushing: office call (online booking for the Flushing trainer stays paused)");
 });
 
 test("3. the older city pages are untouched by the 2.0 option, and the office/re-engage/sitemap lists know the new pages", () => {
