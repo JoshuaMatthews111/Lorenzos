@@ -2493,3 +2493,12 @@ office's-turn, no call reminder, no email campaign.
      campaign)" with its history, its Open link now /contact. Dylan Atkinson's trainer page and bio page, the Ann
      Arbor recruiting page (trainer-opportunity-ann-arbor-mi) and the /ads/ann-arbor 2.0 row are untouched (the 2.0
      row is Arrison's; retiring it is the office's call). Pins: `tests/meeting-2026-09-26.test.mjs` (4).
+     **Verified 2026-09-26/27 (build 35):** 608/608 tests, audit ok. Practice dpl_BVj29RifyXJv5Lw8VfcEAiP7vHDT
+     (ldtt-sandbox), production dpl_4BtVGqDGQkfZwfTrQoMgR11kiGau (rollback target before build 35:
+     dpl_3WrLn35qMNHT22aKjZ2ZWzNMje2u). Both hosts: stamp 20260926live35; /, /contact, /get-started and the four new
+     pages 200 with their own titles, no trainer name, FAQPage JSON-LD; /dog-training-ann-arbor-mi 308 -> /contact.
+     Live form typed (ZIP 32566, phone "+1 850 555 0142" -> "(850) 555-0142", trainer picker drew 2 cards) with every
+     non-GET aborted and nothing submitted; public.leads 313 total / 302 non-QA before and after, 0 new rows. Row diff
+     vs private.ad2_pages_backup_20260926: all 27 rows changed ONLY f_title + f_eyebrow inside the content columns (plus
+     updated_at from the ad_pages_touch trigger); public flushing (a draft with an empty published_content) only in
+     draft_content. Screenshots: session scratchpad shots35/.
