@@ -17,6 +17,16 @@
       "permanent": false
     },
     {
+      "source": "/dog-training-ann-arbor-mi",
+      "destination": "/contact",
+      "permanent": true
+    },
+    {
+      "source": "/dog-training-ann-arbor-mi.html",
+      "destination": "/contact",
+      "permanent": true
+    },
+    {
       "source": "/s",
       "destination": "/shantelletuck",
       "permanent": true

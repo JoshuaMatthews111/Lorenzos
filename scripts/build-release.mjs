@@ -87,7 +87,11 @@ const marketSlugs = [
   "dog-training-panama-city-beach-fl",
   "dog-training-pensacola-fl",
   "dog-training-lexington-ky",
-  "dog-training-ann-arbor-mi"
+  // 2026-09-26 (rules 121/122): the four 2.0 city pages; Ann Arbor left the campaign (308 -> /contact in vercel.json).
+  "dog-training-navarre-fl",
+  "dog-training-dallas-tx",
+  "dog-training-durham-nh",
+  "dog-training-flushing-ny"
 ];
 const googleAdsId = "AW-11463464040";
 const paidConsultationConversion = "AW-11463464040/kLPdCPzSo4oaEOiomtoq";

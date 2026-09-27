@@ -50,7 +50,7 @@ test("the shared ad template renders the 2.0 evaluation form, not the old FormSu
 });
 
 test("every generated market page carries the new form and none carries the old one", () => {
-  assert.equal(marketFiles.length, 12, "the 12 built-in market pages");
+  assert.equal(marketFiles.length, 15, "the 15 built-in market pages (2026-09-26: +Navarre, Dallas, Durham, Flushing; Ann Arbor now 308s to /contact)");
   for (const file of marketFiles) {
     const html = read(file);
     assert.match(html, /class="ad-form-card ad-form-card-v2 lead booking-intake"/, file);

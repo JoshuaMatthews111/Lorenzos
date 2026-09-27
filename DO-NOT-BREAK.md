@@ -2424,3 +2424,65 @@ office's-turn, no call reminder, no email campaign.
      email, the old one-time random password is shown, and the office is told why. Practice copy: no login, no
      email. The office's final onboarding screen shows a green "Welcome email SENT to ..." or an orange "NOT sent:
      <reason>" box. Claude never sets or tests a password. Pins: `tests/trainer-welcome-email-2026-09-25.test.mjs`.
+
+## 2.0 icon circles, founder title, four new city pages, Ann Arbor off the campaign (added 2026-09-26, build 35)
+
+119. **The red icon circles on the six 2.0 training cards are drawn WHOLE (office 2026-09-26: "half hidden/cut off
+     where the photo meets the dark card").** Cause: the 09-16 frame clip `.ph,.cimg,.baimg,.simg{overflow:hidden}`
+     (for pframe zoom) cut the lower half of `.cic`, which hangs `translate(-50%,50%)` below the photo. Fix is CSS
+     ONLY, appended at the end of `assets/v2/v2.css`: `.svc .cimg{position:static}` (the frame still clips the
+     photo) and `.svc .cic{top:calc(var(--u) * var(--h));bottom:auto;transform:translate(-50%,-50%)}` (the card,
+     positioned on both layouts, is the circle's containing block; `--h` is the frame's own height, inherited),
+     hover `scale(1.08)` kept, phone `top:130px` (the phone frame height). No page content changed. `lib/ad2-page-
+     template.js` VERSION 20260923ad15 -> 20260926ad16 so browsers fetch the new stylesheet. Before: practice
+     /ads/san-antonio screenshot `shots35/before-practice-san-antonio-desktop-svc.png` (circles cut); after:
+     `shots35/practice-san-antonio-*`. Pins: `tests/meeting-2026-09-26.test.mjs` (1).
+120. **The 2.0 founder / Lorenzo video block is titled "Start Your FREE Evaluation Today", and the office can edit
+     its title and small line (office: "I'm unable to change the text on the Founder block").** Before, d2 drew
+     fixed words "MEET THE FOUNDER," + "LORENZO MILLER"; d1 "LORENZO MILLER" under an editable eyebrow; d3 the
+     `f_head` pair under "Meet the Founder, Lorenzo Miller". Now every design draws `f_title` (FIELDS, section
+     "founder", all designs, max 40; default `FOUNDER_TITLE`) as a two-line `h2.f-title` in the old heading's spot
+     (d1 fs25/lh25 y11 with the tag/paragraphs moved down 3-4 units; d2 fs21/lh21 y17, tag y61, paragraph y81; d3
+     unchanged position) and `f_eyebrow` (now on d2 too; default "From Lorenzo Miller, our founder"). The Site
+     Builder 2.0 founder panel and the classic 2.0 editor list both boxes (they read FIELDS). `f_head` is no longer
+     drawn or kept. Spanish preview strings added. DATABASE: Arrison's rows were NOT regenerated or reset. Before any
+     change every ad2 row of both schemas was copied byte-exact into `private.ad2_pages_backup_20260926`
+     (row_json + md5; 14 practice + 13 public) and summarised in `shots35/ad2-backup-before.json`. The update is a
+     targeted jsonb merge on `published_content` and `draft_content` ONLY: add `f_title` where the key is absent,
+     and set `f_eyebrow` only where it was absent or still the old default ("Meet the Founder," / "Meet the Founder,
+     Lorenzo Miller"). Before values: no row had an `f_title`; `f_eyebrow` was "Meet the Founder," (d1: cleveland,
+     miramar-beach, san-diego, tallahassee), "Meet the Founder, Lorenzo Miller" (d3: ann-arbor, atlanta, chicago,
+     lexington) or absent (d2). Pins: `tests/meeting-2026-09-26.test.mjs` (2, 2).
+121. **Four NEW city ad pages for the Meta campaigns: /dog-training-navarre-fl (Michael King), /dog-training-dallas-tx
+     (Eric Hardaway, Fort Worth), /dog-training-durham-nh (Tristan Gray), /dog-training-flushing-ny (Sean Urena).**
+     They are records in `lib/ad-page-markets.js` built by the SAME `scripts/generate-market-pages.mjs` +
+     `lib/ad-page-template.js renderAdPage` as every other city page, so the head (Meta pixel + Google tag, eventID
+     x2), hero, evaluation form (`ad-form-card ad-form-card-v2 lead booking-intake`, `/api/booking-lead`, trainers-
+     near-you picker), free-guide form, market-landing/ad-funnel/v2.js tracking and footer are the other pages' own
+     code: the form differs from Cleveland's ONLY in the city placeholder and the preselected state (test-pinned).
+     Leads therefore log exactly like today (rule 72/100). The 2.0 look comes from `lib/ad-page-v2-extras.js`
+     (generator-only `options.v2`; styles scoped `.v2x`/`body.v2look`): the training cards with whole icon circles,
+     the "Start Your FREE Evaluation Today" founder video block, Google reviews, the trainer card (photo + bio copied
+     from `public.trainers` 2026-09-26; Sean's headshot copied to `assets/trainer-headshots/sean-urena-360.jpg`;
+     Tristan's "clearer a clearer" typo fixed on this page only), service area, FAQ and the 2.0 footer. A page
+     without `options.v2` renders byte-for-byte as before (the 11 older city pages regenerate identical, checked by
+     sha). `lib/ad-page-template.js cacheVersion` now equals the site stamp (it was stuck at 20260923live10 while the
+     pages were stamped by sed), so regenerating never rolls a stamp back. Wired like the others: sitemap.xml, the
+     office Ad landing page list (`adLandingPageConfigs`), Page Studio's built-in list, `lib/pipeline.js`
+     AREA_AD_PAGE (navarre, dallas, durham, flushing) and `reengageBookingLink`, which now also considers these
+     pages' own area ZIP (`v2.areaKey` + first zipCodes) when no published 2.0 row has that area (an area WITH a 2.0
+     row keeps using the row's ZIP). Sean Urena's online booking stays paused: the Flushing page does not promise
+     online booking; its trainer card says the office will call, and the form falls back like any market without a
+     bookable trainer. None of the 2.0 rows Arrison edits was renamed or replaced (the public `flushing` 2.0 DRAFT and
+     practice `flushing`/`brooklyn` rows are separate /ads/ pages, untouched apart from rule 120's two keys).
+     Pins: `tests/meeting-2026-09-26.test.mjs` (3, 3, 3); `tests/old-ad-pages-2026-09-23.test.mjs` and
+     `tests/lead-integrity-2026-09-23.test.mjs` now count 15 market pages.
+122. **Ann Arbor is OFF the ad campaign: /dog-training-ann-arbor-mi (and .html) 308 to /contact** (`vercel.json`
+     redirects, permanent) so links in emails already sent still land. The page file is deleted and the record moved
+     to `retiredMarkets` in `lib/ad-page-markets.js`: no page generated, not in sitemap.xml, not in Page Studio's
+     built-in list, not in AREA_AD_PAGE (an Ann Arbor lead's re-engage link is /book?zip=). Kept on purpose so no
+     number moves (rule 1): `retiredMarkets` still labels old leads "Ad page: Ann Arbor, MI" (`lib/pipeline.js`) and
+     keeps them in the paid-ad pool (`lib/email-campaign.js`); the office report row stays as "Ann Arbor (off the
+     campaign)" with its history, its Open link now /contact. Dylan Atkinson's trainer page and bio page, the Ann
+     Arbor recruiting page (trainer-opportunity-ann-arbor-mi) and the /ads/ann-arbor 2.0 row are untouched (the 2.0
+     row is Arrison's; retiring it is the office's call). Pins: `tests/meeting-2026-09-26.test.mjs` (4).

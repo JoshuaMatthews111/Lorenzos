@@ -39,7 +39,9 @@ const root = new URL("../", import.meta.url);
 const read = path => readFileSync(new URL(path, root), "utf8");
 
 // ---------------------------------------------------------------------------
-// The 12 markets, straight out of lib/ad-page-markets.js (one 2.0 page each, rule 85).
+// The markets, straight out of lib/ad-page-markets.js (one 2.0 page each, rule 85). 2026-09-26 (rules 121/122):
+// 15 = the 11 older markets + Navarre, Dallas, Durham, Flushing; Ann Arbor left the campaign.
+const N_MARKETS = 15;
 // ---------------------------------------------------------------------------
 const MK = require("../lib/ad-page-markets.js");
 const MARKETS = (MK.markets || MK.MARKETS).map(m => ({
@@ -150,8 +152,8 @@ const markBooked = row => {
 
 test("A: the 12 ad 2.0 markets are the 12 markets on file, and every one of their ZIPs is a real ZIP", () => {
   const { B } = load(true);
-  assert.equal(MARKETS.length, 12, "12 ad 2.0 pages (rule 85)");
-  assert.equal(new Set(MARKETS.map(m => m.ad2)).size, 12, "each page has its own /ads/<market> address");
+  assert.equal(MARKETS.length, N_MARKETS, "15 ad market pages (rule 85, rules 121/122)");
+  assert.equal(new Set(MARKETS.map(m => m.ad2)).size, N_MARKETS, "each page has its own /ads/<market> address");
   MARKETS.forEach(m => {
     assert.match(m.zip, /^\d{5}$/, `${m.ad2} has a ZIP`);
     assert.ok(B.centroid(m.zip), `${m.ad2}: ZIP ${m.zip} is in the bundled Census file (rule 74)`);
@@ -176,8 +178,8 @@ test("A: the SAME person walks all 12 ad 2.0 pages one after another - 12 leads,
     assert.equal(row.raw_payload.booking.slot_start, undefined, `${market.ad2} carries no earlier booking`);
     assert.equal(out.payload.book_url, `https://ldtt-sandbox.vercel.app/book/trainer-${market.ad2}?lead=${row.id}`);
   }
-  assert.equal(db.leads.length, 12, "12 pages, 12 leads");
-  assert.equal(new Set(db.leads.map(l => l.trainer_slug)).size, 12, "12 different trainers");
+  assert.equal(db.leads.length, N_MARKETS, "one lead per page");
+  assert.equal(new Set(db.leads.map(l => l.trainer_slug)).size, N_MARKETS, "a different trainer per market");
 });
 
 test("A: it still holds when every market is BOOKED before the next one is opened", async () => {
@@ -191,8 +193,8 @@ test("A: it still holds when every market is BOOKED before the next one is opene
     ids.push(row.id);
     markBooked(row); // the person goes all the way through before opening the next market page
   }
-  assert.equal(db.leads.length, 12);
-  assert.equal(db.leads.filter(l => l.status === "evaluation_scheduled").length, 12);
+  assert.equal(db.leads.length, N_MARKETS);
+  assert.equal(db.leads.filter(l => l.status === "evaluation_scheduled").length, N_MARKETS);
 });
 
 test("A: back to the SAME page after booking = a NEW lead (the first one is finished)", async () => {

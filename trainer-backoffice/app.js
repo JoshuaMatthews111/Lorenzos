@@ -8511,7 +8511,14 @@ function adLandingPageConfigs() {
     { slug: "dog-training-miramar-beach-fl", label: "Miramar Beach", market: "Miramar Beach, FL", trainers: "Tabatha Shelley", href: "../dog-training-miramar-beach-fl.html" },
     { slug: "dog-training-panama-city-beach-fl", label: "Panama City Beach", market: "Panama City Beach, FL", trainers: "Tabatha Shelley", href: "../dog-training-panama-city-beach-fl.html" },
     { slug: "dog-training-pensacola-fl", label: "Pensacola", market: "Pensacola, FL", trainers: "Clark Patton, Michael King, Daniel Bainbridge", href: "../dog-training-pensacola-fl.html" },
-    { slug: "dog-training-ann-arbor-mi", label: "Ann Arbor", market: "Ann Arbor, MI", trainers: "Dylan Atkinson", href: "../dog-training-ann-arbor-mi.html" }
+    // Office 2026-09-26 (DO-NOT-BREAK rules 121/122): four new 2.0 city pages for the Meta campaigns.
+    { slug: "dog-training-navarre-fl", label: "Navarre", market: "Navarre, FL", trainers: "Michael King", href: "../dog-training-navarre-fl.html" },
+    { slug: "dog-training-dallas-tx", label: "Dallas", market: "Dallas, TX", trainers: "Eric Hardaway", href: "../dog-training-dallas-tx.html" },
+    { slug: "dog-training-durham-nh", label: "Durham", market: "Durham, NH", trainers: "Tristan Gray", href: "../dog-training-durham-nh.html" },
+    { slug: "dog-training-flushing-ny", label: "Flushing", market: "Flushing, NY", trainers: "Sean Urena", href: "../dog-training-flushing-ny.html" },
+    // Ann Arbor is OFF the campaign (its page 308s to /contact). The row stays ONLY so its past visits and leads keep
+    // counting where they always did (rule 1: Leads-tab and report numbers never move); nothing links to the old page.
+    { slug: "dog-training-ann-arbor-mi", label: "Ann Arbor (off the campaign)", market: "Ann Arbor, MI", trainers: "Dylan Atkinson", href: "../contact", retired: true }
   ];
 }
 

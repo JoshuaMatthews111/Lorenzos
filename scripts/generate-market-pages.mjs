@@ -8,6 +8,8 @@ import { createRequire } from "node:module";
 // which markets become static files and reads image sizes for them.
 const require = createRequire(import.meta.url);
 const { markets, marketToContent, renderAdPage } = require("../lib/ad-page-template.js");
+// Office 2026-09-26 (rule 121): markets with a `v2` record get the 2.0 sections around the SAME page and form.
+const { renderV2Extras } = require("../lib/ad-page-v2-extras.js");
 
 /* Frames used to be hard-coded to 4:3 while the actual files are 16:9 or square,
    so object-fit:cover quietly guillotined every photo — most visibly the square
@@ -34,7 +36,7 @@ function imageAspect(relPath) {
   return null;
 }
 
-export const page = market => renderAdPage(marketToContent(market), { imageAspect, publicPath: `/${market.slug}` });
+export const page = market => renderAdPage(marketToContent(market), { imageAspect, publicPath: `/${market.slug}`, v2: renderV2Extras(market) });
 
 for (const market of markets) {
   writeFileSync(resolve(`${market.slug}.html`), page(market));

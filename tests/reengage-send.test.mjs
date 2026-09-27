@@ -95,7 +95,9 @@ test("one lead, once ever: the claim is written first, the second call is refuse
   assert.match(String(hook.body.message), /^Hi Sam, it's Lorenzo's Dog Training Team\. You reached out about training for your dog and we'd still love to help\./);
   assert.ok(!/\{dog_name\}|training for Max/.test(String(hook.body.message)), "the words never name the dog (2026-09-24 rewrite)");
   assert.match(String(hook.body.message), /Reply STOP to opt out\.$/, "the opt-out line goes with the text");
-  assert.match(String(hook.body.message), /book\?zip=32507/);
+  // 2026-09-26 (rule 121): with no 2.0 row in this stub, the nearest of the new 2.0 city pages (Navarre, ~30 miles
+  // from 32507) is the link; before that page existed this was /book?zip=32507.
+  assert.match(String(hook.body.message), /\/dog-training-navarre-fl\?zip=32507/);
   // second call: refused, no new post, no new email
   const again = await P.sendReengageInvite({ lead: world.leads[0], by: "Test Runner" });
   assert.equal(again.status, "skipped");

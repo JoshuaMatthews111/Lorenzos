@@ -547,3 +547,15 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 
 /* 2026-09-16: office zoom/focus framing (pframe) stays inside its frame */
 .ph,.cimg,.baimg,.simg{overflow:hidden}
+
+/* 2026-09-26 (office): the red icon circle on the six training cards hangs half below the photo, and the 09-16
+   frame clip above (.cimg overflow:hidden) cut that half off. The circle is now placed from the CARD (positioned
+   on both layouts: .a is absolute on a computer, relative on a phone) at the photo's bottom edge (--h is the photo
+   frame's own height, inherited), so the frame still clips the photo and the circle shows whole. DO-NOT-BREAK 119. */
+.svc .cimg{position:static}
+.svc .cic{top:calc(var(--u) * var(--h));bottom:auto;transform:translate(-50%,-50%)}
+.svc .card:hover .cic{transform:translate(-50%,-50%) scale(1.08)}
+@media (prefers-reduced-motion:reduce){.svc .card:hover .cic{transform:translate(-50%,-50%)}}
+@media (max-width:760px){.svc .cic{top:130px}}
+/* 2026-09-26 (office): the founder block's title is "Start Your FREE Evaluation Today" (two lines). DO-NOT-BREAK 120. */
+@media (max-width:760px){h2.f-title{font-size:36px;line-height:1.05;white-space:normal}}
