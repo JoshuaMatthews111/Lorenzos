@@ -2502,3 +2502,17 @@ office's-turn, no call reminder, no email campaign.
      vs private.ad2_pages_backup_20260926: all 27 rows changed ONLY f_title + f_eyebrow inside the content columns (plus
      updated_at from the ad_pages_touch trigger); public flushing (a draft with an empty published_content) only in
      draft_content. Screenshots: session scratchpad shots35/.
+
+123. **"Update landing page" really updates the LIVE landing page, and every publish is checked against the live page
+     (Joshua 2026-09-26, after Missy's Eric Beck bio report; amends rule 56).** Before: on a live page with an
+     unpublished draft, the profile editor's "Update landing page" saved a draft only, yet toasted "synced to landing
+     page - Saved live" and showed "Matches landing page" (Eric Beck's new bio sat in draft rev 61, live rev 49).
+     Now: when the page already has a published revision, "Update landing page" publishes through
+     `publishTrainerPageWorkflow(trainer, true)` (this does publish any other saved draft changes on that page - Joshua's
+     call); a page that was never published is saved as a draft with the message "...saved as a DRAFT: this page has
+     never been published. Press Publish & Lock Trainer Page". After "Update landing page" and after BOTH "Publish & Lock
+     Trainer Page" paths, `reportLiveLandingPage` reads the LIVE published row (`loadPublishedTrainer(..., {includeDraft:
+     false})`) and compares bio, trainer video, title, service area, market, hero photo, headshot, search title and
+     description with what was published; it says "Checked: the live landing page now shows everything you changed" or
+     names what is missing. The pasted trainer video is now saved with the page (`trainer_video_url`) and read back
+     (`trainerVideoUrl`), so it reaches the live landing page. Pins: `tests/landing-publish-check-2026-09-26.test.mjs`.

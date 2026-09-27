@@ -1045,6 +1045,7 @@ function remoteTrainerToUi(remoteTrainer, remotePage = null) {
     approvedReviews: Array.isArray(content.approved_reviews) ? content.approved_reviews : (existing.approvedReviews || []),
 	    liveEdits: Array.isArray(content.live_edits) ? content.live_edits : (existing.liveEdits || []),
 	    mediaLibrary: Array.isArray(content.media_library) ? content.media_library : (existing.mediaLibrary || []),
+    trainerVideoUrl: objectHas(content, "trainer_video_url") ? String(content.trainer_video_url || "") : (existing.trainerVideoUrl || ""),
 	    hiddenSections: Array.isArray(content.hidden_sections) ? content.hidden_sections : (existing.hiddenSections || []),
     customBlocks: objectHas(content, "custom_blocks") ? (Array.isArray(content.custom_blocks) ? content.custom_blocks : []) : (existing.customBlocks || []), // Site Builder 2.0
     customOrder: objectHas(content, "custom_order") ? (Array.isArray(content.custom_order) ? content.custom_order : []) : (existing.customOrder || []),
@@ -1992,6 +1993,7 @@ function trainerDraftContent(trainer) {
 	    approved_reviews: Array.isArray(trainer.approvedReviews) ? trainer.approvedReviews : [],
 	    live_edits: Array.isArray(trainer.liveEdits) ? trainer.liveEdits : [],
 	    media_library: Array.isArray(trainer.mediaLibrary) ? trainer.mediaLibrary : [],
+    trainer_video_url: String(trainer.trainerVideoUrl || ""), // Missy 2026-09-25: the pasted trainer video reaches the live page
 	    hidden_sections: Array.isArray(trainer.hiddenSections) ? trainer.hiddenSections : [],
     custom_blocks: Array.isArray(trainer.customBlocks) ? trainer.customBlocks : [], // Site Builder 2.0: blocks between the sections
     custom_order: Array.isArray(trainer.customOrder) ? trainer.customOrder : [] // Site Builder 2.0: section order ([] = the design's own)
@@ -2222,6 +2224,32 @@ async function ensureTrainerPortalAccount(trainer) {
   // Practice copy: no auth user is ever created there; say what happened instead.
   if (result.sandbox && result.message) showToast(result.message, 9000);
   return result;
+}
+
+// Joshua 2026-09-26: after a publish, read the LIVE landing page back and say plainly whether what the office changed
+// is really there. Returns the fields that did not reach the live page ([] = everything matched).
+async function liveLandingPageMismatches(trainer) {
+  const slug = trainer?.slug || trainer?.pageSlug || trainer?.remoteId;
+  const published = await window.LDTT_PORTAL.loadPublishedTrainer(slug, { includeDraft: false });
+  const live = published?.page?.published_content || {};
+  const want = trainerDraftContent(trainer);
+  const norm = value => String(value ?? "").replace(/\s+/g, " ").trim();
+  const labels = { bio: "bio", trainer_video_url: "trainer video", title: "title", service_area: "service area", market: "market", hero_image_url: "hero photo", headshot_url: "headshot", seo_title: "search title", seo_description: "search description" };
+  return Object.keys(labels).filter(key => norm(want[key]) !== norm(live[key])).map(key => labels[key]);
+}
+
+async function reportLiveLandingPage(trainer, lead = "Published") {
+  try {
+    const missing = await liveLandingPageMismatches(trainer);
+    const message = missing.length
+      ? `${lead}, but the live landing page does NOT show the new ${missing.join(", ")} yet. Refresh and press Publish & Lock Trainer Page again; if it still fails, tell Joshua.`
+      : `${lead}. Checked: the live landing page now shows everything you changed (bio, video and page text).`;
+    setTimeout(() => showToast(message, missing.length ? 20000 : 12000), 600);
+    return missing;
+  } catch (error) {
+    setTimeout(() => showToast(`${lead}, but the live page could not be checked: ${error.message || error}`, 15000), 600);
+    return null;
+  }
 }
 
 async function publishTrainerPageWorkflow(trainer, publish) {
@@ -14882,7 +14910,11 @@ document.addEventListener("click", async event => {
           detail: `${trainer.name} ${publish ? "was published and locked" : "was returned to draft"} by ${currentActorLabel()}.`
         }
       );
-      if (ok && publish) showTrainerInviteDialog(findTrainer(trainer.remoteId || trainer.id) || trainer);
+      if (ok && publish) {
+        const published = findTrainer(trainer.remoteId || trainer.id) || trainer;
+        showTrainerInviteDialog(published);
+        await reportLiveLandingPage(published, "Trainer page published and locked");
+      }
     } else {
       saveState(publish ? "Trainer page published and locked" : "Trainer page returned to office draft");
       if (publish) showTrainerInviteDialog(trainer);
@@ -15032,7 +15064,9 @@ document.addEventListener("click", async event => {
   const syncProfileField = event.target.closest("[data-sync-profile-field]");
   if (syncProfileField) {
     const trainer = trainerById();
-    const keepPublished = (trainer.pageStatus === "Published" || trainer.locked) && !trainerHasUnpublishedDraft(trainer);
+    // Joshua 2026-09-26 (Missy, Eric Beck's bio): "Update landing page" really updates the LIVE landing page when the
+    // page is already live, then checks it. A page that was never published is saved as a draft and the office is told.
+    const livePage = trainerHasPublishedPage(trainer);
     const profileKey = syncProfileField.dataset.syncProfileField;
     const landingKey = syncProfileField.dataset.landingField;
     const value = fieldValue(trainer, profileKey);
@@ -15041,15 +15075,19 @@ document.addEventListener("click", async event => {
       : value;
     if (landingKey === "email") trainer.username = value;
     trainer.pageStatus = trainer.pageStatus === "No Site Started" ? "Draft" : trainer.pageStatus;
-    if (remoteReady) runRemoteMutation(
-      `${landingKey.replace(/([A-Z])/g, " $1")} synced to landing page`,
-      () => persistTrainerRecord(trainer, keepPublished ? { publish: true } : {}),
-      { reload: false, // onboarding: the save already reloaded
-        type: "Trainer Profile",
-        detail: `${trainer.name} ${landingKey} was synced from profile editor to landing page.`
-      }
-    );
-    else saveState(`${landingKey.replace(/([A-Z])/g, " $1")} synced to landing page`);
+    const fieldWords = landingKey.replace(/([A-Z])/g, " $1").toLowerCase();
+    if (livePage) { trainer.pageStatus = "Published"; trainer.locked = true; }
+    if (remoteReady) {
+      const ok = await runRemoteMutation(
+        livePage ? `Landing page published with the new ${fieldWords}` : `The ${fieldWords} is saved as a DRAFT: this page has never been published. Press Publish & Lock Trainer Page to put it live.`,
+        () => (livePage ? publishTrainerPageWorkflow(trainer, true) : persistTrainerRecord(trainer, {})),
+        { reload: false, // onboarding: the save already reloaded
+          type: "Trainer Profile",
+          detail: `${trainer.name} ${landingKey} was ${livePage ? "published to the live landing page" : "saved to the landing page draft"} from the profile editor.`
+        }
+      );
+      if (ok && livePage) await reportLiveLandingPage(findTrainer(trainer.remoteId || trainer.id) || trainer, `Landing page published with the new ${fieldWords}`);
+    } else saveState(`${fieldWords} synced to landing page`);
     return;
   }
   const syncPublicField = event.target.closest("[data-sync-public-field]");
@@ -15723,7 +15761,11 @@ document.addEventListener("click", async event => {
       type: "Trainer Page",
       detail: `${trainer.name} landing page ${publish ? "published and locked" : "saved as draft"} from the page editor.`
     });
-    if (ok && publish) showTrainerInviteDialog(findTrainer(trainer.remoteId || trainer.id) || trainer);
+    if (ok && publish) {
+      const published = findTrainer(trainer.remoteId || trainer.id) || trainer;
+      showTrainerInviteDialog(published);
+      await reportLiveLandingPage(published, "Trainer page published and locked");
+    }
     return;
   }
   const builderTab = event.target.closest("[data-builder-tab]");
