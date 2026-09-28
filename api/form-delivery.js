@@ -154,8 +154,51 @@ function appendSheetLine(value, line) {
   return [clean(value), clean(line)].filter(Boolean).join("\n\n");
 }
 
+// The office's Google Form (CONTACT_GOOGLE) refuses the WHOLE row (400) when a required answer is empty or a choice is
+// not on its list (checked 2026-09-28 from the form itself). Every e-book download failed (no street/city/state/ZIP,
+// "Paid ads market page", "Download the free 5-step calm dog blueprint") and so did Contact Us "Referred by a past
+// client" / "Is a past client". Only this Google copy is adjusted; the portal lead and the FormSubmit email are not.
+const GOOGLE_REQUIRED_TEXT = ["last_name", "address_line_1", "city", "state", "zip", "email", "phone"];
+const GOOGLE_I_WANT = [
+  "Schedule a free phone consultation to receive more information",
+  "Schedule an in person evaluation with a trainer in my area",
+  "Schedule a virtual evaluation",
+  "Schedule a training session with my dog trainer",
+  "Learn more about becoming a dog trainer"
+];
+const GOOGLE_HEARD = ["My Veternarian", "My Dog Walker", "My Dog Groomer", "My Pet Store", "My Neighbor", "Your Website",
+  "Your Trainer", "A Former Client", "Google Search", "Facebook or Instagram"];
+const GOOGLE_HEARD_ALIASES = { "referred by a past client": "A Former Client", "is a past client": "A Former Client",
+  "past client": "A Former Client", "a past client": "A Former Client", "my veterinarian": "My Veternarian" };
+
+function fitContactToGoogleForm(copy) {
+  const notes = [];
+  const want = clean(copy.i_want_to);
+  if (want && !GOOGLE_I_WANT.includes(want)) {
+    notes.push(`Website request: ${want}`);
+    copy.i_want_to = GOOGLE_I_WANT[0];
+  } else if (!want) {
+    copy.i_want_to = GOOGLE_I_WANT[0];
+  }
+  const heard = clean(copy.heard_about_us);
+  if (heard && heard !== "Other" && !GOOGLE_HEARD.includes(heard)) {
+    const alias = GOOGLE_HEARD_ALIASES[heard.toLowerCase()];
+    if (alias) copy.heard_about_us = alias;
+    else {
+      copy.heard_about_us = "Other";
+      copy.heard_about_us_other = clean(copy.heard_about_us_other) || heard;
+    }
+  } else if (!heard) {
+    copy.heard_about_us = "Other";
+    copy.heard_about_us_other = clean(copy.heard_about_us_other) || "Website form";
+  }
+  for (const key of GOOGLE_REQUIRED_TEXT) if (!clean(copy[key])) copy[key] = "Not given";
+  if (notes.length) copy.comments = appendSheetLine(notes.join("\n"), copy.comments);
+  return copy;
+}
+
 function entriesForGoogleSheet(formType, entries) {
-  const copy = { ...entries };
+  const copy = formType === "trainer_application" ? { ...entries } : fitContactToGoogleForm({ ...entries });
   const smsOptIn = clean(copy.sms_consent).toLowerCase() === "yes" ? "Yes" : "No";
   const consentLines = [`SMS opt-in: ${smsOptIn}`];
   if (copy.sms_consent_text) consentLines.push(`SMS disclosure: ${clean(copy.sms_consent_text)}`);
@@ -385,3 +428,4 @@ module.exports = async function handler(req, res) {
   }
 };
 module.exports.allowedOrigin = allowedOrigin;
+module.exports.entriesForGoogleSheet = entriesForGoogleSheet;

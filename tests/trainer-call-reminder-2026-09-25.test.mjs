@@ -214,7 +214,7 @@ test("portal: the Evaluation Scheduled card and panel show 'I called the client'
   const fn = name => app.match(new RegExp(`function ${name}\\(.*\\) \\{\\n[\\s\\S]*?\\n\\}\\n`))[0];
   const escapeHtml = s => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   const draw = rawPayload => {
-    const ctx = { escapeHtml, leadRawPayload: l => l.rawPayload || {}, lead: { id: "L1", remoteId: "r1", owner: "Diana", status: "Evaluation Scheduled", rawPayload }, state: {}, leadStatusLabel: s => s, trainerHandoffBox: () => "" };
+    const ctx = { escapeHtml, leadRawPayload: l => l.rawPayload || {}, lead: { id: "L1", remoteId: "r1", owner: "Diana", status: "Evaluation Scheduled", rawPayload }, state: {}, leadStatusLabel: s => s, leadZoneHint: () => "the lead's time zone", datetimeLocalValue: () => "", leadTimeZone: () => "", trainerHandoffBox: () => "" };
     vm.runInNewContext(`${app.match(/const TRAINER_LOST_REASONS = [^\n]*\n/)[0]}${app.match(/const TRAINER_ARCHIVE_REASONS = [^\n]*\n/)[0]}${fn("trainerCardNextStep")}\n${fn("trainerLeadActionsBox")}\nthis.card = trainerCardNextStep(lead, "scheduled"); this.panel = trainerLeadActionsBox(lead);`, ctx);
     return ctx;
   };

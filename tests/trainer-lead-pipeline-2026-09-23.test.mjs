@@ -41,7 +41,7 @@ function context(extra = {}) {
     leadDogLabel: () => "Dog", serviceDogTag: () => "", track500Tag: () => "", recycledTag: () => "", recycledLine: () => "",
     leadMarketLabel: () => "Cleveland, OH", formatPhoneNumber: v => String(v || ""),
     leadRawPayload: l => l.rawPayload || {}, leadEvalLabel: () => "Mon 9 AM", leadTimeZone: () => "America/New_York",
-    trainerHandoffBox: () => "", formatDateTime: v => String(v), leadCardDetailLines: () => "", leadAssignmentLine: () => "",
+    leadZoneHint: () => "the lead's time zone", datetimeLocalValue: () => "", leadTimeZone: () => "", trainerHandoffBox: () => "", formatDateTime: v => String(v), leadCardDetailLines: () => "", leadAssignmentLine: () => "",
     leadAlphaToggle: () => "", leadAssignedHighlightClass: () => "", state: {},
     ...extra
   };

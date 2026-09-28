@@ -287,6 +287,28 @@ async function handoff(res, access, body, before, note) {
   return writeHandoff(res, access, before, note, { targetRow: target.row, targetSlug: target.slug, fromSlug, path: { owner: fromSlug === tree.owner }, tag: "downline" });
 }
 
+// Missy 2026-09-28: "he couldn't save a note to a lead". A trainer's note goes into the SAME Office Notes list the
+// office reads on that lead (office_notes, entity lead), labelled as the trainer's, with an audit row. No status change.
+async function trainerNote(res, access, before, text) {
+  if (!text) return reply(res, 400, { ok: false, message: "Type the note first." });
+  const who = access.actor?.name || access.actor?.email || "Trainer";
+  const rows = await supabaseFetch("/rest/v1/office_notes", {
+    method: "POST", headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ entity_type: "lead", entity_id: String(before.id), note: `Trainer note (${who}): ${text}`, created_by: access.actor?.id || access.user?.id || null })
+  });
+  const record = rows?.[0];
+  if (!record) return reply(res, 500, { ok: false, message: "The note could not be saved. Please try again." });
+  await supabaseFetch("/rest/v1/audit_events", {
+    method: "POST", headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({
+      actor_user_id: access.actor?.id || access.user?.id || null, actor_email: access.actor?.email || null, actor_name: access.actor?.name || null,
+      action: "trainer_lead_note", entity_type: "lead", entity_id: String(before.id), summary: `Trainer note: ${text}`.slice(0, 240),
+      before_data: null, after_data: { office_note_id: record.id }, request_id: crypto.randomUUID()
+    })
+  }).catch(() => {});
+  return reply(res, 200, { ok: true, message: "Note saved. The office sees it on this lead.", note: { id: record.id } });
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -304,7 +326,7 @@ module.exports = async function handler(req, res) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const action = clean(body.action, 30);
     const leadId = clean(body.lead_id, 80);
-    if (!["contacted", "eval_completed", "lost", "archive", "alpha", "handoff", "intro_called"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
+    if (!["contacted", "eval_completed", "lost", "archive", "alpha", "handoff", "intro_called", "note", "eval_time"].includes(action)) return reply(res, 400, { ok: false, message: "Unknown action." });
     if (!UUID.test(leadId)) return reply(res, 400, { ok: false, message: "That lead id is not complete." });
 
     const [before] = (await supabaseFetch(`/rest/v1/leads?select=*&id=eq.${encodeURIComponent(leadId)}&limit=1`)) || [];
@@ -318,6 +340,7 @@ module.exports = async function handler(req, res) {
 
     const note = clean(body.note, 300);
     if (action === "handoff") return await handoff(res, access, body, before, note);
+    if (action === "note") return await trainerNote(res, access, before, clean(body.note, 1000));
     let changes;
     let summary;
     if (action === "contacted") {
@@ -346,6 +369,15 @@ module.exports = async function handler(req, res) {
       const at = new Date().toISOString();
       changes = { raw_payload: { ...raw, pipeline: { ...pipeline, trainer_intro_called_at: at, trainer_intro_called_by: access.actor?.name || access.actor?.email || (access.isAdmin ? "office" : "trainer") } } };
       summary = "Trainer checked off: called the client to introduce themselves.";
+    } else if (action === "eval_time") {
+      // Missy 2026-09-28: a trainer reschedules the evaluation on their own lead, the same field as the office's
+      // "Eval date + time" box (leads.eval_scheduled_at). Blank clears it.
+      if (CLOSED.has(before.status)) return reply(res, 409, { ok: false, message: "This lead is closed. Ask the office to change it." });
+      const raw = clean(body.eval_at, 40);
+      const when = raw ? new Date(raw) : null;
+      if (when && Number.isNaN(when.getTime())) return reply(res, 400, { ok: false, message: "The eval date and time could not be read. Pick it again." });
+      changes = { eval_scheduled_at: when ? when.toISOString() : null };
+      summary = when ? `Trainer set the evaluation date and time to ${when.toISOString()}${before.eval_scheduled_at ? ` (was ${before.eval_scheduled_at})` : ""}.` : "Trainer cleared the evaluation date and time.";
     } else if (action === "archive") {
       // "Archive (maybe later)": the lead leaves the trainer's board (rule 80: archived is never drawn for a trainer),
       // stays on file with its reason, and the office can bring it back at any time (Restore).
@@ -423,7 +455,7 @@ module.exports = async function handler(req, res) {
       });
     }
     if (action === "eval_completed") await P.afterEvalCompleted({ lead: record }).catch(error => console.error("after_eval_completed_failed", String(error?.message || error)));
-    const message = action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : action === "archive" ? "Archived for later. The office sees it and can bring it back." : action === "intro_called" ? "Checked off: you called the client. No more reminders for this one." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
+    const message = action === "eval_time" ? "Eval date and time saved. The office sees it." : action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : action === "archive" ? "Archived for later. The office sees it and can bring it back." : action === "intro_called" ? "Checked off: you called the client. No more reminders for this one." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
     return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha ?? null, version: record.version || null, ...(action === "intro_called" ? { trainer_intro_called_at: record.raw_payload?.pipeline?.trainer_intro_called_at || null } : {}) } });
   } catch (error) {
     const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;

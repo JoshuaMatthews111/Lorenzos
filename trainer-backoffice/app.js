@@ -2252,6 +2252,20 @@ async function reportLiveLandingPage(trainer, lead = "Published") {
   }
 }
 
+// Missy 2026-09-28: a trainer video pasted or uploaded for a page that is already live goes straight to the live
+// landing page (it used to sit in a draft), then the live page is read back and checked.
+async function saveTrainerVideoToLivePage(trainer, detail, persistOptions = {}) {
+  const livePage = trainerHasPublishedPage(trainer);
+  if (livePage) { trainer.pageStatus = "Published"; trainer.locked = true; }
+  const ok = await runRemoteMutation(
+    livePage ? "Trainer video published to the live landing page" : "Trainer video saved as a DRAFT: this page has never been published. Press Publish & Lock Trainer Page to put it live.",
+    () => (livePage ? publishTrainerPageWorkflow(trainer, true) : persistTrainerRecord(trainer, persistOptions)),
+    { reload: false, type: "Trainer Video", detail }
+  );
+  if (ok && livePage) await reportLiveLandingPage(findTrainer(trainer.remoteId || trainer.id) || trainer, "Trainer video published");
+  return ok;
+}
+
 async function publishTrainerPageWorkflow(trainer, publish) {
   // Rule 59: a deleted page only comes back through Restore (typed name, logged).
   if (publish && trainerPageIsDeleted(trainer)) {
@@ -9326,13 +9340,13 @@ const JOURNEY_STEPS = [
   { key: "link", label: "Booking link text to the client", channel: "SMS", text: "booking_link" },
   { key: "care", label: "\"The office will call you\" text", channel: "SMS", text: "care_call", lane: "office_call" },
   { key: "ops_new", label: "Lorenzo: new lead", channel: "SMS to Operations", text: "ops_new_lead" },
-  { key: "followup", label: "Follow-ups if not booked (15 min, 40 min, 24 h, 48 h)", channel: "SMS", text: "followup_first", off: true, notBooked: true },
+  { key: "followup", label: "Follow-ups if not booked (15 min, 30 min, next day)", channel: "SMS", text: "followup_first", notBooked: true },
   { key: "booked", label: "Evaluation booked", channel: "Calendar" },
   { key: "confirm", label: "Confirmation + pre-evaluation link to the client", channel: "SMS", text: "booking_confirmation" },
   { key: "alert", label: "Trainer alerted", channel: "SMS to trainer", text: "trainer_new_eval" },
   { key: "ops_booked", label: "Lorenzo: evaluation booked", channel: "SMS to Operations", text: "ops_eval_booked" },
   { key: "email", label: "Booking email to the office", channel: "Email" },
-  { key: "preeval", label: "Pre-evaluation answers", channel: "Form + SMS to trainer", text: "pre_eval_answers", off: true },
+  { key: "preeval", label: "Pre-evaluation answers", channel: "Form + SMS to trainer", text: "pre_eval_answers" },
   { key: "closed", label: "Deal closed: Lorenzo", channel: "SMS to Operations", text: "ops_closed", off: true }
 ];
 
@@ -9385,6 +9399,29 @@ function journeyNotePart(notes, who) {
   return parts.find(part => part.startsWith(who)) || "";
 }
 
+// Office 2026-09-28: the follow-up timer has been ON since 2026-09-25 9:00 AM ET (Settings auto_followups), but this
+// line still read "not sending yet". It now shows what the timer really recorded on this lead (pipeline.followups):
+// step "tim" = the 15-minute text, "link" = the 30-minute text, "care" = the next-day text.
+const JOURNEY_FOLLOWUP_STEPS = [["tim", "15-min text", 15 * 60000], ["link", "30-min text", 30 * 60000], ["care", "next-day text", 24 * 3600000]];
+function journeyFollowupState(pipeline, booking, lead) {
+  const records = Array.isArray(pipeline.followups) ? pipeline.followups : [];
+  const parts = JOURNEY_FOLLOWUP_STEPS.map(([key, words]) => {
+    const rec = records.filter(r => r?.step === key).slice(-1)[0];
+    if (!rec) return null;
+    return rec.status === "sent" ? `${words} sent ${journeyWhen(rec.at)}` : `${words} not sent: ${journeyNotSentReason(rec.reason, lead)}`;
+  }).filter(Boolean);
+  const anySent = records.some(r => r?.status === "sent");
+  const stopped = booking.slot_start ? "Stopped: they booked." : booking.requested_at || booking.callback ? "Stopped: they asked for a trainer or a call." : "";
+  if (parts.length) return { state: anySent ? "done" : "skipped", detail: [parts.join(" · "), stopped].filter(Boolean).join(" ") };
+  if (stopped) return { state: "skipped", detail: `Not needed. ${stopped}` };
+  if (pipeline.new_lead_text?.status !== "sent") return { state: "skipped", detail: "Not sent: the follow-ups only go to someone who got the first booking-link text." };
+  const entered = Date.parse(pipeline.entered_at || "");
+  if (Number.isFinite(entered) && entered < Date.parse("2026-09-25T13:00:00Z")) return { state: "skipped", detail: "Not sent: this lead came in before the follow-up texts started (Sept 25, 9:00 AM)." };
+  if (Number.isFinite(entered) && Date.now() - entered > 7 * 86400000) return { state: "skipped", detail: "Not sent: the follow-up window (7 days) had passed." };
+  const next = JOURNEY_FOLLOWUP_STEPS.find(([, , after]) => !Number.isFinite(entered) || Date.now() - entered < after);
+  return { state: "todo", detail: next && Number.isFinite(entered) ? `Next: the ${next[1]} around ${journeyWhen(new Date(entered + next[2]).toISOString())}` : "Waiting for the next check (every 15 minutes)" };
+}
+
 function journeyStepState(step, lead) {
   const raw = leadRawPayload(lead);
   const pipeline = raw.pipeline && typeof raw.pipeline === "object" ? raw.pipeline : {};
@@ -9404,7 +9441,7 @@ function journeyStepState(step, lead) {
     case "link": return fromRecord(pipeline.new_lead_text, "Sent") || (pipeline.lane?.key && pipeline.lane.key !== "booking" ? { state: "skipped", detail: "Not for this lead (another lane)" } : lead.smsConsent === false ? { state: "skipped", detail: `Not sent: ${journeyNotSentReason("No SMS consent", lead)}` } : noRecord());
     case "care": return fromRecord(pipeline.care_text, "Sent") || noRecord();
     case "ops_new": return fromRecord(pipeline.ops_new_lead, "Sent") || noRecord();
-    case "followup": return { state: "off", detail: "Built. Not sending yet (waits for Joshua's go)." };
+    case "followup": return journeyFollowupState(pipeline, booking, lead);
     case "booked":
       if (booked) return { state: "done", detail: `${booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead))}${booking.trainer_name ? ` with ${booking.trainer_name}` : ""}` };
       if (booking.requested) return { state: "todo", detail: `Trainer requested (${booking.trainer_name || "no calendar"}). The office schedules the time.` };
@@ -9427,8 +9464,12 @@ function journeyStepState(step, lead) {
       if (e.status === "queued") return { state: "todo", detail: "Queued: waiting for the email key" };
       return { state: "skipped", detail: `Not sent${e.status === "failed" ? " (it failed)" : ""}: ${journeyNotSentReason(e.reason, lead)}` };
     }
-    case "preeval": return booking.pre_eval?.submitted_at ? { state: "done", detail: `Answered ${journeyWhen(booking.pre_eval.submitted_at)}. The text to the trainer is built, not sending yet.` } : { state: "off", detail: booked ? "Not answered yet. The text to the trainer is built, not sending yet." : "Waits for the booking" };
-    case "closed": return { state: "off", detail: "Built. Not sending yet (waits for Joshua's go)." };
+    case "preeval": {
+      if (!booking.pre_eval?.submitted_at) return { state: "todo", detail: booked ? "Not answered yet" : "Waits for the booking" };
+      const sent = fromRecord(pipeline.pre_eval_text, "Answers texted to the trainer");
+      return { state: sent?.state === "done" ? "done" : "skipped", detail: `Answered ${journeyWhen(booking.pre_eval.submitted_at)}. ${sent ? sent.detail : "No text to the trainer was recorded."}` };
+    }
+    case "closed": return { state: "off", detail: "Not switched on: Lorenzo is not texted when a deal closes." };
     default: return { state: "todo", detail: "" };
   }
 }
@@ -9899,7 +9940,10 @@ function trainerLeadActionsBox(lead) {
       <label>Archive (maybe later): they may come back<select data-trainer-archive-reason data-lead-ref="${escapeHtml(lead.id)}"><option value="">Pick a reason</option>${archiveReasons}</select></label>
       <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="archive" data-lead-ref="${escapeHtml(lead.id)}">Archive for later</button>
       <label>Note for the office <span class="hint">(optional)</span><input type="text" data-trainer-lost-note data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.note || "")}" maxlength="300" placeholder="e.g. Wants to wait until spring"></label>
-    </div>`}
+      <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="note" data-lead-ref="${escapeHtml(lead.id)}">Save note</button>
+    </div>
+    <label class="trainer-eval-time">Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; the office sees it)</small><input class="select-pill" type="datetime-local" data-trainer-eval-at data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label>
+    <button type="button" class="btn btn-outline btn-small" data-trainer-lead-action="eval_time" data-lead-ref="${escapeHtml(lead.id)}">Save eval date + time</button>`}
     ${closed ? "" : trainerHandoffBox(lead)}
   </section>`;
 }
@@ -10370,6 +10414,18 @@ async function trainerLeadAction(button) {
     body.reason = pick.archiveReason;
     body.note = pick.note || "";
   }
+  if (action === "note") {
+    // Missy 2026-09-28: the note box saves on its own now (it used to go only with Lost / Archive).
+    const box = document.querySelector(`[data-trainer-lost-note][data-lead-ref="${CSS.escape(lead.id)}"]`);
+    body.note = String(box?.value || (state.trainerLost?.leadId === lead.id ? state.trainerLost.note : "") || "").trim();
+    if (!body.note) { showToast("Type the note first."); return; }
+  }
+  if (action === "eval_time") {
+    const box = document.querySelector(`[data-trainer-eval-at][data-lead-ref="${CSS.escape(lead.id)}"]`);
+    const value = String(box?.value || "");
+    body.eval_at = value ? (window.LDTT_ZIP_TIMEZONE?.wallTimeToIso(value, leadTimeZone(lead)) || "") : "";
+    if (value && !body.eval_at) { showToast("The eval date and time could not be read. Pick it again."); return; }
+  }
   if (action === "eval_completed" && !window.confirm(`Mark ${lead.owner}'s evaluation as completed?`)) return;
   // Rachel 2026-09-24: New Inquiry -> office_contacted (the server allows only that move). It lands in the trainer's
   // "Contacted" column; the office board shows it as Office/Trainer Contacted.
@@ -10391,7 +10447,7 @@ async function trainerLeadAction(button) {
     if (!response.ok || payload.ok === false) throw new Error(payload.message || `Not saved (${response.status}).`);
     // Audit 2026-09-24: only a Lost save (or the lead leaving the list) empties the Lost box; answering the Alpha
     // question or Eval completed used to wipe a reason + note the trainer had already typed.
-    if (action === "lost" || action === "handoff" || action === "archive") state.trainerLost = null;
+    if (action === "lost" || action === "handoff" || action === "archive" || action === "note") state.trainerLost = null;
     if (action === "archive" && (state.selectedLeadId === lead.id || state.selectedLeadId === lead.remoteId)) state.selectedLeadId = "";
     if (action === "handoff") {
       state.trainerHandoff = null;
@@ -15870,10 +15926,7 @@ document.addEventListener("click", async event => {
     trainer.mediaLibrary.unshift({ type: "video", url, name: `${videoProviderLabel(url)} trainer video`, size: 0, uploadedAt: new Date().toISOString() });
     refreshPageEditorPreview();
     if (remoteReady) {
-      await runRemoteMutation("Trainer video link saved", () => persistTrainerRecord(trainer, { persistProfile: true }), { reload: false, // onboarding: the save already reloaded
-        type: "Trainer Video",
-        detail: `${trainer.name} trainer video was set from ${videoProviderLabel(url)} by ${currentActorLabel()}.`
-      });
+      await saveTrainerVideoToLivePage(trainer, `${trainer.name} trainer video was set from ${videoProviderLabel(url)} by ${currentActorLabel()}.`, { persistProfile: true });
     } else {
       saveState("Trainer video link saved");
     }
@@ -16478,7 +16531,9 @@ document.addEventListener("change", async event => {
           trainer.publicPhoto = trainer.profilePhoto;
           trainer.cardPhoto = trainer.profilePhoto;
         }
-        await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer, { persistProfile: upload.dataset.trainerUpload === "profilePhoto" }), { reload: false, // onboarding: the save already reloaded
+        if (isTrainerVideoUpload && upload.dataset.trainerUpload === "trainerVideoUrl") {
+          await saveTrainerVideoToLivePage(trainer, `${trainer.name} trainer video was replaced with ${file.name}.`);
+        } else await runRemoteMutation("Image uploaded and trainer page draft saved", () => persistTrainerRecord(trainer, { persistProfile: upload.dataset.trainerUpload === "profilePhoto" }), { reload: false, // onboarding: the save already reloaded
           type: "Trainer Photo",
           detail: `${trainer.name} ${upload.dataset.trainerUpload} was replaced with ${file.name}.`
         });

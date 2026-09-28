@@ -125,7 +125,7 @@ test("office panel: the Lost list is the four hard no's only; an old free-text r
 });
 
 test("trainer panel: Lost (hard no, four reasons) and Archive (maybe later) are two separate picks, one shared note", () => {
-  const ctx = { escapeHtml, state: {}, leadStatusLabel: s => s, trainerHandoffBox: () => "", lead: { id: "l1", remoteId: "r1", owner: "Pat", status: "Office Contacted" } };
+  const ctx = { escapeHtml, state: {}, leadStatusLabel: s => s, leadZoneHint: () => "the lead's time zone", datetimeLocalValue: () => "", leadTimeZone: () => "", trainerHandoffBox: () => "", lead: { id: "l1", remoteId: "r1", owner: "Pat", status: "Office Contacted" } };
   vm.runInNewContext(`${app.match(/const TRAINER_LOST_REASONS = [^\n]*\n/)[0]}${app.match(/const TRAINER_ARCHIVE_REASONS = [^\n]*\n/)[0]}${fn("trainerLeadActionsBox")}\nthis.out = trainerLeadActionsBox(lead);`, ctx);
   assert.match(ctx.out, /Lost\? Only a hard no: we won't contact them again<select data-trainer-lost-reason/);
   assert.match(ctx.out, /<option value="method_not_a_fit" >Doesn&#39;t believe in our training method<\/option>|<option value="method_not_a_fit" >Doesn't believe in our training method<\/option>/);

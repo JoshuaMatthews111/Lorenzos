@@ -2516,3 +2516,34 @@ office's-turn, no call reminder, no email campaign.
      description with what was published; it says "Checked: the live landing page now shows everything you changed" or
      names what is missing. The pasted trainer video is now saved with the page (`trainer_video_url`) and read back
      (`trainerVideoUrl`), so it reaches the live landing page. Pins: `tests/landing-publish-check-2026-09-26.test.mjs`.
+
+124. **The office Google Sheet copy fits the Google Form (office report 2026-09-28, "Google Form response Sheet returned
+     400").** The Google Form (CONTACT_GOOGLE) refuses the whole row when a required answer is empty (Last Name, Address
+     Line 1, City, State, Zip, Email, Phone, "I want to", "How did you hear about us") or a choice is not on its list
+     (read from the form itself 2026-09-28). Every e-book download failed (no street/city/state/ZIP, "Paid ads market
+     page", "Download the free 5-step calm dog blueprint"), and so did Contact Us "Referred by a past client" / "Is a
+     past client" (~20 rows since 09-16). `api/form-delivery.js fitContactToGoogleForm` (Google copy ONLY; the portal
+     lead and the FormSubmit email are unchanged, rule 72): past-client answers -> "A Former Client"; any other
+     off-list "heard" -> "Other" + the real answer as the Other text; an off-list "I want to" -> the phone-consultation
+     choice with "Website request: <real answer>" first in Comments; empty required text -> "Not given". Trainer
+     applications untouched. Every lead was always saved in the portal (supabase: accepted). Pins:
+     `tests/google-sheet-copy-2026-09-28.test.mjs`.
+
+125. **The lead card shows the follow-up texts that really went out.** The journey line read "Follow-ups if not booked
+     (15 min, 40 min, 24 h, 48 h) - Built. Not sending yet (waits for Joshua's go)" although the timer is ON since
+     2026-09-25 9:00 AM ET and had sent (e.g. Tommy N. 09-27: 15-min 5:15 PM, 30-min 5:30 PM). Now "Follow-ups if not
+     booked (15 min, 30 min, next day)" reads `pipeline.followups` (sent times, not-sent reasons, "Stopped: they
+     booked", "came in before the follow-up texts started", the next one due). Pre-evaluation answers reads
+     `pipeline.pre_eval_text`. Deal closed says "Not switched on" (that text is not wired). Pins:
+     `tests/office-fixes-2026-09-28.test.mjs`.
+
+126. **A trainer video pasted or uploaded for a live page goes live and is checked** (Missy, Eric Beck, 2026-09-28):
+     `saveTrainerVideoToLivePage` publishes through `publishTrainerPageWorkflow` when the page has a published revision
+     and runs `reportLiveLandingPage`; a never-published page saves a draft and says so (rule 123).
+
+127. **A trainer can save a note and change the eval date + time on their own open lead** (Missy, 2026-09-28).
+     `api/trainer-lead-action.js` actions `note` (inserts into office_notes, entity lead, "Trainer note (<name>): ...",
+     so the office sees it in the lead's Office Notes; audit row; no status change) and `eval_time` (leads.
+     eval_scheduled_at, the same field as the office's "Eval date + time", typed in the lead's local time zone; closed
+     leads refused; version-guarded like every trainer action). The trainer panel has "Save note" and an "Eval date +
+     time" box with "Save eval date + time". Same trainer-only scoping as the other trainer actions.
