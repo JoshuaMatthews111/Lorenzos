@@ -15,6 +15,7 @@
 
 const P = require("../../lib/pipeline");
 const E = require("../../lib/email-campaign");
+const G = require("../../lib/google-sheet-resend");
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
@@ -55,7 +56,12 @@ module.exports = async function handler(req, res) {
     const emailCampaign = await E.runEmailCampaign()
       .catch(error => ({ armed: false, message: `email campaign check failed: ${String(error?.message || error)}` }));
     if (emailCampaign.ran) console.log("email_campaign_run", JSON.stringify({ sent: emailCampaign.sent, skipped: emailCampaign.skipped, remaining: emailCampaign.remaining }));
-    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign });
+    // 2026-09-28: one-shot resend of leads that never reached the office Google Sheet (site_settings
+    // google_sheet_resend, server only, ships disarmed). Not armed = a one-line no-op; it disarms itself first.
+    const googleResend = await G.runGoogleSheetResend()
+      .catch(error => ({ armed: false, message: `google sheet resend failed: ${String(error?.message || error)}` }));
+    if (googleResend.ran) console.log("google_sheet_resend_run", JSON.stringify(googleResend));
+    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign, google_sheet_resend: googleResend });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });

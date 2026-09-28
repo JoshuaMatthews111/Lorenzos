@@ -2547,3 +2547,13 @@ office's-turn, no call reminder, no email campaign.
      eval_scheduled_at, the same field as the office's "Eval date + time", typed in the lead's local time zone; closed
      leads refused; version-guarded like every trainer action). The trainer panel has "Save note" and an "Eval date +
      time" box with "Save eval date + time". Same trainer-only scoping as the other trainer actions.
+
+128. **One-shot resend of leads that never reached the office Google Sheet (Joshua 2026-09-28, option A).**
+     `lib/google-sheet-resend.js` runs from the */15 cron behind site_settings `google_sheet_resend` (server only,
+     restrictive policy in both schemas, ships disarmed). Armed: it disarms itself first (version-guarded on
+     updated_at). mode "dry" builds every row and sends nothing (summary in the key's last_run); mode "send" posts each
+     never-accepted lead once through `deliverContactToGoogle` (rule 124 fitting), 1 per second, with "Resent
+     2026-09-28: first received <date> ET" first in Comments, and records each result in form_delivery_attempts
+     (payload_hash "resend-2026-09-28") so an accepted lead is never sent again. qa rows skipped; the practice copy
+     never sends. Only the Google Sheet is touched: no lead, text, email or FormSubmit change. 76 real leads were
+     pending (2026-08-06 .. 2026-09-28, 43 e-book downloads). Pins: `tests/google-sheet-resend-2026-09-28.test.mjs`.

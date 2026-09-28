@@ -429,3 +429,4 @@ module.exports = async function handler(req, res) {
 };
 module.exports.allowedOrigin = allowedOrigin;
 module.exports.entriesForGoogleSheet = entriesForGoogleSheet;
+module.exports.deliverContactToGoogle = entries => deliverGoogle(CONTACT_GOOGLE, CONTACT_FIELDS, entriesForGoogleSheet("contact", entries));
