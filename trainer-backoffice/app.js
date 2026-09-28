@@ -9413,7 +9413,12 @@ function journeyFollowupState(pipeline, booking, lead) {
   }).filter(Boolean);
   const anySent = records.some(r => r?.status === "sent");
   const stopped = booking.slot_start ? "Stopped: they booked." : booking.requested_at || booking.callback ? "Stopped: they asked for a trainer or a call." : "";
-  if (parts.length) return { state: anySent ? "done" : "skipped", detail: [parts.join(" · "), stopped].filter(Boolean).join(" ") };
+  const enteredAt = Date.parse(pipeline.entered_at || "");
+  const done = new Set(records.map(r => r?.step));
+  const upcoming = !stopped && Number.isFinite(enteredAt) && Date.now() - enteredAt <= 7 * 86400000
+    ? JOURNEY_FOLLOWUP_STEPS.find(([key]) => !done.has(key)) : null;
+  const nextLine = upcoming ? `Next: the ${upcoming[1]} around ${journeyWhen(new Date(enteredAt + upcoming[2]).toISOString())}.` : "";
+  if (parts.length) return { state: anySent ? "done" : "skipped", detail: [parts.join(" · "), stopped, nextLine].filter(Boolean).join(" ") };
   if (stopped) return { state: "skipped", detail: `Not needed. ${stopped}` };
   if (pipeline.new_lead_text?.status !== "sent") return { state: "skipped", detail: "Not sent: the follow-ups only go to someone who got the first booking-link text." };
   const entered = Date.parse(pipeline.entered_at || "");

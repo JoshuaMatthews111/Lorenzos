@@ -2534,7 +2534,8 @@ office's-turn, no call reminder, no email campaign.
      2026-09-25 9:00 AM ET and had sent (e.g. Tommy N. 09-27: 15-min 5:15 PM, 30-min 5:30 PM). Now "Follow-ups if not
      booked (15 min, 30 min, next day)" reads `pipeline.followups` (sent times, not-sent reasons, "Stopped: they
      booked", "came in before the follow-up texts started", the next one due). Pre-evaluation answers reads
-     `pipeline.pre_eval_text`. Deal closed says "Not switched on" (that text is not wired). Pins:
+     `pipeline.pre_eval_text`. Deal closed says "Not switched on" (that text is not wired). After the first texts it
+     also names the next one due ("Next: the next-day text around ..."). Pins:
      `tests/office-fixes-2026-09-28.test.mjs`.
 
 126. **A trainer video pasted or uploaded for a live page goes live and is checked** (Missy, Eric Beck, 2026-09-28):

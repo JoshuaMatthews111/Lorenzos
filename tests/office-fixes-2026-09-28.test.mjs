@@ -17,6 +17,7 @@ test("the lead card shows the follow-up texts that really went out; no 'waits fo
   const fn = app.slice(app.indexOf("function journeyFollowupState"), app.indexOf("function journeyStepState"));
   assert.match(fn, /pipeline\.followups/);
   assert.match(fn, /came in before the follow-up texts started/);
+  assert.match(fn, /Next: the \$\{upcoming\[1\]\} around/, "after the first texts, the card names the next one due");
   assert.match(app, /fromRecord\(pipeline\.pre_eval_text, "Answers texted to the trainer"\)/);
   assert.match(app, /Not switched on: Lorenzo is not texted when a deal closes\./);
 });
