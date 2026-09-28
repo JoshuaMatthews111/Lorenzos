@@ -2260,7 +2260,8 @@ async function saveTrainerVideoToLivePage(trainer, detail, persistOptions = {}) 
   const ok = await runRemoteMutation(
     livePage ? "Trainer video published to the live landing page" : "Trainer video saved as a DRAFT: this page has never been published. Press Publish & Lock Trainer Page to put it live.",
     () => (livePage ? publishTrainerPageWorkflow(trainer, true) : persistTrainerRecord(trainer, persistOptions)),
-    { reload: false, type: "Trainer Video", detail }
+    { reload: false, // onboarding: the save already reloaded
+      type: "Trainer Video", detail }
   );
   if (ok && livePage) await reportLiveLandingPage(findTrainer(trainer.remoteId || trainer.id) || trainer, "Trainer video published");
   return ok;
