@@ -1406,6 +1406,18 @@ function mergeRemoteOperationalData(data) {
   persistStateSnapshot();
 }
 
+// Speed 2026-09-29: a signed file link lasts 12 hours (supabase.js signedStorageUrl), so each one is kept for 11 hours
+// by its file path instead of being signed again on every data load (12 requests, about half a second each load).
+const signedSubmissionUrls = new Map();
+const SIGNED_URL_KEEP_MS = 11 * 60 * 60 * 1000;
+async function signedSubmissionUrl(path) {
+  const kept = signedSubmissionUrls.get(path);
+  if (kept && Date.now() - kept.at < SIGNED_URL_KEEP_MS) return kept.url;
+  const url = await window.LDTT_PORTAL.signedStorageUrl("trainer-submissions", path);
+  if (url) signedSubmissionUrls.set(path, { url, at: Date.now() });
+  return url;
+}
+
 async function prepareRemoteData(data) {
   if (!window.LDTT_PORTAL?.signedStorageUrl) return data;
   const submissions = await Promise.all((data.submissions || []).map(async row => {
@@ -1414,7 +1426,7 @@ async function prepareRemoteData(data) {
       return {
         ...row,
         storage_path: row.file_url,
-        file_url: await window.LDTT_PORTAL.signedStorageUrl("trainer-submissions", row.file_url)
+        file_url: await signedSubmissionUrl(row.file_url)
       };
     } catch (error) {
       console.warn("LDTT submission preview URL could not be created", error);
@@ -1429,6 +1441,13 @@ async function prepareRemoteData(data) {
 // that only the Download button reads. It now waits for what the dashboard draws
 // and nothing else. `history` follows a moment later on its own; `sheets` waits
 // until someone actually presses Download.
+// Speed 2026-09-29: ask for ONE missing block and leave out every other block not loaded yet. The history and sheet
+// loads used to pull the website-visit events too (about 11 MB after every sign-in). The screens that show events
+// (Reports, Communications, Ad Landing Pages) still load them through siteEventRows() -> ensureEventsLoaded().
+function omitAllBut(wanted) {
+  return omitForRequest().split(",").filter(block => block && block !== wanted).join(",");
+}
+
 function omitForRequest() {
   const omit = [];
   if (!remoteSheetsReady) omit.push("sheets");
@@ -1446,7 +1465,7 @@ function ensureHistoryLoaded() {
   if (historyLoadPromise) return historyLoadPromise;
   historyLoadPromise = (async () => {
     try {
-      const loaded = await window.LDTT_PORTAL.loadOperationalData({ omit: remoteSheetsReady ? "" : "sheets" });
+      const loaded = await window.LDTT_PORTAL.loadOperationalData({ omit: omitAllBut("history") });
       if (!loaded || loaded.notModified) return false;
       mergeRemoteOperationalData(await prepareRemoteData(loaded));
       return true;
@@ -1471,7 +1490,7 @@ function ensureSheetsLoaded() {
   if (sheetsLoadPromise) return sheetsLoadPromise;
   sheetsLoadPromise = (async () => {
     try {
-      const loaded = await window.LDTT_PORTAL.loadOperationalData({ omit: remoteHistoryReady ? "" : "history" });
+      const loaded = await window.LDTT_PORTAL.loadOperationalData({ omit: omitAllBut("sheets") });
       if (!loaded || loaded.notModified) return false;
       mergeRemoteOperationalData(await prepareRemoteData(loaded));
       return remoteSheetsReady;
@@ -1529,13 +1548,14 @@ async function reloadRemoteData() {
     remoteLastGoodAt = remoteSyncedAt;
     remoteSyncError = "";
     remoteFailingSince = "";
-    return;
+    return false; // nothing changed
   }
   const data = await prepareRemoteData(loaded);
   mergeRemoteOperationalData(data);
   remoteSyncError = "";
   remoteFailingSince = "";
   remoteLastGoodAt = remoteSyncedAt;
+  return true;
 }
 
 // Live data refreshes itself every half minute, on window focus and whenever another
@@ -1626,10 +1646,36 @@ function flushPendingBackgroundRender() {
 document.addEventListener("focusout", () => window.setTimeout(flushPendingBackgroundRender, 600));
 document.addEventListener("submit", () => window.setTimeout(flushPendingBackgroundRender, 900));
 
+// Speed 2026-09-29: focus + tab-switch + the 30-second poll often fired together (2-3 identical loads in one second),
+// and every check redrew the whole screen even when nothing had changed. Now the passive checks share one load and
+// skip a new one within 2 seconds of the last, and "nothing changed" only moves the top bar and the "as of" stamps
+// (rule 35) - with a full redraw at least every 2 minutes so time-based words stay current. A save or a change
+// notice from another device ("realtime", "manual", ...) always loads and redraws as before.
+const PASSIVE_REFRESH = new Set(["focus", "visibility", "poll"]);
+let passiveRefreshPromise = null;
+let lastRefreshDoneAt = 0;
+let lastFullRefreshRenderAt = 0;
 async function refreshOperationalData(reason = "background") {
   if (!session.loggedIn || session.demoUsername || document.hidden) return;
+  const passive = PASSIVE_REFRESH.has(reason);
+  if (passive) {
+    if (passiveRefreshPromise) return passiveRefreshPromise;
+    if (Date.now() - lastRefreshDoneAt < 2000) return;
+    passiveRefreshPromise = runOperationalRefresh(reason, true).finally(() => { passiveRefreshPromise = null; });
+    return passiveRefreshPromise;
+  }
+  return runOperationalRefresh(reason, false);
+}
+async function runOperationalRefresh(reason, passive) {
   try {
-    await reloadRemoteData();
+    const changed = await reloadRemoteData();
+    lastRefreshDoneAt = Date.now();
+    if (passive && changed === false && Date.now() - lastFullRefreshRenderAt < 120000) {
+      renderTopbar();
+      document.querySelectorAll(".panel-asof").forEach(node => { node.textContent = freshnessStampText(); node.classList.remove("stale"); });
+      return;
+    }
+    lastFullRefreshRenderAt = Date.now();
     backgroundRender();
   } catch (error) {
     remoteSyncError = error.message || "Live data unavailable";
@@ -8171,8 +8217,16 @@ function filteredReportOfficeNoteRows() {
   return (remoteOfficeNotes || []).filter(note => isWithinWindow(note.updated_at || note.created_at, "report"));
 }
 
+// Speed 2026-09-29: Reports asked for these once per trainer (about 35 x 15,700 visit rows per redraw). The same
+// answer is kept until the rows, the report dates or the minute change. Same rows, same counts (rule 34).
+let reportEventCache = { base: null, key: "", rows: [] };
 function filteredReportEventRows() {
-  return siteEventRows().filter(event => isWithinWindow(event.timestamp || event.created_at, "report"));
+  const base = siteEventRows();
+  const key = [state.reportDateRange, state.customReportStart, state.customReportEnd, Math.floor(Date.now() / 60000)].join("|");
+  if (reportEventCache.base === base && reportEventCache.key === key) return reportEventCache.rows;
+  const rows = base.filter(event => isWithinWindow(event.timestamp || event.created_at, "report"));
+  reportEventCache = { base, key, rows };
+  return rows;
 }
 
 function leadSubmissionBucket(lead = {}) {
@@ -8318,10 +8372,13 @@ function realLeadRows() {
   return excludeTestLeads(remoteReady ? state.leads : contactSubmissionRows());
 }
 
+let siteEventCache = { source: null, length: -1, trainers: null, trainerCount: -1, rows: [] };
 function siteEventRows() {
   if (remoteReady && !remoteEventsReady) ensureEventsLoaded();
   const rows = remoteReady ? remoteEvents : storedRows(SITE_EVENT_KEY);
-  return rows.filter(event =>
+  // Speed 2026-09-29: the cleaned list is kept until the loaded events or the trainer list change.
+  if (siteEventCache.source === rows && siteEventCache.length === rows.length && siteEventCache.trainers === state.trainers && siteEventCache.trainerCount === (state.trainers || []).length) return siteEventCache.rows;
+  const cleaned = rows.filter(event =>
     event.raw_payload?.qa !== true
     && !/^qa[_-]/i.test(String(event.event_type || ""))
     && !/(?:localhost|127\.0\.0\.1|\.vercel\.app)(?::\d+)?(?:\/|$)/i.test(String(event.raw_payload?.page_url || ""))
@@ -8335,6 +8392,8 @@ function siteEventRows() {
     page_url: event.page_url || event.raw_payload?.page_url || "",
     time_on_page_seconds: Number(event.time_on_page_seconds || event.raw_payload?.time_on_page_seconds || 0)
   }));
+  siteEventCache = { source: rows, length: rows.length, trainers: state.trainers, trainerCount: (state.trainers || []).length, rows: cleaned };
+  return cleaned;
 }
 
 function realTrainerStats(trainer, options = {}) {
@@ -10948,8 +11007,11 @@ function leadPipelineTable(admin) {
   const baseRows = admin ? allLeadRows() : trainerLeads();
   const filterOptions = { useWorkspaceFilters: admin };
   const rows = filteredLeadRows(baseRows, filterOptions);
-  const table = `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong>${leadDogLabel(lead, "dot") ? `<small>${escapeHtml(leadDogLabel(lead, "dot"))}</small>` : ""}</div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><div class="source-cell">${leadSourceBadge(lead)}<div><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></div></div></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(leadStatusLabel(lead.status))}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
-  const detailedSheet = leadSheetView(rows);
+  // Speed 2026-09-29: build only what this screen shows. The office board used to build the detailed sheet (about 14,600
+  // hidden elements) and the trainer table on every redraw, even with the sheet closed. Same rows, same words.
+  const table = admin ? "" : `<div class="table-wrap"><table class="data-table"><thead><tr><th>Received</th><th>Owner / Dog</th><th>Contact</th><th>SMS</th><th>Source / Market</th><th>Service</th><th>${admin ? "Trainer" : "Office Outcome"}</th><th>Status</th><th>Notes From Client</th></tr></thead><tbody>${rows.map((lead, index) => `<tr class="${leadAssignedHighlightClass(lead).trim()}" data-open-lead="${lead.id}"><td>${formatDateTime(lead.createdAt)}</td><td><div class="row-person"><span class="dog-avatar"><img src="${dogImages[index % dogImages.length]}" alt=""></span><div><strong>${escapeHtml(lead.owner)}</strong>${leadDogLabel(lead, "dot") ? `<small>${escapeHtml(leadDogLabel(lead, "dot"))}</small>` : ""}</div></div></td><td><strong>${escapeHtml(formatPhoneNumber(lead.phone) || "—")}</strong><small>${escapeHtml(lead.email || "—")}</small><small>${escapeHtml(lead.address || "Address pending")}</small></td><td>${consentBadge(lead.smsConsent)}</td><td><div class="source-cell">${leadSourceBadge(lead)}<div><strong>${escapeHtml(lead.source)}</strong><small>${escapeHtml(leadMarketLabel(lead))}</small></div></div></td><td>${escapeHtml(lead.service)}</td><td>${admin ? `${escapeHtml(trainerName(lead.trainerId))}${leadAssignmentLine(lead)}` : `${escapeHtml(lead.next)}${leadAssignmentLine(lead)}`}</td><td>${admin ? statusSelect(lead) : `<span class="status ${statusClass(lead.status)}">${escapeHtml(leadStatusLabel(lead.status))}</span>`}</td><td>${escapeHtml(lead.clientNote || "—")}</td></tr>`).join("") || `<tr><td colspan="9">No leads found for this date range.</td></tr>`}</tbody></table></div>`;
+  const sheetShown = admin && (state.leadViewMode !== "board" || state.leadDetailSheetOpen);
+  const detailedSheet = sheetShown ? leadSheetView(rows) : "";
   return `${leadDateControls(baseRows, filterOptions)}${assignedLeadNotice(baseRows)}${leadWorkspaceControls(admin, baseRows)}<p class="panel-copy lead-result-count">${escapeHtml(leadResultCountText(rows, baseRows, admin))}${admin && (state.leadStageFilter || "All") !== "All" ? ` <button class="btn btn-outline btn-small" type="button" data-clear-lead-stage>Clear "${escapeHtml(conversionStageLabel(state.leadStageFilter))}" filter</button>` : ""}</p>${admin && state.leadViewMode === "board" ? leadKanban(rows) : admin ? detailedSheet : table}${admin && state.leadViewMode === "board" ? `<details class="secondary-table" data-lead-sheet-details ${state.leadDetailSheetOpen ? "open" : ""}><summary>Open detailed lead sheet view</summary>${detailedSheet}</details>` : ""}${admin ? leadDetailPanel() : ""}`; // audit 2026-09-24, rule 7: the office panel (status, notes, archive, delete) is never drawn for a trainer; the trainer opens trainerLeadDetailPanel()
 }
 
@@ -14192,8 +14254,11 @@ async function recordClientFormDelivery(entries, canonical, status, error = "") 
 document.addEventListener("toggle", event => {
   const details = event.target?.matches?.("[data-lead-sheet-details]") ? event.target : null;
   if (!details) return;
+  const wasOpen = Boolean(state.leadDetailSheetOpen);
   state.leadDetailSheetOpen = Boolean(details.open);
   persistStateSnapshot();
+  // The sheet is built only while it is open (speed 2026-09-29): opening it draws it now.
+  if (details.open && !wasOpen && !details.querySelector(".lead-sheet-table")) render();
 }, true);
 
 document.addEventListener("click", async event => {
