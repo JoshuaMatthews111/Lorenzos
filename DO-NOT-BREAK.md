@@ -2726,3 +2726,12 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      whole columns, exactly as before. Summary adds `only_leads` and `in_columns`. Pin:
      tests/reengage-send.test.mjs "only these people". Also: /api/operational-data now sends a `Server-Timing`
      header (step names + milliseconds only, never data) and logs `opdata_timing` when a load takes over 1.5 s.
+
+143. **/book says IN PERSON (Rachel 2026-09-29: clients thought they booked a phone call).** The page title and
+     heading say "free in-person evaluation"; the ZIP step and the time step each show "In person, not a phone
+     call."; the button is "Book my in-person evaluation"; the done screen lists "What: Free in-person evaluation
+     (not a phone call)" and says the office or the trainer calls within 48 hours to confirm (Joshua's wording).
+     The client booking-confirmation text (pipeline-texts booking_confirmation starting words, and the
+     lead-journey copy) says "your free in-person evaluation is booked ... This is an in-person visit, not a phone
+     call. Our office or {trainer_first_name} will call you within 48 hours to confirm." Pins:
+     tests/meeting-2026-09-16.test.mjs "Rachel 2026-09-29", tests/pipeline-texts.test.mjs MAKE_WORDS.

@@ -141,7 +141,21 @@ test("6. /book confirmation: no 'office puts your time on the calendar' step; tr
   const book = read("lib/booking-page.js");
   assert.ok(!/puts your time on/.test(book));
   const booked = book.match(/if \(r\.booked\) \{[\s\S]*?\} else \{/)[0];
-  assert.match(booked, /\$\("doneNext"\)\.innerHTML = "<li>" \+ esc\(who\.first_name\) \+ " calls you to confirm the day and time\.<\/li><li>Answer a few pre-evaluation questions/);
+  assert.match(booked, /\$\("doneNext"\)\.innerHTML = "<li>Our office or " \+ esc\(who\.first_name\) \+ " calls you within 48 hours to confirm the day and time\.<\/li><li>Answer a few pre-evaluation questions/);
   assert.match(booked, /Have your dog and your questions ready\. The evaluation is free\./);
   assert.match(book, /step=questions/, "the pre-evaluation questions link stays");
+});
+
+test("Rachel 2026-09-29: /book says IN PERSON, not a phone call, at the start, the time step, the button and the done screen; the confirmation text says it too", () => {
+  const book = read("lib/booking-page.js");
+  assert.match(book, /<h1>Book your free in-person evaluation<\/h1>/);
+  assert.equal((book.match(/<strong>In person, not a phone call\.<\/strong>/g) || []).length, 2, "ZIP step + time step");
+  assert.match(book, /id="bookBtn">Book my in-person evaluation<\/button>/);
+  assert.match(book, /Free in-person evaluation \(not a phone call\)/);
+  assert.match(book, /within 48 hours to confirm/);
+  const T = require("../lib/pipeline-texts.js");
+  const words = T.wordsFor(null, "booking_confirmation");
+  assert.match(words, /your free in-person evaluation is booked/);
+  assert.match(words, /not a phone call\. Our office or \{trainer_first_name\} will call you within 48 hours/);
+  assert.equal(T.check("booking_confirmation", words).error, undefined);
 });

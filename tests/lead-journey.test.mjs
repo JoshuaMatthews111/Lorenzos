@@ -123,7 +123,7 @@ test("booking stops the unanswered follow-ups, confirms to the customer and aler
   assert.equal(byKey("LDTT_Customer_24Hr_Reminder").status, "scheduled");
   const trainerText = texts.find(t => t.body.includes("NEW LDTT EVALUATION"));
   assert.equal(trainerText.to, "+14405550102");
-  assert.ok(texts.find(t => t.body.includes("you’re confirmed with Eric")));
+  assert.ok(texts.find(t => t.body.includes("your free in-person evaluation is booked with Eric")));
   const contacted = await call(handler, { body: { operation: "action", journey_id: id, action: "contacted" } });
   assert.equal(contacted.statusCode, 200);
   assert.equal(byKey("LDTT_Trainer_Contact_Reminder").status, "cancelled");
