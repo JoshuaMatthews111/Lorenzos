@@ -515,6 +515,29 @@ const checks = [
       && /if\(isReleaseQaHost&&!onPracticeCopy\(\)\) data\.set\('qa','true'\);/.test(publicScript);
     return narrow && bookingStamp && edgeStamp && holdOut && rule97;
   })()],
+  // 2026-09-28 (rules 129-133): duplicate cards of one person are JOINED into one card, backup first, children moved,
+  // then the delete, inside one database function per schema; the batch ships disarmed behind a server-only key; the
+  // Recycled badge opens the history; only office admins can join; nothing counts a joined request as a lead.
+  ["rules 129-133: joining duplicate lead cards - private.lead_merge_backup written before any move, every child table moved before the one delete, both schemas, service role only; lead_merge_batch server only + disarmed + disarm-first; lib/lead-merge.js talks through the schema switch and never deletes over REST; the badge is a button that opens the history; the join button is office-admin only and the server picks the card that stays", (() => {
+    const mergeSql = read("supabase/migrations/20260928200000_lead_merge.sql");
+    const body = mergeSql.slice(mergeSql.indexOf("create or replace function @S@.ldtt_merge_lead"), mergeSql.indexOf("unmerge_tpl text"));
+    const backupAt = body.indexOf("insert into private.lead_merge_backup");
+    const deleteAt = body.indexOf("delete from leads where id = p_other");
+    const moves = ["lead_events", "communications_alert_deliveries", "deals", "clients", "booking_holds", "office_notes", "office_note_revisions", "lifecycle_events", "form_delivery_attempts", "audit_events"]
+      .every(t => { const i = body.indexOf(`update ${t} set `); return i > backupAt && i < deleteAt; });
+    const lib = read("lib/lead-merge.js");
+    const mutationApi = read("api/operational-mutation.js");
+    return backupAt > 0 && deleteAt > backupAt && moves && (body.match(/delete from /g) || []).length === 1
+      && /foreach s in array array\['public', 'practice'\]/.test(mergeSql) && /to service_role/.test(mergeSql) && /from public, anon, authenticated/.test(mergeSql)
+      && /create policy "lead_merge_batch_server_only" on public\.site_settings\n  as restrictive/.test(mergeSql)
+      && /create policy "lead_merge_batch_server_only" on practice\.site_settings\n  as restrictive/.test(mergeSql)
+      && /'lead_merge_batch', '\{"armed": false/.test(mergeSql)
+      && /const B = require\("\.\/booking"\);/.test(lib) && !/method:\s*"DELETE"/.test(lib) && /armed: false, status: "running"/.test(lib)
+      && /await LM\.runLeadMergeBatch\(\)/.test(read("api/cron/auto-followups.js"))
+      && /case "merge_leads": result = await mergeLeads\(admin, body\); break;/.test(mutationApi) && /const main = METRICS\.chooseMergeMain\(rows\);/.test(mutationApi)
+      && /data-recycled-history="\$\{escapeHtml\(lead\.id\)\}"/.test(app) && /if \(session\.role !== "admin" \|\| !lead\?\.remoteId \|\| lead\.isTest\) return \[\];/.test(app)
+      && /"merged_requests", \/\/ rule 130/.test(app);
+  })()],
 ];
 
 for (const [label, passed] of checks) assert.equal(Boolean(passed), true, label);

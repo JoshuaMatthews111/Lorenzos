@@ -597,6 +597,9 @@
   // Map lead id -> { firstAt, firstLeadId, count } for every lead that has an older twin. Rows that share an email
   // or a phone are one person, and so are the rows linked through them (a lead with the email of the first and the
   // phone of the second joins both), so "first came in" is that person's EARLIEST lead. Union-find over the keys.
+  // 2026-09-28 (joined cards, rule 129): a card that carries raw_payload.merged_requests is ALSO Recycled, "first came
+  // in" is the earliest of its own time and every joined request's time, and each joined request counts as one request
+  // in "(N requests in all)". The joined requests are history on ONE card: they are never rows and never counted as leads.
   function recycledIndex(rows) {
     const items = list(rows);
     const parent = items.map((_, i) => i);
@@ -607,25 +610,159 @@
         if (ownerOfKey.has(key)) parent[find(i)] = find(ownerOfKey.get(key)); else ownerOfKey.set(key, i);
       }
     });
-    const at = row => timestampValue((row && (row.createdAt || row.created_at)) || "");
-    const older = (a, b) => at(a) < at(b) || (at(a) === at(b) && String(a.id) < String(b.id));
+    const ownAt = row => (row && (row.createdAt || row.created_at)) || "";
+    // The earliest moment this CARD knows about: its own request or any request joined into it.
+    const firstOf = row => {
+      let best = { t: timestampValue(ownAt(row)), s: ownAt(row) };
+      for (const req of mergedRequestsOf(row)) {
+        const t = timestampValue(req.created_at);
+        if (t && (!best.t || t < best.t)) best = { t, s: req.created_at };
+      }
+      return best;
+    };
+    const older = (a, b) => firstOf(a).t < firstOf(b).t || (firstOf(a).t === firstOf(b).t && String(a.id) < String(b.id));
+    const counted = row => personMatchKeys(row).length > 0 || mergedRequestsOf(row).length > 0;
     const earliest = new Map(); // root -> row
     const size = new Map();
     items.forEach((row, i) => {
-      if (!personMatchKeys(row).length) return;
+      if (!counted(row)) return;
       const root = find(i);
-      size.set(root, (size.get(root) || 0) + 1);
+      size.set(root, (size.get(root) || 0) + 1 + mergedRequestsOf(row).length);
       const best = earliest.get(root);
       if (!best || older(row, best)) earliest.set(root, row);
     });
     const out = new Map();
     items.forEach((row, i) => {
-      if (!personMatchKeys(row).length) return;
+      if (!counted(row)) return;
       const root = find(i);
       const first = earliest.get(root);
-      if (first && first !== row && first.id !== row.id) out.set(row.id, { firstAt: first.createdAt || first.created_at || "", firstLeadId: first.id, count: size.get(root) || 2 });
+      const joined = mergedRequestsOf(row).length > 0;
+      if (first && ((first !== row && first.id !== row.id) || joined)) out.set(row.id, { firstAt: firstOf(first).s || "", firstLeadId: first.id, count: size.get(root) || 2 });
     });
     return out;
+  }
+  // Every loaded card of the same person as `id` (the same union as recycledIndex), oldest first. Used by the office's
+  // Recycled history and "Join with older request"; display only.
+  function personRows(rows, id) {
+    const items = list(rows);
+    const start = items.find(row => row && row.id === id);
+    if (!start) return [];
+    const seenKeys = new Set(personMatchKeys(start));
+    const group = new Set([start]);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const row of items) {
+        if (group.has(row)) continue;
+        const keys = personMatchKeys(row);
+        if (keys.some(key => seenKeys.has(key))) { group.add(row); keys.forEach(key => seenKeys.add(key)); grew = true; }
+      }
+    }
+    const at = row => timestampValue((row && (row.createdAt || row.created_at)) || "");
+    return [...group].sort((a, b) => at(a) - at(b) || String(a.id).localeCompare(String(b.id)));
+  }
+
+  // -------------------------------------------------------------------------
+  // Joining duplicate cards (Joshua + Missy, 2026-09-28): "join them, keep the recycled logo on them, they will still
+  // count as one lead not two, and the history should be seen when someone clicks the Recycled badge". lib/lead-merge.js
+  // does the join on the server; the words and the "which card stays" rule live HERE so the office's confirm dialog,
+  // the badge history and the server all say the same thing (rule 34).
+  // -------------------------------------------------------------------------
+  // The card that stays = the most advanced status; a tie goes to the NEWEST card.
+  const MERGE_STATUS_RANK = { became_client: 6, evaluation_complete: 5, evaluation_scheduled: 4, engaged_no_outcome: 3, office_contacted: 3, follow_up_call_needed: 3, new_inquiry: 2 };
+  const leadDbStatus = row => {
+    const value = String((row && (row.dbStatus || row.status)) || "");
+    return LEAD_STATUS_TO_DB[value] || value;
+  };
+  const mergeRank = row => MERGE_STATUS_RANK[leadDbStatus(row)] || 1;
+  function chooseMergeMain(rows) {
+    const at = row => timestampValue((row && (row.createdAt || row.created_at)) || "");
+    return [...list(rows)].filter(Boolean).sort((a, b) => mergeRank(b) - mergeRank(a) || at(b) - at(a) || String(b.id).localeCompare(String(a.id)))[0] || null;
+  }
+  function mergedRequestsOf(row) {
+    const joined = rawOf(row).merged_requests;
+    return Array.isArray(joined) ? joined.filter(item => item && typeof item === "object") : [];
+  }
+  const titleWords = text => String(text || "").split(/[\s-]+/).filter(Boolean).map(word => word[0].toUpperCase() + word.slice(1)).join(" ");
+  const adCity = slug => titleWords(String(slug || "").toLowerCase().replace(/\.html?$/, "").replace(/^dog-training-/, "").replace(/-[a-z]{2}$/, ""));
+  // Which page a request came in through, in plain words ("Contact Us page", "Cleveland ad page", "E-book download
+  // (Cleveland ad page)", "Trainer page: Daniel Bainbridge", "Booking page").
+  function requestPageName(row) {
+    const raw = rawOf(row);
+    const via = String((raw.booking && raw.booking.intake && raw.booking.intake.via) || (raw.pipeline && raw.pipeline.via) || "").toLowerCase();
+    const page = String(raw.source_page || (row && (row.source_page || row.sourcePage)) || "").trim();
+    let path = page;
+    let host = "";
+    try { const url = new URL(page); path = url.pathname; host = url.hostname.toLowerCase(); } catch (error) { /* not an address */ }
+    path = path.replace(/^\/+|\/+$/g, "").toLowerCase();
+    let place = "";
+    if (/ads-v2/.test(host) || /^(?:ldtt-)?ads-v2\//.test(path)) place = `${adCity(path.replace(/^(?:ldtt-)?ads-v2\/?/, "")) || "2.0"} ad page 2.0`.replace(/^2\.0 ad page 2\.0$/, "Ad page 2.0");
+    else if (/^ads\/[a-z0-9-]+/.test(path)) place = `${adCity(path.slice(4))} ad page 2.0`;
+    else if (/^dog-training-[a-z0-9-]+/.test(path)) place = `${adCity(path)} ad page`;
+    else {
+      const titled = page.match(/^(.+?) Dog Training \| Lorenzo/i);
+      if (titled) place = `${titled[1].trim()} ad page`;
+    }
+    if (String(raw.lead_type || "").toLowerCase() === "pdf_download") return `E-book download (${place || "website"})`;
+    if (place) return place;
+    if (/^book(\/|$)/.test(path) || via === "booking-callback") return "Booking page";
+    if (/^trainer landing page:/i.test(page)) return `Trainer page: ${page.replace(/^trainer landing page:\s*/i, "").trim()}`;
+    if (/\strainer page$/i.test(page)) return `Trainer page: ${page.replace(/\s+trainer page$/i, "").trim()}`;
+    if (path === "contact.html" || path === "contact" || /^contact \|/i.test(page) || via === "contact-us") return "Contact Us page";
+    if (/^get-started/.test(path)) return "Get Started page";
+    return page ? `website (${page.slice(0, 60)})` : "website form";
+  }
+  const cleanWords = (value, max = 200) => String(value == null ? "" : value).replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
+  // One request, in the fields the history shows. Works on a database row (the server's snapshot) and on a portal row.
+  function requestEntryFromLead(row, { trainerName = "" } = {}) {
+    const raw = rawOf(row);
+    const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+    const db = leadDbStatus(row);
+    const label = LEAD_STATUS_FROM_DB[db] || (row && row.status) || db;
+    const trainer = cleanWords(trainerName || (row && row.assigned_trainer_name) || booking.trainer_name || "", 80);
+    return {
+      created_at: (row && (row.created_at || row.createdAt)) || "",
+      first_name: cleanWords((row && row.first_name) || raw.first_name, 80),
+      last_name: cleanWords((row && row.last_name) || raw.last_name, 80),
+      email: cleanWords((row && row.email) || raw.email, 160),
+      phone: cleanWords((row && row.phone) || raw.phone, 40),
+      source_page: cleanWords(raw.source_page || (row && row.source_page), 300),
+      page: requestPageName(row),
+      heard_about_us: cleanWords(raw.heard_about_us || (row && (row.lead_source || row.rawSource)), 120),
+      referral: cleanWords(raw.vet_or_previous_client || (row && row.referral_detail), 160),
+      i_want_to: cleanWords(raw.i_want_to || (row && row.service_interest), 200),
+      comments: cleanWords((row && row.comments) || raw.comments, 600),
+      dog_name: cleanWords((row && row.dog_name) || raw.dog_name, 80),
+      dog_breed: cleanWords((row && row.dog_breed) || raw.dog_breed, 80),
+      status: db,
+      status_label: statusLabel(label),
+      trainer_name: trainer,
+      utm_source: cleanWords(raw.utm_source, 80),
+      utm_campaign: cleanWords(raw.utm_campaign, 120),
+      lead_type: cleanWords(raw.lead_type, 40),
+      booking: booking.slot_start
+        ? { when: cleanWords(booking.when_label || booking.slot_start, 120), trainer: cleanWords(booking.trainer_name || trainer, 80), via: cleanWords(booking.via, 40) }
+        : booking.requested === true ? { requested: true, trainer: cleanWords(booking.trainer_name || trainer, 80) } : null
+    };
+  }
+  // The request in one plain paragraph (the date is written by the screen, in the viewer's time zone).
+  function requestSummary(entry, { current = false } = {}) {
+    const e = entry || {};
+    const bare = value => cleanWords(value).replace(/[.!?\s]+$/, "");
+    const parts = [`came in through the ${bare(e.page) || "website form"}`];
+    if (bare(e.heard_about_us)) parts.push(`Heard about us: ${bare(e.heard_about_us)}${bare(e.referral) ? ` (${cleanWords(e.referral)})` : ""}`);
+    else if (bare(e.referral)) parts.push(`Referred by: ${bare(e.referral)}`);
+    if (bare(e.i_want_to)) parts.push(`Asked for: ${bare(e.i_want_to)}`);
+    const dog = [bare(e.dog_name), bare(e.dog_breed)].filter(Boolean).join(", ");
+    if (dog) parts.push(`Dog: ${dog}`);
+    if (e.booking && e.booking.when) parts.push(`Booked an evaluation${bare(e.booking.trainer) ? ` with ${bare(e.booking.trainer)}` : ""} for ${bare(e.booking.when)}`);
+    else if (e.booking && e.booking.requested) parts.push(`Asked for ${bare(e.booking.trainer) || "a trainer"} online (the office schedules)`);
+    if (bare(e.comments)) parts.push(`Their note: "${bare(e.comments).slice(0, 240)}"`);
+    const messages = list(e.messages).map(bare).filter(Boolean);
+    if (messages.length) parts.push(`We sent: ${messages.join(", ")}`);
+    const who = bare(e.trainer_name) && !(e.booking && e.booking.trainer) ? ` (trainer: ${bare(e.trainer_name)})` : "";
+    if (bare(e.status_label)) parts.push(`${current ? "Status now" : "Status then"}: ${bare(e.status_label)}${who}`);
+    return `${parts.join(". ")}.`;
   }
 
   // -------------------------------------------------------------------------
@@ -682,7 +819,8 @@
     clientCounts, wonCount, trainerDashboard, trainerPerformance, trainerStats, navBadgeCounts,
     TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_PIPELINE_STAGES, TRAINER_HIDDEN_DB_STATUSES, trainerDbStatus, trainerStageFor,
     trainerPipeline, trainerBoardRows, trainerLeadBoard,
-    STATUS_DISPLAY_LABELS, statusLabel, personMatchKeys, recycledIndex, OFFICE_TURN_DB_STATUSES, OFFICE_TURN_AFTER_MS, officeTurn, officeTurnRows,
+    STATUS_DISPLAY_LABELS, statusLabel, personMatchKeys, recycledIndex, personRows, MERGE_STATUS_RANK, chooseMergeMain, mergedRequestsOf,
+    requestPageName, requestEntryFromLead, requestSummary, OFFICE_TURN_DB_STATUSES, OFFICE_TURN_AFTER_MS, officeTurn, officeTurnRows,
     escapeCsv, csvDocument, csvRowCount
   };
 });

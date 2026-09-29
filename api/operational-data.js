@@ -651,8 +651,12 @@ async function loadAdminOperationalData(unavailableCapabilities, omit = new Set(
 // recycled_count. Nothing else about another lead is sent, and nothing is written.
 async function stampRecycled(leads) {
   if (!Array.isArray(leads) || !leads.length) return;
-  const everyone = await supabaseFetchAll("/rest/v1/leads?select=id,created_at,email,phone,qa:raw_payload->>qa&order=created_at.asc");
-  const index = METRICS.recycledIndex((everyone || []).filter(row => row.qa !== "true"));
+  // 2026-09-28 (rule 132): a joined card (raw_payload.merged_requests) is Recycled too, and its joined requests count
+  // in "first came in" - so only the joined requests' times ride along (never their words: the trainer's own row
+  // already carries its history).
+  const everyone = await supabaseFetchAll("/rest/v1/leads?select=id,created_at,email,phone,qa:raw_payload->>qa,joined:raw_payload->merged_requests&order=created_at.asc");
+  const index = METRICS.recycledIndex((everyone || []).filter(row => row.qa !== "true")
+    .map(row => (Array.isArray(row.joined) && row.joined.length ? { ...row, raw_payload: { merged_requests: row.joined.map(item => ({ created_at: item && item.created_at })) } } : row)));
   for (const row of leads) {
     const hit = index.get(row.id);
     if (hit) { row.recycled_first_at = hit.firstAt || ""; row.recycled_count = hit.count || 2; }

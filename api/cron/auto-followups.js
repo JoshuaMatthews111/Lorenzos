@@ -16,6 +16,7 @@
 const P = require("../../lib/pipeline");
 const E = require("../../lib/email-campaign");
 const G = require("../../lib/google-sheet-resend");
+const LM = require("../../lib/lead-merge");
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
@@ -61,7 +62,12 @@ module.exports = async function handler(req, res) {
     const googleResend = await G.runGoogleSheetResend()
       .catch(error => ({ armed: false, message: `google sheet resend failed: ${String(error?.message || error)}` }));
     if (googleResend.ran) console.log("google_sheet_resend_run", JSON.stringify(googleResend));
-    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign, google_sheet_resend: googleResend });
+    // 2026-09-28: one-time join of duplicate lead cards (site_settings lead_merge_batch, server only, ships disarmed).
+    // Not armed = a one-line no-op. Armed: it disarms itself first; "dry" lists the groups and changes nothing.
+    const leadMerge = await LM.runLeadMergeBatch()
+      .catch(error => ({ armed: false, message: `lead join failed: ${String(error?.message || error)}` }));
+    if (leadMerge.ran) console.log("lead_merge_batch_run", JSON.stringify(leadMerge));
+    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign, google_sheet_resend: googleResend, lead_merge: leadMerge });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });

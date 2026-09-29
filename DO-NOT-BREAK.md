@@ -2558,3 +2558,66 @@ office's-turn, no call reminder, no email campaign.
      (payload_hash "resend-2026-09-28") so an accepted lead is never sent again. qa rows skipped; the practice copy
      never sends. Only the Google Sheet is touched: no lead, text, email or FormSubmit change. 76 real leads were
      pending (2026-08-06 .. 2026-09-28, 43 e-book downloads). Pins: `tests/google-sheet-resend-2026-09-28.test.mjs`.
+
+## One person, one card: joining duplicate lead cards (added 2026-09-28, Joshua + Missy; stamp 20260928live40)
+
+Record before this change (stamp 20260928live39, commit 6743ae7): 621 tests + audit green; live `public.leads` 326 rows /
+315 non-qa (orchestrator baseline `shots40/baseline-before.json`); the Recycled badge was a `<span>` (rule 107) with a
+tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-digit phone) and each counted as its own lead.
+
+129. **A join keeps everything and loses nothing: backup FIRST, every child moved, the snapshot, and ONLY THEN the delete —
+     in one database transaction per joined card.** `public.ldtt_merge_lead` / `practice.ldtt_merge_lead` (migration
+     `supabase/migrations/20260928200000_lead_merge.sql`, applied as `lead_merge_2026_09_28`; one body created in both
+     schemas, security definer, execute for `service_role` only): (a) the whole joined lead row + every child row it has go
+     into `private.lead_merge_backup` (server only: RLS on, no policy, no browser grant, `private` is not exposed);
+     (b) lead_events, communications_alert_deliveries, deals, clients, booking_holds, office_notes, office_note_revisions,
+     lifecycle_events, form_delivery_attempts and audit_events move to the card that stays; (c) the plain-words snapshot is
+     appended to `raw_payload.merged_requests[]` (earlier ones kept, and any the joined card carried come along), and a field
+     the staying card is missing (email, phone, ZIP, street, city, state, dog name, the old `office_notes` text) is filled from
+     the joined card — its own status, trainer, booking, phone and email never change; (d) `delete` of the joined card is the
+     ONLY delete in the function. Both cards are version-guarded (a stale version raises, nothing is written). qa cards
+     (boolean OR the string "true") are refused in the database too. Two cards that EACH have a client record are refused
+     (clients_lead_id_unique; the office decides). `audit_events` "lead_merged" on the staying card. `ldtt_unmerge_lead(id)`
+     (lib `unmergeFromBackup`, no button) puts a joined card back from the backup and moves its children back.
+     Proven on the practice schema 2026-09-28: a stale version refused; notes, revisions, events, lifecycle, deliveries moved;
+     backup written; unmerge restored all of it; then a real join of the practice test pair "Practice Walk790066".
+130. **The card that stays = the most advanced status (became_client > evaluation_complete > evaluation_scheduled >
+     engaged / office_contacted / follow_up_call_needed > new_inquiry > lost / archived / anything else); a tie goes to the
+     NEWEST card.** ONE rule, `metrics.js chooseMergeMain` (`MERGE_STATUS_RANK`), used by the batch, the office confirm and
+     the server op; `mergeLeadGroup` refuses a main that is not the most advanced, so a booked or client card is never joined
+     into a less advanced one. The snapshot (`lib/lead-merge.js buildSnapshot` over `metrics.js requestEntryFromLead`) keeps,
+     in plain words: when, the name / email / phone as entered, the page (`requestPageName`: "Contact Us page", "Cleveland ad
+     page", "E-book download (Cleveland ad page)", "Trainer page: <name>", "Booking page", "<City> ad page 2.0"), how they
+     heard about us + who referred them (Missy: it changes between requests), what they asked for, dog, their note, the booking,
+     the status and trainer it had, utm, lane, the texts/emails the CLIENT got (only what the pipeline recorded as sent), extra
+     answers, the old office-note text, and the moved counts. `merged_requests` is in `LEAD_INTERNAL_RAW_FIELD_KEYS`: never a
+     sheet/CSV column, never a lead.
+131. **Grouping for the one-time join: same normalized email = same person; a phone-only match joins ONLY when the first
+     names match (first word, any case) AND the phone is not an ACTIVE `communications_testers` phone.** Every other
+     phone-only match is LEFT FOR THE OFFICE; a person whose cards share an email or phone with a qa card is skipped whole;
+     two client records are skipped (`lib/lead-merge.js groupDuplicates`). The batch runs from the */15 cron behind
+     `site_settings` `lead_merge_batch` (both schemas, restrictive `lead_merge_batch_server_only` policy created before the
+     row, SHIPS DISARMED): armed -> disarm first (version-guarded on updated_at); mode "dry" writes the full audit into
+     `last_run` (before/after numbers, every group with each card, why that card stays, child counts, flags, left-over and
+     skipped groups) and changes nothing else; mode "send" joins, 8-minute budget, "incomplete" is carried on by the next
+     tick (max 8), a stop the office writes during a run is kept. **Arming "send" joins real cards on live: only after the
+     dry-run list is reviewed.** Nothing in it texts or emails anyone.
+132. **The Recycled badge stays on a joined card and CLICKING it opens the history.** A lead is Recycled when it carries
+     `merged_requests` OR has an older unjoined match (rule 107 unchanged for those; `recycledIndex` now also counts joined
+     requests: "first came in" = the earliest of them, "(N requests in all)" counts them). The badge is a `<button
+     class="lead-tag-recycled" data-recycled-history>` on office Leads + Sales cards, the office panel, trainer cards and the
+     trainer panel; its click runs before `[data-open-lead]` and never opens the card. `openRecycledHistory` draws a
+     `<dialog>` on `document.body` (a redraw never closes it): "First came in: <date>", then one entry per request, newest
+     first ("This card" / "Joined into this card" / "Still a separate card"). OFFICE: how many office notes came over from each
+     joined request + that card's old note text + separate cards of the same person. TRAINER: the requests only — never office
+     notes, never another card (rule 7); `api/operational-data.js stampRecycled` sends only the joined requests' TIMES.
+     Readable at 375 px (no sideways scroll; screenshots `shots40/`).
+133. **"Join with older request" is office admins only, and the server decides.** The office lead panel shows it
+     (`joinOlderBox`) only when the lead has an OLDER separate card of the same person; the confirm names every card and
+     which one stays. `api/operational-mutation.js` op `merge_leads` (inside the admin-only handler) re-reads the rows,
+     refuses qa cards and cards that do not share an email/phone chain (`metrics.personRows`), checks the versions, picks
+     the card that stays itself (`chooseMergeMain`) and calls `lib/lead-merge.js mergeLeadGroup`. No trainer door can join.
+     **Counting:** a joined card is one row, so dashboards / Track 500 / lead totals count the person once; nothing counts
+     `merged_requests` as leads (rule 1's hold-out and every count are otherwise unchanged).
+     Pins: `tests/lead-merge-2026-09-28.test.mjs` (9), `tests/recycled-2026-09-25.test.mjs` (badge is a button now), the
+     audit check "rules 129-133".

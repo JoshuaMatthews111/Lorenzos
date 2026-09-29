@@ -6050,6 +6050,33 @@ label:has(> textarea[required]):not(:has(.required-mark))::before { content: "* 
 .lead-detail-panel h2 .lead-tag-recycled { font-size: 13px; vertical-align: 4px; }
 .lead-recycled-line { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0 10px; padding: 8px 10px; border-radius: 8px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; font-size: .9rem; }
 .lead-recycled-line .recycle-icon { width: 16px; height: 16px; flex: none; margin-top: 2px; color: #2563eb; }
+/* 2026-09-28: the Recycled badge is a button that opens the history (rule 132). Same look as the old span. */
+button.lead-tag-recycled { font-family: inherit; line-height: 1.5; cursor: pointer; appearance: none; -webkit-appearance: none; }
+button.lead-tag-recycled:hover, button.lead-tag-recycled:focus-visible { background: #dbeafe; outline: 2px solid #93c5fd; outline-offset: 1px; }
+.lead-recycled-line .link-button { color: #1d4ed8; }
+.recycled-history-dialog { width: min(640px, calc(100vw - 24px)); max-height: 88vh; overflow-y: auto; border: 0; border-radius: 18px; padding: 24px 22px 20px; color: var(--navy, #0b1f3a); box-shadow: 0 28px 90px rgba(3,22,52,.35); box-sizing: border-box; }
+.recycled-history-dialog::backdrop { background: rgba(2,15,35,.6); }
+.recycled-history-dialog h2 { margin: 8px 0 6px; font-size: 1.25rem; line-height: 1.25; overflow-wrap: anywhere; }
+.recycled-history-dialog .lead-tag-recycled.is-static { margin-left: 0; }
+.recycled-history-close { position: absolute; top: 10px; right: 12px; border: 0; background: none; font-size: 28px; line-height: 1; cursor: pointer; color: #475569; padding: 4px 8px; }
+.recycled-history-first { margin: 0 0 4px; font-size: 1rem; }
+.recycled-history-count { margin: 0 0 12px; color: #334155; font-size: .92rem; }
+.recycled-history-list { list-style: none; margin: 0 0 16px; padding: 0; border-left: 3px solid #bfdbfe; }
+.recycled-history-list li { position: relative; margin: 0 0 12px; padding: 8px 10px 8px 16px; border-radius: 0 10px 10px 0; background: #f8fafc; }
+.recycled-history-list li::before { content: ""; position: absolute; left: -8px; top: 14px; width: 11px; height: 11px; border-radius: 50%; background: #2563eb; border: 2px solid #fff; }
+.recycled-history-list li.is-current { background: #eff6ff; }
+.recycled-history-list time { display: inline-block; font-weight: 800; font-size: .92rem; margin-right: 6px; }
+.recycled-history-list p { margin: 4px 0 0; font-size: .92rem; line-height: 1.45; overflow-wrap: anywhere; }
+.recycled-history-tag { display: inline-block; font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: #dbeafe; color: #1e3a8a; }
+.recycled-history-tag.is-joined { background: #e0e7ff; color: #3730a3; }
+.recycled-history-tag.is-separate { background: #fef3c7; color: #92400e; }
+.recycled-history-notes { display: block; margin-top: 6px; color: #475569; font-size: .85rem; overflow-wrap: anywhere; }
+.join-older-box { margin: 4px 0 12px; padding: 10px 12px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #7c2d12; font-size: .9rem; }
+.join-older-box p { margin: 0 0 8px; }
+@media (max-width: 480px) {
+  .recycled-history-dialog { padding: 20px 14px 16px; border-radius: 14px; }
+  .recycled-history-list li { padding: 8px 8px 8px 14px; }
+}
 
 /* Zoom 2026-09-24: "I called the client" on an Evaluation Scheduled lead (trainer card + panel). */
 .trainer-called-btn { margin: 4px 0; }

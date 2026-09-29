@@ -8945,6 +8945,7 @@ const LEAD_INTERNAL_RAW_FIELD_KEYS = new Set([
   "requestId",
   "payload_hash",
   "pipeline", // rule 72: what the pipeline texted (or why not), drawn by leadPipelineNotices() in the lead panel
+  "merged_requests", // rule 130: the joined requests, drawn by the Recycled history (never a sheet column, never a lead)
   "booking" // rule 71: online booking answers, drawn by leadBookingBlock() in the lead panel
 ]);
 
@@ -9287,25 +9288,158 @@ let recycledCache = { rows: null, length: -1, index: new Map() };
 function recycledInfo(lead) {
   if (!lead) return null;
   if (lead.recycledFirstAt) return { firstAt: lead.recycledFirstAt, count: Number(lead.recycledCount) || 2 };
-  if (session.role !== "admin") return null;
+  // 2026-09-28 (rule 132): a JOINED card carries its earlier requests in raw_payload.merged_requests, so it is Recycled
+  // on its own (a trainer row without a server stamp, too). metrics.js counts it (one card, many requests).
+  if (session.role !== "admin") {
+    const own = METRICS.recycledIndex([lead]).get(lead.id);
+    return own || null;
+  }
   const rows = state.leads || [];
   if (recycledCache.rows !== rows || recycledCache.length !== rows.length) {
     recycledCache = { rows, length: rows.length, index: METRICS.recycledIndex(METRICS.leadRows(rows)) };
   }
   return recycledCache.index.get(lead.id) || null;
 }
+// The badge is a BUTTON (2026-09-28, owner: "the history should be seen when someone clicks the Recycled badge"). Its
+// click runs before [data-open-lead] and never opens the card; it opens openRecycledHistory().
 function recycledTag(lead) {
   const info = recycledInfo(lead);
   if (!info) return "";
   const first = info.firstAt ? formatDate(info.firstAt) : "";
-  const title = `Recycled: this person came back.${first ? ` They first came in ${first}.` : ""}`;
-  return ` <span class="lead-tag-recycled" title="${escapeHtml(title)}">${RECYCLE_ICON}Recycled</span>`;
+  const title = `Recycled: this person came back.${first ? ` They first came in ${first}.` : ""} Click to see their history.`;
+  return ` <button type="button" class="lead-tag-recycled" data-recycled-history="${escapeHtml(lead.id)}" title="${escapeHtml(title)}">${RECYCLE_ICON}Recycled</button>`;
 }
 function recycledLine(lead) {
   const info = recycledInfo(lead);
   if (!info) return "";
   const first = info.firstAt ? formatDateTime(info.firstAt) : "";
-  return `<p class="lead-recycled-line">${RECYCLE_ICON}<span><strong>Recycled.</strong> This person came back${first ? `. They first came in ${escapeHtml(first)}` : ""}${info.count > 2 ? ` (${info.count} requests in all)` : ""}.</span></p>`;
+  return `<p class="lead-recycled-line">${RECYCLE_ICON}<span><strong>Recycled.</strong> This person came back${first ? `. They first came in ${escapeHtml(first)}` : ""}${info.count > 2 ? ` (${info.count} requests in all)` : ""}. <button type="button" class="link-button" data-recycled-history="${escapeHtml(lead.id)}">See their history</button></span></p>`;
+}
+
+// The Recycled history (Joshua + Missy, 2026-09-28): one entry per request, newest first, in plain words - which page
+// they came in through, how they heard about us (it can change between requests), what they asked for, what happened.
+// The words come from metrics.js (requestEntryFromLead / requestSummary), the same words the server stored when it
+// joined the cards. OFFICE view: also how many office notes came over from each joined request (the notes themselves
+// are in this card's Office Notes) and any other card of this person that is still separate. TRAINER view: the
+// requests only - never office notes, never another card (rule 7).
+function recycledHistoryEntries(lead, { office = false } = {}) {
+  const ts = value => new Date(value || 0).getTime() || 0;
+  const trainerWords = id => { const name = trainerName(id); return name && name !== "Unassigned" ? name : ""; };
+  const entries = [];
+  const addCard = (card, { current = false, separate = false } = {}) => {
+    const entry = METRICS.requestEntryFromLead({ ...card, comments: card.comments || card.clientNote || "" }, { trainerName: trainerWords(card.trainerId) });
+    entries.push({ at: entry.created_at, text: METRICS.requestSummary(entry, { current: current || separate }), current, separate, notes: 0, noteText: "" });
+    for (const joined of METRICS.mergedRequestsOf(card)) {
+      entries.push({
+        at: joined.created_at || "",
+        text: joined.page ? METRICS.requestSummary(joined) : String(joined.summary || "An earlier request (details not kept)."),
+        joined: true,
+        notes: office ? Number(joined.moved?.office_notes || 0) : 0,
+        noteText: office ? String(joined.office_note_text || "").trim() : ""
+      });
+    }
+  };
+  addCard(lead, { current: true });
+  if (office) {
+    const others = METRICS.personRows(METRICS.leadRows(state.leads || []), lead.id).filter(card => card.id !== lead.id);
+    others.forEach(card => addCard(card, { separate: true }));
+  }
+  return entries.sort((a, b) => ts(b.at) - ts(a.at));
+}
+function recycledHistoryHtml(lead, { office = false } = {}) {
+  const entries = recycledHistoryEntries(lead, { office });
+  const info = recycledInfo(lead);
+  const times = entries.map(entry => new Date(entry.at || 0).getTime()).filter(Boolean);
+  const first = info?.firstAt || (times.length ? new Date(Math.min(...times)).toISOString() : lead.createdAt);
+  const joinedCount = entries.filter(entry => entry.joined).length;
+  const separate = entries.filter(entry => entry.separate).length;
+  const items = entries.map(entry => {
+    const tag = entry.current ? `<em class="recycled-history-tag">This card</em>` : entry.separate ? `<em class="recycled-history-tag is-separate">Still a separate card</em>` : `<em class="recycled-history-tag is-joined">Joined into this card</em>`;
+    const notes = office && entry.joined
+      ? `<small class="recycled-history-notes">${entry.notes ? `${entry.notes} office note${entry.notes === 1 ? "" : "s"} came over from this request (they are in this card's Office Notes).` : "No office notes came over from this request."}${entry.noteText ? ` Note written on that card: "${escapeHtml(entry.noteText.slice(0, 400))}"` : ""}</small>`
+      : "";
+    return `<li class="${entry.current ? "is-current" : ""}"><time>${escapeHtml(formatDateTime(entry.at))}</time>${tag}<p>${escapeHtml(entry.text.charAt(0).toUpperCase() + entry.text.slice(1))}</p>${notes}</li>`;
+  }).join("");
+  const countLine = joinedCount
+    ? `${joinedCount + 1} requests are joined into this one card. They count as one lead.`
+    : "This person came back. Each request is below.";
+  const separateLine = separate ? ` ${separate} other card${separate === 1 ? " is" : "s are"} still separate${office ? " (use \"Join with older request\" on the card to join them)" : ""}.` : "";
+  return `<button type="button" class="recycled-history-close" aria-label="Close">×</button>
+    <span class="lead-tag-recycled is-static">${RECYCLE_ICON}Recycled</span>
+    <h2 id="recycledHistoryTitle">${escapeHtml(lead.owner || "This person")}: their history</h2>
+    <p class="recycled-history-first"><strong>First came in:</strong> ${escapeHtml(formatDateTime(first))}</p>
+    <p class="recycled-history-count">${escapeHtml(countLine + separateLine)}</p>
+    <ol class="recycled-history-list">${items}</ol>
+    <button type="button" class="btn btn-outline recycled-history-done">Close</button>`;
+}
+function openRecycledHistory(leadId) {
+  const lead = (state.leads || []).find(item => item.id === leadId);
+  if (!lead) return;
+  document.querySelectorAll("dialog.recycled-history-dialog").forEach(open => { try { open.close(); } catch (error) { /* already closed */ } open.remove(); });
+  const dialog = document.createElement("dialog");
+  dialog.className = "recycled-history-dialog";
+  dialog.setAttribute("aria-labelledby", "recycledHistoryTitle");
+  dialog.innerHTML = recycledHistoryHtml(lead, { office: session.role === "admin" });
+  document.body.appendChild(dialog); // outside #workspaceView: a background redraw never closes it
+  const close = () => { try { dialog.close(); } catch (error) { /* closed */ } dialog.remove(); };
+  dialog.querySelector(".recycled-history-close").addEventListener("click", close);
+  dialog.querySelector(".recycled-history-done").addEventListener("click", close);
+  dialog.addEventListener("click", event => { if (event.target === dialog) close(); });
+  dialog.addEventListener("close", () => dialog.remove());
+  dialog.showModal();
+}
+
+// "Join with older request" (2026-09-28, rule 131): office admins only, on the office lead panel of a lead that has an
+// OLDER card of the same person that is still separate. The server (api/operational-mutation.js merge_leads) re-checks
+// everything and picks the card that stays by the same rule the confirm names (metrics.js chooseMergeMain).
+function joinOlderCards(lead) {
+  if (session.role !== "admin" || !lead?.remoteId || lead.isTest) return [];
+  const group = METRICS.personRows(METRICS.leadRows(state.leads || []), lead.id).filter(card => card.remoteId);
+  const ts = card => new Date(card.createdAt || 0).getTime() || 0;
+  if (group.length < 2 || !group.some(card => card.id !== lead.id && ts(card) <= ts(lead))) return [];
+  return group;
+}
+function joinOlderBox(lead) {
+  const group = joinOlderCards(lead);
+  if (!group.length) return "";
+  const others = group.length - 1;
+  return `<div class="join-older-box"><p><strong>${others} older request${others === 1 ? " is" : "s are"} still a separate card.</strong> Join them so this person is ONE card and counts as one lead. Nothing is lost: notes, history, texts and emails move onto the card that stays, and each request stays in the Recycled history.</p><button class="btn btn-outline btn-small" type="button" data-join-lead="${escapeHtml(lead.id)}">Join with older request</button></div>`;
+}
+function joinConfirmText(group) {
+  const main = METRICS.chooseMergeMain(group);
+  const line = card => `${card.owner || "Unnamed"} - came in ${formatDateTime(card.createdAt)} through the ${METRICS.requestPageName(card)} (${leadStatusLabel(card.status)})`;
+  return [
+    `Join ${group.length} cards for the same person into ONE card?`,
+    "",
+    `STAYS: ${line(main)}`,
+    ...group.filter(card => card !== main).map(card => `JOINS INTO IT: ${line(card)}`),
+    "",
+    "The card that stays keeps its own status, trainer and booking. The office notes, history, texts and emails of the other card move onto it, and its request is kept in the Recycled history. The person then counts as ONE lead."
+  ].join("\n");
+}
+async function joinOlderRequest(button) {
+  const lead = (state.leads || []).find(item => item.id === button.dataset.joinLead);
+  const group = joinOlderCards(lead);
+  if (group.length < 2) { showToast("There is no older card of this person to join."); return; }
+  if (!window.confirm(joinConfirmText(group))) return;
+  const main = METRICS.chooseMergeMain(group);
+  button.disabled = true;
+  try {
+    const result = await window.LDTT_PORTAL.operationalMutation({
+      operation: "merge_leads",
+      lead_id: main.remoteId,
+      other_ids: group.filter(card => card !== main).map(card => card.remoteId),
+      expected_versions: Object.fromEntries(group.map(card => [card.remoteId, card.version]))
+    });
+    if (!result || result.ok === false) throw new Error(result?.message || "The cards could not be joined.");
+    state.selectedLeadId = main.id;
+    showToast(`Joined into one card: ${main.owner}`);
+    await reloadRemoteData().catch(() => {});
+    render();
+  } catch (error) {
+    button.disabled = false;
+    showToast(error.message || "The cards could not be joined. Reload and try again.");
+  }
 }
 
 // "Office's turn" (Zoom 2026-09-24, Lorenzo: "this has been bot touched three times and now it's time for the office").
@@ -10798,7 +10932,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}${recycledTag(lead)}${officeTurnTag(lead)}</h2>${officeTurnLine(lead)}${recycledLine(lead)}<p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><input class="select-pill lead-phone-input" type="tel" inputmode="tel" autocomplete="off" data-lead-phone="${escapeHtml(lead.id)}" value="${escapeHtml(formatPhoneNumber(lead.phone) || "")}" placeholder="(555) 555-1234" aria-label="Phone"><small class="field-hint">Wrong number? Type the right one. It saves when you leave the box.</small></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost <small class="field-hint">(a hard no: nobody contacts them again)</small><select class="select-pill" data-lead-lost-reason="${lead.id}">${officeLostOptions(lead)}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label>${officeArchiveReasonLine(lead)}<div class="row-actions office-archive-row">${lead.status === "Archived" ? "" : `<label>Archive (maybe later): why?<select class="select-pill" data-lead-archive-reason="${lead.id}">${officeArchiveOptions(lead)}</select></label>`}<button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}${recycledTag(lead)}${officeTurnTag(lead)}</h2>${officeTurnLine(lead)}${recycledLine(lead)}${joinOlderBox(lead)}<p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><input class="select-pill lead-phone-input" type="tel" inputmode="tel" autocomplete="off" data-lead-phone="${escapeHtml(lead.id)}" value="${escapeHtml(formatPhoneNumber(lead.phone) || "")}" placeholder="(555) 555-1234" aria-label="Phone"><small class="field-hint">Wrong number? Type the right one. It saves when you leave the box.</small></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost <small class="field-hint">(a hard no: nobody contacts them again)</small><select class="select-pill" data-lead-lost-reason="${lead.id}">${officeLostOptions(lead)}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label>${officeArchiveReasonLine(lead)}<div class="row-actions office-archive-row">${lead.status === "Archived" ? "" : `<label>Archive (maybe later): why?<select class="select-pill" data-lead-archive-reason="${lead.id}">${officeArchiveOptions(lead)}</select></label>`}<button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 // Lost vs Archive (Zoom 2026-09-24). The older soft Lost statuses (no response, price, not ready, complaint) are no
@@ -14718,6 +14852,11 @@ document.addEventListener("click", async event => {
     saveLeadAlpha(alphaToggle.dataset.leadAlpha, (alphaLead?.alphaAnswer || "") === "yes" ? "" : "yes");
     return;
   }
+  // 2026-09-28: the Recycled badge (on a card that opens on click) opens the history, never the card.
+  const recycledHistory = event.target.closest("[data-recycled-history]");
+  if (recycledHistory) { event.stopPropagation(); event.preventDefault(); openRecycledHistory(recycledHistory.dataset.recycledHistory); return; }
+  const joinLead = event.target.closest("[data-join-lead]");
+  if (joinLead) { joinOlderRequest(joinLead); return; }
   const openLead = event.target.closest("[data-open-lead]");
   // The guard below stops a ROW click from firing when someone uses a control inside that
   // row (status dropdown, archive button). But the dashboard's "Open / Add Note" IS a button

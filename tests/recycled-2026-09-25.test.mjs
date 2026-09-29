@@ -79,11 +79,12 @@ test("portal: a blue 'Recycled' badge with a tooltip naming when they first came
   ];
   const ctx = { METRICS: M, session: { role: "admin" }, state: { leads }, escapeHtml, formatDate: () => "Aug 2, 2026", formatDateTime: () => "Aug 2, 2026, 11:00 AM" };
   vm.runInNewContext(`${app.match(/const RECYCLE_ICON = `[^`]*`;\n/)[0]}let recycledCache = { rows: null, length: -1, index: new Map() };\n${fn(app, "recycledInfo")}\n${fn(app, "recycledTag")}\n${fn(app, "recycledLine")}\nthis.tag = recycledTag(state.leads[1]); this.none = recycledTag(state.leads[0]); this.line = recycledLine(state.leads[1]);\nsession.role = "trainer"; this.trainerNoStamp = recycledTag(state.leads[1]); this.trainerStamp = recycledTag({ id: "T", recycledFirstAt: "2026-08-02T15:00:00Z", recycledCount: 2 });`, ctx);
-  assert.match(ctx.tag, /class="lead-tag-recycled" title="Recycled: this person came back\. They first came in Aug 2, 2026\."><svg class="recycle-icon"[^>]*>.*<\/svg>Recycled<\/span>/);
+  // 2026-09-28 (rule 132): the badge is a BUTTON that opens the Recycled history; same class, same words + "Click to see".
+  assert.match(ctx.tag, /<button type="button" class="lead-tag-recycled" data-recycled-history="L2" title="Recycled: this person came back\. They first came in Aug 2, 2026\. Click to see their history\."><svg class="recycle-icon"[^>]*>.*<\/svg>Recycled<\/button>/);
   assert.equal(ctx.none, "", "the first request wears no badge");
   assert.match(ctx.line, /They first came in Aug 2, 2026, 11:00 AM/);
   assert.equal(ctx.trainerNoStamp, "", "a trainer never matches across leads in the browser (rule 7)");
-  assert.match(ctx.trainerStamp, /Recycled<\/span>/, "the trainer's server-stamped row wears it");
+  assert.match(ctx.trainerStamp, /Recycled<\/button>/, "the trainer's server-stamped row wears it");
   assert.match(app, /\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}(\$\{officeTurnTag\(lead\)\})?`;\n  return `\$\{leadCardEvalLine\(lead\)\}/, "office Leads card");
   assert.match(app, /\$\{track500Tag\(lead\)\}\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}(\$\{officeTurnTag\(lead\)\})?<\/small>/, "Sales card");
   assert.match(app, /<h2>\$\{escapeHtml\(lead\.owner\)\}\$\{needsCallTag\(lead\)\}\$\{recycledTag\(lead\)\}(\$\{officeTurnTag\(lead\)\})?<\/h2>(\$\{officeTurnLine\(lead\)\})?\$\{recycledLine\(lead\)\}/, "office lead panel");
@@ -108,7 +109,7 @@ test("trainer rows: the server stamps ONLY recycled_first_at + recycled_count on
   await ctx.run(leads);
   assert.deepEqual(leads[0], { id: "mine", email: "K@x.com", recycled_first_at: "2026-08-01T00:00:00Z", recycled_count: 2 });
   assert.deepEqual(leads[1], { id: "mine2", email: "z@x.com" }, "a QA row never makes a real lead recycled");
-  assert.equal(calls[0], "/rest/v1/leads?select=id,created_at,email,phone,qa:raw_payload->>qa&order=created_at.asc", "read only the four columns it needs");
+  assert.equal(calls[0], "/rest/v1/leads?select=id,created_at,email,phone,qa:raw_payload->>qa,joined:raw_payload->merged_requests&order=created_at.asc", "read only the columns it needs (2026-09-28: + the joined requests' times)");
   await ctx.run([]);
   assert.equal(calls.length, 1, "no leads, no query");
 });

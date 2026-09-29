@@ -699,6 +699,39 @@ async function setReviewPublications(admin, body, requestId) {
   };
 }
 
+// "Join with older request" (office lead panel, 2026-09-28, rule 131): the office joins the SAME person's cards into
+// one. Admins only (this whole handler is office staff only, rule 7 / 37). The server re-checks everything: every card
+// must belong to the same person (same email or same real phone, chained), none may be a qa card, and the card that
+// stays is chosen HERE by the one rule (metrics.js chooseMergeMain: most advanced, a tie goes to the newest), never by
+// the browser. lib/lead-merge.js does the join (backup first, children moved, snapshot, then the delete).
+async function mergeLeads(admin, body) {
+  const METRICS = require("../trainer-backoffice/metrics.js");
+  const LM = require("../lib/lead-merge.js");
+  const ids = [...new Set([clean(body.lead_id, 80), ...(Array.isArray(body.other_ids) ? body.other_ids : []).map(id => clean(id, 80))].filter(Boolean))];
+  if (ids.length < 2 || ids.length > 6 || ids.some(id => !/^[0-9a-f-]{36}$/i.test(id))) {
+    return { status: 400, body: { ok: false, message: "Pick the cards to join (two to six cards of the same person)." } };
+  }
+  const rows = await supabaseFetch(`/rest/v1/leads?select=*&id=in.(${ids.join(",")})`);
+  if (!Array.isArray(rows) || rows.length !== ids.length) return { status: 404, body: { ok: false, message: "One of the cards was not found (it may already be joined). Reload and try again." } };
+  if (rows.some(LM.isQaRow)) return { status: 400, body: { ok: false, message: "Test (qa) cards are never joined." } };
+  const person = METRICS.personRows(rows, ids[0]);
+  if (person.length !== rows.length) return { status: 400, body: { ok: false, message: "These cards do not share an email or a phone number, so they are not joined." } };
+  const expected = body.expected_versions && typeof body.expected_versions === "object" ? body.expected_versions : {};
+  for (const row of rows) {
+    if (expected[row.id] !== undefined && Number(expected[row.id]) !== Number(row.version)) {
+      return { status: 409, body: { ok: false, conflict: true, message: "One of these cards was just changed by someone else. Reload and try again." } };
+    }
+  }
+  const main = METRICS.chooseMergeMain(rows);
+  try {
+    const out = await LM.mergeLeadGroup(main.id, rows.filter(row => row.id !== main.id).map(row => row.id), admin.actor,
+      { expectedVersions: Object.fromEntries(rows.map(row => [row.id, row.version])) });
+    return { status: 200, body: { ok: true, main_id: out.main_id, main_version: out.main_version, merged: out.merged } };
+  } catch (error) {
+    return { status: error.status || 500, body: { ok: false, message: error.message || "The cards could not be joined.", merged: error.merged || [] } };
+  }
+}
+
 module.exports = async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -722,6 +755,7 @@ module.exports = async function handler(req, res) {
       case "set_review_publications": result = await setReviewPublications(admin, body, requestId); break;
       case "delete_trainer_page": result = await deleteTrainerPage(admin, body, requestId); break;
       case "restore_trainer_page": result = await restoreTrainerPage(admin, body, requestId); break;
+      case "merge_leads": result = await mergeLeads(admin, body); break;
       default: result = { status: 400, body: { ok: false, message: "Unsupported operational mutation." } };
     }
     result.body.request_id = requestId;
