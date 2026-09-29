@@ -181,12 +181,12 @@ async function patchLeadWithRetry(lead, buildChanges) {
 }
 
 // The lead for a booking-page submit: the one from the link, or a new practice lead from the form.
-async function leadForForm({ leadId, client, dogs, slug, setting, trainer, zip, via }) {
+async function leadForForm({ leadId, client, dogs, slug, setting, trainer, zip, via, linkFrom = null }) {
   if (leadId) return getLead(leadId);
   const addressZip = (String(client.address || "").match(/\b(\d{5})(?:-\d{4})?\b/g) || []).pop()?.slice(0, 5) || "";
   const created = await B.createLead({
     // Rule 75: a removed first-name question -> the same stand-in the website forms use.
-    intake: { first_name: client.first_name || LF.FALLBACKS.first_name, last_name: client.last_name, phone: client.phone, email: client.email, zip: B.digits(zip).slice(0, 5) || addressZip, problem: dogs[0]?.behavior?.slice(0, 300) || "", dog_name: dogs.map(d => d.name).join(", "), sms_consent: false, source_page: `book/${slug}` },
+    intake: { first_name: client.first_name || LF.FALLBACKS.first_name, last_name: client.last_name, phone: client.phone, email: client.email, zip: B.digits(zip).slice(0, 5) || addressZip, problem: dogs[0]?.behavior?.slice(0, 300) || "", dog_name: dogs.map(d => d.name).join(", "), sms_consent: false, source_page: `book/${slug}`, ...(linkFrom ? { utm_source: linkFrom.channel, utm_campaign: linkFrom.message } : {}) },
     setting, trainer, via
   });
   return getLead(created.lead.id);
@@ -218,7 +218,8 @@ async function book(req, res, body) {
 
   const trainer = await B.trainerRow(slug);
   const { client, dogs, location } = form.value;
-  if (!lead) lead = await leadForForm({ leadId: "", client, dogs, slug, setting, trainer, zip: body.zip, via: "booking-page" });
+  const linkFrom = B.linkFrom(body.link_from); // rule 140: which text/email link brought them (null = none)
+  if (!lead) lead = await leadForForm({ leadId: "", client, dogs, slug, setting, trainer, zip: body.zip, via: "booking-page", linkFrom });
 
   const slotIso = new Date(startSec * 1000).toISOString();
   const hold = await B.sb("/rest/v1/booking_holds", {
@@ -267,7 +268,8 @@ async function book(req, res, body) {
             client_custom: form.value.client_custom || undefined, // rule 75: office-added questions
             dogs,
             hold_id: holdRow.id || null,
-            booked_at: now
+            booked_at: now,
+            ...(linkFrom ? { link_from: linkFrom } : {})
           }
         }
       };
@@ -336,7 +338,8 @@ async function requestTrainer(req, res, body) {
   if (leadId && !B.UUID.test(leadId)) return res.status(400).json({ ok: false, message: "That booking link is not complete. Please use the link from your text again." });
   const { client, dogs, location } = form.value;
   const pseudo = { slug, trainer_id: trainer.id };
-  let lead = await leadForForm({ leadId, client, dogs, slug, setting: pseudo, trainer, zip: body.zip, via: "booking-request" });
+  const linkFrom = B.linkFrom(body.link_from); // rule 140
+  let lead = await leadForForm({ leadId, client, dogs, slug, setting: pseudo, trainer, zip: body.zip, via: "booking-request", linkFrom });
   if (!lead) return res.status(404).json({ ok: false, message: `We could not find your request. Please call ${OFFICE_PHONE}.` });
   if (rawOf(lead).booking?.slot_start) {
     return res.status(409).json({ ok: false, message: `You already have an evaluation booked. To change it, please call ${OFFICE_PHONE}.` });
@@ -366,7 +369,8 @@ async function requestTrainer(req, res, body) {
           location_label: locationLabel,
           client,
           client_custom: form.value.client_custom || undefined, // rule 75: office-added questions
-          dogs
+          dogs,
+          ...(linkFrom ? { link_from: linkFrom } : {})
         }
       }
     };
@@ -397,11 +401,12 @@ async function callback(req, res, body) {
   if (errors.length) return res.status(400).json({ ok: false, message: errors[0], errors });
   const leadId = B.clean(body.lead_id, 60);
   if (leadId && !B.UUID.test(leadId)) return res.status(400).json({ ok: false, message: "That link is not complete. Please call us." });
+  const linkFrom = B.linkFrom(body.link_from); // rule 140
   let lead = leadId ? await getLead(leadId) : null;
   if (leadId && !lead) return res.status(404).json({ ok: false, message: `We could not find your request. Please call ${OFFICE_PHONE}.` });
   if (!lead) {
     const created = await B.createLead({
-      intake: { ...client, zip, problem: "", dog_name: "", sms_consent: false, source_page: "book/no-trainer-nearby" },
+      intake: { ...client, zip, problem: "", dog_name: "", sms_consent: false, source_page: "book/no-trainer-nearby", ...(linkFrom ? { utm_source: linkFrom.channel, utm_campaign: linkFrom.message } : {}) },
       setting: null, trainer: null, via: "booking-callback"
     });
     lead = await getLead(created.lead.id);
@@ -419,7 +424,7 @@ async function callback(req, res, body) {
         needs_office_call: true, // Joshua 2026-09-23: the office must call this person; the portal shows a "Needs a call" badge
         booking: {
           ...(raw.booking && typeof raw.booking === "object" ? raw.booking : {}),
-          callback: { zip, requested_at: now, phone: client.phone, reason: `No trainer within ${B.RADIUS_MILES} miles of ZIP ${zip}.` }
+          callback: { zip, requested_at: now, phone: client.phone, reason: `No trainer within ${B.RADIUS_MILES} miles of ZIP ${zip}.`, ...(linkFrom ? { link_from: linkFrom } : {}) }
         }
       }
     };

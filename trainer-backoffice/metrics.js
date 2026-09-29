@@ -726,6 +726,7 @@
       last_name: cleanWords((row && row.last_name) || raw.last_name, 80),
       email: cleanWords((row && row.email) || raw.email, 160),
       phone: cleanWords((row && row.phone) || raw.phone, 40),
+      zip: cleanWords((row && row.zip) || raw.zip, 10),
       source_page: cleanWords(raw.source_page || (row && row.source_page), 300),
       page: requestPageName(row),
       heard_about_us: cleanWords(raw.heard_about_us || (row && (row.lead_source || row.rawSource)), 120),
@@ -763,6 +764,85 @@
     const who = bare(e.trainer_name) && !(e.booking && e.booking.trainer) ? ` (trainer: ${bare(e.trainer_name)})` : "";
     if (bare(e.status_label)) parts.push(`${current ? "Status now" : "Status then"}: ${bare(e.status_label)}${who}`);
     return `${parts.join(". ")}.`;
+  }
+
+  // -------------------------------------------------------------------------
+  // Lead history + pipeline "Kind" filter (Joshua 2026-09-29): "when they were first received, what date they were
+  // recycled, through what method, what changed, where they booked - did they follow the link through the text or the
+  // email", and a filter that shows every lead of a kind with the numbers to match. Display only; no count changes.
+  // -------------------------------------------------------------------------
+  // Link tags: lib/booking.js taggedLink (utm_source text|email + utm_campaign = the message). A booking stamps
+  // raw_payload.booking.link_from; a lead that CAME IN from a tagged link (an ad page, /book) carries utm_source.
+  const LINK_MESSAGE_WORDS = {
+    new_lead: "first booking-link", followup_first: "15-minute follow-up", followup_link: "30-minute follow-up",
+    unfinished: "30-minute \"finish your request\" follow-up", care_call: "next-day follow-up", reengage: "re-engage invite", campaign: "email campaign"
+  };
+  const LINK_TRACKING_START = "2026-09-29T08:00:00Z"; // bookings before this could not say which link was used
+  function linkFromOf(row) {
+    const raw = rawOf(row);
+    const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+    const stamped = booking.link_from || (booking.callback && booking.callback.link_from);
+    if (stamped && (stamped.channel === "text" || stamped.channel === "email")) return { channel: stamped.channel, message: String(stamped.message || ""), at: stamped.at || "", on: "booking" };
+    const utm = String(raw.utm_source || (row && (row.utm_source || row.utmSource)) || "").toLowerCase();
+    if (utm === "text" || utm === "email") return { channel: utm, message: String(raw.utm_campaign || (row && row.utm_campaign) || "").toLowerCase(), at: "", on: "lead" };
+    return null;
+  }
+  function linkFromWords(link) {
+    if (!link) return "";
+    const what = LINK_MESSAGE_WORDS[link.message] || "";
+    return `the link in ${what ? `the ${what} ` : "our "}${link.channel === "text" ? "text" : "email"}`;
+  }
+  // What changed from one request to the next (both from requestEntryFromLead / a merged snapshot).
+  const CHANGE_FIELDS = [["page", "Came in through"], ["heard_about_us", "How they heard about us"], ["referral", "Referred by"], ["phone", "Phone"], ["email", "Email"], ["zip", "ZIP"], ["i_want_to", "Asked for"], ["dog_name", "Dog"], ["trainer_name", "Trainer"]];
+  function requestChanges(before, after) {
+    const a = before || {}; const b = after || {};
+    const norm = value => cleanWords(value).toLowerCase().replace(/[.!?\s]+$/, "");
+    const same = (key, x, y) => key === "phone" ? String(x || "").replace(/\D/g, "").slice(-10) === String(y || "").replace(/\D/g, "").slice(-10) : norm(x) === norm(y);
+    const out = [];
+    for (const [key, label] of CHANGE_FIELDS) {
+      const x = cleanWords(a[key], 120); const y = cleanWords(b[key], 120);
+      if (!y || same(key, x, y)) continue;
+      out.push(x ? `${label}: ${x} → ${y}` : `${label}: ${y} (new)`);
+    }
+    return out;
+  }
+  // The "Kind" filter on the Leads pipeline. `ctx` carries what only the screen knows (recycled, office's turn).
+  const LEAD_KIND_FILTERS = [
+    ["recycled", "Recycled (came back)"],
+    ["booked_online", "Booked online"],
+    ["booked_from_text", "Booked from a text link"],
+    ["booked_from_email", "Booked from an email link"],
+    ["from_text", "Came from a text link"],
+    ["from_email", "Came from an email link"],
+    ["asked_trainer", "Asked for a trainer (office schedules)"],
+    ["asked_call", "Asked for a call (no trainer nearby)"],
+    ["needs_call", "Needs a call"],
+    ["office_turn", "Office's turn"],
+    ["unfinished", "Did not finish the booking form"],
+    ["ebook", "E-book downloads"]
+  ];
+  function leadKinds(lead, ctx = {}) {
+    const raw = rawOf(lead);
+    const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+    const link = linkFromOf(lead);
+    const booked = Boolean(booking.slot_start);
+    const kinds = new Set();
+    if (ctx.recycled) kinds.add("recycled");
+    if (booked) kinds.add("booked_online");
+    if (booked && link && link.on === "booking" && link.channel === "text") kinds.add("booked_from_text");
+    if (booked && link && link.on === "booking" && link.channel === "email") kinds.add("booked_from_email");
+    if (link && link.channel === "text") kinds.add("from_text");
+    if (link && link.channel === "email") kinds.add("from_email");
+    if (booking.requested === true && !booked) kinds.add("asked_trainer");
+    if (booking.callback) kinds.add("asked_call");
+    if (raw.needs_office_call === true) kinds.add("needs_call");
+    if (ctx.officeTurn) kinds.add("office_turn");
+    const pipeline = raw.pipeline && typeof raw.pipeline === "object" ? raw.pipeline : null;
+    const dogs = Array.isArray(booking.dogs) ? booking.dogs : [];
+    const answered = dogs.some(dog => dog && (dog.name || dog.breed || dog.behavior));
+    if (pipeline && pipeline.entered_at && !booked && !booking.requested && !booking.callback && !answered && String(raw.lead_type || "").toLowerCase() !== "pdf_download") kinds.add("unfinished");
+    if (String(raw.lead_type || "").toLowerCase() === "pdf_download") kinds.add("ebook");
+    return kinds;
   }
 
   // -------------------------------------------------------------------------
@@ -820,7 +900,8 @@
     TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_PIPELINE_STAGES, TRAINER_HIDDEN_DB_STATUSES, trainerDbStatus, trainerStageFor,
     trainerPipeline, trainerBoardRows, trainerLeadBoard,
     STATUS_DISPLAY_LABELS, statusLabel, personMatchKeys, recycledIndex, personRows, MERGE_STATUS_RANK, chooseMergeMain, mergedRequestsOf,
-    requestPageName, requestEntryFromLead, requestSummary, OFFICE_TURN_DB_STATUSES, OFFICE_TURN_AFTER_MS, officeTurn, officeTurnRows,
+    requestPageName, requestEntryFromLead, requestSummary, LINK_MESSAGE_WORDS, LINK_TRACKING_START, linkFromOf, linkFromWords, requestChanges, LEAD_KIND_FILTERS, leadKinds,
+    OFFICE_TURN_DB_STATUSES, OFFICE_TURN_AFTER_MS, officeTurn, officeTurnRows,
     escapeCsv, csvDocument, csvRowCount
   };
 });

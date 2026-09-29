@@ -334,6 +334,7 @@ const defaultState = {
   leadStageFilter: "All",
   leadTrainerFilter: "All",
   leadSmsFilter: "All",
+  leadKindFilter: "All",
   leadOwnerFilter: "All",
   leadViewMode: "board",
   leadDetailSheetOpen: false,
@@ -640,6 +641,7 @@ function persistStateSnapshot() {
     leadStageFilter: state.leadStageFilter,
     leadTrainerFilter: state.leadTrainerFilter,
     leadSmsFilter: state.leadSmsFilter,
+    leadKindFilter: state.leadKindFilter,
     leadOwnerFilter: state.leadOwnerFilter,
     leadViewMode: state.leadViewMode,
     leadDetailSheetOpen: state.leadDetailSheetOpen,
@@ -8911,7 +8913,9 @@ function leadMatchesFilters(lead, options = {}) {
   const stageFilter = overrides.leadStageFilter ?? state.leadStageFilter ?? "All";
   const smsFilter = overrides.leadSmsFilter ?? state.leadSmsFilter;
   const ownerFilter = overrides.leadOwnerFilter ?? state.leadOwnerFilter ?? "All";
+  const kindFilter = overrides.leadKindFilter ?? state.leadKindFilter ?? "All";
   return (ignore.has("search") || recordMatchesSearch(leadSearchValues(lead), search))
+    && (ignore.has("kind") || kindFilter === "All" || leadKindSet(lead).has(kindFilter))
     && (ignore.has("trainer") || leadMatchesTrainerFilter(lead, trainerFilter))
     && (ignore.has("status") || statusFilter === "All" || lead.status === statusFilter)
     && (ignore.has("stage") || stageFilter === "All" || leadReachedStage(lead, stageFilter))
@@ -8920,6 +8924,15 @@ function leadMatchesFilters(lead, options = {}) {
       || (ownerFilter === "Me" && String(lead.assignedUserId || "") === String(currentPortalUserId()))
       || (ownerFilter === "Unassigned" && !lead.assignedUserId)
       || String(lead.assignedUserId || "") === String(ownerFilter));
+}
+
+// Joshua 2026-09-29: the pipeline "Kind" filter (Recycled, Booked from a text link, ...). The kinds come from
+// METRICS.leadKinds; recycled and office's turn are the same answers the badges use. Display only; no count changes.
+function leadKindSet(lead) {
+  return METRICS.leadKinds(lead, { recycled: Boolean(recycledInfo(lead)), officeTurn: Boolean(officeTurnInfo(lead)) });
+}
+function leadKindLabel(key) {
+  return (METRICS.LEAD_KIND_FILTERS.find(([value]) => value === key) || [key, key])[1];
 }
 
 function filteredLeadRows(rows, options = {}) {
@@ -8945,6 +8958,7 @@ function activeLeadFilterLabels(admin = true) {
   if (admin && state.leadStatusFilter !== "All") labels.push(`Status: ${leadStatusLabel(state.leadStatusFilter)}`);
   if (admin && (state.leadStageFilter || "All") !== "All") labels.push(`Reached: ${conversionStageLabel(state.leadStageFilter)}`);
   if (admin && state.leadSmsFilter !== "All") labels.push(`SMS: ${state.leadSmsFilter}`);
+  if (admin && (state.leadKindFilter || "All") !== "All") labels.push(`Kind: ${leadKindLabel(state.leadKindFilter)}`);
   if (admin && state.leadOwnerFilter !== "All") labels.push(`Owner: ${state.leadOwnerFilter === "Me" ? "Assigned to me" : state.leadOwnerFilter === "Unassigned" ? "Unassigned" : portalActorLabel(state.leadOwnerFilter)}`);
   if (admin && state.leadSearch) labels.push(`Search: "${state.leadSearch}"`);
   return labels;
@@ -9502,6 +9516,73 @@ function recycledHistoryHtml(lead, { office = false } = {}) {
     <ol class="recycled-history-list">${items}</ol>
     <button type="button" class="btn btn-outline recycled-history-done">Close</button>`;
 }
+// Lead history (Joshua 2026-09-29): on the office's lead record, in order - when they were FIRST received and through
+// which page, each time they came back (recycled) with the date, the page and what changed, and how they booked: the
+// booking page, and whether they got there from the link in a text or an email (METRICS.linkFromOf). For older bookings
+// that could not record the link, it names the last message we sent before they booked. Office only (rule 7).
+const LEAD_MESSAGE_NAMES = { tim: "15-minute follow-up", link: "30-minute follow-up", care: "next-day follow-up" };
+function leadMessagesSent(lead) {
+  const raw = leadRawPayload(lead);
+  const p = raw.pipeline && typeof raw.pipeline === "object" ? raw.pipeline : {};
+  const out = [];
+  const add = (at, name, textRec, emailRec) => {
+    const how = [textRec?.status === "sent" ? "text" : "", emailRec?.status === "sent" ? "email" : ""].filter(Boolean);
+    if (how.length && at) out.push({ at, words: `${name} (${how.join(" + ")})` });
+  };
+  add(p.new_lead_text?.at || p.new_lead_client_email?.at, "first booking-link message", p.new_lead_text, p.new_lead_client_email);
+  (Array.isArray(p.followups) ? p.followups : []).forEach(step => add(step?.at, LEAD_MESSAGE_NAMES[step?.step] || "follow-up", step, step?.client_email));
+  if (p.reengage) add(p.reengage.at, "re-engage invite", p.reengage.text, p.reengage.client_email);
+  Object.values(p.email_campaigns && typeof p.email_campaigns === "object" ? p.email_campaigns : {}).forEach(rec => add(rec?.at, "email campaign", null, rec));
+  return out.sort((a, b) => timestampValue(a.at) - timestampValue(b.at));
+}
+function leadRequestTimeline(lead) {
+  const trainerWords = id => { const name = trainerName(id); return name && name !== "Unassigned" ? name : ""; };
+  const items = [];
+  const addCard = (card, current) => {
+    items.push({ ...METRICS.requestEntryFromLead({ ...card, comments: card.comments || card.clientNote || "" }, { trainerName: trainerWords(card.trainerId) }), current, separate: !current });
+    METRICS.mergedRequestsOf(card).forEach(joined => items.push({ ...joined, joined: true }));
+  };
+  addCard(lead, true);
+  METRICS.personRows(METRICS.leadRows(state.leads || []), lead.id).filter(card => card.id !== lead.id).forEach(card => addCard(card, false));
+  return items.filter(item => item.created_at).sort((a, b) => timestampValue(a.created_at) - timestampValue(b.created_at));
+}
+function leadHistoryBlock(lead) {
+  if (session.role !== "admin" || !lead) return "";
+  const raw = leadRawPayload(lead);
+  const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+  const requests = leadRequestTimeline(lead);
+  const tagFor = item => item.current ? "This card" : item.joined ? "Joined into this card" : "Still a separate card";
+  const rows = requests.map((item, index) => {
+    const heard = item.heard_about_us ? ` Heard about us: ${item.heard_about_us}.` : "";
+    if (index === 0) {
+      return `<li><time>${escapeHtml(formatDateTime(item.created_at))}</time><strong>First received</strong> through the ${escapeHtml(item.page || "website form")}.${escapeHtml(heard)}${requests.length > 1 ? ` <em class="lead-history-tag">${escapeHtml(tagFor(item))}</em>` : ""}</li>`;
+    }
+    const changes = METRICS.requestChanges(requests[index - 1], item);
+    return `<li class="is-recycled"><time>${escapeHtml(formatDateTime(item.created_at))}</time><strong>${RECYCLE_ICON}Came back (recycled)</strong> through the ${escapeHtml(item.page || "website form")}. <em class="lead-history-tag">${escapeHtml(tagFor(item))}</em><small>${changes.length ? `What changed: ${escapeHtml(changes.join("; "))}.` : "Nothing in their details changed."}</small></li>`;
+  });
+  const link = METRICS.linkFromOf(lead);
+  const linkLine = when => link
+    ? `They got there from ${escapeHtml(METRICS.linkFromWords(link))}.`
+    : timestampValue(when) && timestampValue(when) < timestampValue(METRICS.LINK_TRACKING_START)
+      ? (() => { const before = leadMessagesSent(lead).filter(m => timestampValue(m.at) <= timestampValue(when)).pop(); return `Which link they used was not recorded then (it is recorded from Sept 29, 2026).${before ? ` The last message we sent before that: ${escapeHtml(before.words)}, ${escapeHtml(formatDateTime(before.at))}.` : ""}`; })()
+      : "They did not come from a text or email link (they booked right on the website).";
+  if (booking.slot_start) {
+    const when = booking.booked_at || "";
+    rows.push(`<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Booked online</strong> an evaluation for ${escapeHtml(booking.when_label || formatDateTime(booking.slot_start))}${booking.trainer_name ? ` with ${escapeHtml(booking.trainer_name)}` : ""} on the booking page. <small>${linkLine(when)}</small></li>`);
+  } else if (booking.requested) {
+    const when = booking.requested_at || "";
+    rows.push(`<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Asked for ${escapeHtml(booking.trainer_name || "a trainer")}</strong> on the booking page (the office schedules the time). <small>${linkLine(when)}</small></li>`);
+  } else if (booking.callback) {
+    const when = booking.callback.requested_at || "";
+    rows.push(`<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Asked for a call</strong> (no trainer near ZIP ${escapeHtml(booking.callback.zip || "")}). <small>${linkLine(when)}</small></li>`);
+  } else if (lead.evalScheduledAt) {
+    rows.push(`<li class="is-booked"><time>${escapeHtml(formatDateTime(lead.evalScheduledAt))}</time><strong>Evaluation set by the office</strong> (not booked online).</li>`);
+  } else {
+    rows.push(`<li class="is-waiting"><strong>Not booked yet.</strong>${link && link.on === "lead" ? ` <small>This request came from ${escapeHtml(METRICS.linkFromWords(link))}.</small>` : ""}</li>`);
+  }
+  return `<section class="detail-note-block lead-history"><h3>Lead history</h3><ol class="lead-history-list">${rows.join("")}</ol></section>`;
+}
+
 function openRecycledHistory(leadId) {
   const lead = (state.leads || []).find(item => item.id === leadId);
   if (!lead) return;
@@ -11039,9 +11120,11 @@ function leadWorkspaceControls(admin, baseRows = allLeadRows()) {
   ].concat((remotePortalUsers || [])
     .filter(user => user.active !== false && user.role === "admin")
     .map(user => `<option value="${escapeHtml(user.user_id)}" ${state.leadOwnerFilter === user.user_id ? "selected" : ""}>${escapeHtml(leadOptionLabel(portalDisplayName(user), leadFilterCount(baseRows, { leadOwnerFilter: user.user_id })))}</option>`));
+  const kindOptions = [`<option value="All">${escapeHtml(leadOptionLabel("All kinds of leads", leadFilterCount(baseRows, { leadKindFilter: "All" })))}</option>`]
+    .concat(METRICS.LEAD_KIND_FILTERS.map(([value, label]) => `<option value="${value}" ${state.leadKindFilter === value ? "selected" : ""}>${escapeHtml(leadOptionLabel(label, leadFilterCount(baseRows, { leadKindFilter: value })))}</option>`));
   const myAssignedCount = assignedLeadRowsForCurrentUser(baseRows).length;
   const myAssignedActive = state.leadOwnerFilter === "Me";
-  return `<div class="lead-workspace-controls"><button class="btn ${myAssignedActive ? "btn-red" : "btn-outline"} lead-owner-toggle" type="button" data-lead-owner-quick="toggle">My Assigned Leads <span>${myAssignedCount}</span></button><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
+  return `<div class="lead-workspace-controls"><button class="btn ${myAssignedActive ? "btn-red" : "btn-outline"} lead-owner-toggle" type="button" data-lead-owner-quick="toggle">My Assigned Leads <span>${myAssignedCount}</span></button><input class="select-pill lead-search" data-lead-search value="${escapeHtml(state.leadSearch)}" placeholder="Search name, phone, email, dog, city..."><select class="select-pill" data-lead-filter="trainer">${trainerOptions.join("")}</select><select class="select-pill" data-lead-filter="status">${statusOptions.join("")}</select><select class="select-pill" data-lead-filter="sms">${smsOptions.join("")}</select><select class="select-pill" data-lead-filter="owner">${ownerOptions.join("")}</select><select class="select-pill" data-lead-filter="kind" aria-label="Kind of lead">${kindOptions.join("")}</select><div class="view-switch"><button class="btn ${state.leadViewMode === "board" ? "btn-red" : "btn-outline"}" data-lead-view="board">Pipeline</button><button class="btn ${state.leadViewMode === "table" ? "btn-red" : "btn-outline"}" data-lead-view="table">Table</button></div></div>`;
 }
 
 const boardColumns = METRICS?.BOARD_COLUMNS || [];
@@ -11065,7 +11148,7 @@ function officeAssigneeSelect(entityType, recordId, selectedUserId = "") {
 function leadDetailPanel() {
   const lead = allLeadRows().find(l => l.id === state.selectedLeadId) || allLeadRows().find(l => l.remoteId && l.remoteId === state.selectedLeadId);
   if (!lead) return "";
-  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}${recycledTag(lead)}${officeTurnTag(lead)}</h2>${officeTurnLine(lead)}${recycledLine(lead)}${joinOlderBox(lead)}<p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><input class="select-pill lead-phone-input" type="tel" inputmode="tel" autocomplete="off" data-lead-phone="${escapeHtml(lead.id)}" value="${escapeHtml(formatPhoneNumber(lead.phone) || "")}" placeholder="(555) 555-1234" aria-label="Phone"><small class="field-hint">Wrong number? Type the right one. It saves when you leave the box.</small></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost <small class="field-hint">(a hard no: nobody contacts them again)</small><select class="select-pill" data-lead-lost-reason="${lead.id}">${officeLostOptions(lead)}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label>${officeArchiveReasonLine(lead)}<div class="row-actions office-archive-row">${lead.status === "Archived" ? "" : `<label>Archive (maybe later): why?<select class="select-pill" data-lead-archive-reason="${lead.id}">${officeArchiveOptions(lead)}</select></label>`}<button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
+  return `<aside class="lead-detail-panel"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button><span class="portal-tag">Full Lead Record</span><h2>${escapeHtml(lead.owner)}${needsCallTag(lead)}${recycledTag(lead)}${officeTurnTag(lead)}</h2>${officeTurnLine(lead)}${recycledLine(lead)}${joinOlderBox(lead)}<p>${escapeHtml(leadDogLabel(lead, "dot") || "Dog not given")} · ${escapeHtml(lead.service || "Service not given")}</p><div class="lead-contact-grid"><div><span>Phone</span><input class="select-pill lead-phone-input" type="tel" inputmode="tel" autocomplete="off" data-lead-phone="${escapeHtml(lead.id)}" value="${escapeHtml(formatPhoneNumber(lead.phone) || "")}" placeholder="(555) 555-1234" aria-label="Phone"><small class="field-hint">Wrong number? Type the right one. It saves when you leave the box.</small></div><div><span>Email</span><strong>${escapeHtml(lead.email || "—")}</strong></div><div><span>SMS consent</span><strong>${escapeHtml(lead.smsConsent)}</strong></div><div class="wide"><span>Address</span><strong>${escapeHtml(lead.address || "Not given")}</strong></div><div><span>Received</span><strong>${escapeHtml(formatDateTime(lead.createdAt))}</strong></div><div><span>Lead market / area</span><strong>${escapeHtml(leadMarketLabel(lead))}</strong></div><div><span>Source trainer</span><strong>${escapeHtml(trainerName(lead.trainerId))}</strong></div><div><span>Source</span><strong>${escapeHtml(lead.source || "Website")}</strong></div><div><span>Campaign</span><strong>${escapeHtml(lead.utm_campaign || "Not captured")}</strong></div><div><span>UTM source</span><strong>${escapeHtml(lead.utm_source || "Not captured")}</strong></div></div>${leadHistoryBlock(lead)}${leadExtraAnswersBlock(lead)}${leadBookingBlock(lead)}<label>Status${statusSelect(lead)}</label><label>Assigned office owner${officeAssigneeSelect("lead", lead.id, lead.assignedUserId)}</label>${superHandoffBox(lead)}<label>Follow-up date<input class="select-pill" type="date" data-lead-followup="${lead.id}" value="${escapeHtml(lead.followUpDate || "")}"></label><label>Eval date + time <small class="field-hint">(${escapeHtml(leadZoneHint(lead))}; shows on the lead card)</small><input class="select-pill" type="datetime-local" data-lead-eval-at="${lead.id}" value="${escapeHtml(datetimeLocalValue(lead.evalScheduledAt, leadTimeZone(lead)))}"></label><label class="lead-alpha-check">Have you logged this lead in Alpha?<select class="select-pill" data-lead-alpha-check="${lead.id}"><option value=""${(lead.alphaAnswer || "") === "" ? " selected" : ""}>Pick Yes or No</option><option value="yes"${lead.alphaAnswer === "yes" ? " selected" : ""}>Yes, it is logged in Alpha</option><option value="no"${lead.alphaAnswer === "no" ? " selected" : ""}>No, not yet</option></select></label><label>Lost <small class="field-hint">(a hard no: nobody contacts them again)</small><select class="select-pill" data-lead-lost-reason="${lead.id}">${officeLostOptions(lead)}</select></label>${leadJourneyTimeline(lead)}<section class="detail-note-block"><span>Notes From Client For The Office</span><p>${escapeHtml(lead.clientNote || "No client note supplied.")}</p></section><section class="detail-note-block"><span>Office Notes</span>${officeNoteTimeline("lead", lead.remoteId)}<textarea data-new-office-note="${lead.remoteId}" placeholder="Add office note. This records your account and timestamp."></textarea><button class="btn btn-red btn-small" type="button" data-add-office-note="lead" data-entity-id="${lead.remoteId}">Add Office Note</button></section><label class="check-row"><input type="checkbox" data-lead-dnc="${lead.id}" ${lead.doNotContact ? "checked" : ""}> Do not contact</label>${officeArchiveReasonLine(lead)}<div class="row-actions office-archive-row">${lead.status === "Archived" ? "" : `<label>Archive (maybe later): why?<select class="select-pill" data-lead-archive-reason="${lead.id}">${officeArchiveOptions(lead)}</select></label>`}<button class="btn btn-outline" type="button" data-archive-lead="${lead.id}">Archive lead</button>${permanentDeleteButton("lead", lead)}</div></aside><div class="lead-detail-scrim" data-close-lead></div>`;
 }
 
 // Lost vs Archive (Zoom 2026-09-24). The older soft Lost statuses (no response, price, not ready, complaint) are no
@@ -16937,7 +17020,9 @@ document.addEventListener("change", async event => {
         ? "leadSmsFilter"
         : leadFilter.dataset.leadFilter === "owner"
           ? "leadOwnerFilter"
-          : "leadStatusFilter";
+          : leadFilter.dataset.leadFilter === "kind"
+            ? "leadKindFilter"
+            : "leadStatusFilter";
     state[filterKey] = leadFilter.value;
     saveState();
     return;

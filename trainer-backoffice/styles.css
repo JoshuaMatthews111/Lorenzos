@@ -6103,3 +6103,14 @@ button.lead-tag-recycled:hover, button.lead-tag-recycled:focus-visible { backgro
 .portal-login-status .welcome-email-status.is-sent { color: #14532d; }
 .portal-login-status .welcome-email-status.is-failed { color: #b42318; }
 .portal-login-status [data-send-trainer-welcome] { margin-top: 6px; }
+/* Joshua 2026-09-29: Lead history on the office lead record. */
+.lead-history h3 { margin: 0 0 8px; }
+.lead-history-list { list-style: none; margin: 0; padding: 0 0 0 14px; border-left: 2px solid #d9dee8; display: grid; gap: 10px; }
+.lead-history-list li { position: relative; line-height: 1.45; }
+.lead-history-list li::before { content: ""; position: absolute; left: -20px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: #9aa4b5; }
+.lead-history-list li.is-recycled::before { background: #1f6fd1; }
+.lead-history-list li.is-booked::before { background: #1f9d55; }
+.lead-history-list time { display: block; font-size: 12px; font-weight: 700; color: #5b6475; }
+.lead-history-list small { display: block; margin-top: 2px; color: #3d4556; }
+.lead-history-list .recycle-icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 3px; color: #1f6fd1; }
+.lead-history-tag { font-style: normal; font-size: 11px; font-weight: 700; color: #5b6475; background: #eef1f6; border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
