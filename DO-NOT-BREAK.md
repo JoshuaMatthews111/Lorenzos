@@ -2621,3 +2621,12 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      `merged_requests` as leads (rule 1's hold-out and every count are otherwise unchanged).
      Pins: `tests/lead-merge-2026-09-28.test.mjs` (9), `tests/recycled-2026-09-25.test.mjs` (badge is a button now), the
      audit check "rules 129-133".
+     Verification 2026-09-28/29 (rules 129-133): 630 tests + audit green at f8657d7. Practice preview
+     `dpl_23sM6fCwQozUsSAWFKriP3V9T9cF` aliased to ldtt-sandbox.vercel.app (PRACTICE / practice); the saved super-admin
+     session opened the joined practice card, the badge opened the history, no console errors (no sign-out, no password).
+     LIVE production `dpl_3kh4pZuFGqfEtYjbWi9hJbsaKFt2` (stamp 20260928live40 on both hosts; /, /contact, /get-started 200;
+     live metrics.js sha256 = the commit's; /fredharris draws). Rollback: `npx vercel rollback dpl_ALJWzQzpW2eAEUySPbz4VePB49mL
+     --yes` (live39); the migration is additive and harmless to the older code. LIVE DRY RUN 2026-09-29 03:45 UTC (key disarmed
+     itself, 326 rows before and after): 25 groups to join (21 email, 4 phone + same first name, 56 cards), 31 cards would be
+     removed (326 -> 295 rows, 316 -> 285 on the screens), 1 skipped (Larry L., two client records), 0 left over / tester / qa;
+     Recycled badges 32 -> 26. "send" NOT armed. Full list: session scratchpad `shots40/lead-merge-audit.md`.
