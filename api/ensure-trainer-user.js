@@ -42,9 +42,43 @@ function temporaryPassword() {
 // emailed the sign-in details as soon as the office finishes onboarding. The password lives only in the Vercel setting
 // LDTT_TRAINER_SHARED_TEMP_PASSWORD (set by Joshua; never in code). Shape: capital first, "!" last, no spaces.
 // Unset or the wrong shape = the old behaviour (a random password shown once to the office) and no email.
+const TEMP_PASSWORD_SHAPE = /^[A-Z]\S{6,}!$/;
 function sharedTemporaryPassword(env = process.env) {
   const value = String(env.LDTT_TRAINER_SHARED_TEMP_PASSWORD || "");
-  return /^[A-Z]\S{6,}!$/.test(value) ? value : "";
+  return TEMP_PASSWORD_SHAPE.test(value) ? value : "";
+}
+
+// Joshua 2026-09-29: the office sets (and can change any time) the shared temporary password in Portal Access
+// (Super Admin). It is kept encrypted in the Supabase vault (supabase/migrations/20260929120000_*.sql) and wins over
+// the Vercel setting above, so what the office typed last is what new trainers get.
+async function currentSharedTemporaryPassword() {
+  const saved = await supabaseFetch("/rest/v1/rpc/ldtt_read_trainer_temp_password", { method: "POST", body: "{}" }).catch(() => null);
+  if (typeof saved === "string" && TEMP_PASSWORD_SHAPE.test(saved)) return saved;
+  return sharedTemporaryPassword();
+}
+
+async function tempPasswordStatus() {
+  const status = await supabaseFetch("/rest/v1/rpc/ldtt_trainer_temp_password_status", { method: "POST", body: "{}" });
+  const office = status && typeof status === "object" ? status : { is_set: false };
+  return { ...office, is_set: Boolean(office.is_set), vercel_setting: Boolean(sharedTemporaryPassword()) };
+}
+
+// Office ops on the same endpoint (Super Admin only). The password is never sent back.
+async function tempPasswordOp(req, res, payload) {
+  const admin = await authorizeRequest(req, res, { require: "super", message: "Only a Super Admin can see or change the trainer temporary password." });
+  if (!admin) return;
+  if (isSandbox()) return res.status(200).json({ ok: true, sandbox: true, status: null, message: "Practice copy: the trainer temporary password is set on the live portal only. The practice copy never creates trainer logins." });
+  if (payload.op === "temp_password_status") return res.status(200).json({ ok: true, status: await tempPasswordStatus() });
+  const password = String(payload.password ?? "");
+  if (!TEMP_PASSWORD_SHAPE.test(password)) {
+    return res.status(400).json({ ok: false, message: "Not saved. The temporary password must start with a capital letter, end with !, have no spaces and be at least 8 characters." });
+  }
+  const actorName = String(admin.portalUser?.display_name || admin.user?.email || "Super Admin").slice(0, 120);
+  await supabaseFetch("/rest/v1/rpc/ldtt_store_trainer_temp_password", {
+    method: "POST",
+    body: JSON.stringify({ p_password: password, p_actor: admin.user?.id || null, p_actor_name: actorName })
+  });
+  return res.status(200).json({ ok: true, status: await tempPasswordStatus() });
 }
 
 const TRAINER_PORTAL_URL = "https://www.lorenzosdogtrainingteam.com/trainer-backoffice/";
@@ -194,13 +228,15 @@ async function handler(req, res) {
   if (!SERVICE_ROLE_KEY) return res.status(500).json({ ok: false, message: "Supabase service role key is not configured on Vercel." });
 
   try {
+    const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+    if (payload.op === "temp_password_status" || payload.op === "save_temp_password") return await tempPasswordOp(req, res, payload);
+
     // Office staff only (lib/portal-auth.js): super_admin or office_admin,
     // active, access_status not disabled/revoked. This endpoint used to accept
     // any role=admin row, whatever its permission_level or access_status.
     const admin = await authorizeRequest(req, res, { require: "admin", message: "Active admin access required." });
     if (!admin) return;
 
-    const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const trainerId = clean(payload.trainer_id, 80);
     const email = clean(payload.email, 254).toLowerCase();
     const displayName = clean(payload.display_name, 180) || "Lorenzo Trainer";
@@ -272,7 +308,7 @@ async function handler(req, res) {
     let loginEmail = null;
     let sharedUsed = false;
     if (authResult.created && authResult.userId && !isSandbox()) {
-      const shared = sharedTemporaryPassword();
+      const shared = await currentSharedTemporaryPassword();
       if (shared) sharedUsed = await setSharedTemporaryPassword(authResult.userId, shared).catch(() => false);
       loginEmail = await sendTrainerWelcome({ userId: authResult.userId, email, displayName });
     }

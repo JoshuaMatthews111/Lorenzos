@@ -2210,7 +2210,7 @@ async function ensureTrainerPortalAccount(trainer) {
   const welcome = result.login_email || null;
   trainer.welcomeEmailStatus = welcome
     ? welcome.status === "sent"
-      ? `Welcome email SENT to ${welcome.to} with the portal link and their username. Give them the temporary password yourself (the email tells them to use the one the office provided).`
+      ? `Welcome email SENT to ${welcome.to} with the portal link and their username. Give them the temporary password yourself (the email tells them to use the one the office provided).${result.shared_temp_password ? " Their login uses the office temporary password from Portal Access." : ""}`
       : `Welcome email NOT sent: ${welcome.reason || "unknown reason"}`
     : "";
   if (welcome?.status === "sent") showToast(`Trainer login created. Welcome email sent to ${welcome.to} with their sign-in details.`, 12000);
@@ -7614,6 +7614,56 @@ async function resetPracticeCopy() {
   render();
 }
 
+// Joshua 2026-09-29: the office sets (and can change any time) the ONE temporary password new trainer logins get.
+// Saved encrypted on the server (api/ensure-trainer-user.js op save_temp_password); never shown back here.
+const TRAINER_TEMP_PASSWORD_SHAPE = /^[A-Z]\S{6,}!$/;
+let trainerTempPasswordStatus = null;
+let trainerTempPasswordLoading = null;
+
+async function trainerTempPasswordRequest(body) {
+  const session = window.LDTT_PORTAL?.readSession?.();
+  const response = await fetch("/api/ensure-trainer-user", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+    body: JSON.stringify(body)
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || result.ok === false) throw new Error(result.message || `The request failed (${response.status}).`);
+  return result;
+}
+
+function loadTrainerTempPasswordStatus() {
+  if (trainerTempPasswordLoading) return trainerTempPasswordLoading;
+  trainerTempPasswordLoading = trainerTempPasswordRequest({ op: "temp_password_status" })
+    .then(result => { trainerTempPasswordStatus = result.sandbox ? { sandbox: true, message: result.message } : result.status || { is_set: false }; })
+    .catch(error => { trainerTempPasswordStatus = { error: error.message }; })
+    .finally(() => { if (state.activeView === "portalAccess") render(); });
+  return trainerTempPasswordLoading;
+}
+
+function trainerTempPasswordLine(status) {
+  if (!status) return "Checking…";
+  if (status.sandbox) return status.message || "Practice copy: set this on the live portal.";
+  if (status.error) return `Could not check: ${status.error}`;
+  if (status.is_set) return `Set${status.set_by_name ? ` by ${status.set_by_name}` : ""} on ${formatDateTime(status.updated_at)}. New trainer logins get this password.`;
+  if (status.vercel_setting) return "Not set here yet. New trainer logins use the password saved in the site settings.";
+  return "Not set yet. Until you set it, each new trainer gets a one-time password shown on your screen when you publish them.";
+}
+
+function trainerTempPasswordPanel() {
+  if (!trainerTempPasswordStatus) loadTrainerTempPasswordStatus();
+  const status = trainerTempPasswordStatus;
+  const ready = status && !status.sandbox && !status.error;
+  return panel("Temporary Password for New Trainers", "", `
+    <p class="panel-copy">Every new trainer login gets this password. The welcome email tells them to sign in with the temporary password the office provided. You give it to them. The first time they sign in, they make their own.</p>
+    <p class="panel-copy" data-trainer-temp-password-status><strong>${escapeHtml(trainerTempPasswordLine(status))}</strong></p>
+    <form class="communications-form" data-trainer-temp-password-form>
+      <label class="wide">${status?.is_set ? "Change it to" : "Temporary password"}<input required name="temp_password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Starts with a capital letter, ends with !" ${ready ? "" : "disabled"}><small class="field-help">Capital letter first. ! at the end. No spaces. At least 8 characters. It is saved encrypted and cannot be shown again, so write it down.</small></label>
+      <button class="btn btn-red" type="submit" ${ready ? "" : "disabled"}>Save temporary password</button>
+    </form>
+    <p class="panel-copy"><small>Changing it only affects trainers you publish after the change. Trainers who already have a login keep the password they have.</small></p>`, "pad");
+}
+
 function portalAccessScreen() {
   if (!isSuperAdmin()) return panel("Portal Access", "", `<p class="panel-copy">This section is available only to Super Admin accounts.</p>`, "pad");
   const rows = portalAccessRows();
@@ -7635,6 +7685,7 @@ function portalAccessScreen() {
       <label class="check-row"><input type="checkbox" name="must_change_password" checked> Ask them to change the password when they first sign in</label>
       <button class="btn btn-red" type="submit">Create this login</button>
     </form>`, "pad")}
+  ${trainerTempPasswordPanel()}
   ${metricGrid([
     ["shield", "Super Admins", superAdmins.length, "Full access", ""],
     ["users", "Office Admins", rows.filter(user => portalPermissionValue(user) === "office_admin").length, "Office operations", ""],
@@ -17285,6 +17336,30 @@ document.addEventListener("submit", async event => {
       render();
       showToast(result.existed ? `${client.client_name} was already on the list and has been added to this message.` : `${client.client_name} added to this message.`);
     } catch (error) { showToast(error.message || "That person could not be added."); }
+    return;
+  }
+  if (event.target.matches("[data-trainer-temp-password-form]")) {
+    if (!isSuperAdmin()) { showToast("Only a Super Admin can change the trainer temporary password."); return; }
+    const input = event.target.elements.temp_password;
+    const password = String(input?.value || "");
+    if (!TRAINER_TEMP_PASSWORD_SHAPE.test(password)) {
+      showToast(/\s/.test(password) ? "Not saved: the password has a space in it. Take the space out." : "Not saved: start with a capital letter, end with !, at least 8 characters.", 9000);
+      return;
+    }
+    const button = event.target.querySelector("button[type=submit]");
+    if (button) button.disabled = true;
+    try {
+      const result = await trainerTempPasswordRequest({ op: "save_temp_password", password });
+      trainerTempPasswordStatus = result.status || { is_set: true };
+      input.value = "";
+      recordActivity("Trainer temporary password changed", `The temporary password for new trainer logins was changed by ${currentActorLabel()}.`, "Security");
+      render();
+      showActionConfirmation("Temporary password saved", "Every new trainer login from now on gets this password. Give it to each new trainer yourself.", { meta: "Trainers who already have a login keep the password they have." });
+    } catch (error) {
+      showToast(error.message || "The temporary password could not be saved.", 9000);
+    } finally {
+      if (button) button.disabled = false;
+    }
     return;
   }
   if (event.target.matches("[data-create-account-form]")) {

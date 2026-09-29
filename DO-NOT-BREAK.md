@@ -2646,3 +2646,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      (or the RPC refuses), the office sees the one-time random password on its screen and gives it to the trainer.
      Existing logins (anyone who already has a password) are never emailed. The office's final screen says "Welcome email
      SENT to ... Give them the temporary password yourself". Pins: `tests/trainer-welcome-email-2026-09-25.test.mjs`.
+
+136. **The office sets the new-trainer temporary password itself (Joshua 2026-09-29).** Portal Access (Super Admin
+     only) has "Temporary Password for New Trainers". The Super Admin types it once; the server
+     (`api/ensure-trainer-user.js` op `save_temp_password`) checks the shape (capital first, "!" last, no spaces, 8+)
+     and saves it ENCRYPTED in the Supabase vault (`private.trainer_temp_password_setting` +
+     `ldtt_store_trainer_temp_password` / `ldtt_read_trainer_temp_password` / `ldtt_trainer_temp_password_status`, all
+     service_role only; migration `20260929120000_trainer_temp_password_setting.sql`). It is never sent back to the
+     screen; the box shows only "Set by <name> on <date>". It can be changed any time. A NEW live trainer login gets the
+     saved password first; if none is saved, LDTT_TRAINER_SHARED_TEMP_PASSWORD; if neither, the one-time random password
+     on the office screen (rule 135). Changing it never touches trainers who already have a login. Office Admins get
+     403; the practice copy never saves it (it never creates logins). Pins:
+     `tests/trainer-temp-password-office-2026-09-29.test.mjs`.
