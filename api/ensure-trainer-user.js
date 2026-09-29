@@ -51,7 +51,7 @@ const TRAINER_PORTAL_URL = "https://www.lorenzosdogtrainingteam.com/trainer-back
 const LOGO_URL = "https://www.lorenzosdogtrainingteam.com/assets/lorenzo-logo-transparent.png";
 const escHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 
-function trainerWelcomeEmail({ firstName, email, password }) {
+function trainerWelcomeEmail({ firstName, email }) {
   const name = String(firstName || "").trim().split(/\s+/)[0] || "there";
   const subject = "Your Lorenzo's Dog Training Team trainer portal login";
   const lines = [
@@ -61,7 +61,7 @@ function trainerWelcomeEmail({ firstName, email, password }) {
     "",
     `Sign in here: ${TRAINER_PORTAL_URL}`,
     `Username: ${email}`,
-    `Temporary password: ${password}`,
+    "Password: sign in with the temporary password the office provided.",
     "",
     "The first time you sign in, the portal asks you to create your own password. After that, use your own.",
     "",
@@ -76,7 +76,7 @@ function trainerWelcomeEmail({ firstName, email, password }) {
   const html = `<div style="font:16px/1.6 Arial,sans-serif;color:#111;max-width:600px">${p(`Hi ${name},`)}${p("Welcome to Lorenzo's Dog Training Team. Your trainer portal is ready.")}`
     + `<table style="border-collapse:collapse;margin:6px 0 18px;font-size:15px"><tr><td style="padding:6px 12px 6px 0;color:#555">Sign in here</td><td style="padding:6px 0"><a href="${TRAINER_PORTAL_URL}">${TRAINER_PORTAL_URL}</a></td></tr>`
     + `<tr><td style="padding:6px 12px 6px 0;color:#555">Username</td><td style="padding:6px 0"><b>${escHtml(email)}</b></td></tr>`
-    + `<tr><td style="padding:6px 12px 6px 0;color:#555">Temporary password</td><td style="padding:6px 0"><b>${escHtml(password)}</b></td></tr></table>`
+    + `<tr><td style="padding:6px 12px 6px 0;color:#555">Password</td><td style="padding:6px 0">Sign in with the <b>temporary password the office provided</b>.</td></tr></table>`
     + `<p style="margin:18px 0"><a href="${TRAINER_PORTAL_URL}" style="display:inline-block;background:#d80f35;color:#fff;padding:12px 22px;text-decoration:none;border-radius:6px;font-weight:bold">SIGN IN TO MY PORTAL</a></p>`
     + p("The first time you sign in, the portal asks you to create your own password. After that, use your own.")
     + p("In the portal you see your leads, your booked evaluations and your team.")
@@ -93,10 +93,10 @@ async function setSharedTemporaryPassword(userId, password) {
   return ok === true;
 }
 
-async function sendTrainerWelcome({ userId, email, displayName, password }) {
+async function sendTrainerWelcome({ userId, email, displayName }) {
   try {
     const M = require("../lib/office-email");
-    const mail = trainerWelcomeEmail({ firstName: displayName, email, password });
+    const mail = trainerWelcomeEmail({ firstName: displayName, email });
     const config = await M.officeResendConfig();
     const sent = await M.sendViaResend({ to: [email], subject: mail.subject, html: mail.html, text: mail.text, idempotencyKey: `trainer-welcome:${userId}` }, config);
     return sent.ok ? { status: "sent", to: email } : { status: "failed", to: email, reason: String(sent.message || "The email service did not accept it.").slice(0, 300) };
@@ -266,19 +266,15 @@ async function handler(req, res) {
       })
     });
 
-    // A NEW live login: switch it to the shared temporary password and email the trainer their sign-in details.
+    // A NEW live login (Joshua 2026-09-29): the email never carries the password - it says to sign in with the temporary
+    // password the office provided. If the shared temporary password is set on the site it is put on the login first;
+    // otherwise the office gives the trainer the one-time password shown on its screen.
     let loginEmail = null;
     let sharedUsed = false;
     if (authResult.created && authResult.userId && !isSandbox()) {
       const shared = sharedTemporaryPassword();
-      if (!shared) {
-        loginEmail = { status: "skipped", to: email, reason: "The shared temporary password is not set on the site (LDTT_TRAINER_SHARED_TEMP_PASSWORD), so no welcome email went out. Give the trainer the invite message." };
-      } else if (await setSharedTemporaryPassword(authResult.userId, shared).catch(() => false)) {
-        sharedUsed = true;
-        loginEmail = await sendTrainerWelcome({ userId: authResult.userId, email, displayName, password: shared });
-      } else {
-        loginEmail = { status: "skipped", to: email, reason: "The login was created, but the shared temporary password could not be set, so no welcome email went out. Give the trainer the invite message." };
-      }
+      if (shared) sharedUsed = await setSharedTemporaryPassword(authResult.userId, shared).catch(() => false);
+      loginEmail = await sendTrainerWelcome({ userId: authResult.userId, email, displayName });
     }
 
     return res.status(200).json({

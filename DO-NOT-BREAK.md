@@ -2638,3 +2638,11 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      everything undone (326 rows, 0 backups). Review of the Do Not Contact flags: the office had used Do Not Contact to
      hide duplicates (notes "THIS IS A DUPILCATE", "DUPLICATE", "Test"), so those joins are what the office wanted;
      where a real Do Not Contact card is the newest/equal card it stays (Karen S., Paul C.).
+
+135. **The new-trainer welcome email never carries the password (Joshua 2026-09-29; amends rule 118).** It says
+     "Password: sign in with the temporary password the office provided." and still has the portal link, username,
+     create-your-own-password step, office number and logo. It goes for every NEW live trainer login whether or not
+     LDTT_TRAINER_SHARED_TEMP_PASSWORD is set: when it is set, the login gets the shared password first; when it is not
+     (or the RPC refuses), the office sees the one-time random password on its screen and gives it to the trainer.
+     Existing logins (anyone who already has a password) are never emailed. The office's final screen says "Welcome email
+     SENT to ... Give them the temporary password yourself". Pins: `tests/trainer-welcome-email-2026-09-25.test.mjs`.

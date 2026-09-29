@@ -60,11 +60,12 @@ test("the shared password setting must look right (capital first, ! last, no spa
   for (const bad of ["", "sample1234!", "Sample1234", "Sample 1234!", "Ab!"]) assert.equal(E.sharedTemporaryPassword({ LDTT_TRAINER_SHARED_TEMP_PASSWORD: bad }), "", JSON.stringify(bad));
 });
 
-test("the welcome email: portal link, username, temporary password, create-your-own step, office number, logo", () => {
+test("the welcome email: portal link, username, 'the temporary password the office provided' (never the password), office number, logo", () => {
   const E = load();
   const mail = E.trainerWelcomeEmail({ firstName: "Nia Trainer", email: "nia@lorenzosdogtrainingteam.com", password: SAMPLE });
   assert.equal(mail.subject, "Your Lorenzo's Dog Training Team trainer portal login");
-  for (const words of ["Hi Nia,", "https://www.lorenzosdogtrainingteam.com/trainer-backoffice/", "Username: nia@lorenzosdogtrainingteam.com", `Temporary password: ${SAMPLE}`, "create your own password", "(866) 436-4959"]) assert.ok(mail.text.includes(words), words);
+  for (const words of ["Hi Nia,", "https://www.lorenzosdogtrainingteam.com/trainer-backoffice/", "Username: nia@lorenzosdogtrainingteam.com", "sign in with the temporary password the office provided", "create your own password", "(866) 436-4959"]) assert.ok(mail.text.includes(words), words);
+  assert.ok(!mail.text.includes(SAMPLE) && !mail.html.includes(SAMPLE), "the password is never in the email");
   assert.match(mail.html, /lorenzo-logo-transparent\.png/, "logo in the footer");
   assert.doesNotMatch(mail.text + mail.html, /\bTim\b|ldtt-sandbox/);
 });
@@ -85,10 +86,10 @@ test("a NEW live login: created, switched to the shared password, then the train
   const upsert = calls.findIndex(c => c.path.startsWith("/rest/v1/portal_users") && c.method === "POST");
   assert.ok(upsert >= 0 && rpc > upsert && mail > rpc, "portal row first, then the password, then the email");
   assert.deepEqual(calls[mail].body.to, ["new.trainer@lorenzosdogtrainingteam.com"]);
-  assert.ok(calls[mail].body.text.includes(`Temporary password: ${SAMPLE}`));
+  assert.ok(!calls[mail].body.text.includes(SAMPLE), "the email never carries the password");
 });
 
-test("no email when the login already existed, when the setting is missing, when the password could not be set, or on the practice copy", async () => {
+test("no email for an existing login or on the practice copy; without the shared password the email still goes and the office sees the one-time password", async () => {
   process.env.RESEND_API_KEY = "re_test"; process.env.RESEND_FROM = "office@lorenzosdogtrainingteam.com";
   process.env.LDTT_TRAINER_SHARED_TEMP_PASSWORD = SAMPLE;
   let E = load(false); let calls = world({ existingLogin: true });
@@ -99,16 +100,15 @@ test("no email when the login already existed, when the setting is missing, when
   delete process.env.LDTT_TRAINER_SHARED_TEMP_PASSWORD;
   E = load(false); calls = world();
   out = await publish(E);
-  assert.equal(out.json.login_email.status, "skipped");
-  assert.match(out.json.login_email.reason, /not set on the site/);
-  assert.ok(out.json.temporary_password, "the old one-time random password is still shown to the office");
-  assert.equal(calls.filter(c => c.host === "api.resend.com").length, 0);
+  assert.equal(out.json.login_email.status, "sent", "the email goes even without the shared password (it carries no password)");
+  assert.ok(out.json.temporary_password, "the one-time random password is shown to the office to give the trainer");
+  assert.equal(calls.filter(c => c.path === "/rest/v1/rpc/ldtt_set_new_trainer_temp_password").length, 0, "no shared password set when none is configured");
 
   process.env.LDTT_TRAINER_SHARED_TEMP_PASSWORD = SAMPLE;
   E = load(false); calls = world({ rpcAnswer: false });
   out = await publish(E);
-  assert.equal(out.json.login_email.status, "skipped");
-  assert.equal(calls.filter(c => c.host === "api.resend.com").length, 0, "never email a password that was not set");
+  assert.equal(out.json.shared_temp_password, false, "the shared password did not take");
+  assert.ok(out.json.temporary_password, "so the office sees the one-time password to give the trainer");
 
   E = load(true); calls = world();
   out = await publish(E);

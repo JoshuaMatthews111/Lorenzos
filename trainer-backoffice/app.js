@@ -2210,7 +2210,7 @@ async function ensureTrainerPortalAccount(trainer) {
   const welcome = result.login_email || null;
   trainer.welcomeEmailStatus = welcome
     ? welcome.status === "sent"
-      ? `Welcome email SENT to ${welcome.to} with the portal link, their username and the temporary password.`
+      ? `Welcome email SENT to ${welcome.to} with the portal link and their username. Give them the temporary password yourself (the email tells them to use the one the office provided).`
       : `Welcome email NOT sent: ${welcome.reason || "unknown reason"}`
     : "";
   if (welcome?.status === "sent") showToast(`Trainer login created. Welcome email sent to ${welcome.to} with their sign-in details.`, 12000);
