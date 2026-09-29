@@ -214,7 +214,7 @@ test("B: the pipeline already sends the client text, the New inquiry trainer tex
   assert.match(bookingLib, /const bookUrl = \(slug, leadId\) => `\$\{practiceOrigin\(\)\}\/book\/\$\{encodeURIComponent\(slug\)\}\?lead=\$\{encodeURIComponent\(leadId\)\}`;/);
   // 1. the client's booking-link text (pathway 1), 2. the trainer's NEW INQUIRY text + its email twin,
   // 3. Tim / Operations' new-lead text + its email twin, 4. the office's queued Resend email.
-  assert.match(pipelineLib, /text = await sendNewLeadText\(\{ lead: won, trainer, bookUrl, phone: plan\.phone \}\)/);
+  assert.match(pipelineLib, /text = await sendNewLeadText\(\{ lead: won, trainer, bookUrl: B\.taggedLink\(bookUrl, "text", "new_lead"\), phone: plan\.phone \}\)/);
   assert.match(pipelineLib, /const \{ email: inquiryEmail, \.\.\.inquiry \} = await sendNewInquiryText\(\{ lead: won, trainer: routed \? trainer : null, bookUrl: routed \? bookUrl : null \}\)/);
   const inquiry = pipelineLib.match(/async function sendNewInquiryText\(\{ lead, trainer, bookUrl \}\) \{[\s\S]*?\n\}/)[0];
   assert.match(inquiry, /const base = \{ kind: "trainer_new_inquiry", at: now\(\) \};/);

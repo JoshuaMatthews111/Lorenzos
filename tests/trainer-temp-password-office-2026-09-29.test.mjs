@@ -101,7 +101,7 @@ test("a new trainer login gets the office's saved password (it wins over the Ver
   assert.equal(out.json.shared_temp_password, true);
   assert.equal(out.json.temporary_password, "");
   assert.equal(calls.find(c => c.path === "/rest/v1/rpc/ldtt_set_new_trainer_temp_password").body.p_password, OFFICE);
-  assert.ok(!calls.find(c => c.host === "api.resend.com").body.text.includes(OFFICE), "the email never carries it");
+  assert.ok(calls.find(c => c.host === "api.resend.com").body.text.includes(`Temporary password: ${OFFICE}`), "the email prints it (2026-09-29)");
 
   E = load();
   calls = world({ saved: null });
@@ -122,4 +122,38 @@ test("the Portal Access box: Super Admin only, plain words, the password is clea
   assert.match(sql, /vault\.create_secret/);
   assert.match(sql, /grant execute on function public\.ldtt_read_trainer_temp_password\(\) to service_role;/);
   assert.doesNotMatch(sql, /to (anon|authenticated)/);
+});
+
+test("Send welcome email (Super Admin): only a never-signed-in trainer; the saved password is put on the login first, then printed", async () => {
+  process.env.RESEND_API_KEY = "re_test"; process.env.RESEND_FROM = "office@lorenzosdogtrainingteam.com";
+  const USER = "11111111-2222-4333-8444-555555555555";
+  const E = load();
+  const setup = (signedIn) => {
+    const calls = world({ saved: OFFICE });
+    const base = global.fetch;
+    global.fetch = async (url, options = {}) => {
+      const u = new URL(String(url));
+      const res = (status, data) => ({ ok: status < 400, status, headers: { get: () => null }, text: async () => JSON.stringify(data), json: async () => data });
+      if (u.pathname.startsWith("/rest/v1/portal_users") && (options.method || "GET") === "GET") { calls.push({ path: u.pathname, method: "GET" }); return res(200, [{ user_id: USER, role: "trainer", active: true, display_name: "Nia Trainer", email: "nia@x.test", must_change_password: true }]); }
+      if (u.pathname === `/auth/v1/admin/users/${USER}`) return res(200, { id: USER, email: "nia@x.test", last_sign_in_at: signedIn ? "2026-09-20T00:00:00Z" : null });
+      return base(url, options);
+    };
+    return calls;
+  };
+  let calls = setup(true);
+  let out = await call(E, { op: "send_welcome", user_id: USER });
+  assert.equal(out.status, 409, "already signed in: nothing sent");
+  assert.equal(calls.filter(c => c.host === "api.resend.com").length, 0);
+  calls = setup(false);
+  out = await call(E, { op: "send_welcome", user_id: USER });
+  assert.equal(out.status, 200, JSON.stringify(out.json));
+  const setIdx = calls.findIndex(c => c.path === "/rest/v1/rpc/ldtt_set_new_trainer_temp_password");
+  const mailIdx = calls.findIndex(c => c.host === "api.resend.com");
+  assert.ok(setIdx >= 0 && mailIdx > setIdx, "password on the login first, then the email");
+  assert.ok(calls[mailIdx].body.text.includes(`Temporary password: ${OFFICE}`));
+  assert.equal(out.json.login_email.with_password, true);
+  assert.ok(!JSON.stringify(out.json).includes(OFFICE), "the screen never gets the password");
+  const denied = load({ role: "office_admin" });
+  world();
+  assert.equal((await call(denied, { op: "send_welcome", user_id: USER })).status, 403);
 });

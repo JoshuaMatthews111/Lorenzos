@@ -152,7 +152,8 @@ test("Contact Us lead with SMS consent: one booking-link text to the tester phon
   const hooks = hookCalls(calls, 1);
   assert.equal(hooks.length, 1);
   assert.equal(hooks[0].body.phone, TESTER);
-  assert.equal(hooks[0].body.booking_link, res.payload.book_url);
+  // Joshua 2026-09-29: the texted link is tagged text + new_lead; the page answer (book_url) stays plain.
+  assert.equal(hooks[0].body.booking_link, `${res.payload.book_url}&utm_source=text&utm_campaign=new_lead`);
   assert.equal(hooks[0].body.problem, "Pulls on the leash");
   const saved = db.leads[0];
   assert.equal(saved.trainer_slug, "lorenzo-miller");

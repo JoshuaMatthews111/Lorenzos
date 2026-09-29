@@ -85,7 +85,10 @@ const TRAINER_PORTAL_URL = "https://www.lorenzosdogtrainingteam.com/trainer-back
 const LOGO_URL = "https://www.lorenzosdogtrainingteam.com/assets/lorenzo-logo-transparent.png";
 const escHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 
-function trainerWelcomeEmail({ firstName, email }) {
+// Joshua 2026-09-29 (amends rule 135): the welcome email PRINTS the temporary password when the login really has it
+// (the office's saved one was just put on the login). Otherwise it says to use the one the office provided.
+function trainerWelcomeEmail({ firstName, email, password = "" }) {
+  const pw = TEMP_PASSWORD_SHAPE.test(String(password || "")) ? String(password) : "";
   const name = String(firstName || "").trim().split(/\s+/)[0] || "there";
   const subject = "Your Lorenzo's Dog Training Team trainer portal login";
   const lines = [
@@ -95,7 +98,7 @@ function trainerWelcomeEmail({ firstName, email }) {
     "",
     `Sign in here: ${TRAINER_PORTAL_URL}`,
     `Username: ${email}`,
-    "Password: sign in with the temporary password the office provided.",
+    pw ? `Temporary password: ${pw}` : "Password: sign in with the temporary password the office provided.",
     "",
     "The first time you sign in, the portal asks you to create your own password. After that, use your own.",
     "",
@@ -110,7 +113,9 @@ function trainerWelcomeEmail({ firstName, email }) {
   const html = `<div style="font:16px/1.6 Arial,sans-serif;color:#111;max-width:600px">${p(`Hi ${name},`)}${p("Welcome to Lorenzo's Dog Training Team. Your trainer portal is ready.")}`
     + `<table style="border-collapse:collapse;margin:6px 0 18px;font-size:15px"><tr><td style="padding:6px 12px 6px 0;color:#555">Sign in here</td><td style="padding:6px 0"><a href="${TRAINER_PORTAL_URL}">${TRAINER_PORTAL_URL}</a></td></tr>`
     + `<tr><td style="padding:6px 12px 6px 0;color:#555">Username</td><td style="padding:6px 0"><b>${escHtml(email)}</b></td></tr>`
-    + `<tr><td style="padding:6px 12px 6px 0;color:#555">Password</td><td style="padding:6px 0">Sign in with the <b>temporary password the office provided</b>.</td></tr></table>`
+    + (pw
+      ? `<tr><td style="padding:6px 12px 6px 0;color:#555">Temporary password</td><td style="padding:6px 0"><b style="font-family:Menlo,Consolas,monospace;font-size:16px">${escHtml(pw)}</b></td></tr></table>`
+      : `<tr><td style="padding:6px 12px 6px 0;color:#555">Password</td><td style="padding:6px 0">Sign in with the <b>temporary password the office provided</b>.</td></tr></table>`)
     + `<p style="margin:18px 0"><a href="${TRAINER_PORTAL_URL}" style="display:inline-block;background:#d80f35;color:#fff;padding:12px 22px;text-decoration:none;border-radius:6px;font-weight:bold">SIGN IN TO MY PORTAL</a></p>`
     + p("The first time you sign in, the portal asks you to create your own password. After that, use your own.")
     + p("In the portal you see your leads, your booked evaluations and your team.")
@@ -127,16 +132,47 @@ async function setSharedTemporaryPassword(userId, password) {
   return ok === true;
 }
 
-async function sendTrainerWelcome({ userId, email, displayName }) {
+async function sendTrainerWelcome({ userId, email, displayName, password = "", idempotencyKey = "" }) {
+  let result;
   try {
     const M = require("../lib/office-email");
-    const mail = trainerWelcomeEmail({ firstName: displayName, email });
+    const mail = trainerWelcomeEmail({ firstName: displayName, email, password });
     const config = await M.officeResendConfig();
-    const sent = await M.sendViaResend({ to: [email], subject: mail.subject, html: mail.html, text: mail.text, idempotencyKey: `trainer-welcome:${userId}` }, config);
-    return sent.ok ? { status: "sent", to: email } : { status: "failed", to: email, reason: String(sent.message || "The email service did not accept it.").slice(0, 300) };
+    const sent = await M.sendViaResend({ to: [email], subject: mail.subject, html: mail.html, text: mail.text, idempotencyKey: idempotencyKey || `trainer-welcome:${userId}` }, config);
+    result = sent.ok ? { status: "sent", to: email, with_password: Boolean(mail.text.includes("Temporary password: ")) } : { status: "failed", to: email, reason: String(sent.message || "The email service did not accept it.").slice(0, 300) };
   } catch (error) {
-    return { status: "failed", to: email, reason: String(error?.message || error).slice(0, 300) };
+    result = { status: "failed", to: email, reason: String(error?.message || error).slice(0, 300) };
   }
+  // Portal Access shows this beside the trainer's login (rule 137). Never the password.
+  await supabaseFetch(`/rest/v1/portal_users?user_id=eq.${encodeURIComponent(userId)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ welcome_email_status: result.status === "sent" ? (result.with_password ? "sent_with_password" : "sent") : "failed", welcome_email_at: new Date().toISOString(), welcome_email_to: email })
+  }).catch(error => console.error("trainer_welcome_record_failed", String(error?.message || error)));
+  return result;
+}
+
+// Portal Access "Send welcome email" (Super Admin): for a trainer login that has NEVER signed in. The office's saved
+// temporary password is put on the login first (ldtt_set_new_trainer_temp_password only changes a never-signed-in
+// trainer that must change its password); the email prints it only when that worked.
+async function sendWelcomeOp(req, res, payload) {
+  const admin = await authorizeRequest(req, res, { require: "super", message: "Only a Super Admin can send the trainer welcome email." });
+  if (!admin) return;
+  if (isSandbox()) return res.status(200).json({ ok: true, sandbox: true, message: "Practice copy: welcome emails go from the live portal only." });
+  const userId = clean(payload.user_id, 80);
+  if (!/^[0-9a-f-]{36}$/i.test(userId)) return res.status(400).json({ ok: false, message: "Pick a trainer login first." });
+  const rows = await supabaseFetch(`/rest/v1/portal_users?select=user_id,role,active,display_name,email,must_change_password&user_id=eq.${encodeURIComponent(userId)}&limit=1`);
+  const row = rows?.[0];
+  if (!row || row.role !== "trainer" || row.active === false) return res.status(404).json({ ok: false, message: "That is not an active trainer login." });
+  const authUser = await supabaseFetch(`/auth/v1/admin/users/${encodeURIComponent(userId)}`).catch(() => null);
+  const email = String(authUser?.email || row.email || "").toLowerCase();
+  if (!validEmail(email)) return res.status(400).json({ ok: false, message: "This trainer login has no email address." });
+  if (authUser?.last_sign_in_at) return res.status(409).json({ ok: false, message: "This trainer has already signed in with their own password. No welcome email is needed." });
+  const shared = await currentSharedTemporaryPassword();
+  const passwordSet = shared ? await setSharedTemporaryPassword(userId, shared).catch(() => false) : false;
+  const minute = new Date().toISOString().slice(0, 16);
+  const sent = await sendTrainerWelcome({ userId, email, displayName: row.display_name || "", password: passwordSet ? shared : "", idempotencyKey: `trainer-welcome:${userId}:${minute}` });
+  return res.status(200).json({ ok: sent.status === "sent", login_email: { status: sent.status, to: sent.to, with_password: Boolean(sent.with_password), ...(sent.reason ? { reason: sent.reason } : {}) }, message: sent.status === "sent" ? "" : `Not sent: ${sent.reason || "unknown reason"}` });
 }
 
 function cors(response) {
@@ -230,6 +266,7 @@ async function handler(req, res) {
   try {
     const payload = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     if (payload.op === "temp_password_status" || payload.op === "save_temp_password") return await tempPasswordOp(req, res, payload);
+    if (payload.op === "send_welcome") return await sendWelcomeOp(req, res, payload);
 
     // Office staff only (lib/portal-auth.js): super_admin or office_admin,
     // active, access_status not disabled/revoked. This endpoint used to accept
@@ -302,15 +339,15 @@ async function handler(req, res) {
       })
     });
 
-    // A NEW live login (Joshua 2026-09-29): the email never carries the password - it says to sign in with the temporary
-    // password the office provided. If the shared temporary password is set on the site it is put on the login first;
-    // otherwise the office gives the trainer the one-time password shown on its screen.
+    // A NEW live login (Joshua 2026-09-29, rule 137): the office's saved temporary password is put on the login first and
+    // the welcome email prints it. If none is saved (or it did not take) the email says to use the one the office
+    // provided and the office gives the trainer the one-time password shown on its screen.
     let loginEmail = null;
     let sharedUsed = false;
     if (authResult.created && authResult.userId && !isSandbox()) {
       const shared = await currentSharedTemporaryPassword();
       if (shared) sharedUsed = await setSharedTemporaryPassword(authResult.userId, shared).catch(() => false);
-      loginEmail = await sendTrainerWelcome({ userId: authResult.userId, email, displayName });
+      loginEmail = await sendTrainerWelcome({ userId: authResult.userId, email, displayName, password: sharedUsed ? shared : "" });
     }
 
     return res.status(200).json({

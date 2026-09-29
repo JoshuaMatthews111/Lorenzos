@@ -60,12 +60,15 @@ test("the shared password setting must look right (capital first, ! last, no spa
   for (const bad of ["", "sample1234!", "Sample1234", "Sample 1234!", "Ab!"]) assert.equal(E.sharedTemporaryPassword({ LDTT_TRAINER_SHARED_TEMP_PASSWORD: bad }), "", JSON.stringify(bad));
 });
 
-test("the welcome email: portal link, username, 'the temporary password the office provided' (never the password), office number, logo", () => {
+test("the welcome email: portal link, username, the temporary password PRINTED when known (Joshua 2026-09-29), office number, logo", () => {
   const E = load();
   const mail = E.trainerWelcomeEmail({ firstName: "Nia Trainer", email: "nia@lorenzosdogtrainingteam.com", password: SAMPLE });
   assert.equal(mail.subject, "Your Lorenzo's Dog Training Team trainer portal login");
-  for (const words of ["Hi Nia,", "https://www.lorenzosdogtrainingteam.com/trainer-backoffice/", "Username: nia@lorenzosdogtrainingteam.com", "sign in with the temporary password the office provided", "create your own password", "(866) 436-4959"]) assert.ok(mail.text.includes(words), words);
-  assert.ok(!mail.text.includes(SAMPLE) && !mail.html.includes(SAMPLE), "the password is never in the email");
+  for (const words of ["Hi Nia,", "https://www.lorenzosdogtrainingteam.com/trainer-backoffice/", "Username: nia@lorenzosdogtrainingteam.com", `Temporary password: ${SAMPLE}`, "create your own password", "(866) 436-4959"]) assert.ok(mail.text.includes(words), words);
+  assert.ok(mail.html.includes(SAMPLE), "the password is in the email");
+  const without = E.trainerWelcomeEmail({ firstName: "Nia", email: "nia@lorenzosdogtrainingteam.com" });
+  assert.ok(without.text.includes("sign in with the temporary password the office provided"), "no password known = the office-provided words");
+  assert.ok(!without.text.includes("Temporary password:"));
   assert.match(mail.html, /lorenzo-logo-transparent\.png/, "logo in the footer");
   assert.doesNotMatch(mail.text + mail.html, /\bTim\b|ldtt-sandbox/);
 });
@@ -80,13 +83,16 @@ test("a NEW live login: created, switched to the shared password, then the train
   assert.equal(json.created, true);
   assert.equal(json.shared_temp_password, true);
   assert.equal(json.temporary_password, "", "the shared password is never sent back to the screen");
-  assert.deepEqual(json.login_email, { status: "sent", to: "new.trainer@lorenzosdogtrainingteam.com" });
   const rpc = calls.findIndex(c => c.path === "/rest/v1/rpc/ldtt_set_new_trainer_temp_password");
   const mail = calls.findIndex(c => c.host === "api.resend.com");
   const upsert = calls.findIndex(c => c.path.startsWith("/rest/v1/portal_users") && c.method === "POST");
   assert.ok(upsert >= 0 && rpc > upsert && mail > rpc, "portal row first, then the password, then the email");
   assert.deepEqual(calls[mail].body.to, ["new.trainer@lorenzosdogtrainingteam.com"]);
-  assert.ok(!calls[mail].body.text.includes(SAMPLE), "the email never carries the password");
+  assert.ok(calls[mail].body.text.includes(`Temporary password: ${SAMPLE}`), "the email prints the password that was put on the login");
+  assert.deepEqual(json.login_email, { status: "sent", to: "new.trainer@lorenzosdogtrainingteam.com", with_password: true });
+  const record = calls.find(c => c.path.startsWith("/rest/v1/portal_users") && c.method === "PATCH");
+  assert.equal(record.body.welcome_email_status, "sent_with_password", "Portal Access sees the send");
+  assert.ok(!JSON.stringify(record.body).includes(SAMPLE), "the record never holds the password");
 });
 
 test("no email for an existing login or on the practice copy; without the shared password the email still goes and the office sees the one-time password", async () => {

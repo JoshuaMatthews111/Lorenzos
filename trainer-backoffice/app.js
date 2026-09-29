@@ -2210,7 +2210,9 @@ async function ensureTrainerPortalAccount(trainer) {
   const welcome = result.login_email || null;
   trainer.welcomeEmailStatus = welcome
     ? welcome.status === "sent"
-      ? `Welcome email SENT to ${welcome.to} with the portal link and their username. Give them the temporary password yourself (the email tells them to use the one the office provided).${result.shared_temp_password ? " Their login uses the office temporary password from Portal Access." : ""}`
+      ? welcome.with_password
+        ? `Welcome email SENT to ${welcome.to} with the portal link, their username and the office temporary password.`
+        : `Welcome email SENT to ${welcome.to} with the portal link and their username. Give them the temporary password yourself (the email tells them to use the one the office provided).`
       : `Welcome email NOT sent: ${welcome.reason || "unknown reason"}`
     : "";
   if (welcome?.status === "sent") showToast(`Trainer login created. Welcome email sent to ${welcome.to} with their sign-in details.`, 12000);
@@ -7655,7 +7657,7 @@ function trainerTempPasswordPanel() {
   const status = trainerTempPasswordStatus;
   const ready = status && !status.sandbox && !status.error;
   return panel("Temporary Password for New Trainers", "", `
-    <p class="panel-copy">Every new trainer login gets this password. The welcome email tells them to sign in with the temporary password the office provided. You give it to them. The first time they sign in, they make their own.</p>
+    <p class="panel-copy">Every new trainer login gets this password. The welcome email shows it to them, with the portal link and their username. The first time they sign in, they make their own.</p>
     <p class="panel-copy" data-trainer-temp-password-status><strong>${escapeHtml(trainerTempPasswordLine(status))}</strong></p>
     <form class="communications-form" data-trainer-temp-password-form>
       <label class="wide">${status?.is_set ? "Change it to" : "Temporary password"}<input required name="temp_password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Starts with a capital letter, ends with !" ${ready ? "" : "disabled"}><small class="field-help">Capital letter first. ! at the end. No spaces. At least 8 characters. It is saved encrypted and cannot be shown again, so write it down.</small></label>
@@ -7751,7 +7753,24 @@ function portalLoginStatusMarkup(user) {
   }
   const lastSignIn = user?.auth_last_sign_in_at || user?.last_sign_in_at || "";
   const loggedIn = Boolean(user?.auth_has_logged_in || lastSignIn);
-  return `<div class="portal-login-status"><span class="status ${loggedIn ? "won" : "lost"}">${loggedIn ? "Logged in" : "No login yet"}</span><small>${escapeHtml(lastSignIn ? formatDateTime(lastSignIn) : "Last sign-in not recorded")}</small></div>`;
+  return `<div class="portal-login-status"><span class="status ${loggedIn ? "won" : "lost"}">${loggedIn ? "Logged in" : "No login yet"}</span><small>${escapeHtml(lastSignIn ? formatDateTime(lastSignIn) : "Last sign-in not recorded")}</small>${trainerWelcomeEmailLine(user, loggedIn)}</div>`;
+}
+
+// Joshua 2026-09-29 (rule 137): beside each TRAINER login, did the new-trainer welcome email go out, and has the trainer
+// signed in yet. A trainer who has never signed in gets a "Send welcome email" button (Super Admin).
+function trainerWelcomeEmailLine(user, loggedIn) {
+  if (portalPermissionValue(user) !== "trainer") return "";
+  const status = String(user?.welcome_email_status || "");
+  const when = user?.welcome_email_at ? formatDateTime(user.welcome_email_at) : "";
+  const words = status === "sent_with_password" ? `Welcome email sent ${when} (with the temporary password)`
+    : status === "sent" ? `Welcome email sent ${when} (no password in it)`
+    : status === "failed" ? `Welcome email FAILED ${when}`
+    : "Welcome email: not sent from the portal";
+  const tone = status.startsWith("sent") ? "is-sent" : status === "failed" ? "is-failed" : "";
+  const button = !loggedIn && user?.user_id && !user?.derived && isSuperAdmin()
+    ? `<button class="btn btn-outline btn-small" type="button" data-send-trainer-welcome="${escapeHtml(user.user_id)}">${status.startsWith("sent") ? "Send welcome email again" : "Send welcome email"}</button>`
+    : "";
+  return `<small class="welcome-email-status ${tone}">${escapeHtml(words)}</small>${button}`;
 }
 
 function portalUserDetailDisclosure(user) {
@@ -15070,6 +15089,28 @@ document.addEventListener("click", async event => {
     finally { practiceReset.disabled = false; }
     return;
   }
+  const sendWelcome = event.target.closest("[data-send-trainer-welcome]");
+  if (sendWelcome) {
+    if (!isSuperAdmin()) { showToast("Only a Super Admin can send the trainer welcome email."); return; }
+    const user = findPortalAccessUser(sendWelcome.dataset.sendTrainerWelcome);
+    const who = user ? portalDisplayName(user) : "this trainer";
+    if (!window.confirm(`Send the welcome email to ${who}?\n\nIt has the portal link, their username and the office temporary password (when one is saved in Portal Access). Their login is set to that temporary password first, because they have never signed in.`)) return;
+    sendWelcome.disabled = true;
+    try {
+      const result = await trainerTempPasswordRequest({ op: "send_welcome", user_id: sendWelcome.dataset.sendTrainerWelcome });
+      if (result.sandbox) { showToast(result.message, 8000); return; }
+      const mail = result.login_email || {};
+      recordActivity("Trainer welcome email sent", `${who}: welcome email sent to ${mail.to} by ${currentActorLabel()}.`, "Security");
+      await refreshOperationalData("trainer-welcome").catch(() => {});
+      render();
+      showActionConfirmation("Welcome email sent", `Sent to ${mail.to}.`, { meta: mail.with_password ? "It shows the office temporary password." : "No temporary password is saved in Portal Access, so the email says to use the one the office provided. Give it to them yourself." });
+    } catch (error) {
+      showToast(error.message || "The welcome email could not be sent.", 10000);
+    } finally {
+      sendWelcome.disabled = false;
+    }
+    return;
+  }
   const portalAccessAction = event.target.closest("[data-portal-access-action]");
   if (portalAccessAction) {
     if (!isSuperAdmin()) {
@@ -17354,7 +17395,7 @@ document.addEventListener("submit", async event => {
       input.value = "";
       recordActivity("Trainer temporary password changed", `The temporary password for new trainer logins was changed by ${currentActorLabel()}.`, "Security");
       render();
-      showActionConfirmation("Temporary password saved", "Every new trainer login from now on gets this password. Give it to each new trainer yourself.", { meta: "Trainers who already have a login keep the password they have." });
+      showActionConfirmation("Temporary password saved", "Every new trainer login from now on gets this password, and their welcome email shows it.", { meta: "Trainers who already signed in keep their own password. For a trainer who has never signed in, use \"Send welcome email\" beside their login below." });
     } catch (error) {
       showToast(error.message || "The temporary password could not be saved.", 9000);
     } finally {

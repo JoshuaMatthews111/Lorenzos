@@ -2662,3 +2662,23 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      /contact, /get-started, /staff 200; a status call with no login = 403). Practice copy: the box shows the practice
      message and is disabled; with a live-style answer a password with a space is refused on screen and no save call is
      made. The vault row is empty until the office saves one (nothing set by the build).
+
+137. **The welcome email PRINTS the temporary password; Portal Access shows who got it (Joshua 2026-09-29; amends
+     rules 118 and 135).** When a new live trainer login gets the office's saved temporary password (rule 136) the
+     welcome email shows "Temporary password: <it>" with the portal link and username. If none is saved or it did not
+     take, the email says "sign in with the temporary password the office provided" (the office screen shows the
+     one-time password). Every send is recorded on `portal_users` (`welcome_email_status` sent_with_password / sent /
+     failed, `welcome_email_at`, `welcome_email_to`; never the password; columns on public AND practice, migration
+     `20260929130000_portal_users_welcome_email.sql`). Portal Access shows beside each TRAINER login: Logged in / No
+     login yet, and the welcome email status. A trainer who has NEVER signed in has "Send welcome email" (Super Admin,
+     confirm first): op `send_welcome` puts the saved password on the login first (only a never-signed-in trainer that
+     must change its password), then emails it. A trainer who already signed in is refused (409) and never emailed.
+     Pins: `tests/trainer-welcome-email-2026-09-25.test.mjs`, `tests/trainer-temp-password-office-2026-09-29.test.mjs`.
+
+138. **Every link we text or email says where it came from (Joshua 2026-09-29).** `B.taggedLink(url, channel, message)`
+     (lib/booking.js) adds `utm_source=text|email` and `utm_campaign=<new_lead|followup_link|unfinished|followup_first|
+     care_call|reengage|campaign>` to OUR site's links in the new-lead text + email twin, the 15-min / 30-min / next-day
+     follow-ups (text and email get different tags), the re-engage invite and the email campaign. The page answer to the
+     website form (`book_url`) and the trainer's new-inquiry link stay PLAIN. Other sites' links are never touched.
+     "text"/"email" never match the paid-network badges (ig/fb/google). Pins: tests/pipeline.test.mjs,
+     tests/reengage-send.test.mjs, tests/meeting-2026-09-23.test.mjs.

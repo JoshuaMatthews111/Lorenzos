@@ -308,7 +308,7 @@ test("unfinished form: the 30-minute timer step carries the did-not-finish wordi
   assert.equal(hook.body.pathway, "followup");
   assert.equal(hook.body.followup_key, "unfinished", "the 30-minute step wears the unfinished-form wording");
   assert.ok(hook.body.form_link, "a form link always resolves, even with no booking link");
-  assert.match(hook.body.form_link, /\?zip=44128$|\/book$/, "the re-engage link shape: the local page with the ZIP prefilled, or /book");
+  assert.match(hook.body.form_link, /\?zip=44128&utm_source=text&utm_campaign=unfinished$|\/book\?utm_source=text&utm_campaign=unfinished$/, "the re-engage link shape: the local page with the ZIP prefilled, or /book (tagged text + unfinished, 2026-09-29)");
   // The words that actually go to Twilio.
   assert.match(hook.body.message, /may not have finished your request/, "Joshua + Lorenzo's final wording");
   assert.match(hook.body.message, new RegExp(hook.body.form_link.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "the form link is in the words");

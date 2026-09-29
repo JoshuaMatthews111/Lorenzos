@@ -6098,3 +6098,8 @@ button.lead-tag-recycled:hover, button.lead-tag-recycled:focus-visible { backgro
 .welcome-email-notice { margin: 12px 0; padding: 12px 14px; border-radius: 8px; font-weight: 700; line-height: 1.4; }
 .welcome-email-notice.is-sent { background: #e9f8ef; border: 1px solid #7cc79a; color: #14532d; }
 .welcome-email-notice.is-not-sent { background: #fff4e5; border: 1px solid #f0b35a; color: #7a3d00; }
+/* Joshua 2026-09-29 (rule 137): welcome email status beside a trainer login in Portal Access. */
+.portal-login-status .welcome-email-status { display: block; margin-top: 4px; color: #7a3d00; font-weight: 600; }
+.portal-login-status .welcome-email-status.is-sent { color: #14532d; }
+.portal-login-status .welcome-email-status.is-failed { color: #b42318; }
+.portal-login-status [data-send-trainer-welcome] { margin-top: 6px; }

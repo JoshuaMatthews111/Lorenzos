@@ -191,7 +191,7 @@ test("disarm-after-run: the runner disarms BEFORE the first send, walks the colu
   // Joshua 2026-09-23: the LIVE ad page for that area (the Facebook ones), never the unfinished 2.0
   // page. The 2.0 row only names the nearest area; the link is the static page, ZIP prefilled.
   const hook = calls.find(c => c.host === "hook.us2.make.com");
-  assert.match(String(hook.body.booking_link), /\/dog-training-pensacola-fl\?zip=32507$/);
+  assert.match(String(hook.body.booking_link), /\/dog-training-pensacola-fl\?zip=32507&utm_source=text&utm_campaign=reengage$/);
   assert.ok(!/\/ads\//.test(String(hook.body.booking_link)), "a 2.0 page is never sent to a client");
   // the summary landed in the key and it stays disarmed
   const final = world.settings.value;
@@ -294,8 +294,8 @@ test("fix 3 - a lead with NO ZIP goes to the live Contact Us page, never a bare 
   // and the send really uses the Contact Us link
   await P.sendReengageInvite({ lead: world.leads[0] });
   const hook = calls.find(c => c.host === "hook.us2.make.com");
-  assert.match(String(hook.body.booking_link), /\/contact$/);
-  assert.match(String(hook.body.message), /\/contact\. Or call us/);
+  assert.match(String(hook.body.booking_link), /\/contact\?utm_source=text&utm_campaign=reengage$/);
+  assert.match(String(hook.body.message), /\/contact\?utm_source=text&utm_campaign=reengage\. Or call us/);
   assert.equal(world.leads[0].raw_payload.pipeline.reengage.link_kind, "contact", "the record says where they were sent");
 });
 
