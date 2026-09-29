@@ -2682,3 +2682,19 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      website form (`book_url`) and the trainer's new-inquiry link stay PLAIN. Other sites' links are never touched.
      "text"/"email" never match the paid-network badges (ig/fb/google). Pins: tests/pipeline.test.mjs,
      tests/reengage-send.test.mjs, tests/meeting-2026-09-23.test.mjs.
+     Verified 2026-09-29: LIVE `dpl_…` for live43 (stamp 20260929live43 both hosts; /, /contact, /get-started, /staff 200;
+     send_welcome with no login = 403). Practice: 32 trainer rows show the welcome line, 0 page errors.
+
+139. **Portal speed (Joshua 2026-09-29: "speed up 4x without breaking anything").** Same data, same counts, less work:
+     (1) the office Leads board builds the detailed lead sheet ONLY while it is open (or in Table view) — opening it
+     draws it; the trainer table is built only for trainers. (2) `siteEventRows()` and `filteredReportEventRows()` keep
+     their answer until the loaded events, the trainer list, the report dates or the minute change. (3) The history and
+     sheet loads leave out the website-visit events (`omitAllBut`); Reports / Communications / Ad Landing Pages still
+     load them on open. (4) Focus + tab-switch + poll share ONE refresh and skip one within 2 s of the last; "nothing
+     changed" moves only the top bar and "as of" stamps (rule 35), with a full redraw at least every 2 minutes; saves and
+     change notices ("realtime", "manual", ...) always reload and redraw; every refresh redraw is still
+     `backgroundRender()` (typing-safe, rule 17). (5) Signed submission photo links are kept 11 hours by path (they last
+     12). Measured on the practice copy (headless, same session): Leads redraw ~200 ms -> ~60 ms, elements 18,058 ->
+     3,222; Reports redraw 750-1,015 ms -> ~35 ms (15,736 events); the load after sign-in 11.3 MB -> 3.0 MB; sign-in to
+     "Live" 8.4 s -> 5.6 s. LIVE `dpl_HFhJn8w4xSNw7QpCszzb2cYKkDYU` (stamp 20260929live44). Rollback:
+     `npx vercel rollback` to the live43 deployment.
