@@ -104,7 +104,10 @@ begin
   update leads set
     raw_payload = coalesce(raw_payload, '{}'::jsonb) || jsonb_build_object('merged_requests',
       (case when jsonb_typeof(raw_payload->'merged_requests') = 'array' then raw_payload->'merged_requests' else '[]'::jsonb end)
-      || v_carried || jsonb_build_array(v_snapshot)),
+      || v_carried || jsonb_build_array(v_snapshot))
+      -- 2026-09-28 review: a flag the office acts on must survive the join (Mark G.'s "Needs a call" sat on the joined card).
+      || case when coalesce(o.raw_payload->>'needs_office_call', '') = 'true' then jsonb_build_object('needs_office_call', true) else '{}'::jsonb end,
+    added_to_alpha = case when added_to_alpha is true or o.added_to_alpha is true then true else coalesce(added_to_alpha, o.added_to_alpha) end,
     email = coalesce(nullif(btrim(email), ''), nullif(btrim(o.email), '')),
     phone = coalesce(nullif(btrim(phone), ''), nullif(btrim(o.phone), '')),
     zip = coalesce(nullif(btrim(zip), ''), nullif(btrim(o.zip), '')),

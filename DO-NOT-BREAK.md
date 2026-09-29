@@ -2630,3 +2630,11 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      itself, 326 rows before and after): 25 groups to join (21 email, 4 phone + same first name, 56 cards), 31 cards would be
      removed (326 -> 295 rows, 316 -> 285 on the screens), 1 skipped (Larry L., two client records), 0 left over / tester / qa;
      Recycled badges 32 -> 26. "send" NOT armed. Full list: session scratchpad `shots40/lead-merge-audit.md`.
+
+134. **A join keeps the flags the office acts on (review of the 2026-09-28 dry run).** `ldtt_merge_lead` (public +
+     practice, applied 2026-09-29) now also carries `raw_payload.needs_office_call = true` and `added_to_alpha = true`
+     from the joined card onto the card that stays (Mark G.'s red "Needs a call" sat on the joined card). Proven on live
+     inside a rolled-back test: joined ok, needs_office_call true, the office note moved, the joined card gone, then
+     everything undone (326 rows, 0 backups). Review of the Do Not Contact flags: the office had used Do Not Contact to
+     hide duplicates (notes "THIS IS A DUPILCATE", "DUPLICATE", "Test"), so those joins are what the office wanted;
+     where a real Do Not Contact card is the newest/equal card it stays (Karen S., Paul C.).
