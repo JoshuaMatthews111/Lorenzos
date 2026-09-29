@@ -9552,14 +9552,15 @@ function leadHistoryBlock(lead) {
   const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
   const requests = leadRequestTimeline(lead);
   const tagFor = item => item.current ? "This card" : item.joined ? "Joined into this card" : "Still a separate card";
-  const rows = requests.map((item, index) => {
+  const rows = requests.map((item, index) => ({ at: item.created_at, html: (() => {
     const heard = item.heard_about_us ? ` Heard about us: ${item.heard_about_us}.` : "";
     if (index === 0) {
       return `<li><time>${escapeHtml(formatDateTime(item.created_at))}</time><strong>First received</strong> through the ${escapeHtml(item.page || "website form")}.${escapeHtml(heard)}${requests.length > 1 ? ` <em class="lead-history-tag">${escapeHtml(tagFor(item))}</em>` : ""}</li>`;
     }
     const changes = METRICS.requestChanges(requests[index - 1], item);
     return `<li class="is-recycled"><time>${escapeHtml(formatDateTime(item.created_at))}</time><strong>${RECYCLE_ICON}Came back (recycled)</strong> through the ${escapeHtml(item.page || "website form")}. <em class="lead-history-tag">${escapeHtml(tagFor(item))}</em><small>${changes.length ? `What changed: ${escapeHtml(changes.join("; "))}.` : "Nothing in their details changed."}</small></li>`;
-  });
+  })() }));
+  let outcome = null; // the booking (or where they are now), placed by its date; "Not booked yet" goes last
   const link = METRICS.linkFromOf(lead);
   const linkLine = when => link
     ? `They got there from ${escapeHtml(METRICS.linkFromWords(link))}.`
@@ -9568,19 +9569,25 @@ function leadHistoryBlock(lead) {
       : "They did not come from a text or email link (they booked right on the website).";
   if (booking.slot_start) {
     const when = booking.booked_at || "";
-    rows.push(`<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Booked online</strong> an evaluation for ${escapeHtml(booking.when_label || formatDateTime(booking.slot_start))}${booking.trainer_name ? ` with ${escapeHtml(booking.trainer_name)}` : ""} on the booking page. <small>${linkLine(when)}</small></li>`);
+    outcome = { at: when, html: `<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Booked online</strong> an evaluation for ${escapeHtml(booking.when_label || formatDateTime(booking.slot_start))}${booking.trainer_name ? ` with ${escapeHtml(booking.trainer_name)}` : ""} on the booking page. <small>${linkLine(when)}</small></li>` };
   } else if (booking.requested) {
     const when = booking.requested_at || "";
-    rows.push(`<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Asked for ${escapeHtml(booking.trainer_name || "a trainer")}</strong> on the booking page (the office schedules the time). <small>${linkLine(when)}</small></li>`);
+    outcome = { at: when, html: `<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Asked for ${escapeHtml(booking.trainer_name || "a trainer")}</strong> on the booking page (the office schedules the time). <small>${linkLine(when)}</small></li>` };
   } else if (booking.callback) {
     const when = booking.callback.requested_at || "";
-    rows.push(`<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Asked for a call</strong> (no trainer near ZIP ${escapeHtml(booking.callback.zip || "")}). <small>${linkLine(when)}</small></li>`);
+    outcome = { at: when, html: `<li class="is-booked"><time>${escapeHtml(when ? formatDateTime(when) : "Date not recorded")}</time><strong>Asked for a call</strong> (no trainer near ZIP ${escapeHtml(booking.callback.zip || "")}). <small>${linkLine(when)}</small></li>` };
   } else if (lead.evalScheduledAt) {
-    rows.push(`<li class="is-booked"><time>${escapeHtml(formatDateTime(lead.evalScheduledAt))}</time><strong>Evaluation set by the office</strong> (not booked online).</li>`);
+    outcome = { at: "", html: `<li class="is-booked"><time>${escapeHtml(formatDateTime(lead.evalScheduledAt))}</time><strong>Evaluation set by the office</strong> (not booked online).</li>` };
   } else {
-    rows.push(`<li class="is-waiting"><strong>Not booked yet.</strong>${link && link.on === "lead" ? ` <small>This request came from ${escapeHtml(METRICS.linkFromWords(link))}.</small>` : ""}</li>`);
+    outcome = { at: "", html: `<li class="is-waiting"><strong>Not booked yet.</strong>${link && link.on === "lead" ? ` <small>This request came from ${escapeHtml(METRICS.linkFromWords(link))}.</small>` : ""}</li>` };
   }
-  return `<section class="detail-note-block lead-history"><h3>Lead history</h3><ol class="lead-history-list">${rows.join("")}</ol></section>`;
+  const ordered = rows.slice();
+  if (outcome && timestampValue(outcome.at)) {
+    const at = timestampValue(outcome.at);
+    const index = ordered.findIndex(row => timestampValue(row.at) > at);
+    ordered.splice(index < 0 ? ordered.length : index, 0, outcome);
+  } else if (outcome) ordered.push(outcome);
+  return `<section class="detail-note-block lead-history"><h3>Lead history</h3><ol class="lead-history-list">${ordered.map(row => row.html).join("")}</ol></section>`;
 }
 
 function openRecycledHistory(leadId) {
