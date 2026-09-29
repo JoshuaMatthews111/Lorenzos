@@ -7765,8 +7765,9 @@ function trainerWelcomeEmailLine(user, loggedIn) {
   const words = status === "sent_with_password" ? `Welcome email sent ${when} (with the temporary password)`
     : status === "sent" ? `Welcome email sent ${when} (no password in it)`
     : status === "failed" ? `Welcome email FAILED ${when}`
-    : "Welcome email: not sent from the portal";
-  const tone = status.startsWith("sent") ? "is-sent" : status === "failed" ? "is-failed" : "";
+    : loggedIn ? "No welcome email needed: already signed in"
+    : "Welcome email: not sent yet";
+  const tone = status.startsWith("sent") || (loggedIn && !status) ? "is-sent" : status === "failed" ? "is-failed" : "";
   const button = !loggedIn && user?.user_id && !user?.derived && isSuperAdmin()
     ? `<button class="btn btn-outline btn-small" type="button" data-send-trainer-welcome="${escapeHtml(user.user_id)}">${status.startsWith("sent") ? "Send welcome email again" : "Send welcome email"}</button>`
     : "";
