@@ -2718,3 +2718,11 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      dashboard number changes. Practice proof: Recycled (37) -> 37 cards, the 8 column counts add to 37, every card has
      the Recycled badge, 0 page errors. LIVE `dpl_AKxVXdMAGx75mJNBeRsJNiDQ8wYp` (stamp 20260929live45; /, /contact,
      /get-started, /staff, /book, /book/fredharris 200; the live booking page opened with tagged links, 0 errors).
+
+142. **The text blast can be limited to chosen people (Joshua 2026-09-29).** `reengage_batch.only_leads` (a list of
+     lead ids; bad ids dropped, case ignored, max 200). When set, the run walks the armed columns as before but sends
+     ONLY to the listed leads that are still in those columns, inside the 60-day window and never reached before
+     (person dedupe unchanged); everyone else in the column is never claimed, written or messaged. Empty list = the
+     whole columns, exactly as before. Summary adds `only_leads` and `in_columns`. Pin:
+     tests/reengage-send.test.mjs "only these people". Also: /api/operational-data now sends a `Server-Timing`
+     header (step names + milliseconds only, never data) and logs `opdata_timing` when a load takes over 1.5 s.

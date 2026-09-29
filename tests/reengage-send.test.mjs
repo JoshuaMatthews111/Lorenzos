@@ -406,3 +406,36 @@ test("THE TIMING GUARD: one minute before 7:00 AM Eastern it reports waiting and
   assert.equal(out.walked, 1);
   assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 1, "and only then does anything leave");
 });
+
+test("only these people (Joshua 2026-09-29): an only_leads list sends to those leads and never touches anyone else in the column", async () => {
+  const A = "00000000-0000-4000-8000-000000000071"; // listed, consented tester phone -> text + email
+  const B = "00000000-0000-4000-8000-000000000072"; // listed, no texting permission -> email only
+  const C = "00000000-0000-4000-8000-000000000073"; // NOT listed -> untouched
+  const world = {
+    leads: [
+      makeLead({ id: A, status: "office_contacted" }),
+      makeLead({ id: B, status: "office_contacted", first_name: "Bea", email: "bea@example.test", phone: "(330) 555-0188", sms_consent: false }),
+      makeLead({ id: C, status: "office_contacted", first_name: "Cy", email: "cy@example.test", phone: "(216) 555-0199" })
+    ],
+    settings: { key: "reengage_batch", value: { armed: true, columns: ["office_contacted", "engaged_no_outcome"], only_leads: [A, B.toUpperCase(), "not-an-id"], send_at: "2026-09-29T08:30:00-04:00" }, updated_at: "2026-09-29T07:00:00Z" },
+    adPages: [{ slug: "pensacola", published_content: { zip: "32504" } }]
+  };
+  const calls = [];
+  stubFetch(world, calls);
+  const P = load(true);
+  const early = await P.runReengageBatch({ nowMs: Date.parse("2026-09-29T12:15:00Z") });
+  assert.equal(early.waiting, true, "8:15 AM: still waiting for 8:30");
+  const out = await P.runReengageBatch({ nowMs: Date.parse("2026-09-29T12:31:00Z") });
+  assert.equal(out.ran, true, JSON.stringify(out));
+  assert.equal(out.walked, 2, "only the 2 listed leads are walked");
+  assert.equal(out.in_columns, 3);
+  assert.equal(out.only_leads, 2, "the bad id is dropped; case does not matter");
+  assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 1, "one text: the listed consented lead");
+  assert.ok(calls.filter(c => c.method === "PATCH" && c.path === "/rest/v1/leads" && c.query.includes(A)).length > 0, "the listed lead IS claimed (the check below is real)");
+  assert.equal(calls.filter(c => c.method === "PATCH" && c.path === "/rest/v1/leads" && c.query.includes(C)).length, 0, "the unlisted lead is never claimed or written");
+  assert.ok(world.leads.find(l => l.id === A).raw_payload.pipeline?.reengage, "A is recorded");
+  assert.ok(world.leads.find(l => l.id === B).raw_payload.pipeline?.reengage, "B is recorded (email)");
+  assert.equal(world.leads.find(l => l.id === C).raw_payload.pipeline?.reengage, undefined, "C untouched");
+  assert.equal(world.settings.value.armed, false, "disarmed after the run");
+  assert.equal(P.normalizeReengageBatch({ columns: ["office_contacted"] }).only_leads.length, 0, "no list = the whole column, as before");
+});

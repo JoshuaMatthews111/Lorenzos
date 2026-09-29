@@ -544,32 +544,18 @@ async function loadLifecycleFast(unavailableCapabilities) {
   }
 }
 
-async function loadAdminOperationalData(unavailableCapabilities, omit = new Set()) {
-  const [
-    trainers,
-    pages,
-    leads,
-    leadEvents,
-    clients,
-    dogs,
-    applications,
-    submissions,
-    events,
-    portalUsers,
-    officeNotes,
-    auditEvents,
-    noteRevisions,
-    deliveryAttempts,
-    reviewPublications,
-    lifecycleLoaded,
-    leadsSheet,
-    applicationsSheet,
-    clientsSheet,
-    deals,
-    dealPayments,
-    clientsTotalEarly,
-    authPageOne
-  ] = await Promise.all([
+// Speed 2026-09-29: how long each read takes, sent as a Server-Timing header (names + milliseconds only, never data)
+// and logged, so the slow part of sign-in can be measured on live.
+const ADMIN_BLOCKS = ["trainers", "pages", "leads", "leadEvents", "clients", "dogs", "applications", "submissions", "events", "portalUsers", "officeNotes", "auditEvents", "noteRevisions", "deliveryAttempts", "reviewPublications", "lifecycle", "leadsSheet", "applicationsSheet", "clientsSheet", "deals", "dealPayments", "clientsTotal", "authPageOne"];
+function timedAll(timings, entries) {
+  return Promise.all(entries.map(([name, work]) => {
+    const started = Date.now();
+    return Promise.resolve(work).finally(() => { timings[name] = Date.now() - started; });
+  }));
+}
+
+async function loadAdminOperationalData(unavailableCapabilities, omit = new Set(), timings = {}) {
+  const work = [
     supabaseFetchAll("/rest/v1/trainers?select=*&order=full_name.asc"),
     supabaseFetchAll("/rest/v1/trainer_pages?select=*&order=updated_at.desc"),
     supabaseFetchAll("/rest/v1/leads?select=*&order=created_at.desc"),
@@ -608,7 +594,32 @@ async function loadAdminOperationalData(unavailableCapabilities, omit = new Set(
     // ~500 ms cold). Neither depends on the batch, so they run inside it.
     countRows("clients").catch(() => null),
     supabaseFetch("/auth/v1/admin/users?page=1&per_page=100").catch(() => null)
-  ]);
+  ];
+  const [
+    trainers,
+    pages,
+    leads,
+    leadEvents,
+    clients,
+    dogs,
+    applications,
+    submissions,
+    events,
+    portalUsers,
+    officeNotes,
+    auditEvents,
+    noteRevisions,
+    deliveryAttempts,
+    reviewPublications,
+    lifecycleLoaded,
+    leadsSheet,
+    applicationsSheet,
+    clientsSheet,
+    deals,
+    dealPayments,
+    clientsTotalEarly,
+    authPageOne
+  ] = await timedAll(timings, work.map((promise, index) => [ADMIN_BLOCKS[index], promise]));
   const lifecycleEvents = lifecycleLoaded.rows;
   const clientsTotal = clientsTotalEarly ?? clients.length;
   const clientsSheetRows = omit.has("sheets")
@@ -734,8 +745,11 @@ module.exports = async function handler(req, res) {
 
   try {
     // Any active portal user (lib/portal-auth.js). Trainers get only their own rows below.
+    const requestStarted = Date.now();
+    const timings = {};
     const access = await authorizeRequest(req, res, { require: "any", message: "Active portal access required." });
     if (!access) return;
+    timings.auth = Date.now() - requestStarted;
 
     const unavailableCapabilities = [];
     const omit = parseOmit(req.query?.omit);
@@ -745,10 +759,14 @@ module.exports = async function handler(req, res) {
     // the RPC exists only in schema practice, and a slow or failed pull can
     // never stop the screen: the practice rows are served either way and the
     // top bar says when the copy last matched live.
+    const pullStarted = Date.now();
     const practiceSync = isSandbox() ? await pullPracticeFromLive() : null;
+    if (practiceSync) timings.practice_pull = Date.now() - pullStarted;
+    const loadStarted = Date.now();
     const data = access.role === "trainer"
       ? await loadTrainerOperationalData(access.portalUser, unavailableCapabilities, omit)
-      : await loadAdminOperationalData(unavailableCapabilities, omit);
+      : await loadAdminOperationalData(unavailableCapabilities, omit, timings);
+    timings.load = Date.now() - loadStarted;
     // Practice copy: every row above already came from the practice schema.
     // The only extra is the "Sent to live ✓" stamp per trainer page, kept in
     // practice.send_to_live_log by api/send-to-live.js.
@@ -792,7 +810,9 @@ module.exports = async function handler(req, res) {
       applicationsSheet,
       clientsSheet
     } = data;
+    const enrichStarted = Date.now();
     portalUsers = await enrichPortalUsersWithAuth(portalUsers, data.authPageOne || null);
+    timings.auth_users = Date.now() - enrichStarted;
 
     const syncedAt = new Date().toISOString();
     // perf/portal-speed: the revision now covers every collection the portal
@@ -819,6 +839,9 @@ module.exports = async function handler(req, res) {
       `omit:${[...omit].sort().join(",")}`
     ].join("||");
     const serverRevision = crypto.createHash("sha256").update(revisionInput).digest("hex").slice(0, 20);
+    timings.total = Date.now() - requestStarted;
+    res.setHeader("Server-Timing", Object.entries(timings).map(([name, ms]) => `${name};dur=${Number(ms) || 0}`).join(", "));
+    if (timings.total > 1500) console.log("opdata_timing", JSON.stringify({ role: access.role, omit: [...omit].sort().join(","), ...timings }));
     const etag = `"${serverRevision}"`;
     res.setHeader("ETag", etag);
     res.setHeader("Cache-Control", "private, no-store");
