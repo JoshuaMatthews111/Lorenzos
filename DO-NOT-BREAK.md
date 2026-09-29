@@ -2658,3 +2658,7 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      on the office screen (rule 135). Changing it never touches trainers who already have a login. Office Admins get
      403; the practice copy never saves it (it never creates logins). Pins:
      `tests/trainer-temp-password-office-2026-09-29.test.mjs`.
+     Verified 2026-09-29: 634 tests pass, audit ok. LIVE production `dpl_3jFBrWQTxCtPyGZXEaNAVbvomseN` (stamp 20260929live42 on both hosts; /,
+     /contact, /get-started, /staff 200; a status call with no login = 403). Practice copy: the box shows the practice
+     message and is disabled; with a live-style answer a password with a space is refused on screen and no save call is
+     made. The vault row is empty until the office saves one (nothing set by the build).
