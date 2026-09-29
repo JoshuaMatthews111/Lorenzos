@@ -2698,3 +2698,23 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      3,222; Reports redraw 750-1,015 ms -> ~35 ms (15,736 events); the load after sign-in 11.3 MB -> 3.0 MB; sign-in to
      "Live" 8.4 s -> 5.6 s. LIVE `dpl_HFhJn8w4xSNw7QpCszzb2cYKkDYU` (stamp 20260929live44). Rollback:
      `npx vercel rollback` to the live43 deployment.
+
+140. **A booking says which text or email link brought them (Joshua 2026-09-29).** The booking page reads
+     `utm_source`/`utm_campaign` (rule 138 tags) and sends `link_from` with book, trainer request and call request.
+     `api/booking.js` stamps `raw_payload.booking.link_from = {channel text|email, message, at}` (`B.linkFrom`; anything
+     else -> nothing stamped) and a lead the booking page CREATES carries `utm_source`/`utm_campaign`. Nothing else in
+     the booking changes (same checks, same holds, same texts). Pins: `tests/lead-history-kinds-2026-09-29.test.mjs`.
+
+141. **Lead history + the pipeline "Kind" filter (Joshua 2026-09-29).** The OFFICE lead record (never the trainer's,
+     rule 7) has "Lead history": First received (date, page, how they heard), every "Came back (recycled)" with its
+     date, page, card tag and "What changed" (`METRICS.requestChanges`: page, how they heard, referral, phone by digits,
+     email, ZIP, asked for, dog, trainer), and the outcome in date order: Booked online (when, trainer) + "They got there
+     from the link in the <message> text|email" (`METRICS.linkFromOf/linkFromWords`), or "booked right on the website",
+     or for bookings before 2026-09-29 08:00 UTC "not recorded then" + the last message we sent before it. The Leads
+     pipeline has a "Kind" dropdown (`METRICS.LEAD_KIND_FILTERS` / `leadKinds`: Recycled, Booked online, Booked from a
+     text/email link, Came from a text/email link, Asked for a trainer, Asked for a call, Needs a call, Office's turn, Did
+     not finish the booking form, E-book downloads); each option shows its count, and the board columns, the other
+     dropdown counts and "Showing N of M" all follow it (the same filteredLeadRows). Display only: no lead, status or
+     dashboard number changes. Practice proof: Recycled (37) -> 37 cards, the 8 column counts add to 37, every card has
+     the Recycled badge, 0 page errors. LIVE `dpl_AKxVXdMAGx75mJNBeRsJNiDQ8wYp` (stamp 20260929live45; /, /contact,
+     /get-started, /staff, /book, /book/fredharris 200; the live booking page opened with tagged links, 0 errors).
