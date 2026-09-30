@@ -2768,3 +2768,8 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      exact bytes; the Site Builder offers the founder video slot for d1 and d2 (a2VideoSlot). San Antonio (d2) already
      had it. Pin: tests/sandbox-push-label-2026-09-29.test.mjs "d1". 2026-09-29 also: all live + practice ad_pages rows
      were backed up to private.ad2_pages_backup_20260929 before 7 sandbox pages were sent to live as drafts.
+     2026-09-29 (Joshua "1a"): the 14 ad 2.0 pages from the practice copy were PUBLISHED on live by SQL (same writes as
+     api/pages.js publish: published_content = draft, revisions bumped, one "published" ad_page_revisions row each, so
+     History/Restore works). Checked before: checklist fields, no practice links, every storage file present; after:
+     every /ads/<slug> answers 200 and all 174 files answer 200. Tallahassee ZIP set to 32301 (2A). Rollback source:
+     private.ad2_pages_backup_20260929.
