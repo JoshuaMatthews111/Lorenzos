@@ -2815,3 +2815,11 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      WITH sms_consent runs the normal booking lane (booking-link text, trainer + Operations texts, follow-ups);
      without consent it stays a plain lead. queueNewLeadEmail skips a live older-page e-book lead (delivery_email set:
      FormSubmit already emailed the office). Pin: tests/ebook-2026-09-30.test.mjs.
+
+152. **Ad 2.0 videos (Harrison 2026-09-29).** (a) ONE player: a YouTube link hides the file player and v2.css
+     `.mvideo video[hidden]{display:none}` makes that stick (the old rule `.mvideo video{display:block}` beat the hidden
+     attribute, so two players showed). (b) A box with its OWN video (videos2 ba1-4, st1-3, founder) shows that video's
+     cover over its photo: YouTube -> i.ytimg.com/vi/<id>/hqdefault.jpg, an uploaded mp4/m4v/mov/webm -> a muted
+     preload="metadata" <video src="...#t=0.5">, class vcover, pointer-events none, under the play button (.o.play and
+     .o.vcap z-index 2). A box without its own video renders exactly as before. ad2 VERSION 20260930ad18. Pins:
+     tests/ebook-2026-09-30.test.mjs "ONE player" and "cover".

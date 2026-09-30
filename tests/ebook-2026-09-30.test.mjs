@@ -44,3 +44,19 @@ test("the older ad pages' e-book forms: last name + ZIP required, the SMS tick i
   }
   assert.match(read("lib/pipeline.js"), /rawOf\(lead\)\.lead_type === "pdf_download" && rawOf\(lead\)\.delivery_email !== undefined\) return \{ status: "skipped" \};/, "no second office email");
 });
+
+test("Harrison 2026-09-29: a YouTube video plays in ONE player (the hidden file player really hides)", () => {
+  assert.match(read("assets/v2/v2.css"), /\.mvideo video\[hidden\]\{display:none\}/);
+  assert.match(read("assets/v2/v2.js"), /if \(yt\) \{\n        v\.hidden = true;/);
+});
+
+test("Harrison 2026-09-29: a box with its own video shows that video's cover; a box without one is unchanged", async () => {
+  const T = require("../lib/ad2-page-template.js");
+  const base = T.fromStarter("d2", { market: "Atlanta, GA", newSlug: "atl-test" });
+  const plain = T.renderPage(base);
+  assert.doesNotMatch(plain, /class="vcover"/, "no own video: nothing new");
+  const withVideos = T.renderPage({ ...base, videos2: { ba1: "https://www.youtube.com/watch?v=abcDEF12345", founder: "https://x.supabase.co/storage/v1/object/public/pages/a.mp4" } });
+  assert.match(withVideos, /<img class="vcover" src="https:\/\/i\.ytimg\.com\/vi\/abcDEF12345\/hqdefault\.jpg"/);
+  assert.match(withVideos, /<video class="vcover" src="https:\/\/x\.supabase\.co\/storage\/v1\/object\/public\/pages\/a\.mp4#t=0\.5" muted playsinline preload="metadata"/);
+  assert.match(read("assets/v2/v2.css"), /\.vcover\{position:absolute;inset:0;[^}]*pointer-events:none/);
+});

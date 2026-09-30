@@ -543,6 +543,9 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 .mvideo{max-width:900px;padding:0;background:#000;overflow:hidden}
 .mvideo .mclose{color:#fff;z-index:2;text-shadow:0 1px 4px #000}
 .mvideo video{display:block;width:100%;max-height:82vh;background:#000}
+/* Harrison 2026-09-29: a YouTube video showed TWO players (the empty file player above the YouTube frame): the
+   rule above out-ranked the hidden attribute v2.js sets on the file player for a YouTube link. */
+.mvideo video[hidden]{display:none}
 @media (max-width:520px){.lead{grid-template-columns:1fr}.mcard{padding:24px 18px 20px}}
 
 /* 2026-09-16: office zoom/focus framing (pframe) stays inside its frame */
@@ -559,3 +562,8 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 @media (max-width:760px){.svc .cic{top:130px}}
 /* 2026-09-26 (office): the founder block's title is "Start Your FREE Evaluation Today" (two lines). DO-NOT-BREAK 120. */
 @media (max-width:760px){h2.f-title{font-size:36px;line-height:1.05;white-space:normal}}
+
+/* Harrison 2026-09-29: a box with its own video shows that video's cover (YouTube cover image or the file's opening
+   frame) over the photo, under the play button. Clicks go through to the play button. */
+.vcover{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;z-index:1;background:#000}
+.o.play,.o.vcap{z-index:2}
