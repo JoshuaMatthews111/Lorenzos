@@ -2829,4 +2829,4 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      [0,1,5,2,3,4]: each card keeps its own photo (svc<n>), words (c.svc[n-1]) and nudges; only its position moves.
      Every card is a button (role=button, Enter/Space) that opens its panel m-svc-<key> (SVC_INFO: what it includes,
      what it solves, NO prices, first-draft words for Angela/Lorenzo) with "Book my free evaluation" opening the form
-     (v2.js open() shows one panel at a time). ad2 VERSION 20260930ad19. Pin: tests/ebook-2026-09-30.test.mjs "training cards".
+     (v2.js open() shows one panel at a time). ad2 VERSION 20260930ad20 ("BEHAVIOR MODIFICATION" h3.long stays on one line). Pin: tests/ebook-2026-09-30.test.mjs "training cards".

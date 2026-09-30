@@ -577,3 +577,4 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 .msvc p{line-height:1.55;margin:0}
 .msvc .msvc-note{margin:14px 0;color:#53677f;font-size:14px}
 .msvc .btn-red{display:block;width:100%;padding:12px 16px;margin-top:6px;font-size:15px}
+.card h3.long{font-size:.84em;letter-spacing:-.01em;white-space:nowrap}
