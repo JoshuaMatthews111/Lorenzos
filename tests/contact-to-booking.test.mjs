@@ -50,22 +50,21 @@ test("the redirect lives in the practice block, behind LDTT_IS_SANDBOX, and the 
   assert.equal(script.split("window.location.assign(bookingUrl)").length, 2);
 });
 
-test("booking answers redirect; phone consultation and become-a-trainer keep the thank-you; recruiting form never redirects", () => {
+test("booking answers (now incl. phone consultation) redirect; become-a-trainer keeps the thank-you; recruiting form never redirects", () => {
   const { practiceBookingUrl, contactAnswerBooks } = helper({ sandbox: true });
   const answers = read("contact.html").match(/<select required name="i_want_to">([\s\S]*?)<\/select>/)[1].match(/<option>([^<]+)<\/option>/g).map(o => o.replace(/<\/?option>/g, ""));
   assert.equal(answers.length, 5, "the five Contact Us answers");
   const booking = answers.filter(contactAnswerBooks);
   assert.deepEqual(booking, [
+    "Schedule a free phone consultation to receive more information", // Joshua 2026-09-29: one client path
     "Schedule an in person evaluation with a trainer in my area",
     "Schedule a virtual evaluation",
     "Schedule a training session with my dog trainer"
   ]);
-  assert.equal(contactAnswerBooks("Schedule a free phone consultation to receive more information"), false);
   assert.equal(contactAnswerBooks("Learn more about becoming a dog trainer"), false);
   // Same answers as the server's lane table (lib/pipeline.js CONTACT_US_LANES).
   const lanes = read("lib/pipeline.js");
   for (const a of booking) assert.match(lanes, new RegExp(`answer: "${a}", lane: "booking"`));
-  assert.match(lanes, /answer: "Schedule a free phone consultation to receive more information", lane: "office_call"/);
   assert.match(lanes, /answer: "Learn more about becoming a dog trainer", lane: "recruiting"/);
 
   for (const a of booking) {
@@ -77,8 +76,8 @@ test("booking answers redirect; phone consultation and become-a-trainer keep the
   assert.equal(practiceBookingUrl(contactForm, { i_want_to: booking[0], zip: "44105-1234&x=1" }, canonical, {}), "/book?lead=00000000-0000-4000-8000-000000000042&zip=44105");
   // The pipeline's own book_url (a routed trainer) wins when it answers one.
   assert.equal(practiceBookingUrl(contactForm, { i_want_to: booking[1], zip: "44105" }, canonical, { book_url: "https://ldtt-sandbox.vercel.app/book/fred-harris?lead=x" }), "https://ldtt-sandbox.vercel.app/book/fred-harris?lead=x");
-  // Phone consultation / become-a-trainer: no redirect (today's thank-you).
-  assert.equal(practiceBookingUrl(contactForm, { i_want_to: "Schedule a free phone consultation to receive more information", zip: "44105" }, canonical, { lane: "office_call" }), "");
+  // Joshua 2026-09-29: phone consultation goes to the trainer cards too; become-a-trainer keeps the thank-you.
+  assert.equal(practiceBookingUrl(contactForm, { i_want_to: "Schedule a free phone consultation to receive more information", zip: "44105" }, canonical, { lane: "booking" }), "/book?lead=00000000-0000-4000-8000-000000000042&zip=44105");
   assert.equal(practiceBookingUrl(contactForm, { i_want_to: "Learn more about becoming a dog trainer", zip: "44105" }, canonical, { lane: "recruiting" }), "");
   assert.equal(practiceBookingUrl(contactForm, { i_want_to: "", zip: "44105" }, canonical, {}), "");
   // The server's lane table wins if it disagrees with the answer, and an ebook skip never redirects.

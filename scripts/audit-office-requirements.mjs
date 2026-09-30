@@ -444,7 +444,10 @@ const checks = [
       && /function allLeadRows\(\) \{\n  return excludeTestLeads\(/.test(app);
     // B. the booking redirect, practice copy only, using the pipeline's own link.
     const helper = (app.match(/function trainerPageBookingUrl\(entries, canonical, pipeline\) \{[\s\S]*?\n\}/) || [""])[0];
-    const redirect = /if \(window\.LDTT_IS_SANDBOX !== true\) return "";/.test(helper)
+    // Joshua 2026-09-29 (rule 144): LIVE redirects too now, after the unchanged form-delivery path.
+    const redirect = !/LDTT_IS_SANDBOX/.test(helper)
+      && /const liveBookingUrl = trainerPageBookingUrl\(entries, canonical, livePipeline\);/.test(app)
+      && app.indexOf("await submitLandingEmail(entries, trainer);") < app.indexOf('via: "trainer-page" }) })\n          .then(response => response.json().catch(() => null))\n          .catch(error => { console.warn("LDTT pipeline could not start"')
       && /if \(pipeline\?\.book_url\) return String\(pipeline\.book_url\);/.test(helper)
       && /return `\/book\?lead=\$\{encodeURIComponent\(canonical\.lead_id\)\}\$\{zip \? `&zip=\$\{encodeURIComponent\(zip\)\}` : ""\}`;/.test(helper)
       && !/formsubmit|form-delivery|relayFormDeliveries/i.test(helper)
@@ -454,7 +457,8 @@ const checks = [
       && app.indexOf('via: "trainer-page" }) })') < app.indexOf("const bookingUrl = trainerPageBookingUrl(");
     // The pipeline keeps a trainer-page lead with ITS trainer and answers /book/<slug>?lead=<id>.
     const fixedTrainer = /if \(pageSlug\) \{\n    setting = B\.settingBySlug\(settings, pageSlug\);/.test(pipelineLib)
-      && /const bookUrl = \(slug, leadId\) => `\$\{practiceOrigin\(\)\}\/book\/\$\{encodeURIComponent\(slug\)\}\?lead=\$\{encodeURIComponent\(leadId\)\}`;/.test(bookingLib)
+      && /\?lead=\$\{encodeURIComponent\(leadId\)\}\$\{direct \? "&direct=1" : ""\}`;/.test(bookingLib)
+      && /B\.bookUrl\(linkSlug, lead\.id, \{ direct: Boolean\(pageSlug && routed\) \}\)/.test(pipelineLib)
       // and it is the New inquiry text the trainer gets
       && /pathway: "new_inquiry",/.test(pipelineLib) && /await sendNewInquiryText\(\{ lead: won, trainer: routed \? trainer : null/.test(pipelineLib);
     return appQa && scriptQa && funnelQa && holdOut && redirect && fixedTrainer;

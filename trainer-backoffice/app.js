@@ -14102,7 +14102,7 @@ function trainerAttribution(trainer, eventType) {
 // top of that. It never touches FormSubmit, /api/form-delivery or the Google Sheet (rules 72 + 73).
 // ---------------------------------------------------------------------------
 function trainerPageBookingUrl(entries, canonical, pipeline) {
-  if (window.LDTT_IS_SANDBOX !== true) return "";
+  // Joshua 2026-09-29: LIVE too now (it was practice-only). A trainer's own page is the one DIRECT lead.
   if (!canonical?.lead_id) return "";
   if (pipeline?.ok === false) return "";
   if (pipeline?.skipped) return ""; // the free-ebook opt-in is not a booking lead
@@ -17696,6 +17696,20 @@ document.addEventListener("submit", async event => {
           await recordClientFormDelivery(entries, canonical, "accepted");
         } catch (emailError) {
           await recordClientFormDelivery(entries, canonical, "failed", emailError.message || String(emailError)).catch(() => {});
+        }
+      }
+      // Joshua 2026-09-29 (meeting): LIVE trainer-page leads enter the same pipeline as Contact Us and the ad pages
+      // 2.0 - AFTER the office deliveries above, exactly like script.js LDTT_CONTACT_HANDOFF: the client text / email,
+      // the trainer text, Operations, the follow-ups; then the client goes straight to THIS trainer's booking page.
+      if (canonical.lead_id) {
+        const livePipeline = await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "enter", lead_id: canonical.lead_id, via: "trainer-page" }) })
+          .then(response => response.json().catch(() => null))
+          .catch(error => { console.warn("LDTT pipeline could not start", error); return null; });
+        const liveBookingUrl = trainerPageBookingUrl(entries, canonical, livePipeline);
+        if (liveBookingUrl) {
+          setLandingStatus("Saved. Taking you to pick your evaluation time…", "success");
+          window.location.assign(liveBookingUrl);
+          return;
         }
       }
       event.target.reset();

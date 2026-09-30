@@ -347,7 +347,7 @@ test("lanes: the Contact Us answer picks the lane; ad pages and the Site Builder
   assert.equal(lane("Schedule an in person evaluation with a trainer in my area"), "booking");
   assert.equal(lane("Schedule a virtual evaluation"), "booking");
   assert.equal(lane("Schedule a training session with my dog trainer"), "booking");
-  assert.equal(lane("Schedule a free phone consultation to receive more information"), "office_call");
+  assert.equal(lane("Schedule a free phone consultation to receive more information"), "booking", "Joshua 2026-09-29: one client path");
   assert.equal(lane("Learn more about becoming a dog trainer"), "recruiting");
   assert.equal(lane(""), "office_follow_up");
   assert.equal(lane("Something else"), "office_follow_up");
@@ -359,10 +359,13 @@ test("lanes: the Contact Us answer picks the lane; ad pages and the Site Builder
   assert.equal(P.normalizeLanes({ lanes: [{ answer: "Schedule a virtual evaluation", lane: "office_call" }, { answer: "x", lane: "made_up" }] }).length, 1, "an office override is read; unknown lanes are ignored");
 });
 
-test("phone consultation: customer-care text through the pathway 1 hook (or its own route when set); lane logged; not on Sales", async () => {
+test("office_call lane (now only by an office lane override): customer-care text through the pathway 1 hook (or its own route when set); lane logged; not on Sales", async () => {
   delete process.env.LDTT_MAKE_HOOK_CARE;
   let { pipelineApi } = load();
   const { db, calls } = fakeWorld();
+  // Joshua 2026-09-29: the built-in table sends "phone consultation" to the trainer cards; the office_call lane
+  // still works when the office maps an answer to it in the lanes setting.
+  db.site_settings.push({ key: "pipeline_lanes", value: { lanes: [{ answer: "Schedule a free phone consultation to receive more information", lane: "office_call" }] } });
   const a = contactLead(db, "Schedule a free phone consultation to receive more information");
   const r1 = await call(pipelineApi, { body: { op: "enter", lead_id: a.id } });
   assert.equal(r1.statusCode, 200);
@@ -421,4 +424,16 @@ test("recruiting and unknown answers: no client text; a Contact Us evaluation an
   const one = hooks(calls, "/testhookone");
   assert.equal(one.length, 1);
   assert.equal(one[0].body.lead_id, virtual.id);
+});
+
+
+test("Joshua 2026-09-29: a Contact Us phone-consultation answer now gets the booking-link text and the trainer cards", async () => {
+  const { pipelineApi } = load();
+  const { db, calls } = fakeWorld();
+  const a = contactLead(db, "Schedule a free phone consultation to receive more information");
+  const r = await call(pipelineApi, { body: { op: "enter", lead_id: a.id } });
+  assert.equal(r.statusCode, 200);
+  assert.equal(db.leads[0].raw_payload.pipeline.lane.key, "booking");
+  assert.doesNotMatch(String(r.payload.book_url || ""), /direct=1/, "Contact Us is never a direct lead: the cards show");
+  noFormSubmit(calls);
 });

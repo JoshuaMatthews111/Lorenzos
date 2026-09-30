@@ -167,11 +167,9 @@ test("B: that trainer has no calendar -> the ZIP flow, not the office only", () 
   assert.equal(url({ zip: "32536-1234&x=1" }, lead, {}), `/book?lead=${lead.lead_id}&zip=32536`);
 });
 
-test("B: it never redirects on live, without a lead, for an ebook opt-in, or against the server's lane", () => {
+test("B: it redirects on live too (Joshua 2026-09-29), but never without a lead, for an ebook opt-in, or against the server's lane", () => {
   const liveUrl = lift("trainerPageBookingUrl", { hostname: "lorenzosdogtrainingteam.com", sandbox: undefined });
-  assert.equal(liveUrl({ zip: "32502" }, lead, { ok: true, book_url: fixedLink }), "", "live never redirects");
-  const undef = lift("trainerPageBookingUrl", { hostname: "ldtt-sandbox.vercel.app", sandbox: false });
-  assert.equal(undef({ zip: "32502" }, lead, { book_url: fixedLink }), "");
+  assert.equal(liveUrl({ zip: "32502" }, lead, { ok: true, book_url: fixedLink }), fixedLink, "live follows the trainer's own link");
 
   const url = lift("trainerPageBookingUrl", { hostname: "ldtt-sandbox.vercel.app", sandbox: true });
   assert.equal(url({ zip: "32502" }, { application_id: "a1" }, { book_url: fixedLink }), "", "no saved lead");
@@ -200,7 +198,9 @@ test("B: the redirect runs only after the pipeline answered, and the live delive
   assert.match(liveBranch, /body: JSON\.stringify\(\{ form_type: "contact", entries, canonical \}\)/);
   assert.match(liveBranch, /delivery\.destination === "formsubmit_email" && delivery\.status === "failed"/);
   assert.match(liveBranch, /await submitLandingEmail\(entries, trainer\);\n          await recordClientFormDelivery\(entries, canonical, "accepted"\);/);
-  assert.doesNotMatch(liveBranch, /trainerPageBookingUrl|location\.assign/);
+  // Joshua 2026-09-29: LIVE enters the pipeline too - only AFTER the office deliveries above - then follows the link.
+  assert.ok(liveBranch.indexOf("await submitLandingEmail(entries, trainer);") < liveBranch.indexOf('op: "enter", lead_id: canonical.lead_id, via: "trainer-page"'));
+  assert.match(liveBranch, /const liveBookingUrl = trainerPageBookingUrl\(entries, canonical, livePipeline\);\n        if \(liveBookingUrl\) \{/);
   assert.match(read("api/form-delivery.js"), /const CONTACT_EMAIL = "https:\/\/formsubmit\.co\/ajax\/production@lorenzosdogtrainingteam\.com";/);
   // window.location.assign appears in app.js's public form handling only for this redirect.
   assert.equal(handler.split("window.location.assign(bookingUrl)").length, 2);
@@ -210,8 +210,9 @@ test("B: the pipeline already sends the client text, the New inquiry trainer tex
   // A trainer-page lead stays with ITS trainer and gets that trainer's booking link.
   assert.match(pipelineLib, /const pageSlug = clean\(lead\.trainer_slug, 80\)\.toLowerCase\(\);/);
   assert.match(pipelineLib, /if \(pageSlug\) \{\n    setting = B\.settingBySlug\(settings, pageSlug\);/);
-  assert.match(pipelineLib, /const bookUrl = linkSlug \? B\.bookUrl\(linkSlug, lead\.id\) : null;/);
-  assert.match(bookingLib, /const bookUrl = \(slug, leadId\) => `\$\{practiceOrigin\(\)\}\/book\/\$\{encodeURIComponent\(slug\)\}\?lead=\$\{encodeURIComponent\(leadId\)\}`;/);
+  // Joshua 2026-09-29: only the trainer's own page is DIRECT (&direct=1 opens that trainer, no cards).
+  assert.match(pipelineLib, /const bookUrl = linkSlug \? B\.bookUrl\(linkSlug, lead\.id, \{ direct: Boolean\(pageSlug && routed\) \}\) : null;/);
+  assert.match(bookingLib, /\?lead=\$\{encodeURIComponent\(leadId\)\}\$\{direct \? "&direct=1" : ""\}`;/);
   // 1. the client's booking-link text (pathway 1), 2. the trainer's NEW INQUIRY text + its email twin,
   // 3. Tim / Operations' new-lead text + its email twin, 4. the office's queued Resend email.
   assert.match(pipelineLib, /text = await sendNewLeadText\(\{ lead: won, trainer, bookUrl: B\.taggedLink\(bookUrl, "text", "new_lead"\), phone: plan\.phone \}\)/);
@@ -238,4 +239,15 @@ test("B: this is the same flow the ad pages 2.0 use — book_url off the answer,
   assert.match(v2, /location\.assign\(next\);/);
   // /api/booking-lead answers the same contract the trainer page now reads.
   assert.match(read("api/booking-lead.js"), /book_url: slug \? B\.bookUrl\(slug, lead\.id\) : null,/);
+});
+
+test("Joshua 2026-09-29: only a trainer page is DIRECT - /book/<slug>?lead=&direct=1 opens that trainer; every other link shows the ZIP cards", () => {
+  const book = read("lib/booking-page.js");
+  assert.match(book, /var DIRECT = !!SLUG && params\.get\("direct"\) === "1";/);
+  assert.match(book, /var own = DIRECT \? cards\.filter\(function \(c\) \{ return c\.slug === SLUG; \}\)\[0\] : null;\n        if \(own\) \{ chosen = own; cal = null; picked = null; openForm\(\); \}/);
+  const B = require_("../lib/booking.js");
+  assert.match(B.bookUrl("fred-harris", "00000000-0000-4000-8000-000000000042", { direct: true }), /\/book\/fred-harris\?lead=00000000-0000-4000-8000-000000000042&direct=1$/);
+  assert.doesNotMatch(B.bookUrl("fred-harris", "00000000-0000-4000-8000-000000000042"), /direct/);
+  // A live trainer-page lead already reached the office through form-delivery: no second office email.
+  assert.match(pipelineLib, /if \(!isSandbox\(\) && \/\^trainer landing page\/i\.test\(/);
 });

@@ -2735,3 +2735,16 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      lead-journey copy) says "your free in-person evaluation is booked ... This is an in-person visit, not a phone
      call. Our office or {trainer_first_name} will call you within 48 hours to confirm." Pins:
      tests/meeting-2026-09-16.test.mjs "Rachel 2026-09-29", tests/pipeline-texts.test.mjs MAKE_WORDS.
+
+144. **One client path; only a trainer's own page is direct (Joshua, meeting 2026-09-29).** Contact Us: every client
+     answer - including "Schedule a free phone consultation" - is the booking lane (CONTACT_US_LANES + script.js
+     CONTACT_BOOKING_ANSWERS), so the client lands on the trainer cards for the typed ZIP, like the ad pages 2.0.
+     "Become a trainer" stays recruiting; the office_call lane still works through an office lanes override.
+     Trainer landing pages on LIVE now enter /api/pipeline {op:"enter", via:"trainer-page"} AFTER the unchanged
+     form-delivery (FormSubmit + Google Sheet) path, then follow trainerPageBookingUrl. A trainer-page lead's link
+     is /book/<that trainer>?lead=<id>&direct=1 (B.bookUrl {direct}); the booking page opens that trainer's
+     questions straight away only with direct=1 AND when the trainer is among the ZIP's cards, otherwise the cards
+     show. Every other link (texts, Contact Us, ad pages) has no direct=1 and always shows the cards. A live
+     trainer-page lead gets NO second office email from the pipeline (queueNewLeadEmail skips it; the practice copy
+     still sends it because form-delivery answers 423 there). Pins: tests/trainer-page-leads-2026-09-22.test.mjs,
+     tests/contact-to-booking.test.mjs, tests/office-email.test.mjs "Joshua 2026-09-29".

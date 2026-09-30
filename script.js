@@ -721,7 +721,9 @@ const onPracticeCopy=()=>window.LDTT_IS_SANDBOX===true;
 const CONTACT_BOOKING_ANSWERS=[
   'Schedule an in person evaluation with a trainer in my area',
   'Schedule a virtual evaluation',
-  'Schedule a training session with my dog trainer'
+  'Schedule a training session with my dog trainer',
+  // Joshua 2026-09-29 (meeting): one client path - the phone-consultation answer goes to the trainer cards too.
+  'Schedule a free phone consultation to receive more information'
 ];
 const contactAnswerBooks=answer=>CONTACT_BOOKING_ANSWERS.includes(String(answer||'').replace(/\s+/g,' ').trim());
 const practiceBookingUrl=(form,entries,canonical,pipeline)=>{
