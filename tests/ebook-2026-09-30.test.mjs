@@ -1,0 +1,46 @@
+// E-book (free guide) leads (Joshua 2026-09-30): first + last name required, ZIP, phone, the SMS box; with SMS consent
+// the lead gets the booking-link text + follow-ups like any lead; the ad 2.0 form really sends (it sent nothing).
+import test from "node:test";
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+const require = createRequire(import.meta.url);
+process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "test-key";
+const read = path => readFileSync(resolve(import.meta.dirname, "..", path), "utf8");
+
+test("the ad 2.0 free-guide form: first + last name, email, phone, ZIP, the SMS box, and it SENDS to the lead door", () => {
+  const T = require("../lib/ad2-page-template.js");
+  const html = T.renderPage(T.fromStarter("d2", { market: "Pensacola, FL", newSlug: "pensacola-test" }));
+  const form = (html.match(/<form class="lead pdf-optin" data-kind="ebook"[\s\S]*?<\/form>/) || [""])[0];
+  for (const name of ["first_name", "last_name", "email", "phone", "zip"]) assert.match(form, new RegExp(`name="${name}"[^>]*required`), name);
+  assert.match(form, /name="sms_consent"/);
+  assert.match(form, /data-endpoint="[^"]+"/, "a real endpoint on a published page");
+  assert.doesNotMatch(html, /Free guide, sent to your inbox\./, "no promise we do not keep");
+  const v2 = read("assets/v2/v2.js");
+  assert.match(v2, /if \(form\.getAttribute\("data-kind"\) === "ebook" && form\.getAttribute\("data-endpoint"\)\) \{\n        sendEbook\(form, status, button\);/);
+  assert.match(v2, /lead_kind: "ebook",/);
+  assert.doesNotMatch(v2, /Sandbox preview: nothing was sent\. On the live page/);
+});
+
+test("server: an e-book lead is recorded as one, never jumps to booking, and enters the pipeline ONLY with SMS consent", () => {
+  const B = require("../lib/booking.js");
+  assert.equal(B.cleanLeadIntake({ first_name: "A", phone: "(216) 555-0100", lead_kind: "ebook" }).value.lead_kind, "ebook");
+  assert.equal(B.cleanLeadIntake({ first_name: "A", phone: "(216) 555-0100", lead_kind: "x" }).value.lead_kind, "");
+  const booking = read("lib/booking.js");
+  assert.match(booking, /intake\.lead_kind === "ebook" \? \{ lead_type: "pdf_download", lead_magnet: "The 5-Step Calm Dog Blueprint", problem: "your dog" \}/);
+  assert.match(read("api/booking-lead.js"), /if \(intake\.value\.lead_kind === "ebook"\) \{\n      return res\.status\(200\)\.json\(\{ ok: true, lead_id: lead\.id, ebook: true, book_url: null/);
+  const pipe = read("lib/pipeline.js");
+  assert.match(pipe, /if \(rawOf\(lead\)\.lead_type === "pdf_download" && lead\.sms_consent !== true\) return \{ status: 200, body: \{ ok: true, lead_id: lead\.id, trainer_slug: null, book_url: null, skipped: "ebook" \} \};/);
+});
+
+test("the older ad pages' e-book forms: last name + ZIP required, the SMS tick is sent, then the pipeline", () => {
+  for (const file of ["ad-funnel.js", "market-landing.js"]) {
+    const src = read(file);
+    assert.match(src, /<input (required )?name="last_name"[^>]*( required)?/, `${file} last name`);
+    assert.match(src, /name="zip" inputmode="numeric"/, `${file} ZIP`);
+    assert.match(src, /sms_consent: (data|formData)\.get\("sms_consent"\) === "yes" \? "yes" : "no",/, `${file} sends the tick`);
+    assert.match(src, /op: "enter", lead_id: canonical\.lead_id, via: "ebook"/, `${file} enters the pipeline`);
+  }
+  assert.match(read("lib/pipeline.js"), /rawOf\(lead\)\.lead_type === "pdf_download" && rawOf\(lead\)\.delivery_email !== undefined\) return \{ status: "skipped" \};/, "no second office email");
+});

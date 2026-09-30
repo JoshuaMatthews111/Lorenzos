@@ -231,6 +231,8 @@
 	      </div>
 	      <form class="market-guide-form pdf-optin" novalidate>
 	        <label><span>First name</span><input name="first_name" autocomplete="given-name" placeholder="First name" required></label>
+	        <label><span>Last name</span><input name="last_name" autocomplete="family-name" placeholder="Last name" required></label>
+	        <label><span>ZIP code</span><input name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="10" placeholder="ZIP code" required></label>
 	        <label><span>Email address</span><input type="email" name="email" autocomplete="email" placeholder="you@example.com" required></label>
 	        <label><span>Phone number</span><input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="Phone number" required></label>
         <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my inquiry, scheduling and confirming my free consultation or evaluation, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
@@ -297,6 +299,7 @@
 	      email: String(formData.get("email") || "").trim(),
 	      phone: String(formData.get("phone") || "").trim(),
 	      zip: String(formData.get("zip") || "").trim(),
+	      sms_consent: formData.get("sms_consent") === "yes" ? "yes" : "no", // Joshua 2026-09-30: the tick was never sent
 	      i_want_to: "Download the free 5-step calm dog blueprint",
 	      service_interest: "Free ebook download",
 	      lead_type: "pdf_download",
@@ -339,6 +342,11 @@
       const canonical = await submitMarketLead(payload);
       if (!canonical?.lead_id && !canonical?.application_id) throw new Error("The live office record could not be confirmed.");
       await relayMarketLead(payload, canonical, guideForm);
+      // Joshua 2026-09-30: after the office deliveries, the e-book lead enters the same pipeline as every lead. With SMS
+      // consent that is the booking-link text + follow-ups; without it the server leaves it a plain lead.
+      if (canonical?.lead_id) {
+        await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "enter", lead_id: canonical.lead_id, via: "ebook" }) }).catch(() => null);
+      }
       trackMarketEvent("market_ebook_download", { submission_id: submissionId, time_on_page_seconds: Math.round((Date.now() - startedAt) / 1000) });
       guideForm.querySelector(".market-guide-download")?.click();
       if (status) status.textContent = "Thank you. Your request is saved and your free Ebook is ready.";

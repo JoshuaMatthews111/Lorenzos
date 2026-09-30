@@ -40,7 +40,7 @@ test("1. v2.css draws the training-card icon circle from the CARD at the photo's
   for (const s of A2.STARTERS.filter(s => s.design !== "d1")) {
     const html = A2.renderPage(A2.normalizeContent(s), { practice: true });
     assert.match(html, /<div class="cimg" style="--h:\d+"><img [^>]+><span class="cic">/, `${s.design}: circle inside the frame that sets --h`);
-    assert.match(html, /v2\.css\?v=20260926ad16/, "browsers fetch the fixed stylesheet");
+    assert.match(html, /v2\.css\?v=20260930ad17/, "browsers fetch the fixed stylesheet");
   }
 });
 

@@ -2804,3 +2804,14 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      a badge next to Recycled on the office Leads + Sales cards, both lead panels and the trainer cards (leadScoreTag),
      with the reasons in the lead panels (leadScoreLine); the Kind filter adds Hot / Warm / Fresh / Top-paying.
      Changes no count, status or text. Pin: tests/lead-score-2026-09-30.test.mjs.
+
+151. **E-book (free guide) leads get texts with consent (Joshua 2026-09-30).** Every free-guide form asks First name,
+     Last name, Email, Phone, ZIP (all required) and the optional SMS box. Ad 2.0 pages: the form posts to
+     /api/booking-lead with lead_kind "ebook" (sendEbook in assets/v2/v2.js; it used to send NOTHING, even on live),
+     the lead is saved with lead_type pdf_download, service_interest "Free ebook download", raw problem "your dog",
+     the answer never carries a book_url (they asked for a guide: it downloads), and ad2 VERSION is 20260930ad17.
+     Older ad pages (ad-funnel.js, market-landing.js) now send sms_consent "yes"/"no" (the tick was never sent) and
+     enter /api/pipeline {op:"enter", via:"ebook"} after the unchanged form-delivery. enterPipeline: an e-book lead
+     WITH sms_consent runs the normal booking lane (booking-link text, trainer + Operations texts, follow-ups);
+     without consent it stays a plain lead. queueNewLeadEmail skips a live older-page e-book lead (delivery_email set:
+     FormSubmit already emailed the office). Pin: tests/ebook-2026-09-30.test.mjs.

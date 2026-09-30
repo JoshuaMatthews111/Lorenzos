@@ -159,6 +159,38 @@
 
   var qs = new URLSearchParams(location.search);
 
+  function sendEbook(form, status, button) {
+    var f = form.elements;
+    var payload = {
+      lead_kind: "ebook",
+      first_name: f.first_name.value.trim(),
+      last_name: f.last_name.value.trim(),
+      phone: f.phone.value.trim(),
+      email: f.email.value.trim(),
+      zip: f.zip ? f.zip.value.trim() : "",
+      sms_consent: !!(f.sms_consent && f.sms_consent.checked),
+      source_page: location.origin + location.pathname,
+      utm_source: qs.get("utm_source") || "",
+      utm_medium: qs.get("utm_medium") || "",
+      utm_campaign: qs.get("utm_campaign") || ""
+    };
+    button.disabled = true;
+    say(status, "busy", "Sending…");
+    fetch(form.getAttribute("data-endpoint"), { method: "POST", headers: { "Content-Type": "application/json", "Accept": "application/json" }, body: JSON.stringify(payload) })
+      .then(function (res) { return res.json().catch(function () { return null; }).then(function (data) { return { res: res, data: data || {} }; }); })
+      .then(function (r) {
+        if (!r.res.ok || r.data.ok !== true) throw new Error(r.data.message || ("HTTP " + r.res.status));
+        var dl = form.querySelector(".bdl");
+        if (dl) dl.click();
+        say(status, "done", "Thank you, " + payload.first_name + ". Your free guide is downloading." + (payload.sms_consent ? " We will text you a link to book your free evaluation." : ""));
+        form.querySelectorAll("input, button[type=submit]").forEach(function (el) { el.disabled = true; });
+      })
+      .catch(function (err) {
+        button.disabled = false;
+        say(status, "err", (err && err.message) || "We could not send that. Please try again or call (866) 436-4959.");
+      });
+  }
+
   function sendEvaluation(form, status, button) {
     var f = form.elements;
     var payload = {
@@ -423,8 +455,15 @@
         sendEvaluation(form, status, button);
         return;
       }
-      // booklet form: sandbox preview, nothing leaves the page
-      say(status, "ok", "Sandbox preview: nothing was sent. On the live page this request goes straight to Lorenzo's office.");
+      // Joshua 2026-09-30: the free-guide (e-book) form is a real lead now - first + last name, phone, email and the
+      // optional SMS box go through the same door as the evaluation form (/api/booking-lead, lead_kind "ebook").
+      // With SMS consent the pipeline texts the booking link and the follow-ups run; the guide downloads either way.
+      if (form.getAttribute("data-kind") === "ebook" && form.getAttribute("data-endpoint")) {
+        sendEbook(form, status, button);
+        return;
+      }
+      // Page Studio preview (no endpoint): nothing leaves the page
+      say(status, "ok", "Preview: nothing was sent. On the live page this request goes straight to Lorenzo's office.");
       button.disabled = true;
     });
   });

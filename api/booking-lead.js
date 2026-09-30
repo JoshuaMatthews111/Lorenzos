@@ -47,6 +47,10 @@ module.exports = async function handler(req, res) {
       await P.enterPipeline(lead.id, { via: "booking-lead" })
         .catch(error => console.error("pipeline_enter_failed", String(error?.message || error)));
     }
+    if (intake.value.lead_kind === "ebook") {
+      return res.status(200).json({ ok: true, lead_id: lead.id, ebook: true, book_url: null, duplicate: reused || undefined,
+        message: `Thanks, ${intake.value.first_name}! Your free guide is ready.` });
+    }
     return res.status(200).json({
       ok: true,
       lead_id: lead.id,

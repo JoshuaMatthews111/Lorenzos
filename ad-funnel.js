@@ -134,6 +134,7 @@
 	      email: String(data.get("email") || "").trim(),
 	      phone: String(data.get("phone") || "").trim(),
 	      zip: String(data.get("zip") || "").trim(),
+	      sms_consent: data.get("sms_consent") === "yes" ? "yes" : "no", // Joshua 2026-09-30: the tick was never sent
 	      additional_interest: data.getAll("additional_interest").map(value => String(value).trim()).filter(Boolean).join(", "),
 	      i_want_to: `Send me ${ebookTitle}`,
 	      lead_type: "pdf_download",
@@ -207,6 +208,11 @@
     const canonical = await submitSupabaseLead(payload);
     if (!canonical?.lead_id && !canonical?.application_id) throw new Error("The live office record could not be confirmed.");
     await relayBackups(payload, canonical, form);
+    // Joshua 2026-09-30: after the office deliveries, the e-book lead enters the same pipeline as every lead. With SMS
+    // consent that is the booking-link text + follow-ups; without it the server leaves it a plain lead.
+    if (canonical?.lead_id) {
+      await fetch("/api/pipeline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ op: "enter", lead_id: canonical.lead_id, via: "ebook" }) }).catch(() => null);
+    }
     window.dataLayer = window.dataLayer || [];
     window.dataLayer.push({
       event: "ldtt_ebook_lead_submit",
@@ -289,6 +295,8 @@
 	          <p>Join Lorenzo's training tips list and receive <strong>${ebookTitle}</strong> with practical steps you can start today.</p>
 	          <form class="market-guide-form ad-exit-form pdf-optin" novalidate>
 	            <label><span>First name</span><input required name="first_name" autocomplete="given-name" placeholder="First name"></label>
+	            <label><span>Last name</span><input required name="last_name" autocomplete="family-name" placeholder="Last name"></label>
+	            <label><span>ZIP code</span><input required name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="10" placeholder="ZIP code"></label>
 	            <label><span>Email address</span><input required type="email" name="email" autocomplete="email" placeholder="you@example.com"></label>
 	            <label><span>Phone number</span><input type="tel" name="phone" autocomplete="tel" inputmode="tel" placeholder="Phone number" required></label>
             <label class="consent-row sms-opt-in"><input type="checkbox" name="sms_consent" value="yes"><span>By checking this box, I agree to receive text messages from Lorenzo's Dog Training Team about my request: follow-up on my inquiry, scheduling and confirming my free consultation or evaluation, and appointment reminders. Messages may be sent via autodialer. Consent is not a condition of any purchase or services. Message frequency varies. Message and data rates may apply. Reply STOP to unsubscribe and HELP for help. I also agree to the <a href="/terms.html">Terms of Service</a> and <a href="/privacy-policy.html">Privacy Policy</a>.</span></label>
