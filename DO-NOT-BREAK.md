@@ -2800,7 +2800,7 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      metrics.js, display only) scores what the lead itself said or did: bite + authorities +5; bite/aggression +3; baby
      +3; vet or client referral +3 (else past client +2); elderly owner +2; expensive dog +2; booked +3; pre-evaluation
      answered +2; big impact at home +1; came back (mergedRequestsOf / recycled) +1; started the booking form +1.
-     Hot >= 6, Warm 3-5, Cold < 3 (Joshua 2026-09-30: "Cold", not "Nurture"); "Top-paying" = bite+authorities, baby, elderly, expensive or referral. Shown as
+     Hot >= 6, Warm 3-5, Fresh < 3 (Joshua 2026-09-30: "Fresh", not "Nurture" or "Cold"); "Top-paying" = bite+authorities, baby, elderly, expensive or referral. Shown as
      a badge next to Recycled on the office Leads + Sales cards, both lead panels and the trainer cards (leadScoreTag),
-     with the reasons in the lead panels (leadScoreLine); the Kind filter adds Hot / Warm / Cold / Top-paying.
+     with the reasons in the lead panels (leadScoreLine); the Kind filter adds Hot / Warm / Fresh / Top-paying.
      Changes no count, status or text. Pin: tests/lead-score-2026-09-30.test.mjs.

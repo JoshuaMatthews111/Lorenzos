@@ -54,8 +54,8 @@ test("what changed between two requests: page, how they heard, phone (digits onl
 });
 
 test("lead kinds for the pipeline filter", () => {
-  // The lead-score kinds (hot / warm / cold / top_paying, 2026-09-30) are pinned in tests/lead-score-2026-09-30.test.mjs.
-  const SCORE_KINDS = new Set(["hot", "warm", "cold", "top_paying"]);
+  // The lead-score kinds (hot / warm / fresh / top_paying, 2026-09-30) are pinned in tests/lead-score-2026-09-30.test.mjs.
+  const SCORE_KINDS = new Set(["hot", "warm", "fresh", "top_paying"]);
   const k = (lead, ctx) => [...M.leadKinds(lead, ctx)].filter(kind => !SCORE_KINDS.has(kind)).sort();
   assert.deepEqual(k({ raw_payload: { booking: { slot_start: "x", link_from: { channel: "email", message: "reengage" } } } }, { recycled: true }), ["booked_from_email", "booked_online", "from_email", "recycled"]);
   assert.deepEqual(k({ raw_payload: { utm_source: "text", utm_campaign: "reengage", pipeline: { entered_at: "x" } } }), ["from_text", "unfinished"]);

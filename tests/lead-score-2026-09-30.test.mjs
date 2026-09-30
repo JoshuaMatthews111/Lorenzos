@@ -1,4 +1,4 @@
-// Lead score (Zoom 2026-09-29, Lorenzo + Angela; built 2026-09-30). Hot / Warm / Cold + Top-paying, from what the
+// Lead score (Zoom 2026-09-29, Lorenzo + Angela; built 2026-09-30). Hot / Warm / Fresh + Top-paying, from what the
 // lead itself says or does. Display only.
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -30,12 +30,12 @@ test("Angela's engagement points: booked +3, pre-evaluation answered +2 -> Hot w
   const s = M.leadScore(l);
   assert.deepEqual(s.reasons.map(r => r.key).sort(), ["aggression", "booked", "impact", "pre_eval"]);
   assert.equal(s.score, 9); assert.equal(s.tier, "hot");
-  assert.equal(M.leadScore(lead({ problem: "pulls on the leash" })).tier, "cold", "no signs yet");
+  assert.equal(M.leadScore(lead({ problem: "pulls on the leash" })).tier, "fresh", "no signs yet");
 });
 
-test("the Kind filter offers Hot / Warm / Cold / Top-paying, and cards + the lead panel show the score", () => {
+test("the Kind filter offers Hot / Warm / Fresh / Top-paying, and cards + the lead panel show the score", () => {
   const keys = M.LEAD_KIND_FILTERS.map(([k]) => k);
-  for (const k of ["hot", "warm", "cold", "top_paying"]) assert.ok(keys.includes(k), k);
+  for (const k of ["hot", "warm", "fresh", "top_paying"]) assert.ok(keys.includes(k), k);
   assert.ok(M.leadKinds(lead({ problem: "bit a child, police report" })).has("top_paying"));
   const app = read("trainer-backoffice/app.js");
   assert.equal((app.match(/\$\{recycledTag\(lead\)\}\$\{leadScoreTag\(lead\)\}/g) || []).length, 5, "office + trainer cards");
