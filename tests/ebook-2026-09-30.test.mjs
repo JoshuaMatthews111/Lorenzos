@@ -82,3 +82,12 @@ test("Zoom 2026-09-29: ad pages keep the visitor on the page - no View locations
   assert.match(v2, /a\.setAttribute\("data-open", "eval"\);/);
   assert.doesNotMatch(read("lib/ad2-page-template.js"), /from \$2,500/, "starter prices read and up");
 });
+
+test("Joshua 2026-09-30: the ad page footer has no links off the page - only the form, the free guide and the phone", () => {
+  const T = require("../lib/ad2-page-template.js");
+  for (const d of ["d2", "d3"]) {
+    const f = (T.renderPage(T.STARTERS.find(x => x.design === d)).match(/<footer[\s\S]*?<\/footer>/) || [""])[0];
+    assert.ok(f, d);
+    assert.deepEqual((f.match(/href="[^"]*"/g) || []).sort(), ['href="#book"', 'href="#eval"', 'href="#top"', 'href="tel:+18664364959"'].sort(), d);
+  }
+});

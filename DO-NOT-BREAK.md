@@ -2837,3 +2837,8 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      page's own form); the footer links are unchanged. Every price in ad 2.0 content reads "$N+" ("From $1,250" ->
      "$1,250+"), live (published + draft, with a History revision each) and practice, plus the starter copy. ad2
      VERSION 20260930ad21. Pin: tests/ebook-2026-09-30.test.mjs "keep the visitor".
+
+155. **Ad page footer stays on the page (Joshua 2026-09-30).** The ad 2.0 footer (d2, d3) has only the logo (#top),
+     "GET STARTED" (Get a Free Evaluation -> data-open="eval", Free Training Guide -> data-open="book") and "CONTACT"
+     (the phone). No main-site links, no social icons. The legal line keeps the Privacy Policy link (the SMS consent
+     text refers to it) and the phone. ad2 VERSION 20260930ad22. Pin: tests/ebook-2026-09-30.test.mjs "footer".

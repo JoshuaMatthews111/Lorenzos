@@ -23,7 +23,8 @@ test("the three 2.0 pages draw from saved content, in their own design", () => {
     assert.match(html, /data-endpoint="\/api\/booking-lead"/, "the form goes to the same site's booking flow");
     assert.match(html, /PRACTICE COPY/);
     assert.ok(!/fbq\(/.test(html), "the practice copy carries no Meta pixel");
-    assert.match(html, /12 STATES\. ONE STANDARD\.|12 States/);
+    // 2026-09-30: the footer's "12 States" link went with the other footer links; the state map + list remain.
+    if (starter.design !== "d2") assert.match(html, /12 STATES\. ONE STANDARD\.|12 States|<ul class="states/); // d2 named the states only in its footer
   }
   const live = T.renderPage(T.STARTERS[0], {});
   assert.match(live, /fbq\('init'/, "rule 11: live rendering carries the pixel from lib/ad-page-template.js");
@@ -227,7 +228,7 @@ test("Joshua 2026-09-16: street address, city and state are required on every 2.
 // Joshua 2026-09-23: "the trainers should appear when the ZIP code is typed on the page" — under the ZIP box, on the
 // 2.0 page itself, pickable, and the pick rides along with the lead.
 test("Joshua 2026-09-23: the trainers near the typed ZIP appear under the ZIP box and one can be picked", () => {
-  assert.equal(T.VERSION, "20260930ad21"); // 2026-09-26: founder title + icon circles (rule 119/120)
+  assert.equal(T.VERSION, "20260930ad22"); // 2026-09-26: founder title + icon circles (rule 119/120)
   for (const starter of T.STARTERS) {
     const html = T.renderPage(starter, { practice: true });
     const form = (html.match(/<form class="lead contact-intake"[\s\S]*?<\/form>/) || [""])[0];
