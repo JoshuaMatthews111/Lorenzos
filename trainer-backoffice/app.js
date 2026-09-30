@@ -9519,9 +9519,9 @@ function recycledInfo(lead) {
   }
   return recycledCache.index.get(lead.id) || null;
 }
-// Lead score badge + reasons (Zoom 2026-09-29; METRICS.leadScore decides). Hot / Warm / Nurture, plus "Top-paying"
+// Lead score badge + reasons (Zoom 2026-09-29; METRICS.leadScore decides). Hot / Warm / Cold, plus "Top-paying"
 // for Lorenzo's high-value signs, so the trainer and the office see which lead to call first.
-const LEAD_SCORE_WORDS = { hot: "Hot", warm: "Warm", nurture: "Nurture" };
+const LEAD_SCORE_WORDS = { hot: "Hot", warm: "Warm", cold: "Cold" };
 function leadScoreTag(lead) {
   if (!lead || lead.isTest) return "";
   const s = METRICS.leadScore(lead);

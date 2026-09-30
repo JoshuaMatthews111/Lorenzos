@@ -823,7 +823,7 @@
     // Zoom 2026-09-29 lead score (leadScore below).
     ["hot", "Hot leads"],
     ["warm", "Warm leads"],
-    ["nurture", "Nurture leads"],
+    ["cold", "Cold leads"],
     ["top_paying", "Top-paying potential"]
   ];
 
@@ -832,14 +832,14 @@
   // major. If there's a baby on the way ... if the person's elderly ... someone just purchased the dog, paid a lot of
   // money for it ... client referrals and vet referrals tend to be really strong for us." Angela: "it's a scoring
   // thing ... if they complete the evaluation questions, that's a plus two." Points come ONLY from what the lead
-  // itself says or did (the form, the booking, the pre-evaluation answers). Hot = 6+, Warm = 3-5, Nurture = under 3.
+  // itself says or did (the form, the booking, the pre-evaluation answers). Hot = 6+, Warm = 3-5, Cold = under 3 (Joshua 2026-09-30: "Cold", not "Nurture").
   // "Top-paying potential" = any of Lorenzo's high-value signs. Display only: no count, status or text changes.
   // -------------------------------------------------------------------------
   const SCORE_HOT = 6;
   const SCORE_WARM = 3;
   const TOP_PAYING = new Set(["bite_authorities", "baby", "elderly", "expensive", "referral"]);
   function leadScore(lead) {
-    if (!lead) return { score: 0, tier: "nurture", topPaying: false, safety: false, reasons: [] };
+    if (!lead) return { score: 0, tier: "cold", topPaying: false, safety: false, reasons: [] };
     const raw = rawOf(lead);
     const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
     const pre = booking.pre_eval && typeof booking.pre_eval === "object" ? booking.pre_eval : {};
@@ -867,7 +867,7 @@
     if (mergedRequestsOf(lead).length || lead.recycled_count >= 2 || lead.recycledCount >= 2) add("returned", 1, "Came back again");
     if (!booking.slot_start && (dogs.length || booking.intake)) add("started", 1, "Started the booking form");
     const score = reasons.reduce((sum, r) => sum + r.points, 0);
-    const tier = score >= SCORE_HOT ? "hot" : score >= SCORE_WARM ? "warm" : "nurture";
+    const tier = score >= SCORE_HOT ? "hot" : score >= SCORE_WARM ? "warm" : "cold";
     return { score, tier, topPaying: reasons.some(r => TOP_PAYING.has(r.key)), safety: reasons.some(r => r.key === "bite_authorities" || r.key === "aggression"), reasons };
   }
   function leadKinds(lead, ctx = {}) {
