@@ -2830,3 +2830,10 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      Every card is a button (role=button, Enter/Space) that opens its panel m-svc-<key> (SVC_INFO: what it includes,
      what it solves, NO prices, first-draft words for Angela/Lorenzo) with "Book my free evaluation" opening the form
      (v2.js open() shows one panel at a time). ad2 VERSION 20260930ad20 ("BEHAVIOR MODIFICATION" h3.long stays on one line). Pin: tests/ebook-2026-09-30.test.mjs "training cards".
+
+154. **Ad pages keep the visitor; prices read "and up" (Zoom 2026-09-29, Lorenzo).** The d1 "VIEW ALL LOCATIONS" and d3
+     "VIEW LOCATIONS" buttons (to /find-a-trainer) are gone. v2.js turns any link inside <main> but outside <footer>
+     that points at /contact, /contact.html, /find-a-trainer(.html), /get-started or /book into data-open="eval" (this
+     page's own form); the footer links are unchanged. Every price in ad 2.0 content reads "$N+" ("From $1,250" ->
+     "$1,250+"), live (published + draft, with a History revision each) and practice, plus the starter copy. ad2
+     VERSION 20260930ad21. Pin: tests/ebook-2026-09-30.test.mjs "keep the visitor".

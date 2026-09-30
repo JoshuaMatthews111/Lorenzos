@@ -451,6 +451,19 @@
   // visitor's ZIP already filled in, so the trainers near them appear the moment the form opens.
   var presetZip = String(qs.get("zip") || "").replace(/\D/g, "").slice(0, 5);
 
+  // Zoom 2026-09-29 (Lorenzo: "we want to keep everything landing on this page ... we capture them here"): a block's
+  // button that points at the main site's Contact / Find a Trainer / booking pages opens THIS page's evaluation form
+  // instead. The footer's links are left alone.
+  document.querySelectorAll("main a[href]").forEach(function (a) {
+    if (a.closest("footer")) return;
+    var path = "";
+    try { path = new URL(a.getAttribute("href"), location.href).pathname.replace(/\/+$/, "").toLowerCase(); } catch (err) { return; }
+    if (!/^\/(contact|contact\.html|find-a-trainer|find-a-trainer\.html|get-started|book)$/.test(path)) return;
+    if (!document.getElementById("m-eval")) return;
+    a.setAttribute("data-open", "eval");
+    a.setAttribute("href", "#eval");
+  });
+
   document.querySelectorAll("form.lead").forEach(function (form) {
     if (presetZip.length === 5 && form.elements && form.elements.zip && !String(form.elements.zip.value || "").trim()) {
       form.elements.zip.value = presetZip;

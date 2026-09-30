@@ -73,3 +73,12 @@ test("Zoom 2026-09-29: training cards in Lorenzo's order, Behavior Modification,
   }
   assert.match(read("assets/v2/v2.js"), /article\[data-open\]\[role=button\]/);
 });
+
+test("Zoom 2026-09-29: ad pages keep the visitor on the page - no View locations button; in-page Contact links open the form", () => {
+  const T = require("../lib/ad2-page-template.js");
+  for (const d of ["d1", "d2", "d3"]) assert.doesNotMatch(T.renderPage(T.STARTERS.find(x => x.design === d)), /VIEW (ALL )?LOCATIONS/, d);
+  const v2 = read("assets/v2/v2.js");
+  assert.match(v2, /if \(!\/\^\\\/\(contact\|contact\\\.html\|find-a-trainer\|find-a-trainer\\\.html\|get-started\|book\)\$\/\.test\(path\)\) return;/);
+  assert.match(v2, /a\.setAttribute\("data-open", "eval"\);/);
+  assert.doesNotMatch(read("lib/ad2-page-template.js"), /from \$2,500/, "starter prices read and up");
+});
