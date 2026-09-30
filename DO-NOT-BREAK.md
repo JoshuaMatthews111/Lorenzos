@@ -2823,3 +2823,10 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      preload="metadata" <video src="...#t=0.5">, class vcover, pointer-events none, under the play button (.o.play and
      .o.vcap z-index 2). A box without its own video renders exactly as before. ad2 VERSION 20260930ad18. Pins:
      tests/ebook-2026-09-30.test.mjs "ONE player" and "cover".
+
+153. **Ad 2.0 training cards (Zoom 2026-09-29, Lorenzo + Angela).** Cards show in the order Puppy, Obedience, Advanced,
+     Behavior Modification (renamed from Behavior Solutions), Board & Train, Service Dog (last) via SVC_ORDER
+     [0,1,5,2,3,4]: each card keeps its own photo (svc<n>), words (c.svc[n-1]) and nudges; only its position moves.
+     Every card is a button (role=button, Enter/Space) that opens its panel m-svc-<key> (SVC_INFO: what it includes,
+     what it solves, NO prices, first-draft words for Angela/Lorenzo) with "Book my free evaluation" opening the form
+     (v2.js open() shows one panel at a time). ad2 VERSION 20260930ad19. Pin: tests/ebook-2026-09-30.test.mjs "training cards".

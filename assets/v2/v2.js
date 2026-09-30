@@ -8,7 +8,9 @@
   function open(id) {
     var m = document.getElementById(id);
     if (!m) return;
-    lastFocus = document.activeElement;
+    // One panel at a time: a button inside a panel (a training card's "Book my free evaluation") opens the next one.
+    document.querySelectorAll(".modal").forEach(function (x) { if (x !== m && !x.hidden) x.hidden = true; });
+    if (!document.querySelector(".modal:not([hidden])")) lastFocus = document.activeElement;
     m.hidden = false;
     document.body.style.overflow = "hidden";
     var f = m.querySelector("input, select, video, button.mclose");
@@ -27,6 +29,14 @@
     document.body.style.overflow = "";
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
+
+  // Zoom 2026-09-29: a training card is a button - Enter or Space opens its panel like a click.
+  document.addEventListener("keydown", function (e) {
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.matches && e.target.matches("article[data-open][role=button]")) {
+      e.preventDefault();
+      e.target.click();
+    }
+  });
 
   document.addEventListener("click", function (e) {
     var t = e.target.closest("[data-open],[data-video],[data-close]");

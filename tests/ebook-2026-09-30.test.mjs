@@ -60,3 +60,16 @@ test("Harrison 2026-09-29: a box with its own video shows that video's cover; a 
   assert.match(withVideos, /<video class="vcover" src="https:\/\/x\.supabase\.co\/storage\/v1\/object\/public\/pages\/a\.mp4#t=0\.5" muted playsinline preload="metadata"/);
   assert.match(read("assets/v2/v2.css"), /\.vcover\{position:absolute;inset:0;[^}]*pointer-events:none/);
 });
+
+test("Zoom 2026-09-29: training cards in Lorenzo's order, Behavior Modification, each opens its info panel (no prices)", () => {
+  const T = require("../lib/ad2-page-template.js");
+  for (const d of ["d2", "d3"]) { // d1 draws no training cards
+    const html = T.renderPage(T.STARTERS.find(x => x.design === d));
+    const titles = [...html.matchAll(/<article class="a card" data-open="svc-([a-z]+)"[\s\S]*?<h3>([^<]+)<\/h3>/g)].map(m => m[2]);
+    assert.deepEqual(titles, ["PUPPY TRAINING", "OBEDIENCE TRAINING", "ADVANCED TRAINING", "BEHAVIOR MODIFICATION", "BOARD &amp; TRAIN", "SERVICE DOG TRAINING"], d);
+    for (const key of ["puppy", "obedience", "advanced", "behavior", "board", "service"]) assert.match(html, new RegExp(`<div class="modal" id="m-svc-${key}" hidden>`), `${d} ${key}`);
+    const panels = (html.match(/<div class="modal" id="m-svc-[\s\S]*?<\/div><\/div>/g) || []).join("");
+    assert.doesNotMatch(panels, /\$\s?\d/, "no prices in the panels");
+  }
+  assert.match(read("assets/v2/v2.js"), /article\[data-open\]\[role=button\]/);
+});
