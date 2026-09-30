@@ -282,7 +282,9 @@
     $("#sbStatus").style.display = d ? "" : "none";
     if (d) {
       $("#sbUndo").disabled = !sb.history.length; $("#sbRedo").disabled = !sb.future.length;
-      $("#sbPublishBtn").textContent = sb.page.status === "published" ? "Publish changes" : (sb.page.sandbox || window.LDTT_IS_SANDBOX ? "Publish (practice copy)" : "Publish");
+      // Joshua 2026-09-29: Harrison read "Publish changes" on the sandbox as the live site. On the practice copy the
+      // button always says where it goes.
+      $("#sbPublishBtn").textContent = (sb.page.sandbox || window.LDTT_IS_SANDBOX) ? "Push live on the sandbox" : (sb.page.status === "published" ? "Publish changes" : "Publish");
       const slot = $("#sbSendLive");
       slot.innerHTML = sb.kind === "trainer" ? "" : window.LDTT_IS_SANDBOX ? `${sendToLiveButton(sb.page, "ps-send-live")}${sb.page.sent_to_live_at ? `<small class="ps-sent-live">${esc(sentToLiveLabel(sb.page.sent_to_live_at, sb.page.sent_to_live_by_name))}</small>` : ""}` : practiceTag(sb.page);
     } else $("#sbSendLive").innerHTML = "";
@@ -1957,7 +1959,7 @@
       return;
     }
     const inNav = (siteCache.nav.header.links.length ? siteCache.nav : T.normalizeNav(T.STATIC_NAV)).header.links.some(l => l.href === `/${sb.draft.slug}`);
-    const m = modal(`<h3>Publish this page?</h3><p class="ps-help">${isA2 ? `It shows at <b>/ads/${esc(sb.draft.slug)}</b>${window.LDTT_IS_SANDBOX ? " on the practice copy" : ""} within about a minute.` : `It goes live at <b>/${esc(sb.draft.slug)}</b> (and /p/${esc(sb.draft.slug)}) within about a minute.`} The previous version is kept under History.</p>${list}${!inNav && sb.draft.pageType === "site" ? `<label class="ps-field inline"><input type="checkbox" data-add-nav checked><span>Also add it to the header menu</span></label>` : ""}<div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Publish now</button></div>`);
+    const m = modal(`<h3>${window.LDTT_IS_SANDBOX ? "Push live on the sandbox?" : "Publish this page?"}</h3>${window.LDTT_IS_SANDBOX ? `<p class="ps-help"><b>This is the SANDBOX (practice copy). Pushing here does NOT change the live website. To change the live site, use Send to live, then publish it on the live portal.</b></p>` : ""}<p class="ps-help">${isA2 ? `It shows at <b>/ads/${esc(sb.draft.slug)}</b>${window.LDTT_IS_SANDBOX ? " on the practice copy" : ""} within about a minute.` : `It goes live at <b>/${esc(sb.draft.slug)}</b> (and /p/${esc(sb.draft.slug)}) within about a minute.`} The previous version is kept under History.</p>${list}${!inNav && sb.draft.pageType === "site" ? `<label class="ps-field inline"><input type="checkbox" data-add-nav checked><span>Also add it to the header menu</span></label>` : ""}<div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Publish now</button></div>`);
     m.querySelector("[data-ps-close]").addEventListener("click", () => m.remove());
     m.querySelector("[data-ps-go]").addEventListener("click", async event => {
       event.target.disabled = true; event.target.textContent = "Publishing…";

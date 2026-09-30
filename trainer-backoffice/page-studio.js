@@ -18,7 +18,7 @@
 // app.js only calls screen() for the launcher. It never edits app.js state.
 (function () {
   "use strict";
-  const VERSION = "20260929live49"; // rule 76 photos; rule 85 (2.0 pages); landing page dropdown; rule 89 Site Builder 2.0 (new CSS + lib files). Loads page-studio.css + the lib scripts.
+  const VERSION = "20260929live50"; // rule 76 photos; rule 85 (2.0 pages); landing page dropdown; rule 89 Site Builder 2.0 (new CSS + lib files). Loads page-studio.css + the lib scripts.
   const API = "/api/pages"; // site-builder: one API for ad, site and landing pages (api/ad-pages.js is an alias)
   const LIB_SCRIPTS = ["/lib/ad-page-markets.js", "/lib/ad-page-image-aspects.js", "/lib/ad-page-template.js", "/lib/ad2-usmap.js", "/lib/ad2-page-template.js", "/lib/html-sanitize.js", "/lib/site-page-template.js"]; // site-builder
   const store = { pages: null, markets: [], starters: [], importable: [], sandbox: false, loading: false, error: "" };
@@ -319,7 +319,7 @@
         <div class="ps-seg"><button type="button" data-ps-device="desktop" class="active">Desktop</button><button type="button" data-ps-device="mobile">Mobile</button></div>
         <span id="psSendLive"></span>
         <button type="button" data-ps-act="preview">Preview draft</button>
-        <button type="button" class="ps-primary" data-ps-act="publish" id="psPublishBtn">Publish</button>
+        <button type="button" class="ps-primary" data-ps-act="publish" id="psPublishBtn">${window.LDTT_IS_SANDBOX ? "Push live on the sandbox" : "Publish"}</button>
       </header>
       <div class="ps-body">
         <aside class="ps-rail">
@@ -1004,7 +1004,7 @@
         .querySelector("[data-ps-close]").addEventListener("click", e => e.target.closest(".ps-modal").remove());
       return;
     }
-    const m = modal(`<h3>Publish this page?</h3><p class="ps-help">It goes live at <b>/ads/${esc(editor.draft.slug)}</b> within about a minute. The previous version is kept under History.</p>${list}<div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Publish now</button></div>`);
+    const m = modal(`<h3>${window.LDTT_IS_SANDBOX ? "Push live on the sandbox?" : "Publish this page?"}</h3>${window.LDTT_IS_SANDBOX ? `<p class="ps-help"><b>This is the SANDBOX (practice copy). Pushing here does NOT change the live website. To change the live site, use Send to live, then publish it on the live portal.</b></p>` : ""}<p class="ps-help">It goes live at <b>/ads/${esc(editor.draft.slug)}</b> within about a minute. The previous version is kept under History.</p>${list}<div class="ps-actions"><button type="button" class="ps-btn" data-ps-close>Not yet</button><button type="button" class="ps-btn red" data-ps-go>Publish now</button></div>`);
     m.querySelector("[data-ps-close]").addEventListener("click", () => m.remove());
     m.querySelector("[data-ps-go]").addEventListener("click", async event => {
       event.target.disabled = true; event.target.textContent = "Publishing…";

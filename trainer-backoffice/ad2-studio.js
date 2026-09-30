@@ -88,7 +88,7 @@
           <div class="a2-seg" role="group" aria-label="Preview size"><button type="button" class="active" data-a2-device="desktop">Computer</button><button type="button" data-a2-device="mobile">Phone</button></div>
           <a class="ps-btn" data-a2-live href="/ads/${esc(p.slug)}" target="_blank" rel="noopener" ${published ? "" : "hidden"}>Open live page</a>
           <button type="button" class="ps-btn" data-a2-unpublish ${published ? "" : "hidden"}>Take offline</button>
-          <button type="button" class="ps-btn red" data-a2-publish>Publish</button>
+          <button type="button" class="ps-btn red" data-a2-publish>${window.LDTT_IS_SANDBOX ? "Push live on the sandbox" : "Publish"}</button>
           <button type="button" class="ps-btn navy" data-a2-close>Close</button>
         </div>
       </header>
@@ -299,7 +299,7 @@
       return;
     }
     const where = window.LDTT_IS_SANDBOX ? "on the practice copy" : "on the live site";
-    if (!window.confirm(`Publish this page ${where}? It shows at /ads/${ed.draft.slug} within a minute.`)) return;
+    if (!window.confirm(window.LDTT_IS_SANDBOX ? `Push live on the sandbox? It shows at /ads/${ed.draft.slug} on the practice copy only. This is the SANDBOX (practice copy). Pushing here does NOT change the live website. To change the live site, use Send to live, then publish it on the live portal.` : `Publish this page ${where}? It shows at /ads/${ed.draft.slug} within a minute.`)) return;
     setStatus("Publishing…");
     try {
       const data = await s.api({ operation: "publish", id: ed.id, content: ed.draft });

@@ -2756,3 +2756,8 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      rule, so the switch never texted the backlog. The "link" step always has a link: the pipeline book_url, else the
      trainer link, else reengageBookingLink (live ad 2.0 page near the ZIP, else /book?zip=). Pin:
      tests/meeting-2026-09-23.test.mjs "Joshua 2026-09-29".
+
+146. **Sandbox publish says where it goes (Joshua 2026-09-29; Harrison thought the sandbox Publish changed live).** On
+     the practice copy the Site Builder, Page Studio and Ad 2.0 Studio publish buttons read "Push live on the
+     sandbox", and each confirm says the live website does NOT change and to use Send to live. Live keeps
+     "Publish" / "Publish changes". Pin: tests/sandbox-push-label-2026-09-29.test.mjs.
