@@ -131,9 +131,11 @@ async function availability(req, res) {
     calendarError = `We could not load ${trainer.full_name.split(" ")[0]}'s calendar right now. Please try again in a minute or call ${OFFICE_PHONE}.`;
   }
   const holds = await B.activeHolds(slug);
-  const open = B.openSlots(slots, holds);
-
   const leadId = B.clean(req.query?.lead, 60);
+  // Rule 158: hide times within the travel gap of evaluations we already know about (not this lead's own).
+  const busy = await B.knownBookings(slug, { excludeLeadId: B.UUID.test(leadId) ? leadId : "", minutes: setting.slot_minutes });
+  const open = B.openSlots(slots, busy);
+
   let lead = null;
   let booked = null;
   if (B.UUID.test(leadId)) {
@@ -211,7 +213,8 @@ async function book(req, res, body) {
   let slots;
   try { slots = await B.googleSlots(setting.schedule_id, { fresh: true }); }
   catch { return res.status(503).json({ ok: false, message: `We could not reach the trainer's calendar. Please try again in a minute or call ${OFFICE_PHONE}.` }); }
-  const open = B.openSlots(slots, await B.activeHolds(slug));
+  // Rule 158: a time within the travel gap of another known evaluation for this trainer is refused as taken.
+  const open = B.openSlots(slots, await B.knownBookings(slug, { excludeLeadId: leadId, minutes: setting.slot_minutes }));
   const chosen = open.find(slot => slot.start === startSec);
   const taken = () => res.status(409).json({ ok: false, taken: true, message: "That time was just taken. Please pick another time.", slots: open.filter(s => s.start !== startSec).map(slotForClient) });
   if (!chosen) return taken();

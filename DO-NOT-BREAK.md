@@ -2865,3 +2865,20 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      hour. Facts found 2026-09-30: the Meta ad sets (LDTT account) run 24 h with lifetime budgets and no night schedule;
      ~1 in 5 leads arrive 9 PM-8 AM; the first booking-link text and email always went at night. Pin:
      tests/ebook-2026-09-30.test.mjs "any hour".
+
+158. **The booking page keeps a one-hour travel gap around every evaluation we know about (Joshua 2026-09-30, option A;
+     amends the office's 2026-09-14 "Google free times EXACTLY" note in rule 71).** Found the same day: Shantelle Tuck
+     (Maria M. picked Sat Oct 3 10 AM right after a 9 AM session), Robert Wesling (DeAngelo B. picked a 4 PM Robert had
+     "blocked off" outside the calendar his schedule reads) and Lorenzo Miller were double booked. Cause: a pick on our
+     page never hid a time, it is not in Google until the office types it in, and Google's own buffer only guards
+     appointments booked on Google's page (all 26 trainer schedules: 60-min appointments, Google slots 2 h apart).
+     `lib/booking.js knownBookings(slug, {excludeLeadId, minutes})` = every lead of that trainer (leads.trainer_slug) in
+     `evaluation_scheduled` with an eval time (page pick, office or trainer eval date) + every `held` booking_holds pick
+     whose lead is still Evaluation Scheduled at that same time (a moved or cancelled eval hides nothing); qa leads never
+     count; the booking lead itself is excluded (its rebook works). `openSlots(slots, busy)` hides a Google time that
+     overlaps [start - 60 min, end + 60 min] of any of them (`TRAVEL_GAP_MINUTES = 60`). `api/booking.js` uses it for
+     the time list AND the fresh re-check at booking (a clash answers 409 "That time was just taken"). A failed read
+     hides nothing. Still NEVER writes to Google (rule 71). Not covered (Google's side, office checklist): sessions and
+     evals that live only in Google / Alpha need the travel hour in Google, blocks must be Busy on a calendar the
+     schedule checks, appointment length 2 h (meeting 2026-09-29). Pins: tests/travel-gap-2026-09-30.test.mjs (6),
+     tests/booking.test.mjs "the same time is taken for others (rule 158)".

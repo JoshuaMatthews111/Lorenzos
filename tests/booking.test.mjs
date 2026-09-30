@@ -206,7 +206,7 @@ test("availability: exactly Google's free times minus the next hour (a pick neve
   assert.equal((await call(bookingApi, { method: "GET", query: { trainer: "nobody" } })).statusCode, 404);
 });
 
-test("booking: records the pick, moves the lead to Eval Scheduled with the time, the same time stays open to others, rebook releases", async () => {
+test("booking: records the pick, moves the lead to Eval Scheduled with the time, the same time is taken for others (rule 158), rebook releases", async () => {
   const { leadApi, bookingApi } = load(true);
   const { db } = fakeWorld();
   const created = await call(leadApi, { body: intake() });
@@ -229,13 +229,16 @@ test("booking: records the pick, moves the lead to Eval Scheduled with the time,
   assert.ok(db.lifecycle_events.some(e => e.event_type === "evaluation_scheduled" && e.entity_id === leadId));
   assert.ok(db.lead_events.some(e => e.event_type === "status_changed" && e.new_status === "evaluation_scheduled"));
 
-  // The same time again (another customer): allowed; the office books it in Google / Alpha (office 2026-09-14).
+  // The same time again (another customer): refused as taken (rule 158, Joshua 2026-09-30, after double bookings).
   const other = await call(leadApi, { body: intake({ email: "sam@example.test", phone: "440-555-0199" }) });
   const again = await call(bookingApi, { body: evalBody({ lead_id: other.payload.lead_id }) });
-  assert.equal(again.statusCode, 200, JSON.stringify(again.payload));
-  assert.equal(db.leads.find(l => l.id === other.payload.lead_id).eval_scheduled_at, iso(SLOT_A));
+  assert.equal(again.statusCode, 409, JSON.stringify(again.payload));
+  assert.equal(again.payload.taken, true);
+  assert.notEqual(db.leads.find(l => l.id === other.payload.lead_id).eval_scheduled_at, iso(SLOT_A));
 
-  // The picked time is still offered: the calendar keeps matching Google.
+  // Other people no longer see the picked time (nor the hour after it); the lead itself still sees its own time.
+  const others = await call(bookingApi, { method: "GET", query: { trainer: "lorenzo-miller" } });
+  assert.ok(!others.payload.slots.some(s => s.start === SLOT_A || s.start === SLOT_B));
   const open = await call(bookingApi, { method: "GET", query: { trainer: "lorenzo-miller", lead: leadId } });
   assert.ok(open.payload.slots.some(s => s.start === SLOT_A));
   assert.equal(open.payload.booked.slot_start, iso(SLOT_A));
