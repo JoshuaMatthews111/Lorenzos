@@ -367,7 +367,7 @@ test("a trainer is never sent to the office /staff portal", () => {
   // trainer text cannot quietly reintroduce the office link.
   const source = readFileSync(new URL("../lib/pipeline.js", import.meta.url), "utf8");
   const assignments = source.match(/trainer_portal_link:\s*\w+\(/g) || [];
-  assert.equal(assignments.length, 5, "the five trainer texts: new inquiry, new evaluation, pre-eval answers, log the deal, the 30-minute call reminder (2026-09-25)");
+  assert.equal(assignments.length, 6, "the six trainer texts: new inquiry, new evaluation, pre-eval answers, log the deal, the 30-minute call reminder (2026-09-25), the 1-hour still-waiting reminder (2026-09-30)");
   for (const line of assignments) {
     assert.match(line, /trainer_portal_link:\s*trainerLeadLink\(/, `a trainer text still builds its link with the wrong helper: ${line}`);
   }

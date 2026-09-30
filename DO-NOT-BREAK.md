@@ -2785,3 +2785,13 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      Command (max 5/run, never practice, never on the very first baseline run). Portal: bell in the admin top bar,
      GET /api/pipeline?op=system_alerts (office staff), refresh every 2 min; a check older than 45 min shows "automatic
      checks stopped". Pin: tests/system-alerts-2026-09-30.test.mjs.
+
+149. **Trainer "still waiting" reminders on the follow-up clock (Joshua 2026-09-30, option A).** While a lead is New
+     Inquiry, has a trainer (trainer_slug/trainer_id), has not booked/requested, and entered the pipeline after
+     WAITING_REMINDER_FROM (2026-09-30T06:00Z), its trainer gets the portal text "trainer_waiting_reminder" (Make
+     pathway 2, trainer branch; customer_phone "") at the SAME moments as the client follow-ups: 15 min, 30 min,
+     24 h after entered_at (AUTO_FOLLOWUP_STEPS). Client SMS consent does not matter (it goes to the trainer). Claim per
+     step in pipeline.trainer_waiting_reminders; never 9 PM-8 AM in the trainer's calendar time zone (else Eastern);
+     steps that came due overnight go as ONE text (the newest; older recorded "combined"). Stops when the card leaves
+     New Inquiry. The alert bell's "waiting" and "needs a call" now fire at 15 minutes (was 24 h / 1 h). Runs in the
+     15-minute cron before the office digest. Pin: tests/system-alerts-2026-09-30.test.mjs "(A)".

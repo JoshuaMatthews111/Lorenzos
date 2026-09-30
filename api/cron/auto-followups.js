@@ -49,6 +49,10 @@ module.exports = async function handler(req, res) {
     const callReminders = await P.runTrainerCallReminders()
       .catch(error => ({ on: false, message: `call reminders failed: ${String(error?.message || error)}` }));
     if (callReminders.on) console.log("trainer_call_reminders_run", JSON.stringify({ checked: callReminders.checked, sent: callReminders.sent?.length || 0, skipped: callReminders.skipped?.length || 0 }));
+    // Joshua 2026-09-30: a new lead still New Inquiry after 1 hour -> ONE "still waiting" text to its trainer.
+    const waiting = await P.runTrainerWaitingReminders()
+      .catch(error => ({ on: false, message: `waiting reminders failed: ${String(error?.message || error)}` }));
+    if (waiting.sent?.length || waiting.skipped?.length) console.log("trainer_waiting_reminders_run", JSON.stringify({ checked: waiting.checked, sent: waiting.sent?.length || 0, skipped: waiting.skipped?.length || 0 }));
     // Zoom 2026-09-24: ONE "Office's turn" email a day (switch office_turn_digest, default OFF; no per-lead email).
     const officeTurn = await P.runOfficeTurnDigest()
       .catch(error => ({ on: false, message: `office's-turn digest failed: ${String(error?.message || error)}` }));
@@ -73,7 +77,7 @@ module.exports = async function handler(req, res) {
     const alerts = await SA.runSystemAlerts()
       .catch(error => ({ failed: true, message: `system alerts failed: ${String(error?.message || error)}` }));
     if (alerts.new || alerts.failed) console.log("system_alerts_run", JSON.stringify(alerts));
-    return res.status(200).json({ ok: true, ...result, system_alerts: alerts, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign, google_sheet_resend: googleResend, lead_merge: leadMerge });
+    return res.status(200).json({ ok: true, ...result, system_alerts: alerts, waiting_reminders: waiting, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign, google_sheet_resend: googleResend, lead_merge: leadMerge });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });

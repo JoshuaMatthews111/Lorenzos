@@ -31,6 +31,8 @@ const MAKE_WORDS = {
   trainer_new_inquiry: "🚨🚨 New Track 500 inquiry 🚨🚨\n{first_name} {last_name}\n{phone}\nConcern: {problem}\nThey just got your booking link. Watch for the booking, or call to help them pick a time: {trainer_portal_link}",
   // 2026-09-22: the office-call text is sent (pathway 1 hook when LDTT_MAKE_HOOK_CARE is unset).
   care_call: "Hi {first_name}, thanks for contacting Lorenzo's Dog Training Team. Our office will call you shortly from (866) 436-4959. Reply STOP to opt out.",
+  // Joshua 2026-09-30 (option A): the trainer's "still waiting" reminder on the follow-up clock.
+  trainer_waiting_reminder: "⏰ {first_name} {last_name} is still waiting for a call ({waited} since they came in).\n{phone}\nPlease call now, then move the card in your portal: {trainer_portal_link}",
   pre_eval_answers: "📝 EVAL QUESTIONS COMPLETED\n{first_name} {last_name}\n{appointment_day}, {appointment_date} at {appointment_time}\n{service_address}\n\n{safety_flag}\n{answers_summary}\n\nLog in to the trainer portal to view the full answers and lead details: {trainer_portal_link}"
 };
 
