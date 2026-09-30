@@ -2773,3 +2773,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      History/Restore works). Checked before: checklist fields, no practice links, every storage file present; after:
      every /ads/<slug> answers 200 and all 174 files answer 200. Tallahassee ZIP set to 32301 (2A). Rollback source:
      private.ad2_pages_backup_20260929.
+
+148. **Alert bell (Zoom 2026-09-29, Angela + Lorenzo).** lib/system-alerts.js runs LAST in the 15-minute cron
+     (api/cron/auto-followups.js, errors logged, never raised) and saves site_settings "system_alerts" (server only,
+     migration 20260930120000). Checks: a website lead still in New Inquiry whose texts never started (20 min grace);
+     a client text Make refused while still New Inquiry; an office Resend email failed or queued > 30 min; a FormSubmit
+     office copy / Google Sheet row never delivered even after the browser retry (FormSubmit only while New Inquiry);
+     "needs a call" (no trainer within 50 miles, New Inquiry > 1 h); any New Inquiry lead > 24 h (owner = assigned
+     trainer, then office); a broken page from the nightly site_health. Every alert has owner + fix; NO dismiss: it
+     leaves only when the next check no longer finds it (then "resolved"). New owner-Joshua alerts text Joshua via DSN
+     Command (max 5/run, never practice, never on the very first baseline run). Portal: bell in the admin top bar,
+     GET /api/pipeline?op=system_alerts (office staff), refresh every 2 min; a check older than 45 min shows "automatic
+     checks stopped". Pin: tests/system-alerts-2026-09-30.test.mjs.

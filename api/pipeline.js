@@ -18,6 +18,7 @@ const P = require("../lib/pipeline");
 const M = require("../lib/office-email");
 const R = require("../lib/reengage");
 const X = require("../lib/pipeline-texts"); // rule 84: the Text messages editor
+const SA = require("../lib/system-alerts"); // Zoom 2026-09-29: the alert bell
 const E = require("../lib/email-campaign"); // Angela's lead email (2026-09-25): shipped DISARMED
 
 function actorLabel(access) {
@@ -39,6 +40,11 @@ module.exports = async function handler(req, res) {
       const op = B.clean(req.query?.op, 40);
       const access = await authorizeRequest(req, res, { require: "admin", message: "Office access required." });
       if (!access) return;
+      if (op === "system_alerts") {
+        // The alert bell (Zoom 2026-09-29): every office login sees the open problems, who owns each, how to fix it.
+        // Read only; the list is written by the 15-minute cron and clears itself when a problem is fixed.
+        return res.status(200).json({ ok: true, ...(await SA.readSystemAlerts()) });
+      }
       if (op === "settings") {
         const config = await M.officeResendConfig();
         const settings = await P.loadSettings();

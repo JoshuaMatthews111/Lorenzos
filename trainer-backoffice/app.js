@@ -5209,6 +5209,79 @@ function renderSidebar() {
     </div>`;
 }
 
+// ---------------------------------------------------------------------------
+// Alert bell (Zoom 2026-09-29, Angela + Lorenzo). Office staff see every open problem the 15-minute check found:
+// what broke, WHO owns it and HOW to fix it. There is no close or dismiss: an alert leaves the list only when the
+// next check no longer finds the problem (lib/system-alerts.js). Read from GET /api/pipeline?op=system_alerts.
+// ---------------------------------------------------------------------------
+const systemAlertsState = { open: [], resolved: [], checked_at: null, stale: false, loadedAt: 0, loading: false, error: "" };
+const SYSTEM_ALERTS_REFRESH_MS = 2 * 60 * 1000;
+
+async function loadSystemAlerts(force = false) {
+  if (session.role !== "admin" || !window.LDTT_PORTAL?.enabled || systemAlertsState.loading) return;
+  if (!force && Date.now() - systemAlertsState.loadedAt < SYSTEM_ALERTS_REFRESH_MS) return;
+  systemAlertsState.loading = true;
+  try {
+    const token = await window.LDTT_PORTAL?.accessToken?.();
+    const response = await fetch("/api/pipeline?op=system_alerts", { cache: "no-store", headers: { Authorization: `Bearer ${token || ""}` } });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) throw new Error(payload.message || `Could not load alerts (${response.status}).`);
+    Object.assign(systemAlertsState, { open: payload.open || [], resolved: payload.resolved || [], checked_at: payload.checked_at || null, stale: Boolean(payload.stale), error: "" });
+  } catch (error) {
+    systemAlertsState.error = error.message || "Could not load alerts.";
+  } finally {
+    systemAlertsState.loading = false;
+    systemAlertsState.loadedAt = Date.now();
+    const bell = document.querySelector("[data-open-alerts]");
+    if (bell) bell.outerHTML = systemAlertsBell();
+    if (document.getElementById("systemAlertsDialog")) renderSystemAlertsDialog();
+  }
+}
+
+function systemAlertsBell() {
+  if (session.role !== "admin") return "";
+  const n = systemAlertsState.open.length;
+  const system = systemAlertsState.open.filter(a => a.level === "system").length;
+  const label = n ? `${n} open alert${n === 1 ? "" : "s"}${system ? `, ${system} system` : ""}` : "No open alerts";
+  return `<button type="button" class="alert-bell${n ? " has-alerts" : ""}${system ? " has-system" : ""}" data-open-alerts aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3.5a1.5 1.5 0 0 0-3 0v.66A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z"/></svg>${n ? `<span class="alert-bell-count">${n > 99 ? "99+" : n}</span>` : ""}</button>`;
+}
+
+function systemAlertWhen(iso) {
+  const t = Date.parse(iso || "");
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function renderSystemAlertsDialog() {
+  let dialog = document.getElementById("systemAlertsDialog");
+  if (!dialog) {
+    dialog = document.createElement("div");
+    dialog.id = "systemAlertsDialog";
+    dialog.className = "alerts-overlay";
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("aria-modal", "true");
+    dialog.setAttribute("aria-labelledby", "systemAlertsTitle");
+    document.body.appendChild(dialog);
+  }
+  const s = systemAlertsState;
+  const row = a => `<article class="alert-item ${a.level === "system" ? "is-system" : "is-office"}">
+      <div class="alert-item-head"><span class="alert-tag">${a.level === "system" ? "System" : "Office"}</span><small>${escapeHtml(a.since ? `Since ${systemAlertWhen(a.since)}` : "")}</small></div>
+      <p class="alert-what">${escapeHtml(a.what || "")}</p>
+      <dl><dt>Owner</dt><dd>${escapeHtml(a.owner || "")}</dd><dt>How to fix</dt><dd>${escapeHtml(a.fix || "")}</dd></dl>
+      ${a.lead_id && (state.leads || []).some(l => l.remoteId === a.lead_id) ? `<button type="button" class="btn btn-outline" data-alert-lead="${escapeHtml(a.lead_id)}">Open ${escapeHtml(a.lead || "the lead")}</button>` : ""}
+    </article>`;
+  dialog.innerHTML = `<div class="alerts-panel">
+      <button type="button" class="action-confirmation-close" data-close-alerts aria-label="Close">×</button>
+      <h2 id="systemAlertsTitle">Alerts</h2>
+      <p class="panel-copy">Problems the automatic check found. Each one names its owner and the fix. An alert cannot be closed here: it goes away on its own once the problem is really fixed (checked every 15 minutes).</p>
+      ${s.error ? `<p class="form-error">${escapeHtml(s.error)}</p>` : ""}
+      ${s.open.length ? s.open.map(row).join("") : `<p class="alerts-empty">No open alerts. Everything the check looks at is working.</p>`}
+      <p class="alerts-foot">${s.checked_at ? `Last check: ${escapeHtml(systemAlertWhen(s.checked_at))}.` : ""}${s.resolved.length ? ` Recently fixed: ${escapeHtml(s.resolved.slice(0, 3).map(r => r.lead || r.type).join(", "))}.` : ""}</p>
+    </div>`;
+}
+
+setInterval(() => { if (session.loggedIn && session.role === "admin" && document.visibilityState === "visible") loadSystemAlerts(); }, SYSTEM_ALERTS_REFRESH_MS);
+
 function renderTopbar() {
   const isAdmin = session.role === "admin";
   // Sandbox: a password cannot be saved there, so the two setup gates never take over the menu (Joshua 2026-09-16:
@@ -5256,6 +5329,7 @@ function renderTopbar() {
     <div class="page-title"><h1>${escapeHtml(title)}</h1><p>${escapeHtml(sub)}</p></div>
     <div class="top-actions">
       ${freshnessChip()}
+      ${systemAlertsBell()}
       ${isAdmin
         ? profileSetupRequired ? "" : `${isOfficeAdmin() ? "" : `<button class="btn btn-red add-trainer-primary" id="addTrainer">+ Add New Trainer</button>`}${isOfficeAdmin() ? "" : `<button class="btn btn-outline" data-open-client-import>Import Clients</button>`}`
         : passwordSetupRequired
@@ -5265,6 +5339,7 @@ function renderTopbar() {
           : `<a class="btn btn-outline" href="${trainerPageHref(currentTrainerId())}" target="_blank" rel="noopener">Open My Page</a><button class="btn btn-red" data-view="submitMedia">Submit Content</button>`}
       <button class="profile-chip">${avatarMarkup(portalUser, isAdmin ? "LO" : initials(trainerById(currentTrainerId()).name))}<span><strong>${escapeHtml(portalDisplayName(portalUser))}</strong><small>${isAdmin ? portalPermissionLabel(portalUser) : "Trainer"}</small></span></button>
     </div>`;
+  if (isAdmin && session.loggedIn) loadSystemAlerts(); // throttled: at most once every 2 minutes
 }
 
 function renderView() {
@@ -14352,6 +14427,16 @@ document.addEventListener("toggle", event => {
 }, true);
 
 document.addEventListener("click", async event => {
+  // Alert bell (Zoom 2026-09-29): open the list, close the panel, or jump to the lead an alert names.
+  if (event.target.closest("[data-open-alerts]")) { renderSystemAlertsDialog(); loadSystemAlerts(true); return; }
+  if (event.target.closest("[data-close-alerts]") || event.target.id === "systemAlertsDialog") { document.getElementById("systemAlertsDialog")?.remove(); return; }
+  const alertLead = event.target.closest("[data-alert-lead]");
+  if (alertLead) {
+    const local = (state.leads || []).find(l => l.remoteId === alertLead.dataset.alertLead);
+    document.getElementById("systemAlertsDialog")?.remove();
+    if (local) { state.activeView = "leads"; state.selectedLeadId = local.id; saveState(); }
+    return;
+  }
   const horizontalScroll = event.target.closest("[data-scroll-horizontal]");
   if (horizontalScroll) {
     const scroller = document.getElementById(horizontalScroll.dataset.scrollTarget || "");

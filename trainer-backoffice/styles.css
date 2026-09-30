@@ -6114,3 +6114,22 @@ button.lead-tag-recycled:hover, button.lead-tag-recycled:focus-visible { backgro
 .lead-history-list small { display: block; margin-top: 2px; color: #3d4556; }
 .lead-history-list .recycle-icon { width: 14px; height: 14px; vertical-align: -2px; margin-right: 3px; color: #1f6fd1; }
 .lead-history-tag { font-style: normal; font-size: 11px; font-weight: 700; color: #5b6475; background: #eef1f6; border-radius: 10px; padding: 1px 7px; margin-left: 4px; }
+
+/* Alert bell (Zoom 2026-09-29, Angela + Lorenzo): open problems, owner and fix; no dismiss. */
+.alert-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; border: 1px solid #d7deea; background: #fff; color: #53677f; cursor: pointer; }
+.alert-bell.has-alerts { color: #b45309; border-color: #f5c77e; background: #fff8eb; }
+.alert-bell.has-system { color: #d80f35; border-color: #f3a3b3; background: #fff0f3; }
+.alert-bell-count { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #d80f35; color: #fff; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+.alerts-overlay { position: fixed; inset: 0; z-index: 2147483000; background: rgba(15, 23, 42, .45); display: flex; justify-content: flex-end; }
+.alerts-panel { position: relative; width: min(520px, 100%); height: 100%; overflow-y: auto; background: #fff; padding: 24px 20px 32px; box-shadow: -8px 0 24px rgba(0,0,0,.15); }
+.alerts-panel h2 { margin: 0 0 6px; }
+.alert-item { border: 1px solid #e3e8f0; border-left: 4px solid #b45309; border-radius: 8px; padding: 12px 14px; margin: 12px 0; }
+.alert-item.is-system { border-left-color: #d80f35; }
+.alert-item-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.alert-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #53677f; }
+.alert-what { font-weight: 600; margin: 6px 0; }
+.alert-item dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; margin: 0 0 8px; font-size: 14px; }
+.alert-item dt { color: #53677f; }
+.alert-item dd { margin: 0; }
+.alerts-empty { padding: 16px; border-radius: 8px; background: #f0faf4; color: #166534; }
+.alerts-foot { color: #53677f; font-size: 13px; margin-top: 16px; }

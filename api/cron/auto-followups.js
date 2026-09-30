@@ -17,6 +17,7 @@ const P = require("../../lib/pipeline");
 const E = require("../../lib/email-campaign");
 const G = require("../../lib/google-sheet-resend");
 const LM = require("../../lib/lead-merge");
+const SA = require("../../lib/system-alerts");
 
 const CRON_SECRET = process.env.CRON_SECRET || "";
 
@@ -67,7 +68,12 @@ module.exports = async function handler(req, res) {
     const leadMerge = await LM.runLeadMergeBatch()
       .catch(error => ({ armed: false, message: `lead join failed: ${String(error?.message || error)}` }));
     if (leadMerge.ran) console.log("lead_merge_batch_run", JSON.stringify(leadMerge));
-    return res.status(200).json({ ok: true, ...result, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign, google_sheet_resend: googleResend, lead_merge: leadMerge });
+    // Zoom 2026-09-29 (Angela): the alert bell. Runs LAST so it sees what this tick did. A failure here is logged,
+    // never raised - it must not stop the texts above. Its saved "checked_at" is how the portal knows the timer runs.
+    const alerts = await SA.runSystemAlerts()
+      .catch(error => ({ failed: true, message: `system alerts failed: ${String(error?.message || error)}` }));
+    if (alerts.new || alerts.failed) console.log("system_alerts_run", JSON.stringify(alerts));
+    return res.status(200).json({ ok: true, ...result, system_alerts: alerts, reengage, call_reminders: callReminders, office_turn: officeTurn, email_campaign: emailCampaign, google_sheet_resend: googleResend, lead_merge: leadMerge });
   } catch (error) {
     console.error("auto_followups_failed", String(error?.message || error));
     return res.status(500).json({ ok: false, message: "The automatic follow-up run failed." });
