@@ -307,7 +307,7 @@ test("'Join with older request' is for office admins only, names both cards, and
   const trainer = portalContext({ role: "trainer", leads: [older, newer] });
   assert.equal(trainer.joinOlderBox(newer), "", "never for a trainer");
   assert.doesNotMatch(fn(app, "trainerLeadDetailPanel"), /joinOlderBox/, "the trainer panel has no join button");
-  assert.match(app, /\$\{recycledLine\(lead\)\}\$\{joinOlderBox\(lead\)\}<p>/, "office lead panel");
+  assert.match(app, /\$\{recycledLine\(lead\)\}\$\{leadScoreLine\(lead\)\}\$\{joinOlderBox\(lead\)\}<p>/, "office lead panel");
   // Server: inside the admin-only handler; re-checks same person + qa; the SERVER picks the card that stays.
   assert.match(mutation, /authorizeRequest\(req, res, \{ require: "admin"/);
   assert.match(mutation, /case "merge_leads": result = await mergeLeads\(admin, body\); break;/);

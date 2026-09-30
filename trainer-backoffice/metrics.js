@@ -819,8 +819,57 @@
     ["needs_call", "Needs a call"],
     ["office_turn", "Office's turn"],
     ["unfinished", "Did not finish the booking form"],
-    ["ebook", "E-book downloads"]
+    ["ebook", "E-book downloads"],
+    // Zoom 2026-09-29 lead score (leadScore below).
+    ["hot", "Hot leads"],
+    ["warm", "Warm leads"],
+    ["nurture", "Nurture leads"],
+    ["top_paying", "Top-paying potential"]
   ];
+
+  // -------------------------------------------------------------------------
+  // Lead score (Zoom 2026-09-29). Lorenzo: "If the dog has bitten someone and the authorities are involved, that's
+  // major. If there's a baby on the way ... if the person's elderly ... someone just purchased the dog, paid a lot of
+  // money for it ... client referrals and vet referrals tend to be really strong for us." Angela: "it's a scoring
+  // thing ... if they complete the evaluation questions, that's a plus two." Points come ONLY from what the lead
+  // itself says or did (the form, the booking, the pre-evaluation answers). Hot = 6+, Warm = 3-5, Nurture = under 3.
+  // "Top-paying potential" = any of Lorenzo's high-value signs. Display only: no count, status or text changes.
+  // -------------------------------------------------------------------------
+  const SCORE_HOT = 6;
+  const SCORE_WARM = 3;
+  const TOP_PAYING = new Set(["bite_authorities", "baby", "elderly", "expensive", "referral"]);
+  function leadScore(lead) {
+    if (!lead) return { score: 0, tier: "nurture", topPaying: false, safety: false, reasons: [] };
+    const raw = rawOf(lead);
+    const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
+    const pre = booking.pre_eval && typeof booking.pre_eval === "object" ? booking.pre_eval : {};
+    const answers = pre.answers && typeof pre.answers === "object" ? pre.answers : {};
+    const dogs = Array.isArray(booking.dogs) ? booking.dogs : [];
+    const text = [raw.problem, raw.comments, lead.comments, raw.additional_interest, raw.service_interest,
+      ...dogs.map(d => d && d.behavior), ...Object.values(answers).map(v => (Array.isArray(v) ? v.join(" ") : typeof v === "object" ? "" : v))]
+      .filter(v => typeof v === "string" && v).join(" \n ").toLowerCase();
+    const source = [lead.leadSource, lead.lead_source, raw.lead_source, raw.heard_about_us, raw.vet_or_previous_client, lead.source]
+      .filter(v => typeof v === "string").join(" ").toLowerCase();
+    const reasons = [];
+    const add = (key, points, words) => reasons.push({ key, points, words });
+    const bite = /\b(bit|bite|bites|biting|bitten|nipp|attack)/.test(text) || (answers.bite_history && answers.bite_history !== "No");
+    const authorities = /(police|animal control|authorit|court|quarantine|lawsuit|sued|citation|dangerous dog|reported)/.test(text);
+    if (bite && authorities) add("bite_authorities", 5, "Bite with the authorities involved");
+    else if (bite || /(aggress|lung|growl|snap|reactiv)/.test(text) || answers.injured_animal === "Yes") add("aggression", 3, "Bite or aggression");
+    if (/(baby|pregnan|expecting|newborn|infant|due date)/.test(text)) add("baby", 3, "Baby on the way or a new baby");
+    if (/(vet|veterinar)/.test(source) || /(referred by a past client|client referral|friend referred|referral)/.test(source)) add("referral", 3, "Vet or client referral");
+    else if (/(is a past client|past client|former client|returning)/.test(source)) add("past_client", 2, "Past client");
+    if (/(elderly|senior citizen|my (elderly|older|aging)|grandm|grandpa|grandparent|knock(s|ed)? (me|her|him|them) (down|over)|\b[7-9]\d[ -]?(years?|yrs?)[ -]old\b)/.test(text)) add("elderly", 2, "Elderly owner");
+    if (/(\$\s?\d{1,3}(,\d{3})+|\$\s?\d{4,}|\b\d{2,3}k\b|expensive|paid (a lot|thousands)|imported|protection dog|european (line|import))/.test(text)) add("expensive", 2, "Paid a lot for the dog");
+    if (booking.slot_start) add("booked", 3, "Booked a time");
+    if (pre.first_submitted_at || pre.submitted_at) add("pre_eval", 2, "Answered the pre-evaluation questions");
+    if (Number(answers.disruption) >= 4 || answers.how_often === "Multiple times a day") add("impact", 1, "Big impact at home");
+    if (mergedRequestsOf(lead).length || lead.recycled_count >= 2 || lead.recycledCount >= 2) add("returned", 1, "Came back again");
+    if (!booking.slot_start && (dogs.length || booking.intake)) add("started", 1, "Started the booking form");
+    const score = reasons.reduce((sum, r) => sum + r.points, 0);
+    const tier = score >= SCORE_HOT ? "hot" : score >= SCORE_WARM ? "warm" : "nurture";
+    return { score, tier, topPaying: reasons.some(r => TOP_PAYING.has(r.key)), safety: reasons.some(r => r.key === "bite_authorities" || r.key === "aggression"), reasons };
+  }
   function leadKinds(lead, ctx = {}) {
     const raw = rawOf(lead);
     const booking = raw.booking && typeof raw.booking === "object" ? raw.booking : {};
@@ -842,6 +891,9 @@
     const answered = dogs.some(dog => dog && (dog.name || dog.breed || dog.behavior));
     if (pipeline && pipeline.entered_at && !booked && !booking.requested && !booking.callback && !answered && String(raw.lead_type || "").toLowerCase() !== "pdf_download") kinds.add("unfinished");
     if (String(raw.lead_type || "").toLowerCase() === "pdf_download") kinds.add("ebook");
+    const score = leadScore(lead);
+    kinds.add(score.tier);
+    if (score.topPaying) kinds.add("top_paying");
     return kinds;
   }
 
@@ -900,7 +952,7 @@
     TRACK500_CLIENT_GOAL, TRACK500_REVENUE_GOAL, TRAINER_PIPELINE_STAGES, TRAINER_HIDDEN_DB_STATUSES, trainerDbStatus, trainerStageFor,
     trainerPipeline, trainerBoardRows, trainerLeadBoard,
     STATUS_DISPLAY_LABELS, statusLabel, personMatchKeys, recycledIndex, personRows, MERGE_STATUS_RANK, chooseMergeMain, mergedRequestsOf,
-    requestPageName, requestEntryFromLead, requestSummary, LINK_MESSAGE_WORDS, LINK_TRACKING_START, linkFromOf, linkFromWords, requestChanges, LEAD_KIND_FILTERS, leadKinds,
+    requestPageName, requestEntryFromLead, requestSummary, LINK_MESSAGE_WORDS, LINK_TRACKING_START, linkFromOf, linkFromWords, requestChanges, LEAD_KIND_FILTERS, leadKinds, leadScore, SCORE_HOT, SCORE_WARM,
     OFFICE_TURN_DB_STATUSES, OFFICE_TURN_AFTER_MS, officeTurn, officeTurnRows,
     escapeCsv, csvDocument, csvRowCount
   };

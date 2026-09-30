@@ -38,7 +38,7 @@ function context(extra = {}) {
   return {
     METRICS: metrics, escapeHtml,
     leadSourceBadge: () => "<span class=\"source-badge\"></span>",
-    leadDogLabel: () => "Dog", serviceDogTag: () => "", track500Tag: () => "", recycledTag: () => "", recycledLine: () => "",
+    leadDogLabel: () => "Dog", serviceDogTag: () => "", track500Tag: () => "", recycledTag: () => "", recycledLine: () => "", leadScoreTag: () => "", leadScoreLine: () => "",
     leadMarketLabel: () => "Cleveland, OH", formatPhoneNumber: v => String(v || ""),
     leadRawPayload: l => l.rawPayload || {}, leadEvalLabel: () => "Mon 9 AM", leadTimeZone: () => "America/New_York",
     leadZoneHint: () => "the lead's time zone", datetimeLocalValue: () => "", leadTimeZone: () => "", trainerHandoffBox: () => "", formatDateTime: v => String(v), leadCardDetailLines: () => "", leadAssignmentLine: () => "",

@@ -2795,3 +2795,12 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      steps that came due overnight go as ONE text (the newest; older recorded "combined"). Stops when the card leaves
      New Inquiry. The alert bell's "waiting" and "needs a call" now fire at 15 minutes (was 24 h / 1 h). Runs in the
      15-minute cron before the office digest. Pin: tests/system-alerts-2026-09-30.test.mjs "(A)".
+
+150. **Lead score (Zoom 2026-09-29, Lorenzo + Angela; built 2026-09-30).** METRICS.leadScore(lead) (trainer-backoffice/
+     metrics.js, display only) scores what the lead itself said or did: bite + authorities +5; bite/aggression +3; baby
+     +3; vet or client referral +3 (else past client +2); elderly owner +2; expensive dog +2; booked +3; pre-evaluation
+     answered +2; big impact at home +1; came back (mergedRequestsOf / recycled) +1; started the booking form +1.
+     Hot >= 6, Warm 3-5, Nurture < 3; "Top-paying" = bite+authorities, baby, elderly, expensive or referral. Shown as
+     a badge next to Recycled on the office Leads + Sales cards, both lead panels and the trainer cards (leadScoreTag),
+     with the reasons in the lead panels (leadScoreLine); the Kind filter adds Hot / Warm / Nurture / Top-paying.
+     Changes no count, status or text. Pin: tests/lead-score-2026-09-30.test.mjs.

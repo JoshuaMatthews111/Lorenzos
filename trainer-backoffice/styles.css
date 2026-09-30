@@ -6133,3 +6133,13 @@ button.lead-tag-recycled:hover, button.lead-tag-recycled:focus-visible { backgro
 .alert-item dd { margin: 0; }
 .alerts-empty { padding: 16px; border-radius: 8px; background: #f0faf4; color: #166534; }
 .alerts-foot { color: #53677f; font-size: 13px; margin-top: 16px; }
+
+/* Lead score (Zoom 2026-09-29): Hot / Warm / Nurture + Top-paying. */
+.lead-score { display: inline-block; margin-left: 4px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 700; line-height: 17px; vertical-align: middle; white-space: nowrap; }
+.lead-score-hot { background: #fde7ea; color: #b1102b; }
+.lead-score-warm { background: #fff3dc; color: #9a5b00; }
+.lead-score-nurture { background: #eef2f7; color: #53677f; }
+.lead-score-top { background: #0f2747; color: #fff; }
+.lead-score-line { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: #f5f7fa; font-size: 14px; }
+.lead-score-line-hot { background: #fff0f2; }
+.lead-score-line-warm { background: #fff8eb; }

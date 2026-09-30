@@ -50,8 +50,8 @@ test("portal: an orange 'Office's turn' badge on office Leads + Sales cards and 
   assert.match(ctx.tag, /<span class="lead-tag-office-turn" title="Office's turn since Sep 25, 9:00 AM\. A day has passed since they came in and they have not booked\. Call them\.">Office's turn<\/span>/);
   assert.match(ctx.line, /Office's turn since Sep 25, 9:00 AM\./);
   assert.equal(ctx.trainer, "", "trainers never see it");
-  assert.match(app, /\$\{recycledTag\(lead\)\}\$\{officeTurnTag\(lead\)\}`;\n  return `\$\{leadCardEvalLine\(lead\)\}/, "office Leads card");
-  assert.match(app, /\$\{recycledTag\(lead\)\}\$\{officeTurnTag\(lead\)\}<\/small>/, "Sales card");
+  assert.match(app, /\$\{recycledTag\(lead\)\}\$\{leadScoreTag\(lead\)\}\$\{officeTurnTag\(lead\)\}`;\n  return `\$\{leadCardEvalLine\(lead\)\}/, "office Leads card");
+  assert.match(app, /\$\{recycledTag\(lead\)\}\$\{leadScoreTag\(lead\)\}\$\{officeTurnTag\(lead\)\}<\/small>/, "Sales card");
   assert.match(app, /\$\{officeTurnTag\(lead\)\}<\/h2>\$\{officeTurnLine\(lead\)\}/, "office lead panel");
   assert.match(read("trainer-backoffice/styles.css"), /\.lead-tag-office-turn \{[^}]*border: 1\.5px solid #ea580c/, "orange");
 });

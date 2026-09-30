@@ -27,7 +27,7 @@ const BARE = /(^|[^/])Office Contacted/m;
 function render(code, extra = {}) {
   const ctx = {
     METRICS: metrics, escapeHtml, state: {},
-    leadSourceBadge: () => "", leadDogLabel: () => "Dog", serviceDogTag: () => "", track500Tag: () => "", recycledTag: () => "", recycledLine: () => "",
+    leadSourceBadge: () => "", leadDogLabel: () => "Dog", serviceDogTag: () => "", track500Tag: () => "", recycledTag: () => "", recycledLine: () => "", leadScoreTag: () => "", leadScoreLine: () => "",
     leadMarketLabel: () => "", formatPhoneNumber: v => String(v || ""), leadRawPayload: l => l.rawPayload || {},
     leadEvalLabel: () => "", leadTimeZone: () => "", trainerHandoffBox: () => "", formatDateTime: v => String(v),
     leadCardDetailLines: () => "", leadAssignmentLine: () => "", leadAlphaToggle: () => "", leadAssignedHighlightClass: () => "",
