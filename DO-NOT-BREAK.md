@@ -2842,3 +2842,16 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      "GET STARTED" (Get a Free Evaluation -> data-open="eval", Free Training Guide -> data-open="book") and "CONTACT"
      (the phone). No main-site links, no social icons. The legal line keeps the Privacy Policy link (the SMS consent
      text refers to it) and the phone. ad2 VERSION 20260930ad22. Pin: tests/ebook-2026-09-30.test.mjs "footer".
+
+156. **Follow-ups for everyone in the first two columns, text or email (Joshua 2026-09-30; replaces rule 145's
+     consent-only rule).** autoFollowUpDue: status new_inquiry or office_contacted (FOLLOWUP_COLUMNS), not qa, reachable
+     (SMS consent + phone, or an email), not booked/requested/callback, not reached by the office text blast in the last
+     24 h (pipeline.reengage.at), within 7 days of pipeline.entered_at (or created_at when it never entered) and after
+     auto_followups_from. The text goes only with SMS consent; the email twin goes to everyone with an email. Quiet
+     hours by law: only 8 AM - 9 PM in the lead's ZIP time zone (else Eastern), Florida ZIPs (32/33/34) only until
+     8 PM. Several overdue steps -> ONE message (the booking link if due), the others recorded "combined". The lead
+     panel keeps sent follow-ups visible after booking (sentBefore), shows "email sent" / "combined", a Trainer
+     reminders step, and the trainer panel lists the automatic texts/emails the client got (trainerFollowupLine).
+     Hadley's 8:30 re-engage send was cancelled (the follow-ups cover her). Pins: tests/meeting-2026-09-23.test.mjs
+     "first two columns", tests/timer-start-and-trainer-emails-2026-09-25.test.mjs "ONE message",
+     tests/system-alerts-2026-09-30.test.mjs "stay visible".

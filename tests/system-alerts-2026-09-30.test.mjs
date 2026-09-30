@@ -118,3 +118,12 @@ test("Joshua 2026-09-30 (A): the trainer is reminded on the client's follow-up c
   const src = read("lib/pipeline.js");
   assert.match(src, /const step = due\[due\.length - 1\];/, "overdue steps go as one text");
 });
+
+test("Joshua 2026-09-30: sent follow-ups stay visible after the lead books; trainer reminders + the trainer's own line show", () => {
+  const app = read("trainer-backoffice/app.js");
+  assert.match(app, /!\(step\.notBooked && booked && !sentBefore\(step\.key\)\)/);
+  assert.match(app, /\{ key: "trainer_waiting", label: "Trainer reminders while still New Inquiry \(15 min, 30 min, next day\)"/);
+  assert.match(app, /case "trainer_waiting": return journeyTrainerWaitingState\(pipeline, booking, lead\);/);
+  assert.match(app, /\$\{recycledLine\(lead\)\}\$\{leadScoreLine\(lead\)\}\$\{trainerFollowupLine\(lead\)\}/, "the trainer panel shows the texts their client got");
+  assert.doesNotMatch(app, /"Not sent: the follow-ups only go to someone who got the first booking-link text\."/, "the old rule's words are gone");
+});

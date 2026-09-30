@@ -66,19 +66,20 @@ test("auto follow-ups: a recorded step never fires again (manual press marks it 
   assert.deepEqual(P.autoFollowUpDue(lead, T0 + 25 * HOUR - 20 * MIN), ["care"], "tim and link are done, whatever their outcome");
 });
 
-test("auto follow-ups: booking, closing, no consent, no first text, or an old lead stops the chain", () => {
+test("auto follow-ups: booking, leaving the first two columns, no way to reach them, or an old lead stops the chain", () => {
   const P = loadPipeline(true);
   const base = () => makeLead();
   const withBooking = b => { const l = base(); l.raw_payload.booking = b; return l; };
   assert.deepEqual(P.autoFollowUpDue(withBooking({ slot_start: "2026-09-24T14:00:00Z" }), T0), [], "booked online: stop");
   assert.deepEqual(P.autoFollowUpDue(withBooking({ requested_at: "2026-09-23T11:00:00Z" }), T0), [], "requested a trainer: stop");
   assert.deepEqual(P.autoFollowUpDue(withBooking({ callback: { zip: "44128" } }), T0), [], "asked for a callback: stop");
-  for (const status of ["became_client", "archived", "do_not_contact", "lost_no_response", "evaluation_scheduled", "evaluation_complete"]) {
+  for (const status of ["became_client", "archived", "do_not_contact", "lost_no_response", "evaluation_scheduled", "evaluation_complete", "engaged_no_outcome"]) {
     assert.deepEqual(P.autoFollowUpDue(makeLead({ status }), T0), [], `status ${status}: stop`);
   }
-  assert.deepEqual(P.autoFollowUpDue(makeLead({ sms_consent: false }), T0), [], "no SMS consent: nothing");
+  assert.deepEqual(P.autoFollowUpDue(makeLead({ sms_consent: false }), T0), [], "no SMS consent and no email: nothing");
+  assert.deepEqual(P.autoFollowUpDue(makeLead({ sms_consent: false, email: "a@example.com" }), T0), ["tim"], "no SMS consent but an email: the email follow-up");
   const noFirst = makeLead({ raw_payload: { pipeline: { entered_at: new Date(T0 - 20 * MIN).toISOString(), new_lead_text: { status: "skipped" } } } });
-  assert.deepEqual(P.autoFollowUpDue(noFirst, T0), [], "first text never went: no chain");
+  assert.deepEqual(P.autoFollowUpDue(noFirst, T0), ["tim"], "Joshua 2026-09-30: the first text is not needed any more");
   const old = makeLead({ raw_payload: { pipeline: { entered_at: new Date(T0 - 9 * 24 * HOUR).toISOString(), new_lead_text: { status: "sent" } } } });
   assert.deepEqual(P.autoFollowUpDue(old, T0), [], "older than the window: the backlog is left alone");
 });
@@ -368,17 +369,20 @@ test("unfinished form: three messages per lead and never a fourth", async () => 
   assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 3, "three texts, never a fourth");
 });
 
-test("Joshua 2026-09-29: every consented lead is followed up from 2026-09-30 02:30 UTC, even when the first booking-link text was skipped; older leads keep the old rule", () => {
+test("Joshua 2026-09-30: everyone in the first two columns is followed up on the timer - text with consent, email otherwise, never at night", () => {
   const P = loadPipeline(true);
-  const cut = Date.parse("2026-09-30T02:30:00.000Z");
-  const lead = (enteredMs, over = {}) => ({
-    id: "00000000-0000-4000-8000-000000000078", first_name: "Ann", phone: "(440) 555-0123", sms_consent: true, status: "office_contacted",
-    raw_payload: { pipeline: { entered_at: new Date(enteredMs).toISOString(), lane: { key: "booking" }, new_lead_text: { status: "skipped", reason: "No trainer within 50 miles" } } }, ...over
-  });
-  assert.deepEqual(P.autoFollowUpDue(lead(cut + 60000), cut + 60000 + 31 * MIN), ["tim", "link"], "skipped first text: the chain still runs");
-  assert.deepEqual(P.autoFollowUpDue(lead(cut - 60000), cut - 60000 + 31 * MIN), [], "entered before the switch: old rule, no backlog blast");
-  assert.deepEqual(P.autoFollowUpDue(lead(cut + 60000, { sms_consent: false }), cut + 60000 + 31 * MIN), [], "no consent: never");
-  assert.deepEqual(P.autoFollowUpDue(lead(cut + 60000, { status: "evaluation_scheduled" }), cut + 60000 + 31 * MIN), [], "booked / closed: never");
+  const at = h => Date.parse(`2026-09-30T${String(h).padStart(2, "0")}:00:00-04:00`);
+  const lead = (over = {}) => ({ id: "00000000-0000-4000-8000-000000000078", first_name: "Ann", phone: "(440) 555-0123", email: "ann@example.com", sms_consent: true, zip: "44105", status: "office_contacted",
+    created_at: new Date(at(10) - 31 * MIN).toISOString(), raw_payload: {}, ...over });
+  assert.deepEqual(P.autoFollowUpDue(lead(), at(10)), ["tim", "link"], "a lead that never entered the pipeline: clock from created_at");
+  assert.deepEqual(P.autoFollowUpDue(lead({ sms_consent: false }), at(10)), ["tim", "link"], "no texting consent: the EMAIL follow-ups");
+  assert.deepEqual(P.autoFollowUpDue(lead({ sms_consent: false, email: "" }), at(10)), [], "no consent and no email: nothing");
+  assert.deepEqual(P.autoFollowUpDue(lead({ status: "engaged_no_outcome" }), at(10)), [], "only the first two columns");
+  assert.deepEqual(P.autoFollowUpDue(lead(), at(22)), [], "never after 9 PM");
+  assert.deepEqual(P.autoFollowUpDue(lead({ zip: "32301" }), at(20) + 30 * MIN), [], "Florida (Tallahassee, Eastern): never after 8 PM");
+  assert.deepEqual(P.autoFollowUpDue(lead({ zip: "32502" }), at(20) + 30 * MIN), ["tim", "link"], "Pensacola is Central: 7:30 PM there, allowed");
+  assert.deepEqual(P.autoFollowUpDue(lead({ zip: "44105" }), at(20) + 30 * MIN), ["tim", "link"], "Ohio at 8:30 PM: fine");
   const src = require("node:fs").readFileSync(require.resolve("../lib/pipeline.js"), "utf8");
-  assert.match(src, /if \(!bookUrl && key === "link"\) bookUrl = \(await reengageBookingLink\(lead\)\.catch\(\(\) => null\)\)\?\.url \|\| `\$\{B\.practiceOrigin\(\)\}\/book`;/, "the link step always has a link");
+  assert.match(src, /if \(!bookUrl && key === "link"\) bookUrl = \(await reengageBookingLink\(lead\)\.catch\(\(\) => null\)\)\?\.url/, "the link step always has a link");
+  assert.match(src, /const pickStep = due\.length > 1 \? \(due\.includes\("link"\) \? "link" : due\[due\.length - 1\]\) : due\[0\];/, "overdue steps: one message");
 });

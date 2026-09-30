@@ -101,16 +101,16 @@ test("timer start: a lead that entered after the start time follows the normal c
   assert.equal(texts(calls).length, 1);
 });
 
-test("one text per lead per tick: two due steps go on two ticks, never back to back", async () => {
+test("two overdue steps: ONE message (the booking link), the other recorded combined - never back to back", async () => {
   const P = loadPipeline(true);
   const entered = START + 10 * MIN;
   const { calls } = stubWorld({ settings: { auto_followups: true, auto_followups_from: new Date(START).toISOString() }, row: lead(entered) });
   const first = await P.runAutoFollowUps({ nowMs: entered + 40 * MIN });
-  assert.deepEqual(first.sent.map(s => s.step), ["tim"], "only the first due step on this tick");
+  assert.deepEqual(first.sent.map(s => s.step), ["link"], "Joshua 2026-09-30: one message, the booking link");
   assert.equal(texts(calls).length, 1);
   const second = await P.runAutoFollowUps({ nowMs: entered + 55 * MIN });
-  assert.deepEqual(second.sent.map(s => s.step), ["link"], "the next step on the next tick");
-  assert.equal(texts(calls).length, 2);
+  assert.deepEqual(second.sent.map(s => s.step), [], "the 15-minute step was combined, never sent late");
+  assert.equal(texts(calls).length, 1);
 });
 
 test("trainer email kinds: only the listed kinds are emailed; no list = every kind", async () => {

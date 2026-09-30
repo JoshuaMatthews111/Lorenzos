@@ -9785,6 +9785,8 @@ const JOURNEY_STEPS = [
   { key: "care", label: "\"The office will call you\" text", channel: "SMS", text: "care_call", lane: "office_call" },
   { key: "ops_new", label: "Lorenzo: new lead", channel: "SMS to Operations", text: "ops_new_lead" },
   { key: "followup", label: "Follow-ups if not booked (15 min, 30 min, next day)", channel: "SMS", text: "followup_first", notBooked: true },
+  // Joshua 2026-09-30: the trainer's "still waiting" texts on the same clock (lib/pipeline.js runTrainerWaitingReminders).
+  { key: "trainer_waiting", label: "Trainer reminders while still New Inquiry (15 min, 30 min, next day)", channel: "SMS to trainer", text: "trainer_waiting_reminder", notBooked: true },
   { key: "booked", label: "Evaluation booked", channel: "Calendar" },
   { key: "confirm", label: "Confirmation + pre-evaluation link to the client", channel: "SMS", text: "booking_confirmation" },
   { key: "alert", label: "Trainer alerted", channel: "SMS to trainer", text: "trainer_new_eval" },
@@ -9852,9 +9854,13 @@ function journeyFollowupState(pipeline, booking, lead) {
   const parts = JOURNEY_FOLLOWUP_STEPS.map(([key, words]) => {
     const rec = records.filter(r => r?.step === key).slice(-1)[0];
     if (!rec) return null;
-    return rec.status === "sent" ? `${words} sent ${journeyWhen(rec.at)}` : `${words} not sent: ${journeyNotSentReason(rec.reason, lead)}`;
+    if (rec.status === "sent") return `${words} sent ${journeyWhen(rec.at)}${rec.client_email?.status === "sent" ? " (+ email)" : ""}`;
+    if (rec.status === "combined") return `${words} combined into the ${(JOURNEY_FOLLOWUP_STEPS.find(([k]) => k === rec.into) || [, "next"])[1]}`;
+    // Joshua 2026-09-30: no texting consent -> the follow-up goes as an EMAIL only.
+    if (rec.client_email?.status === "sent") return `${words}: email sent ${journeyWhen(rec.at)} (no text: they did not agree to texts)`;
+    return `${words} not sent: ${journeyNotSentReason(rec.reason, lead)}`;
   }).filter(Boolean);
-  const anySent = records.some(r => r?.status === "sent");
+  const anySent = records.some(r => r?.status === "sent" || r?.client_email?.status === "sent");
   const stopped = booking.slot_start ? "Stopped: they booked." : booking.requested_at || booking.callback ? "Stopped: they asked for a trainer or a call." : "";
   const enteredAt = Date.parse(pipeline.entered_at || "");
   const done = new Set(records.map(r => r?.step));
@@ -9863,12 +9869,44 @@ function journeyFollowupState(pipeline, booking, lead) {
   const nextLine = upcoming ? `Next: the ${upcoming[1]} around ${journeyWhen(new Date(enteredAt + upcoming[2]).toISOString())}.` : "";
   if (parts.length) return { state: anySent ? "done" : "skipped", detail: [parts.join(" · "), stopped, nextLine].filter(Boolean).join(" ") };
   if (stopped) return { state: "skipped", detail: `Not needed. ${stopped}` };
-  if (pipeline.new_lead_text?.status !== "sent") return { state: "skipped", detail: "Not sent: the follow-ups only go to someone who got the first booking-link text." };
+  if (pipeline.new_lead_text?.status !== "sent" && !(Date.parse(pipeline.entered_at || "") >= Date.parse("2026-09-30T02:30:00Z"))) return { state: "skipped", detail: "Not sent: before Sept 30, the follow-ups only went to someone who got the first booking-link text." };
+  if (!(lead?.smsConsent === "Yes" || lead?.smsConsent === true || lead?.sms_consent === true)) return { state: "skipped", detail: "Not sent: this person did not agree to texts. Their trainer still gets the reminders to call." };
   const entered = Date.parse(pipeline.entered_at || "");
   if (Number.isFinite(entered) && entered < Date.parse("2026-09-25T13:00:00Z")) return { state: "skipped", detail: "Not sent: this lead came in before the follow-up texts started (Sept 25, 9:00 AM)." };
   if (Number.isFinite(entered) && Date.now() - entered > 7 * 86400000) return { state: "skipped", detail: "Not sent: the follow-up window (7 days) had passed." };
   const next = JOURNEY_FOLLOWUP_STEPS.find(([, , after]) => !Number.isFinite(entered) || Date.now() - entered < after);
   return { state: "todo", detail: next && Number.isFinite(entered) ? `Next: the ${next[1]} around ${journeyWhen(new Date(entered + next[2]).toISOString())}` : "Waiting for the next check (every 15 minutes)" };
+}
+
+const WAITED_WORDS_UI = { tim: "15-min", link: "30-min", care: "next-day" };
+function journeyTrainerWaitingState(pipeline, booking, lead) {
+  const recs = Array.isArray(pipeline.trainer_waiting_reminders) ? pipeline.trainer_waiting_reminders : [];
+  const parts = recs.map(r => r?.status === "sent" ? `${WAITED_WORDS_UI[r.step] || r.step} reminder sent ${journeyWhen(r.at)}`
+    : r?.status === "combined" ? `${WAITED_WORDS_UI[r.step] || r.step} reminder combined into the next one`
+      : `${WAITED_WORDS_UI[r?.step] || r?.step} reminder not sent${r?.reason ? `: ${r.reason}` : ""}`);
+  const stillNew = (lead?.dbStatus || "") === "new_inquiry" || lead?.status === "New Inquiry";
+  const entered = Date.parse(pipeline.entered_at || "");
+  const done = new Set(recs.map(r => r?.step));
+  const next = stillNew && !booking.slot_start && Number.isFinite(entered) && entered >= Date.parse("2026-09-30T06:00:00Z")
+    ? JOURNEY_FOLLOWUP_STEPS.find(([key]) => !done.has(key)) : null;
+  const nextLine = next ? `Next: around ${journeyWhen(new Date(entered + next[2]).toISOString())} if the card is still in New Inquiry (never 9 PM - 8 AM).` : "";
+  if (parts.length) return { state: recs.some(r => r?.status === "sent") ? "done" : "skipped", detail: [parts.join(" · "), nextLine].filter(Boolean).join(" ") };
+  if (!((lead?.trainerId && lead.trainerId !== "unassigned") || pipeline.trainer_slug)) return { state: "skipped", detail: "Not needed: no trainer assigned yet. The office sees this lead in the alert bell." };
+  if (!stillNew) return { state: "skipped", detail: "Not needed: the card left New Inquiry." };
+  return { state: "todo", detail: nextLine || "Waiting for the next check (every 15 minutes)." };
+}
+
+// The trainer's own view (Joshua 2026-09-30): which automatic texts THEIR client already got, so they know before they call.
+function trainerFollowupLine(lead) {
+  const pipeline = leadRawPayload(lead).pipeline;
+  if (!pipeline || typeof pipeline !== "object") return "";
+  const sent = [];
+  if (pipeline.new_lead_text?.status === "sent") sent.push(`booking link ${journeyWhen(pipeline.new_lead_text.at)}`);
+  if (pipeline.care_text?.status === "sent") sent.push(`"office will call you" ${journeyWhen(pipeline.care_text.at)}`);
+  (Array.isArray(pipeline.followups) ? pipeline.followups : []).filter(f => f?.status === "sent" || f?.client_email?.status === "sent")
+    .forEach(f => sent.push(`${WAITED_WORDS_UI[f.step] || "follow-up"} follow-up ${f.status === "sent" ? "text" : "email"} ${journeyWhen(f.at)}`));
+  if (!sent.length) return "";
+  return `<p class="lead-score-line"><strong>Automatic texts this client already got:</strong> <span>${escapeHtml(sent.join(" · "))}</span></p>`;
 }
 
 function journeyStepState(step, lead) {
@@ -9891,6 +9929,7 @@ function journeyStepState(step, lead) {
     case "care": return fromRecord(pipeline.care_text, "Sent") || noRecord();
     case "ops_new": return fromRecord(pipeline.ops_new_lead, "Sent") || noRecord();
     case "followup": return journeyFollowupState(pipeline, booking, lead);
+    case "trainer_waiting": return journeyTrainerWaitingState(pipeline, booking, lead);
     case "booked":
       if (booked) return { state: "done", detail: `${booking.when_label || leadEvalLabel(booking.slot_start, leadTimeZone(lead))}${booking.trainer_name ? ` with ${booking.trainer_name}` : ""}` };
       if (booking.requested) return { state: "todo", detail: `Trainer requested (${booking.trainer_name || "no calendar"}). The office schedules the time.` };
@@ -9929,7 +9968,11 @@ function leadJourneyTimeline(lead) {
   if (pipeline && window.LDTT_IS_SANDBOX && !journeyTexts.loaded && !journeyTexts.loading) setTimeout(loadJourneyTexts, 0);
   const lane = pipeline?.lane?.key || "";
   const booked = Boolean(raw.booking?.slot_start);
-  const steps = !pipeline ? [JOURNEY_STEPS[0]] : JOURNEY_STEPS.filter(step => (!step.lane || step.lane === lane) && !(step.key === "link" && lane === "office_call") && !(step.notBooked && booked));
+  // Joshua 2026-09-30 ("the follow-up texts on the timer are not seen"): a step that already SENT something stays
+  // visible after the lead books - booking only hides steps that never happened.
+  const sentBefore = key => (key === "followup" && Array.isArray(pipeline?.followups) && pipeline.followups.length > 0)
+    || (key === "trainer_waiting" && Array.isArray(pipeline?.trainer_waiting_reminders) && pipeline.trainer_waiting_reminders.length > 0);
+  const steps = !pipeline ? [JOURNEY_STEPS[0]] : JOURNEY_STEPS.filter(step => (!step.lane || step.lane === lane) && !(step.key === "link" && lane === "office_call") && !(step.notBooked && booked && !sentBefore(step.key)));
   const items = steps.map(step => {
     const { state, detail } = journeyStepState(step, lead);
     const words = step.text ? journeyTexts.texts[step.text] : null;
@@ -10339,7 +10382,7 @@ function trainerLeadDetailPanel() {
   const canDeal = lead.status !== "Became a Client";
   return `<aside class="lead-detail-panel trainer-lead-panel" aria-label="Lead details"><button class="detail-close" type="button" data-close-lead aria-label="Close">×</button>
     <span class="portal-tag">Lead details</span><h2>${escapeHtml(lead.owner)}</h2>
-    <p class="trainer-lead-status"><span class="status live">${escapeHtml(leadStatusLabel(lead.status || "New Inquiry"))}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}${recycledTag(lead)}${leadScoreTag(lead)}</p>${recycledLine(lead)}${leadScoreLine(lead)}
+    <p class="trainer-lead-status"><span class="status live">${escapeHtml(leadStatusLabel(lead.status || "New Inquiry"))}</span>${market ? ` <strong class="lead-card-market">${escapeHtml(market)}</strong>` : ""}${serviceDogTag(lead)}${track500Tag(lead)}${recycledTag(lead)}${leadScoreTag(lead)}</p>${recycledLine(lead)}${leadScoreLine(lead)}${trainerFollowupLine(lead)}
     <div class="row-actions trainer-lead-actions">${tel ? `<a class="btn btn-red btn-small" href="tel:${escapeHtml(tel)}">Call</a>` : ""}${email ? `<a class="btn btn-outline btn-small" href="mailto:${escapeHtml(email)}">Email</a>` : ""}<button type="button" class="btn btn-outline btn-small" data-view="communications">Log a call</button>${canDeal ? `<button type="button" class="btn btn-outline btn-small" data-deal-from-lead="${escapeHtml(lead.remoteId || lead.id)}">Submit a deal for this client</button>` : ""}</div>
     ${trainerLeadActionsBox(lead)}
     <section class="detail-note-block"><span>Contact</span><div class="lead-contact-grid">${row("Phone", phone)}${row("Email", email)}<div class="wide"><span>Address</span><strong>${escapeHtml(client.address || lead.address || "—")}</strong></div></div></section>

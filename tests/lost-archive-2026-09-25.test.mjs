@@ -178,7 +178,8 @@ test("office archive op: an optional reason is merged into raw_payload.archive_r
 
 test("the pipeline's automatic follow-ups stop on every real Lost status (the old list had wrong names)", () => {
   const P = require("../lib/pipeline.js");
-  const base = { sms_consent: true, raw_payload: { pipeline: { entered_at: new Date(Date.now() - 3 * 3600000).toISOString(), new_lead_text: { status: "sent" } } } };
-  assert.ok(P.autoFollowUpDue({ ...base, status: "new_inquiry" }).length > 0, "an open lead is still due");
-  for (const status of [...HARD, ...M.SOFT_LOST_STATUSES]) assert.deepEqual(P.autoFollowUpDue({ ...base, status }), [], status);
+  const base = { sms_consent: true, phone: "(440) 555-0123", raw_payload: { pipeline: { entered_at: new Date(Date.now() - 3 * 3600000).toISOString(), new_lead_text: { status: "sent" } } } };
+  const now = Date.now();
+  assert.ok(P.autoFollowUpDue({ ...base, status: "new_inquiry" }, now, { ignoreQuietHours: true }).length > 0, "an open lead is still due");
+  for (const status of [...HARD, ...M.SOFT_LOST_STATUSES]) assert.deepEqual(P.autoFollowUpDue({ ...base, status }, now, { ignoreQuietHours: true }), [], status);
 });
