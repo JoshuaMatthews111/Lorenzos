@@ -2855,3 +2855,13 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      Hadley's 8:30 re-engage send was cancelled (the follow-ups cover her). Pins: tests/meeting-2026-09-23.test.mjs
      "first two columns", tests/timer-start-and-trainer-emails-2026-09-25.test.mjs "ONE message",
      tests/system-alerts-2026-09-30.test.mjs "stay visible".
+
+157. **Every new lead hears from us at once, any hour, by email (Joshua 2026-09-30, after Lorenzo: "I'm not waking up
+     to scheduled evaluations").** enterPipeline booking lane: a trainer link -> the booking-link email (unchanged since
+     2026-09-23); NO link (nobody within 50 miles) -> the "care_call" email (office will call you), idempotency
+     client:<id>:care_call, recorded as pipeline.new_lead_client_email. An e-book lead without SMS consent -> the
+     booking-link email right away (reengageBookingLink for its ZIP), recorded, no texts, no pipeline entry. Follow-ups
+     (rule 156): quiet hours apply only when a TEXT goes (SMS consent + phone); an email-only lead is followed up at any
+     hour. Facts found 2026-09-30: the Meta ad sets (LDTT account) run 24 h with lifetime budgets and no night schedule;
+     ~1 in 5 leads arrive 9 PM-8 AM; the first booking-link text and email always went at night. Pin:
+     tests/ebook-2026-09-30.test.mjs "any hour".

@@ -31,7 +31,8 @@ test("server: an e-book lead is recorded as one, never jumps to booking, and ent
   assert.match(booking, /intake\.lead_kind === "ebook" \? \{ lead_type: "pdf_download", lead_magnet: "The 5-Step Calm Dog Blueprint", problem: "your dog" \}/);
   assert.match(read("api/booking-lead.js"), /if \(intake\.value\.lead_kind === "ebook"\) \{\n      return res\.status\(200\)\.json\(\{ ok: true, lead_id: lead\.id, ebook: true, book_url: null/);
   const pipe = read("lib/pipeline.js");
-  assert.match(pipe, /if \(rawOf\(lead\)\.lead_type === "pdf_download" && lead\.sms_consent !== true\) return \{ status: 200, body: \{ ok: true, lead_id: lead\.id, trainer_slug: null, book_url: null, skipped: "ebook" \} \};/);
+  assert.match(pipe, /if \(rawOf\(lead\)\.lead_type === "pdf_download" && lead\.sms_consent !== true\) \{/);
+  assert.match(pipe, /return \{ status: 200, body: \{ ok: true, lead_id: lead\.id, trainer_slug: null, book_url: null, skipped: "ebook" \} \};\n  \}/, "no texts without consent");
 });
 
 test("the older ad pages' e-book forms: last name + ZIP required, the SMS tick is sent, then the pipeline", () => {
@@ -90,4 +91,13 @@ test("Joshua 2026-09-30: the ad page footer has no links off the page - only the
     assert.ok(f, d);
     assert.deepEqual((f.match(/href="[^"]*"/g) || []).sort(), ['href="#book"', 'href="#eval"', 'href="#top"', 'href="tel:+18664364959"'].sort(), d);
   }
+});
+
+test("Joshua 2026-09-30 (Lorenzo: no one wakes up booked): every new lead hears from us at once by email, any hour", () => {
+  const pipe = read("lib/pipeline.js");
+  assert.match(pipe, /\} else \{\n    \/\/ Joshua 2026-09-30 \(Lorenzo: "I'm not waking up to scheduled evaluations"\)[\s\S]{0,300}clientTwinEmail\("care_call"/, "no trainer link: the office-will-call email");
+  assert.match(pipe, /const textable = lead\?\.sms_consent === true && Boolean\(lead\?\.phone\);\n  if \(!ignoreQuietHours && textable\) \{/, "quiet hours only when a TEXT goes");
+  const P = require("../lib/pipeline.js");
+  const lead = { id: "e1", first_name: "A", email: "a@example.com", sms_consent: false, zip: "44105", status: "new_inquiry", created_at: new Date(Date.parse("2026-09-30T03:00:00-04:00") - 20 * 60000).toISOString(), raw_payload: {} };
+  assert.deepEqual(P.autoFollowUpDue(lead, Date.parse("2026-09-30T03:00:00-04:00")), ["tim"], "email-only follow-up at 3 AM");
 });

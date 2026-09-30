@@ -218,7 +218,9 @@ test("a trainer-page lead stays with its trainer; the free ebook opt-in is left 
   assert.equal(r2.body.trainer_slug, "lorenzo-miller", "Lorenzo's own page books with Lorenzo whatever the ZIP");
   const r3 = await P.enterPipeline(ebook.id);
   assert.equal(r3.body.skipped, "ebook");
-  assert.equal(db.leads.find(l => l.id === ebook.id).version, 1, "the ebook lead is not written");
+  // Joshua 2026-09-30: an e-book lead without SMS consent gets the booking link by EMAIL (recorded), never a text.
+  assert.ok(db.leads.find(l => l.id === ebook.id).raw_payload.pipeline?.new_lead_client_email, "the instant email is recorded");
+  assert.equal(db.leads.find(l => l.id === ebook.id).raw_payload.pipeline?.entered_at, undefined, "it does not enter the text pipeline");
   assert.equal(hookCalls(calls, 1).length, 1, "only Lorenzo's page lead is texted");
 });
 
