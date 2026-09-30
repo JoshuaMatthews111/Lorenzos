@@ -367,3 +367,18 @@ test("unfinished form: three messages per lead and never a fourth", async () => 
   assert.deepEqual(steps, ["tim", "link", "care"], "exactly the three steps, in order");
   assert.equal(calls.filter(c => c.host === "hook.us2.make.com").length, 3, "three texts, never a fourth");
 });
+
+test("Joshua 2026-09-29: every consented lead is followed up from 2026-09-30 02:30 UTC, even when the first booking-link text was skipped; older leads keep the old rule", () => {
+  const P = loadPipeline(true);
+  const cut = Date.parse("2026-09-30T02:30:00.000Z");
+  const lead = (enteredMs, over = {}) => ({
+    id: "00000000-0000-4000-8000-000000000078", first_name: "Ann", phone: "(440) 555-0123", sms_consent: true, status: "office_contacted",
+    raw_payload: { pipeline: { entered_at: new Date(enteredMs).toISOString(), lane: { key: "booking" }, new_lead_text: { status: "skipped", reason: "No trainer within 50 miles" } } }, ...over
+  });
+  assert.deepEqual(P.autoFollowUpDue(lead(cut + 60000), cut + 60000 + 31 * MIN), ["tim", "link"], "skipped first text: the chain still runs");
+  assert.deepEqual(P.autoFollowUpDue(lead(cut - 60000), cut - 60000 + 31 * MIN), [], "entered before the switch: old rule, no backlog blast");
+  assert.deepEqual(P.autoFollowUpDue(lead(cut + 60000, { sms_consent: false }), cut + 60000 + 31 * MIN), [], "no consent: never");
+  assert.deepEqual(P.autoFollowUpDue(lead(cut + 60000, { status: "evaluation_scheduled" }), cut + 60000 + 31 * MIN), [], "booked / closed: never");
+  const src = require("node:fs").readFileSync(require.resolve("../lib/pipeline.js"), "utf8");
+  assert.match(src, /if \(!bookUrl && key === "link"\) bookUrl = \(await reengageBookingLink\(lead\)\.catch\(\(\) => null\)\)\?\.url \|\| `\$\{B\.practiceOrigin\(\)\}\/book`;/, "the link step always has a link");
+});

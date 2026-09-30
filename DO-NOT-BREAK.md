@@ -2748,3 +2748,11 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      trainer-page lead gets NO second office email from the pipeline (queueNewLeadEmail skips it; the practice copy
      still sends it because form-delivery answers 423 there). Pins: tests/trainer-page-leads-2026-09-22.test.mjs,
      tests/contact-to-booking.test.mjs, tests/office-email.test.mjs "Joshua 2026-09-29".
+
+145. **Every SMS-consented lead is followed up (Joshua, meeting 2026-09-29).** autoFollowUpDue no longer needs the
+     first booking-link text to have been SENT for a lead that entered the pipeline at or after
+     ALL_CONSENTED_FROM (2026-09-30T02:30Z): consent + not booked/callback + not a CLOSED_STATUSES column is enough
+     (so a lead the office moved to "Office contacted" keeps its follow-ups). Leads that entered before keep the old
+     rule, so the switch never texted the backlog. The "link" step always has a link: the pipeline book_url, else the
+     trainer link, else reengageBookingLink (live ad 2.0 page near the ZIP, else /book?zip=). Pin:
+     tests/meeting-2026-09-23.test.mjs "Joshua 2026-09-29".
