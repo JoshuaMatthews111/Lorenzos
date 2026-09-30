@@ -1179,7 +1179,7 @@
   // Which photo slots carry a play button, per design; the value is the videos2 key the play button reads.
   function a2VideoSlot(design, slot) {
     if (/^(ba[1-4]|st[1-3])$/.test(slot)) return slot;
-    if (slot === "founder" && design === "d2") return "founder";
+    if (slot === "founder" && (design === "d2" || design === "d1")) return "founder"; // d1 too since 2026-09-29 (Harrison)
     if (slot === "about" && design === "d3") return "founder";
     return "";
   }

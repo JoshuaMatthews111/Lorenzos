@@ -2761,3 +2761,10 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      the practice copy the Site Builder, Page Studio and Ad 2.0 Studio publish buttons read "Push live on the
      sandbox", and each confirm says the live website does NOT change and to use Send to live. Live keeps
      "Publish" / "Publish changes". Pin: tests/sandbox-push-label-2026-09-29.test.mjs.
+
+147. **Ad 2.0 design d1 has a founder video (Harrison 2026-09-29: Cleveland, Miramar Beach, San Diego, Tallahassee had no
+     video upload on the founder / "Start your free evaluation" section).** lib/ad2-page-template.js d1 founder photo
+     draws play(36, 55, 64, "story", ...) ONLY when videos2.founder is set, so a d1 page without a video keeps its
+     exact bytes; the Site Builder offers the founder video slot for d1 and d2 (a2VideoSlot). San Antonio (d2) already
+     had it. Pin: tests/sandbox-push-label-2026-09-29.test.mjs "d1". 2026-09-29 also: all live + practice ad_pages rows
+     were backed up to private.ad2_pages_backup_20260929 before 7 sandbox pages were sent to live as drafts.
