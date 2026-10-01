@@ -44,5 +44,28 @@ test("Enter or Space on a list line opens it, and the lines look clickable", () 
   assert.match(js, /li\[data-open\]\[role=button\]/);
   const css = readFileSync(new URL("../assets/v2/v2.css", import.meta.url), "utf8");
   assert.match(css, /\.panel li\[data-open\]\{cursor:pointer\}/);
-  assert.equal(T.VERSION, "20261001ad23");
+  assert.equal(T.VERSION, "20261001ad24");
+});
+
+test("rule 160: each program panel carries the office's own words (title, tagline, problems, goal, its button), no prices", () => {
+  const html = T.renderPage(designs[1], {});
+  const panel = key => html.match(new RegExp(`<div class="modal" id="m-svc-${key}"[\\s\\S]*?</div></div>`))[0];
+  assert.match(panel("puppy"), /Start Right Before Bad Habits Start/);
+  assert.match(panel("puppy"), /<span>START MY PUPPY RIGHT<\/span><small>Book Free Evaluation<\/small>/);
+  assert.match(panel("behavior"), /<h2[^>]*>Behavior Modification<\/h2>/, "the card's name, not the document's old 'Behavior Solutions'");
+  assert.match(panel("board"), /The handoff process teaches you how to maintain the behaviors/);
+  assert.match(panel("service"), /<h3>Training May Include<\/h3>/);
+  assert.match(panel("service"), /<span>REQUEST A SERVICE DOG EVALUATION<\/span><\/button>/);
+  assert.match(panel("advanced"), /my dog reliably does it/);
+  for (const k of ["puppy", "obedience", "behavior", "board", "service", "advanced"]) {
+    assert.match(panel(k), /<h3>Problems We Solve<\/h3>[\s\S]*<h3>The Goal<\/h3>/, k);
+    assert.doesNotMatch(panel(k), /\$\s?\d/, `${k}: no prices`);
+    assert.doesNotMatch(panel(k), /safeguard|I would avoid/i, `${k}: the document's note to the office never shows`);
+  }
+});
+
+test("rule 160: the long card title grows with the page on wide screens (it was a fixed 13.44px)", () => {
+  const css = readFileSync(new URL("../assets/v2/v2.css", import.meta.url), "utf8");
+  assert.doesNotMatch(css, /\.card h3\.long\{font-size:\.84em/);
+  assert.match(css, /@media \(min-width:761px\)\{\.card h3\.long\{font-size:calc\(var\(--u\)\*10\.9\)\}\}/);
 });

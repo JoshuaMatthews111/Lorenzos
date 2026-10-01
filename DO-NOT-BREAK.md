@@ -2895,3 +2895,16 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      2026-10-01: all 46 renders (practice drafts, practice published, live published) are byte-identical to the old code
      outside the list lines, and every line keeps its old position. ad2 VERSION 20261001ad23.
      Pins: tests/hero-list-2026-10-01.test.mjs (3).
+
+160. **The program panels carry the office's own words; the long card title grows with the page (office 2026-10-01).**
+     `SVC_INFO` in lib/ad2-page-template.js = the "Text for Thumbnail" document, word for word: title (the card's name;
+     the document's "Behavior Solutions" = the card renamed Behavior Modification), tagline, intro paragraph(s),
+     "Problems We Solve", Service Dog's "Training May Include", "The Goal", and the button ("START MY PUPPY RIGHT" +
+     small "Book Free Evaluation"; Service Dog's button is only "REQUEST A SERVICE DOG EVALUATION"). Every button opens
+     the page's evaluation form. No prices. The document's note to the office ("Important website safeguard ...") is NOT
+     page text. The card / list `aria-label` reads "<program>: learn more". v2.css: `.card h3.long` was a fixed 13.44px
+     (.84em of the card), so on a wide screen "BEHAVIOR MODIFICATION" looked tiny next to titles sized in design units
+     (office screenshot 2026-09-30); now `calc(var(--u)*10.9)` from 761px up (13.4px at 1280, same as before there) and
+     12.5px, allowed to wrap, on phones. All 46 renders compared to the old code: only the list attributes, aria
+     labels, panel words and the stylesheet version differ; every card and list line keeps its position.
+     ad2 VERSION 20261001ad24. Pins: tests/hero-list-2026-10-01.test.mjs "rule 160" (2).

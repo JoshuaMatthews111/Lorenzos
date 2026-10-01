@@ -581,4 +581,14 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 .msvc p{line-height:1.55;margin:0}
 .msvc .msvc-note{margin:14px 0;color:#53677f;font-size:14px}
 .msvc .btn-red{display:block;width:100%;padding:12px 16px;margin-top:6px;font-size:15px}
-.card h3.long{font-size:.84em;letter-spacing:-.01em;white-space:nowrap}
+/* rule 160: the office's panel words - tagline under the title, intro paragraphs, two-line button */
+.msvc .msvc-tag{margin:2px 0 10px;font-weight:600;color:#c8102e}
+.msvc .msvc-intro{margin:0 0 8px}
+.msvc .msvc-cta{margin-top:16px;display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2}
+.msvc .msvc-cta small{font-size:12px;font-weight:500;letter-spacing:.02em;opacity:.92}
+/* 2026-10-01 (rule 160, screenshot from the office): "BEHAVIOR MODIFICATION" was a fixed 13.44px (.84em of the card), so on a
+   wide screen it looked tiny next to titles that grow with the page. It now grows with the page too: 10.9 design units is the
+   same 13.4px at 1280 wide, and stays on one line. On phones it may wrap to two lines at the normal card title size. */
+.card h3.long{letter-spacing:-.01em;white-space:nowrap}
+@media (min-width:761px){.card h3.long{font-size:calc(var(--u)*10.9)}}
+@media (max-width:760px){.card h3.long{font-size:12.5px;white-space:normal}}
