@@ -571,6 +571,10 @@ body.d2 .band-btn{font-size:calc(var(--u)*13.5)}
 /* Zoom 2026-09-29: training cards open a text panel. */
 .card[data-open]{cursor:pointer}
 .card[data-open]:focus-visible{outline:3px solid #fff;outline-offset:2px}
+/* 2026-10-01 (rule 159): each line of the top-photo list opens its program panel, like the cards. */
+.panel li[data-open]{cursor:pointer}
+.panel li[data-open]:hover span{text-decoration:underline;text-underline-offset:3px}
+.panel li[data-open]:focus-visible{outline:2px solid #fff;outline-offset:3px}
 .msvc{max-width:560px;text-align:left}
 .msvc h3{margin:14px 0 6px;font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:#0f2747}
 .msvc ul{margin:0;padding-left:20px;line-height:1.55}

@@ -2882,3 +2882,16 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      evals that live only in Google / Alpha need the travel hour in Google, blocks must be Busy on a calendar the
      schedule checks, appointment length 2 h (meeting 2026-09-29). Pins: tests/travel-gap-2026-09-30.test.mjs (6),
      tests/booking.test.mjs "the same time is taken for others (rule 158)".
+
+159. **The top-photo list on every ad 2.0 page is in the card order and opens the panels (office 2026-10-01, Arrison:
+     "1-4 were not rearranged").** The "PROFESSIONAL DOG TRAINING" list in the hero (all of d1, d2, d3; on d1 pages -
+     Cleveland, Miramar Beach, San Diego, Tallahassee - it is the only training list) reads Puppy, Obedience, Behavior
+     Modification, Board & Train, Service Dog (rule 153's order; d1 has no Advanced line) and each `<li>` carries
+     `data-open="svc-<key>" role="button" tabindex="0"`, so a click / Enter / Space opens the same panel as the card
+     (v2.js keydown accepts `li[data-open][role=button]`; v2.css `.panel li[data-open]` pointer + underline + focus ring).
+     **Arrison's design is never moved:** the list keeps FIVE lines with the same words, because the office's moves
+     (`elbox` "hero:<n>") are matched by position (hero:0 h1 ... hero:4 panel, hero:5 its title, hero:6-10 the lines,
+     hero:11 the white button). Never add or remove a positioned element in a section that has office moves. Proof
+     2026-10-01: all 46 renders (practice drafts, practice published, live published) are byte-identical to the old code
+     outside the list lines, and every line keeps its old position. ad2 VERSION 20261001ad23.
+     Pins: tests/hero-list-2026-10-01.test.mjs (3).

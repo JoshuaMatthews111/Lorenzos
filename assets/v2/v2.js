@@ -32,7 +32,7 @@
 
   // Zoom 2026-09-29: a training card is a button - Enter or Space opens its panel like a click.
   document.addEventListener("keydown", function (e) {
-    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.matches && e.target.matches("article[data-open][role=button]")) {
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.matches && e.target.matches("article[data-open][role=button], li[data-open][role=button]")) {
       e.preventDefault();
       e.target.click();
     }
