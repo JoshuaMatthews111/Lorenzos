@@ -2920,3 +2920,9 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      and New York (Sean Urena, Flushing); a trainer in a new state gets a button with no code change. The static page
      (and build.py) also list Illinois and New York for the first paint; the subtitle no longer says "ten".
      Pins: tests/state-tabs-2026-10-01.test.mjs (2).
+     **LIVE 2026-10-01 (rules 158-161 together, Joshua "yes"):** production dpl_D9wxWXFB6CjT6yBc3bfjEGthPAZt, stamp
+     20261001live69 (commit d3dad436). Before: dpl_5DBcwjpBHzuTL2vLM1pciJ4PUW1U (live65) = the rollback target
+     (`npx vercel rollback dpl_5DBcwjpBHzuTL2vLM1pciJ4PUW1U --yes`). Checked on live: /, /contact, /get-started, /book,
+     /book/fredharris, /staff, /find-a-trainer, /ads/columbus, /ads/cleveland, /ads/pensacola, /dog-training-columbus-oh,
+     /fredharris 200; Find a Trainer (phone) shows Illinois (Jasmine Bland) and New York (Sean Urena), 31 trainers, no
+     sideways scroll; /ads/tallahassee every list line opens its panel; Shantelle's Sat Oct 3 11 AM no longer offered.
