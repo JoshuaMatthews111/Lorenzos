@@ -2926,3 +2926,17 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      /book/fredharris, /staff, /find-a-trainer, /ads/columbus, /ads/cleveland, /ads/pensacola, /dog-training-columbus-oh,
      /fredharris 200; Find a Trainer (phone) shows Illinois (Jasmine Bland) and New York (Sean Urena), 31 trainers, no
      sideways scroll; /ads/tallahassee every list line opens its panel; Shantelle's Sat Oct 3 11 AM no longer offered.
+
+162. **Arrison's sandbox ad 2.0 pages sent to live (office 2026-10-01: "not seeing the updates on live"; Meta ads point
+     at /ads/<slug> today).** The code was live (rules 158-161) but her Sept 30 page edits were not: live still had the
+     2026-09-29 copies, /ads/durham did not exist and /ads/fort-worth was an old draft. Migration
+     `publish_ad2_sandbox_to_live_2026_10_01` (same writes as api/pages.js publish): backup of every live ad_pages row to
+     `private.ad2_pages_backup_20261001` FIRST (16 rows, no anon/authenticated grant), then for the 16 practice pages with
+     status published, live draft_content = published_content = the practice published_content, revisions +1,
+     published_at now, title/market/city/state from the content, one ad_page_revisions "published" row each; durham
+     inserted. The practice copy was only READ (its updated_at values unchanged). Checked before: ad2.publishChecklist ok
+     on all 16, no practice/sandbox links, all 187 photo/video files 200. Checked after: all 16 live = practice, every
+     /ads/<slug> 200 on both hosts with all of her files and the same element counts, durham + fort-worth pop-ups, eval
+     form and pixel. Copied text fixed on BOTH copies (migration `fix_trainer_names_fort_worth_durham_2026_10_01`, f_p1
+     only): Fort Worth named the San Antonio trainers (now Eric Hardaway); Durham named Dylan Atkinson (now Tristan
+     Gray). Scan after: every page names only its own market's trainers. Rollback: copy rows back from the backup table.
