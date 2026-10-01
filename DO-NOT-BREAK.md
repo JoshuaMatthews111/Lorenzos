@@ -2908,3 +2908,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      12.5px, allowed to wrap, on phones. All 46 renders compared to the old code: only the list attributes, aria
      labels, panel words and the stylesheet version differ; every card and list line keeps its position.
      ad2 VERSION 20261001ad24. Pins: tests/hero-list-2026-10-01.test.mjs "rule 160" (2).
+
+161. **Find a Trainer's state buttons build themselves from the trainers (office 2026-10-01, Arrison: "add Illinois and
+     NY to the state tabs"; Joshua: "from now on the site will automatically add a state when one does not exist").**
+     script.js `refreshStateFilters()` runs on the static cards and again after the live roster sync: a card's states =
+     its own state tag + any full state name in its location / service area + ", XX" abbreviations in its location line
+     + metro words (`AREA_STATES`: Chicago / Chicagoland -> Illinois; NYC boroughs -> New York; DFW -> Texas); the
+     trainer's own name is never read as a state. The buttons ("All States" + every state found, A-Z) are redrawn in
+     `.filters` (one delegated click handler); a state filter matches `data-states`, the search box still matches
+     the words (states are added to `data-search`). 2026-10-01 this adds Illinois (Jasmine Bland serves Chicagoland)
+     and New York (Sean Urena, Flushing); a trainer in a new state gets a button with no code change. The static page
+     (and build.py) also list Illinois and New York for the first paint; the subtitle no longer says "ten".
+     Pins: tests/state-tabs-2026-10-01.test.mjs (2).

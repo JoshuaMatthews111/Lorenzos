@@ -4,7 +4,7 @@ const nav=document.querySelector('.nav-links');
 toggle?.addEventListener('click',()=>{const open=nav.classList.toggle('open');toggle.setAttribute('aria-expanded',open)});
 
 const search=document.querySelector('#trainerSearch');
-const buttons=[...document.querySelectorAll('.filter-btn')];
+const filtersBox=document.querySelector('.filters');
 let cards=[...document.querySelectorAll('.trainer-card')];
 const count=document.querySelector('#trainerCount');
 let filter='';
@@ -132,19 +132,60 @@ const publicTrainerProfilesPromise=(async()=>{
     return new Map();
   }
 })();
+// Office 2026-10-01 (Arrison: "add Illinois and NY to the state tabs"; Joshua: "from now on the site will automatically
+// add a state when one does not exist", rule 161): the state buttons are built from the trainer cards themselves - each
+// trainer's own state, any state named in their location or service area ("Flushing, NY" -> New York), and the metro
+// areas below (Chicagoland -> Illinois). A trainer in a new state gets a button with no code change.
+const US_STATES={AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',CO:'Colorado',CT:'Connecticut',DE:'Delaware',DC:'District of Columbia',FL:'Florida',GA:'Georgia',HI:'Hawaii',ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming'};
+const AREA_STATES=[[/\bchicago(land)?\b/,'Illinois'],[/\b(new york city|nyc|queens|brooklyn|manhattan|bronx|staten island)\b/,'New York'],[/\bdfw\b/,'Texas']];
+const stateName=value=>{const text=String(value||'').trim();if(!text) return '';const up=text.toUpperCase();if(US_STATES[up]) return US_STATES[up];return Object.values(US_STATES).find(name=>name.toLowerCase()===text.toLowerCase())||'';};
+function trainerCardStates(card){
+  const found=new Set();
+  const own=stateName(card.querySelector('.trainer-info .tag')?.textContent);
+  if(own) found.add(own);
+  const locationLine=card.querySelector('.trainer-card-location')?.textContent||'';
+  const personName=(card.querySelector('.trainer-info h3')?.textContent||'').trim().toLowerCase();
+  const text=`${card.dataset.search||''} ${locationLine}`.toLowerCase().replace(personName,' '); // a trainer named Virginia is not a state
+  Object.values(US_STATES).forEach(name=>{if(new RegExp(`\\b${name.toLowerCase()}\\b`).test(text)) found.add(name);});
+  (locationLine.match(/,\s*([A-Z]{2})\b/g)||[]).forEach(hit=>{const name=US_STATES[hit.replace(/[,\s]/g,'')];if(name) found.add(name);});
+  AREA_STATES.forEach(([pattern,name])=>{if(pattern.test(text)) found.add(name);});
+  return [...found];
+}
+function refreshStateFilters(){
+  const all=new Set();
+  cards.forEach(card=>{
+    const states=trainerCardStates(card);
+    card.dataset.states=states.map(name=>name.toLowerCase()).join('|');
+    const extra=states.map(name=>name.toLowerCase()).filter(name=>!(card.dataset.search||'').includes(name));
+    if(extra.length) card.dataset.search=`${card.dataset.search||''} ${extra.join(' ')}`;
+    states.forEach(name=>all.add(name));
+  });
+  if(!filtersBox) return;
+  const names=[...all].sort((a,b)=>a.localeCompare(b));
+  if(filter&&!names.some(name=>name.toLowerCase()===filter)) filter='';
+  filtersBox.innerHTML=`<button class="filter-btn${filter?'':' active'}" type="button" data-filter="">All States</button>`
+    +names.map(name=>`<button class="filter-btn${filter===name.toLowerCase()?' active':''}" type="button" data-filter="${escapePublicText(name.toLowerCase())}">${escapePublicText(name)}</button>`).join('');
+}
 function updateTrainers(){
-  const term=((search?.value||'')+' '+filter).trim().toLowerCase();
-  cards.forEach(card=>card.hidden=term&&!term.split(/\s+/).every(word=>card.dataset.search.includes(word)));
+  const term=(search?.value||'').trim().toLowerCase();
+  cards.forEach(card=>{
+    const inState=!filter||(card.dataset.states?card.dataset.states.split('|').includes(filter):(card.dataset.search||'').includes(filter));
+    const matches=!term||term.split(/\s+/).every(word=>(card.dataset.search||'').includes(word));
+    card.hidden=!(inState&&matches);
+  });
   const visible=cards.filter(card=>!card.hidden).length;
   if(count) count.textContent=`${visible} trainer${visible===1?'':'s'} shown`;
 }
 search?.addEventListener('input',updateTrainers);
-buttons.forEach(button=>button.addEventListener('click',()=>{
-  buttons.forEach(item=>item.classList.remove('active'));
+filtersBox?.addEventListener('click',event=>{
+  const button=event.target.closest('.filter-btn');
+  if(!button) return;
+  filtersBox.querySelectorAll('.filter-btn').forEach(item=>item.classList.remove('active'));
   button.classList.add('active');
-  filter=button.dataset.filter;
+  filter=button.dataset.filter||'';
   updateTrainers();
-}));
+});
+if(cards.length) refreshStateFilters();
 
 publicTrainerProfilesPromise.then(profiles=>{
   const trainerGrid=document.querySelector('#trainerGrid');
@@ -176,6 +217,7 @@ publicTrainerProfilesPromise.then(profiles=>{
     if(locationNode) locationNode.textContent=location;
     card.dataset.search=`${record.full_name||''} ${location} ${record.service_area||''}`.toLowerCase();
   });
+  refreshStateFilters(); // rule 161: the live roster may bring a new state
   updateTrainers();
   const profile=document.querySelector('[data-trainer-profile-slug]');
   if(!profile) return;
