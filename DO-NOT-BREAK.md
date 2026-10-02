@@ -2940,3 +2940,20 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      form and pixel. Copied text fixed on BOTH copies (migration `fix_trainer_names_fort_worth_durham_2026_10_01`, f_p1
      only): Fort Worth named the San Antonio trainers (now Eric Hardaway); Durham named Dylan Atkinson (now Tristan
      Gray). Scan after: every page names only its own market's trainers. Rollback: copy rows back from the backup table.
+
+163. **Sean Urena (Flushing NY) and Arion Goble (Milton FL) are ON the booking page (office 2026-10-01, Joshua: "make
+     sure the trainers appear ... every time a zip code is typed ... even the new trainers in the new markets").**
+     Both rows in `site_settings.booking_trainers` were `active:false` with "Not set up yet (no phone) - Joshua
+     2026-09-22"; both got their own phone on 2026-09-27 and already held a calendar id. Migration
+     `booking_activate_sean_urena_arion_goble_2026_10_01`: backup of the whole setting to
+     `private.booking_trainers_backup_20261001` first, then only `active` flips to true (the old reason is kept in
+     `activated_note`). Checked on live, no form sent: ZIP 11354 -> Sean Urena (1 mi), 11201 -> Sean Urena (10 mi),
+     32501 -> Arion Goble, Michael King, Daniel Bainbridge; both calendars answer with open times and no error; the
+     ZIP box on all 15 /ads/<slug> pages draws the right trainer cards (Tallahassee: nobody within 50 miles, office
+     follow-up, unchanged). Clark Patton, John DelBane and Emilio Marotta still have no calendar row (shared office
+     phone), so they are not cards. Rollback: set `active:false` again or restore the backup value.
+     **Meta ads the same day (ad account act_1727659198512358, API):** ad sets for the 10 running markets = lifetime
+     $1,000, end 2026-10-31 23:59 ET (Panama City was $550); Dallas/Fort Worth = $500; new PAUSED campaigns + ad sets
+     for Flushing/Queens NY (15 mi around 40.7654,-73.8318), Pensacola (30 mi) and Durham NH (30 mi), $500 each, Lead
+     pixel event, ages 25-65. Ann Arbor untouched (rule 122: off the campaign; its ad is disapproved). State before:
+     scratchpad `state-before-2026-10-01.json`. New ads (music + /ads/<slug> links) were NOT made yet.
