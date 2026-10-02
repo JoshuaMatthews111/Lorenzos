@@ -2975,3 +2975,17 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      Objective` + `Buying Type`, an `Ad ID` column (`a:<id>`) to update instead of duplicate, and NO Instagram column -
      the import clears the Instagram profile, set it in the editor for all ads at once). Read back from the API after
      publish: 15/15 music video, /ads/<slug> link, Instagram set, ad set + campaign ACTIVE, ads in review.
+
+165. **Trainers can serve extra ZIPs beyond the 50-mile radius (`service_zips`), Victoria Morris covers Tallahassee
+     (office 2026-10-02: "the top zip codes in Tallahassee are 32312, 32309 and 32317; her actual zip is 32405").**
+     `lib/booking.js`: a `booking_trainers` row may hold `service_zips` (5-digit list); `nearbyTrainers` lists that
+     trainer for those exact ZIPs even past `RADIUS_MILES` (the card still shows the real miles). Everything else is
+     the 50-mile rule unchanged; routing for texts (`routeZip`) follows the same list. Test:
+     `tests/booking-service-zips.test.mjs`. Data (migration `victoria_morris_zip_32405_tallahassee_service_zips_2026_10_02`,
+     backup `private.victoria_zip_backup_20261002`): Victoria `base_zip` 32401 -> 32405, `service_zips`
+     ["32312","32309","32317"]. /ads/tallahassee (live + practice): ZIP example 32312, f_p1 grammar. Meta: Tallahassee
+     ad set now targets only those 3 ZIPs (renamed), campaign back on, $1,000 lifetime to Oct 31.
+     **LIVE 2026-10-02:** dpl_64QY8hk11k1yfj9TfLud6JKUW5Fq (commit b5d26b52); rollback target
+     dpl_D9wxWXFB6CjT6yBc3bfjEGthPAZt. 682/682 tests. Checked on live: 32312/32309/32317 -> Victoria; 32301 -> nobody;
+     32405 -> Victoria 0 mi, Tabatha 3 mi; 30303 Atlanta and 11354 Sean unchanged; /, /book, /contact, /find-a-trainer,
+     /ads/tallahassee, /ads/panama-city-beach 200.
