@@ -2957,3 +2957,21 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      for Flushing/Queens NY (15 mi around 40.7654,-73.8318), Pensacola (30 mi) and Durham NH (30 mi), $500 each, Lead
      pixel event, ages 25-65. Ann Arbor untouched (rule 122: off the campaign; its ad is disapproved). State before:
      scratchpad `state-before-2026-10-01.json`. New ads (music + /ads/<slug> links) were NOT made yet.
+
+164. **Meta ads point at the 2.0 pages and carry music (office 2026-10-01/02, Joshua: "update the existing ones ...
+     only create new for markets that don't exist"; song picked by Lorenzo: "Getting Strong", Jackson Whalan, Meta
+     Sound Collection, downloaded under the Lorenzo's Dog Training Team business).** 15 ads in act_1727659198512358:
+     the 12 existing ads were UPDATED in place (same ad ids; Ann Arbor is back on by Joshua's word, so rule 122's
+     "off the campaign" now only describes the old static page redirect), 3 new ads (Flushing/Queens, Pensacola,
+     Durham NH). Every ad: link `https://www.lorenzosdogtrainingteam.com/ads/<slug>`, a video with the song mixed in
+     (7 uploads, titles "... (music: Getting Strong)"), Instagram profile lorenzosdogtrainingteam, Learn More.
+     Chicago, San Antonio, Panama City, San Diego, Cleveland, Atlanta and Dallas/Fort Worth kept their words; the other
+     8 got the broad free-evaluation words. Every ad set is website-only (Dallas/Fort Worth was "website and calls").
+     Budgets: $1,000 lifetime (11 older markets), $500 (4 new), all end 2026-10-31 23:59 ET.
+     **How it had to be done:** the TRAC500 app is still in Development mode, so the API cannot create ad creatives
+     (error 1885183) and the office Facebook login is not an admin of that app. Budgets, statuses, campaigns, ad sets
+     and video uploads work by API; creatives went through Ads Manager -> More -> Import ads in bulk (file kept at
+     `~/Desktop/LDTT Portal Login Speed 2026-09-08/ldtt-meta-ads-import-2026-10-01.csv`; it needs `Campaign
+     Objective` + `Buying Type`, an `Ad ID` column (`a:<id>`) to update instead of duplicate, and NO Instagram column -
+     the import clears the Instagram profile, set it in the editor for all ads at once). Read back from the API after
+     publish: 15/15 music video, /ads/<slug> link, Instagram set, ad set + campaign ACTIVE, ads in review.
