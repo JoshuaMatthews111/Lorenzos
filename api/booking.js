@@ -464,7 +464,7 @@ async function preEval(req, res, body) {
           pre_eval: {
             answers,
             rows: PE.answerRows(answers, dogNames(current)),
-            flags: PE.safetyFlags(answers),
+            flags: PE.safetyFlags(answers, dogNames(current)),
             submitted_at: now,
             first_submitted_at: before.first_submitted_at || now,
             updates: (Number(before.updates) || 0) + 1

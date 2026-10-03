@@ -403,6 +403,10 @@ async function updateRecord(admin, body, requestId) {
       const when = changes.eval_scheduled_at ? new Date(changes.eval_scheduled_at) : null;
       if (when && Number.isNaN(when.getTime())) return { status: 400, body: { ok: false, message: "The eval date and time could not be read. Pick it again." } };
       changes.eval_scheduled_at = when ? when.toISOString() : null;
+      // Office 2026-10-03: a time saved on an open lead that is not scheduled yet moves it to Evaluation
+      // Scheduled, unless this same save sets a status itself. Clearing the time never moves it back.
+      const BEFORE_EVAL = ["site_visit", "new_inquiry", "office_contacted", "engaged_no_outcome", "follow_up_call_needed", "evaluation_cancelled"];
+      if (when && !("status" in changes) && BEFORE_EVAL.includes(before.status)) changes.status = "evaluation_scheduled";
     }
   }
   // rule 74: a trainer's Base ZIP is 5 digits or empty (empty = not listed on the booking page).

@@ -21,7 +21,8 @@ test("pre-eval: only known questions, only listed choices, capped text, required
   const { answers, errors } = PE.cleanAnswers({
     top_behavior: "Pulls on the leash\u0000", behaviors: ["Jumping", "Hacking", "Pulling on leash"], how_often: "Hourly",
     disruption: "4", bite_history: "No", bite_details: "should be dropped", children: "Yes", other_animals: "No",
-    medical: "No", medical_details: "dropped too", evil: "<script>", dogs: [{ time_with_family: "2 years", where_from: "Rescue" }, { where_from: "Mars" }]
+    medical: "No", medical_details: "dropped too", evil: "<script>", dogs: [{ time_with_family: "2 years", where_from: "Rescue" }, { where_from: "Mars" }],
+    more_dogs: [{ top_behavior: "Jumping", bite_history: "No" }] // office 2026-10-03: dog 2 answers its own questions
   }, ["Snoop", "Bella"]);
   assert.deepEqual(errors, []);
   assert.equal(answers.top_behavior, "Pulls on the leash", "control bytes removed");

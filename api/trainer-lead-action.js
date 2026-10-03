@@ -56,6 +56,9 @@ const SOFT_REASONS = new Set(["price", "not_ready", "no_response", "complaint"])
 const ARCHIVE_LABELS = Object.fromEntries(METRICS.ARCHIVE_REASONS);
 // Same funnel words as api/operational-mutation.js LIFECYCLE_STATUS_EVENTS.
 const LIFECYCLE = { evaluation_complete: "evaluation_completed", lost_no_response: "lost_no_response" };
+// Office 2026-10-03: the open statuses before an evaluation; saving an eval time from any of them moves the
+// lead to Evaluation Scheduled (same list in api/operational-mutation.js).
+const BEFORE_EVAL = new Set(["site_visit", "new_inquiry", "office_contacted", "engaged_no_outcome", "follow_up_call_needed", "evaluation_cancelled"]);
 const CLOSED = new Set(["became_client", "archived", "do_not_contact", "bad_lead", "canceled_refunded", "canceled_write_off",
   ...METRICS.HARD_NO_LOST_STATUSES, ...METRICS.SOFT_LOST_STATUSES, "lost_chose_another_provider"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -378,6 +381,10 @@ module.exports = async function handler(req, res) {
       if (when && Number.isNaN(when.getTime())) return reply(res, 400, { ok: false, message: "The eval date and time could not be read. Pick it again." });
       changes = { eval_scheduled_at: when ? when.toISOString() : null };
       summary = when ? `Trainer set the evaluation date and time to ${when.toISOString()}${before.eval_scheduled_at ? ` (was ${before.eval_scheduled_at})` : ""}.` : "Trainer cleared the evaluation date and time.";
+      // Office 2026-10-03: "if you put a scheduled eval time and date the card automatically moves to eval
+      // scheduled" - an open lead that is not yet scheduled moves to Evaluation Scheduled. Clearing the time
+      // never moves a card back.
+      if (when && BEFORE_EVAL.has(before.status)) { changes.status = "evaluation_scheduled"; summary += " The lead moved to Evaluation Scheduled."; }
     } else if (action === "archive") {
       // "Archive (maybe later)": the lead leaves the trainer's board (rule 80: archived is never drawn for a trainer),
       // stays on file with its reason, and the office can bring it back at any time (Restore).
@@ -455,7 +462,7 @@ module.exports = async function handler(req, res) {
       });
     }
     if (action === "eval_completed") await P.afterEvalCompleted({ lead: record }).catch(error => console.error("after_eval_completed_failed", String(error?.message || error)));
-    const message = action === "eval_time" ? "Eval date and time saved. The office sees it." : action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : action === "archive" ? "Archived for later. The office sees it and can bring it back." : action === "intro_called" ? "Checked off: you called the client. No more reminders for this one." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
+    const message = action === "eval_time" ? (record.status !== before.status ? "Eval date and time saved. The lead moved to Evaluation Scheduled." : "Eval date and time saved. The office sees it.") : action === "contacted" ? "Marked contacted. The office sees it." : action === "eval_completed" ? "Marked Eval completed." : action === "lost" ? "Marked lost. The office sees it." : action === "archive" ? "Archived for later. The office sees it and can bring it back." : action === "intro_called" ? "Checked off: you called the client. No more reminders for this one." : changes.added_to_alpha === true ? "Saved: logged in Alpha." : changes.added_to_alpha === false ? "Saved: not logged in Alpha yet." : "Alpha answer cleared.";
     return reply(res, 200, { ok: true, message, record: { id: record.id, status: record.status, added_to_alpha: record.added_to_alpha ?? null, version: record.version || null, ...(action === "intro_called" ? { trainer_intro_called_at: record.raw_payload?.pipeline?.trainer_intro_called_at || null } : {}) } });
   } catch (error) {
     const status = error.status && error.status >= 400 && error.status < 600 ? error.status : 500;

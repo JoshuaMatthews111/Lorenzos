@@ -17215,7 +17215,10 @@ document.addEventListener("change", async event => {
     const lead = updateLeadRecord(evalAt.dataset.leadEvalAt, { evalScheduledAt: iso });
     if (!lead) return;
     const detail = `${lead.owner || "Lead"} eval date + time set to ${leadEvalLabel(iso, zone) || "not set"}.`;
-    if (remoteReady) runRemoteMutation("Eval date + time saved", () => persistLeadFields(lead, { eval_scheduled_at: iso || null }, detail), { type: "Lead", detail });
+    // Office 2026-10-03: the server moves an open lead to Evaluation Scheduled when a time is saved; show it at once.
+    if (remoteReady) runRemoteMutation("Eval date + time saved", () => persistLeadFields(lead, { eval_scheduled_at: iso || null }, detail).then(record => {
+      if (record?.status && record.status === "evaluation_scheduled" && iso) return reloadRemoteData().then(() => render()).catch(() => {});
+    }), { type: "Lead", detail });
     else saveState("Eval date + time saved");
     return;
   }
