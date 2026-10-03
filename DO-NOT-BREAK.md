@@ -2989,3 +2989,24 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      dpl_D9wxWXFB6CjT6yBc3bfjEGthPAZt. 682/682 tests. Checked on live: 32312/32309/32317 -> Victoria; 32301 -> nobody;
      32405 -> Victoria 0 mi, Tabatha 3 mi; 30303 Atlanta and 11354 Sean unchanged; /, /book, /contact, /find-a-trainer,
      /ads/tallahassee, /ads/panama-city-beach 200.
+
+166. **Saving an eval date + time moves an open lead to Evaluation Scheduled (office 2026-10-03: "trainers forget to
+     change the status ... if you put a scheduled eval time and date the card automatically moves").** Both saves:
+     the trainer's `eval_time` action (`api/trainer-lead-action.js`, `BEFORE_EVAL`) and the office panel's
+     eval-time save (`api/operational-mutation.js` updateRecord, only when that save sets no status itself). From
+     site_visit, new_inquiry, office_contacted, engaged_no_outcome, follow_up_call_needed or evaluation_cancelled ->
+     `evaluation_scheduled`, with the usual `lead_events` status_changed row and the `evaluation_scheduled`
+     lifecycle row (the trainer path now writes it too). Clearing the time never moves a card back; a later status
+     (eval complete, client, lost, archived) is never touched. No texts, emails or `sales_pipeline` (same as the
+     office setting the status by hand). The office panel reloads so the card moves at once.
+     **Two or more dogs each answer the pre-eval questions (office 2026-10-03: "we only see one set ... we don't know
+     which dog").** `lib/pre-eval.js`: fields marked `household` (children, other animals, before entering,
+     responsible, others, vet name/phone) are asked once; every other question in sections 2-7 is asked per dog.
+     Dog 1 keeps the top-level keys (old answers read the same), dog 2.. live in `answers.more_dogs[i-1]`. Rows and
+     safety flags say "<dog name>: ..." when there are several dogs; a second dog's required answers are required
+     ("Please answer for Bella: ..."). Booking page form: dog fields named `q_` (dog 1) / `m<i>_` (dog i+1), show-if
+     per dog. Tests: `tests/office-2026-10-03.test.mjs` (5) + the updated pre-eval test; 687/687.
+     **Checked on the practice copy (ldtt-sandbox, dpl 4puq1w2wp):** office save and trainer save each moved an
+     "LDTT TEST" lead to Evaluation Scheduled with both events; the 2-dog form (fake booking in the test browser,
+     nothing saved) shows each question for Max and Bella, household once, names Bella when her answer is missing,
+     and sends her answers in more_dogs.
