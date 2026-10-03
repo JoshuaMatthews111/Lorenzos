@@ -55,7 +55,7 @@ LOST_LABELS.other_provider = LOST_LABELS.competitor;
 const SOFT_REASONS = new Set(["price", "not_ready", "no_response", "complaint"]); // the old trainer choices: now Archive
 const ARCHIVE_LABELS = Object.fromEntries(METRICS.ARCHIVE_REASONS);
 // Same funnel words as api/operational-mutation.js LIFECYCLE_STATUS_EVENTS.
-const LIFECYCLE = { evaluation_complete: "evaluation_completed", lost_no_response: "lost_no_response" };
+const LIFECYCLE = { evaluation_scheduled: "evaluation_scheduled", evaluation_complete: "evaluation_completed", lost_no_response: "lost_no_response" }; // evaluation_scheduled: office 2026-10-03 (same event the office save writes)
 // Office 2026-10-03: the open statuses before an evaluation; saving an eval time from any of them moves the
 // lead to Evaluation Scheduled (same list in api/operational-mutation.js).
 const BEFORE_EVAL = new Set(["site_visit", "new_inquiry", "office_contacted", "engaged_no_outcome", "follow_up_call_needed", "evaluation_cancelled"]);
