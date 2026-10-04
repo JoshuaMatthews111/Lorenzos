@@ -3010,3 +3010,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      "LDTT TEST" lead to Evaluation Scheduled with both events; the 2-dog form (fake booking in the test browser,
      nothing saved) shows each question for Max and Bella, household once, names Bella when her answer is missing,
      and sends her answers in more_dogs.
+
+167. **Leads from the 2.0 ad pages count as Paid Ad Submitted Inquiries (office 2026-10-03: the dashboard showed 1 paid
+     ad lead).** `isPaidAdLandingPageLead` (app.js) and `isPaidAd` (lib/email-campaign.js, same rule) only knew the old
+     `dog-training-*` pages, so the 21 real leads from `/ads/<market>` since the Meta ads moved there (rule 164) were
+     counted as Contact Us. Both now also match `/ads/<slug>` in the source page. The Meta pixel was never the problem
+     (Lead fires on every 2.0 form, rule 162 check). This intentionally moves leads from the Contact Us bucket to the
+     Paid Ad bucket (rule 1 "nothing about Leads-tab numbers may move" - the total is unchanged).
+     **LIVE 2026-10-03 (rules 166 + 167, Joshua "1"):** dpl_F5mas7dbSVj2SHxsXZEmabhHNWq2, stamp 20261003live70;
+     rollback target dpl_64QY8hk11k1yfj9TfLud6JKUW5Fq. 688/688 tests. Checked on live: /, /staff, /book, /contact,
+     /find-a-trainer, /get-started, /ads/chicago, /ads/flushing 200; /staff loads app.js?v=20261003live70;
+     /api/environment LIVE public; ZIP 32312 -> Victoria. Sarah Stocker and Carmen Wildfong (reported "disappeared")
+     are both on live in Evaluation Scheduled (booked online 10/3, Daniel Bainbridge and Victoria Morris).
