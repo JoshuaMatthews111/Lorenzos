@@ -50,3 +50,12 @@ test("leads from the 2.0 ad pages (/ads/<market>) count as paid-ad leads", () =>
   const app = fs.readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
   assert.match(app, /if \(values\.some\(value => \/\\\/ads\\\/\[a-z0-9-\]\+\/\.test\(value\)\)\) return true;/);
 });
+
+test("2.0 ad page leads get an ad page label and their market row", () => {
+  const P = require("../lib/pipeline.js");
+  assert.equal(P.sourceWords({ source_page: "https://www.lorenzosdogtrainingteam.com/ads/miramar-beach", raw_payload: {} }), "Ad page 2.0: Miramar Beach, FL");
+  assert.match(P.sourceWords({ source_page: "https://www.lorenzosdogtrainingteam.com/ads/fort-worth", raw_payload: {} }), /^Ad page 2\.0: Dallas/);
+  const app = fs.readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
+  assert.match(app, /const AD2_ALIASES = \{ "fort-worth": "dallas" \};/);
+  assert.match(app, /find\(page => values\.some\(value => valueMatchesPage\(value, page\.slug\)\)\)/);
+});

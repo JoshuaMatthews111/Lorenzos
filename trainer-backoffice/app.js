@@ -8596,7 +8596,7 @@ function adPageFromLeadPayload(raw = {}) {
     raw.landing_page,
     raw.page_path
   ].map(value => String(value || "").toLowerCase());
-  return adLandingPageConfigs().find(page => values.some(value => value.includes(page.slug)))
+  return adLandingPageConfigs().find(page => values.some(value => valueMatchesPage(value, page.slug)))
     || (raw.landing_page_type === "Paid ads market page"
       ? adLandingPageConfigs().find(page => String(raw.ad_market || "").toLowerCase() === page.market.toLowerCase())
       : null)
@@ -8774,8 +8774,17 @@ function adLandingPageConfigs() {
   ];
 }
 
+// Office 2026-10-04: the Meta ads land on the 2.0 pages (/ads/<market>); a lead or visit there belongs to the same
+// market row as the old dog-training-<market>-<st> page. /ads/fort-worth is the Dallas/Fort Worth market.
+const AD2_ALIASES = { "fort-worth": "dallas" };
 function valueMatchesPage(value, slug) {
-  return String(value || "").toLowerCase().includes(slug.toLowerCase());
+  const text = String(value || "").toLowerCase();
+  const key = slug.toLowerCase();
+  if (text.includes(key)) return true;
+  const hit = text.match(/\/ads\/([a-z0-9-]+)/);
+  if (!hit) return false;
+  const market = AD2_ALIASES[hit[1]] || hit[1];
+  return key.replace(/^dog-training-/, "").replace(/-[a-z]{2}$/, "") === market;
 }
 
 function adLandingPageStats(page) {
