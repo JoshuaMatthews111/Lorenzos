@@ -3022,3 +3022,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      /find-a-trainer, /get-started, /ads/chicago, /ads/flushing 200; /staff loads app.js?v=20261003live70;
      /api/environment LIVE public; ZIP 32312 -> Victoria. Sarah Stocker and Carmen Wildfong (reported "disappeared")
      are both on live in Evaluation Scheduled (booked online 10/3, Daniel Bainbridge and Victoria Morris).
+
+168. **Every source-page rule knows the 2.0 ad pages (office 2026-10-04: "make sure that contact us error didn't happen
+     somewhere else").** Besides rule 167: `lib/pipeline.js sourceWords` returns "Ad page 2.0: <market>" for
+     `/ads/<slug>` (was "Website: ads/<slug>"); app.js `valueMatchesPage` matches `/ads/<key>` to the
+     `dog-training-<key>-<st>` market (alias fort-worth -> dallas), so `adPageFromLeadPayload` (lead source label,
+     market, sourcePageSlug), `adLandingPageStats` (per-market ad table + tiles) and `marketConversionTable` count
+     these leads under their market. Ann Arbor's 2.0 leads label "Ad page 2.0: Ann Arbor, MI" but have no table row
+     (retired market, rule 122). Re-engage links still use the old static pages on purpose (unchanged).
+     **LIVE 2026-10-04:** dpl_HUFiADe5XUaiMTcMGKvUpNKPhJ3o, stamp 20261004live71; rollback dpl_F5mas7dbSVj2SHxsXZEmabhHNWq2.
+     689/689 tests. **Meta:** the Dallas/Fort Worth campaign, ad set and ad were DELETED in Ads Manager on 2026-10-03
+     20:42 UTC by the account "AdMarketing AJ" (the office's ads login; same account changed Flushing to 30 mi). It
+     spent $42 (Oct 2-3). Meta cannot restore a deleted campaign; nothing was recreated without the office's word.
