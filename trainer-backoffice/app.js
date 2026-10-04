@@ -8334,6 +8334,8 @@ function isPaidAdLandingPageLead(lead = {}) {
     raw.page
   ].map(value => String(value || "").toLowerCase());
   if (raw.landing_page_type === "Paid ads market page" || raw.ad_market) return true;
+  // Office 2026-10-03: the Meta ads now land on the 2.0 pages (/ads/<market>); those leads are paid-ad leads too.
+  if (values.some(value => /\/ads\/[a-z0-9-]+/.test(value))) return true;
   return adLandingPageConfigs()
     .filter(page => page.slug.startsWith("dog-training-"))
     .some(page => values.some(value => value.includes(page.slug.toLowerCase())));

@@ -42,3 +42,11 @@ test("two dogs: the second dog's required answers are required", () => {
   const { errors } = PE.cleanAnswers({ top_behavior: "x", bite_history: "No", children: "No", other_animals: "No", dogs: [{}, {}] }, ["Max", "Bella"]);
   assert.deepEqual(errors, ["Please answer for Bella: What is the #1 behavior you want help with?", "Please answer for Bella: Has your dog ever bitten a person?"]);
 });
+
+test("leads from the 2.0 ad pages (/ads/<market>) count as paid-ad leads", () => {
+  const EC = require("../lib/email-campaign.js");
+  assert.equal(EC.isPaidAd({ source_page: "https://www.lorenzosdogtrainingteam.com/ads/miramar-beach", raw_payload: {} }), true);
+  assert.equal(EC.isPaidAd({ source_page: "trainer landing page: Victoria Morris", raw_payload: {} }), false);
+  const app = fs.readFileSync(new URL("../trainer-backoffice/app.js", import.meta.url), "utf8");
+  assert.match(app, /if \(values\.some\(value => \/\\\/ads\\\/\[a-z0-9-\]\+\/\.test\(value\)\)\) return true;/);
+});
