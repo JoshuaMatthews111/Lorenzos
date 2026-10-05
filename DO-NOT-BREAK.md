@@ -3034,3 +3034,8 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      689/689 tests. **Meta:** the Dallas/Fort Worth campaign, ad set and ad were DELETED in Ads Manager on 2026-10-03
      20:42 UTC by the account "AdMarketing AJ" (the office's ads login; same account changed Flushing to 30 mi). It
      spent $42 (Oct 2-3). Meta cannot restore a deleted campaign; nothing was recreated without the office's word.
+     **Dallas/Fort Worth rebuilt 2026-10-05 (Joshua: "rebuild ... turn it on"):** new campaign 120253398549920526,
+     ad set 120253398552700526 (Dallas 30 mi + Fort Worth 30 mi, website only, Lead pixel, $500 lifetime to Oct 31),
+     ad 120253398560650526 = the office's Dallas words, the Getting Strong video (4340115696300882), link
+     /ads/fort-worth, Instagram lorenzosdogtrainingteam. Campaign + ad set by API, ad by Ads Manager bulk import
+     (file `ldtt-meta-dallas-2026-10-05.csv`), leftover import drafts discarded.
