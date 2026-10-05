@@ -3039,3 +3039,39 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      ad 120253398560650526 = the office's Dallas words, the Getting Strong video (4340115696300882), link
      /ads/fort-worth, Instagram lorenzosdogtrainingteam. Campaign + ad set by API, ad by Ads Manager bulk import
      (file `ldtt-meta-dallas-2026-10-05.csv`), leftover import drafts discarded.
+
+170. **`/careers` is the company-wide trainer recruiting + application page, and it saves through the EXISTING
+     application path (Joshua 2026-10-05: "a premium trainer recruiting and application page ... feeds trainer
+     applications into the office the same way leads flow").** `careers.html` is a static, self-contained page (own
+     inline CSS/JS, brand tokens from `assets/v2/v2.css`, Oswald + Poppins) that loads `supabase-config.js` +
+     `script.js` like `trainer-application.html`. Its one form carries class `trainer-application-form`, so
+     script.js saves it exactly like the old application: Edge Function `submit-trainer-application` ->
+     `trainer_applications` (+ `lifecycle_events`), `application_id` required, then `/api/form-delivery`
+     (recruiting@ FormSubmit email + the application Google Sheet). Nothing new on the server; no migration.
+     - **Same fields, same words.** Every field name, required rule, radio value and select option of
+       `trainer-application.html` is on `/careers` (the Google Sheet mapping `APPLICATION_FIELDS` depends on them);
+       only `state` became a 50-state list (2-letter value) and ZIPs carry a 5-digit pattern. Extra hidden fields:
+       `source_form = "Recruiting page"`, `source_page = "careers"`, `inquiry_type = "full_application"`.
+       The admin Applications screen (Source column, Application Detail "Source", search, CSV) shows
+       "Recruiting page" with no code change; new rows land as New Application on the existing applications board.
+       The Applications screen also has a "Preview Recruiting Page" button next to "Preview Website Application".
+     - **The page script never posts.** It walks 5 steps (validates each, Enter on an early step moves forward,
+       document-capture listener), shows the thank-you only after script.js marks `.form-status` "success" (that
+       only happens once the application row is confirmed), and then fires Meta `CompleteRegistration`
+       (skipped on the practice copy). PageView pixel 3790623554504010 (same head snippet as every static page),
+       Google tag AW-11463464040 config + script.js's `trainer_application_submit` gtag event; NO Google Ads
+       conversion label (those are dog-owner leads). Honeypot `company_website` is added by script.js.
+     - **Practice copy:** `submit-trainer-application` is still v8 WITHOUT the practice flag (checked 2026-10-05
+       with get_edge_function), so `/careers` is switched off there like every application form (rule 20): notice,
+       submit disabled. Do not flip `LDTT_EDGE_PRACTICE_FLAG_DEPLOYED` for this page.
+     - **Route:** `/careers` was free (no file, no redirect/rewrite, no ad page or trainer slug in the database).
+       `careers` is now in middleware `RESERVED` and Site Builder `RESERVED_SLUGS` so a published page can never take
+       it, and in `sitemap.xml`. `/become-a-trainer`, `/trainer-application`, `/onboarding` and the trainer-opportunity
+       pages are unchanged.
+     - **Copy = real facts only** (existing pages/repo): not a franchise, 320+ hour path, incorporated 1987, Lorenzo's
+       40+ year method, 50+ trainers, 12 states (ad2 `STATES`), training center 4815 Orchard Rd, Garfield Heights,
+       OH 44128 (lib/booking.js), 17,000 sq. ft. HQ (facility page), founder story from about/bio, Lorenzo's real
+       headshot. No pay numbers, prices, guarantees or invented testimonials; cost is "reviewed with recruiting".
+       JSON-LD: Organization + FAQPage (no JobPosting/salary).
+     - Tests: `tests/careers-recruiting-page-2026-10-05.test.mjs` (8). 697/697. Audit 203 checks ok. Screenshots in
+       `review/` (excluded from deploys by `.vercelignore`). NOT deployed; nothing was submitted.

@@ -5,7 +5,7 @@
 // can never beat about.html. This runs before it. It asks
 // /api/pages-manifest (edge-cached 60 s) which clean paths are published and
 // rewrites only those to /api/ad-page?slug=<path>&via=site. Everything else —
-// trainer pages, market pages, the ten recruiting pages, assets, the portal —
+// trainer pages, market pages, the ten recruiting pages, /careers (rule 170), assets, the portal —
 // passes through untouched.
 //
 // Fallback order (durability, 2026-09-05):
@@ -25,7 +25,7 @@ export const config = {
   matcher: ["/((?!api/|trainer-backoffice/|assets/|lib/|ads/|p/|site/|_vercel|favicon\\.ico)[^/.]+)", "/sitemap.xml"]
 };
 
-const RESERVED = new Set(["", "index", "staff", "onboarding", "trainer-application", "trainer-profile", "terms", "privacy-policy", "find-a-trainer", "become-a-trainer", "specialty-advanced", "robots.txt", "sitemap.xml"]);
+const RESERVED = new Set(["", "index", "staff", "onboarding", "trainer-application", "trainer-profile", "terms", "privacy-policy", "find-a-trainer", "become-a-trainer", "specialty-advanced", "careers", "robots.txt", "sitemap.xml"]);
 const next = () => new Response(null, { headers: { "x-middleware-next": "1" } });
 const rewrite = url => new Response(null, { headers: { "x-middleware-rewrite": url.toString() } });
 

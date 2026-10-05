@@ -12284,6 +12284,7 @@ function trainerApplicationGoogleFormPanel() {
         ${modes.map(([item, label]) => `<button type="button" class="btn application-mode-tab ${mode === item ? "btn-red active" : "btn-outline"}" data-application-mode="${item}" aria-pressed="${mode === item ? "true" : "false"}">${label}</button>`).join("")}
         <button class="btn btn-outline" type="button" data-export-applications>Download Sheet CSV</button>
         <a class="btn btn-outline" href="../trainer-application.html" target="_blank" rel="noopener">Preview Website Application</a>
+        <a class="btn btn-outline" href="../careers" target="_blank" rel="noopener">Preview Recruiting Page</a>
       </div>
       <p class="panel-copy"><strong>${rows.length} of ${allRows.length} applications shown (${escapeHtml(activeFilter)}${state.applicationSearch ? `, search: "${escapeHtml(state.applicationSearch)}"` : ""}).</strong> The exact form fields, including signature, are preserved in the internal sheet and each full application record.</p>
     </div>
