@@ -3103,3 +3103,33 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
        JSON-LD: Organization + FAQPage (no JobPosting/salary).
      - Tests: `tests/careers-recruiting-page-2026-10-05.test.mjs` (8). 697/697. Audit 203 checks ok. Screenshots in
        `review/` (excluded from deploys by `.vercelignore`). NOT deployed; nothing was submitted.
+169. **Trainer 2.0 landing pages: a paid add-on, one page per paying trainer at /trainer/<slug>; Lorenzo Miller's is the
+     first and only published one (2026-10-05, NOT deployed).** Completely additive: no existing page, route, door or
+     behaviour changed. The page is `lib/trainer2-page-template.js` drawing an entry of `lib/trainer2-pages.js` (keyed by
+     the trainer's slug; only `published: true` is served, everything else 404), served by `api/trainer2-page.js` through
+     ONE new `vercel.json` rewrite `/trainer/:slug` (two path segments: the `/:slug` catch-all and `middleware.js` only
+     ever see one segment, and no `trainer` file or folder exists). Live: edge-cached 10 min; practice copy: no-store,
+     noindex, PRACTICE COPY pill, no pixel or Google tag.
+     - **Leads go ONLY to that trainer.** The form is the 2.0 evaluation form (`form.lead.contact-intake`, unchanged
+       `assets/v2/v2.js`) with NO trainer picker and no trainer fields. It posts to the new `api/trainer2-lead.js?page=<slug>`,
+       which is the /api/booking-lead door (`B.cleanLeadIntake` -> `B.createLead` -> `P.enterPipeline`) with the trainer
+       fixed on the SERVER: `trainer_slug`, `assigned_trainer` and `source_page` from the browser are replaced, so the
+       lead row always carries `trainer_slug = <page trainer>` and the pipeline's "a trainer-page lead stays with ITS
+       trainer" rule (72) applies (never re-routed by ZIP, even without a calendar). `source_page` =
+       `https://www.lorenzosdogtrainingteam.com/trainer/<slug>`, via `trainer2-page`; the pipeline labels it
+       "Trainer page: <name>". It is NOT the old "trainer landing page: <name>" label, so on live the pipeline's office
+       email still goes (this door has no FormSubmit). The browser goes to `/book/<trainer>?lead=&direct=1` only when that
+       trainer has a live calendar AND the ZIP is in their range; otherwise "<first name>'s office will call you" (no
+       page of other trainers' cards). The office lead card's origin reads "Website contact form" and the dashboard
+       bucket is "Contact Us forms" (same as today's trainer pages); relabelling it is an office decision, not done here.
+     - **Tracking** = `metaPixelHead()` + `googleAdsHead()` from `lib/ad-page-template.js` (rule 11): PageView, and Lead
+       with one eventID on submit, exactly like the 2.0 pages.
+     - **Words and media are real only:** the bio from `trainer_pages.approved_bio`, brand facts (40+ years, 600+ Google
+       reviews, 866.436.4959, incorporated 1987, 17,000 sq ft HQ, 4815 Orchard Rd training center from booking_trainers),
+       program words (rule 160), process steps (home page), FAQ answers (lib/ad-page-markets.js), Google review screenshots
+       (assets/reviews), real Lorenzo photos (meet-lorenzo 1/2 from trainer-page-assets, the pack down-stay, the bio photo)
+       as sized webp copies in `assets/trainer2/lorenzo-miller/`, and the real site videos (Oliver's family, client
+       testimonials, HQ campus, Cleveland reel). The AI-made founder video/photo (ai-intro, hf-*, d1-founder) are NOT used.
+       Public words say Lorenzo, never Tim.
+     - **To give another paying trainer a page:** add their entry (real words/photos only) with `published: true`.
+     Tests: `tests/trainer2-page-2026-10-05.test.mjs` (12); 701/701. Screens: `review/trainer2-*.png`.
