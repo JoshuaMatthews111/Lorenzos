@@ -3133,3 +3133,8 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
        Public words say Lorenzo, never Tim.
      - **To give another paying trainer a page:** add their entry (real words/photos only) with `published: true`.
      Tests: `tests/trainer2-page-2026-10-05.test.mjs` (12); 701/701. Screens: `review/trainer2-*.png`.
+     **Atlanta switched 2026-10-06 (Lorenzo: "Atlanta has not been getting many leads"; Joshua: "switch it"):** Oct 2-6
+     Atlanta had 10 link clicks for $52 (lowest click rate, $64 CPM, 0 leads) while the markets on the broad words +
+     "No waitlist" video dropped to $12-24 per lead. Same ad id 120252802676260526 updated in place by bulk import
+     (`ldtt-meta-atlanta-2026-10-06.csv`): title "Big City. Happy Dogs.", the broad free-evaluation words, video
+     4340115696300882, link /ads/atlanta, Instagram set; budget/area unchanged ($1,000 lifetime, 30 mi, $318 left).
