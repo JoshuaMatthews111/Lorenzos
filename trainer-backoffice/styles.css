@@ -5870,6 +5870,72 @@ button.freshness-stale{border:0;cursor:pointer;font:inherit;font-weight:800}
   .team-card-meta { flex-direction: row; flex-wrap: wrap; align-items: center; width: 100%; padding-left: 46px; gap: 6px; }
   .team-chip strong { white-space: normal; }
 }
+/* My Team pyramid (rule 171, 2026-10-05): the downline drawn as a top-down chart, "You" at the top, each level
+   below. Desktop: the chart scrolls sideways INSIDE its own box (.pyr-scroll), never the page. Phones (<= 640px):
+   the same markup stacks into an indented list, so nothing scrolls sideways at all. */
+.team-view { grid-template-columns: minmax(0, 1fr); } /* the wide chart must not stretch the page */
+.team-tree-wrap { min-width: 0; }
+.team-tree-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.team-layout-switch { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: #f4f7fb; }
+.team-layout-switch button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .8rem; font-weight: 700; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.team-layout-switch button[aria-pressed="true"] { background: var(--navy); color: #fff; }
+.team-layout-switch button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.pyr-levels { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; padding: 0; list-style: none; }
+.pyr-levels li { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 11px; border-radius: 999px; background: #f4f7fb; border: 1px solid var(--line); font-size: .78rem; color: var(--muted); }
+.pyr-levels strong { color: var(--navy); font-size: .82rem; }
+.pyr-scroll { overflow-x: auto; overflow-y: hidden; max-width: 100%; padding: 4px 2px 12px; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; border-radius: 12px; }
+.pyr-scroll-hint { margin: -6px 0 8px; }
+.pyr-scroll-hint[hidden] { display: none; }
+.pyr-scroll:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.pyr-tree { display: flex; justify-content: center; width: max-content; min-width: 100%; margin: 0; padding: 0; list-style: none; }
+.pyr-children { position: relative; display: flex; justify-content: center; margin: 0; padding: 18px 0 0; list-style: none; }
+.pyr-children::before { content: ""; position: absolute; top: 0; left: 50%; height: 18px; border-left: 2px solid #c6d4e8; }
+.pyr-node { position: relative; display: flex; flex-direction: column; align-items: center; padding: 18px 6px 0; }
+.pyr-tree > .pyr-node { padding-top: 0; }
+.pyr-children > .pyr-node::before, .pyr-children > .pyr-node::after { content: ""; position: absolute; top: 0; right: 50%; width: 50%; height: 18px; border-top: 2px solid #c6d4e8; }
+.pyr-children > .pyr-node::after { right: auto; left: 50%; border-left: 2px solid #c6d4e8; }
+.pyr-children > .pyr-node:first-child::before, .pyr-children > .pyr-node:last-child::after { border: 0 none; }
+.pyr-children > .pyr-node:last-child::before { border-right: 2px solid #c6d4e8; border-radius: 0 8px 0 0; }
+.pyr-children > .pyr-node:first-child::after { border-radius: 8px 0 0 0; }
+.pyr-children > .pyr-node:only-child::before { display: none; }
+.pyr-children > .pyr-node:only-child::after { left: 50%; width: 0; border: 0; border-left: 2px solid #c6d4e8; border-radius: 0; } /* a straight drop, same height as a fork, so every level lines up */
+.pyr-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 176px; min-height: 224px; padding: 14px 12px 12px; text-align: center; background: var(--white); border: 1px solid var(--line); border-top: 4px solid var(--ring, #cbd5e1); border-radius: 14px; box-shadow: 0 4px 14px rgba(7, 31, 70, .06); }
+.pyr-card.is-me { background: linear-gradient(160deg, var(--navy) 0%, #0b3372 100%); color: #fff; border-color: transparent; border-top-color: var(--ring, #cbd5e1); }
+.pyr-card .team-avatar { width: 56px; height: 56px; font-size: .95rem; }
+.pyr-level { font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pyr-card.is-me .pyr-level { color: rgba(255, 255, 255, .78); }
+.pyr-name { display: block; max-width: 100%; font-size: .95rem; line-height: 1.2; overflow-wrap: anywhere; }
+.pyr-place { display: block; max-width: 100%; font-size: .8rem; color: var(--muted); }
+.pyr-card.is-me .pyr-place { color: rgba(255, 255, 255, .78); }
+.pyr-contact { display: grid; gap: 2px; width: 100%; margin-top: 4px; }
+.pyr-contact a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; font-weight: 600; color: var(--blue); text-decoration: none; padding: 2px 0; }
+.pyr-contact a:hover, .pyr-contact a:focus-visible { text-decoration: underline; }
+.pyr-card.is-me .pyr-contact a { color: #cfe0ff; }
+.pyr-branch { display: flex; flex-direction: column; align-items: center; }
+.pyr-branch > summary { list-style: none; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 999px; background: #f4f7fb; color: var(--navy); font-size: .74rem; font-weight: 700; cursor: pointer; }
+.pyr-branch > summary::-webkit-details-marker { display: none; }
+.pyr-branch > summary::after { content: ""; width: 6px; height: 6px; margin-top: -3px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .15s ease; }
+.pyr-branch[open] > summary::after { margin-top: 3px; transform: rotate(-135deg); }
+.pyr-branch > summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.pyr-branch:not([open]) > summary { background: var(--white); }
+@media (max-width: 640px) {
+  .pyr-scroll { overflow: visible; padding: 0; }
+  .pyr-scroll-hint { display: none; }
+  .team-tree-tools .row-actions { display: flex; flex-direction: row; flex-wrap: nowrap; gap: 8px; width: auto; }
+  .team-tree-tools .row-actions .btn { width: auto; flex: none; }
+  .pyr-tree, .pyr-children { display: block; width: auto; min-width: 0; }
+  .pyr-children { margin-left: 12px; padding: 0 0 0 10px; border-left: 2px solid #c6d4e8; }
+  .pyr-children::before { display: none; }
+  .pyr-node, .pyr-tree > .pyr-node, .pyr-children > .pyr-node:only-child { display: block; padding: 8px 0 0; }
+  .pyr-children > .pyr-node::before, .pyr-children > .pyr-node:first-child::before, .pyr-children > .pyr-node:last-child::before, .pyr-children > .pyr-node:only-child::before { display: block; top: 34px; right: auto; left: -10px; width: 8px; height: 0; border: 0; border-top: 2px solid #c6d4e8; border-radius: 0; }
+  .pyr-children > .pyr-node::after, .pyr-children > .pyr-node:first-child::after, .pyr-children > .pyr-node:only-child::after { display: none; }
+  .pyr-card { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 2px 10px; width: auto; min-height: 0; padding: 10px 12px; text-align: left; border-top-width: 1px; border-left: 4px solid var(--ring, #cbd5e1); }
+  .pyr-card.is-me { border-left-color: var(--ring, #cbd5e1); }
+  .pyr-card .team-avatar { grid-row: 1 / span 6; align-self: start; width: 44px; height: 44px; font-size: .78rem; }
+  .pyr-card > :not(.team-avatar) { grid-column: 2; justify-self: start; }
+  .pyr-branch { display: block; }
+  .pyr-branch > summary { margin: 6px 0 0 12px; }
+}
 /* Meeting 2026-09-16: "My calendar" on the trainer dashboard - upcoming booked evaluations. */
 .trainer-calendar-list { list-style: none; padding: 0; margin: 8px 0 0; }
 .trainer-calendar-list li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; border-top: 1px solid rgba(148, 163, 184, .3); padding: 8px 0; }

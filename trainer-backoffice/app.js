@@ -4793,6 +4793,7 @@ function render() {
   markRequiredLabels(document);
   markOptionalLabels(document);
   restoreSidewaysScroll(scrollPlaces); // the boxes exist by now; putting it back here keeps the two label passes together
+  restoreTeamPyramidScroll(); // rule 171: the My Team chart keeps its own sideways place
   requestAnimationFrame(() => enhancePasswordFields(document));
   requestAnimationFrame(enhanceHorizontalScrollers);
   requestAnimationFrame(refreshTemplatePreview);
@@ -10627,6 +10628,77 @@ function teamNode(person) {
   return `<li class="team-node"><details data-team-node="${escapeHtml(person.slug)}"${teamNodeOpen(person) ? " open" : ""}><summary aria-label="${escapeHtml(person.full_name)}: ${below} below. Tap to open or close.">${card}</summary><ul class="team-tree-children">${kids.map(teamNode).join("")}</ul></details></li>`;
 }
 
+// ---- My Team pyramid (rule 171, 2026-10-05): the same downline drawn as a top-down chart ----------------------------
+// "You" at the top, Level 1 (reports straight to you) under you, their people under them, and so on. It draws ONLY
+// what GET ?team=1 already answered (the caller and their downline); it never asks for anyone else. Each card: photo
+// (the API's cleaned headshot; initials when there is none or it fails), full name, place, rank, Level, and email /
+// phone links only when the API sent one. Branches fold with the same <details data-team-node> + trainerTeamOpen as
+// the list, so "Open all" / "Close all" and a redraw keep working for both. The list view stays one tap away.
+let trainerTeamLayout = "pyramid"; // "pyramid" | "list" (the indented list of rule 105)
+let trainerTeamScrollLeft = null;  // how far across the wide chart is scrolled (null = not yet: start centred on "You")
+
+// The chart scrolls sideways inside its own box on a wide screen. A redraw rebuilds the box, so put it back where the
+// reader left it (first time: centred under "You", whose card sits over the middle of the chart). render() calls this.
+function restoreTeamPyramidScroll() {
+  const box = document.querySelector(".pyr-scroll");
+  if (!box) return;
+  const max = Math.max(0, box.scrollWidth - box.clientWidth);
+  const hint = document.querySelector(".pyr-scroll-hint");
+  if (hint) hint.hidden = !max; // "scroll sideways" shows only when the chart is wider than its box
+  if (!max) return;
+  box.scrollLeft = trainerTeamScrollLeft === null ? Math.round(max / 2) : Math.min(trainerTeamScrollLeft, max);
+}
+document.addEventListener("scroll", event => {
+  if (event.target?.classList?.contains("pyr-scroll")) trainerTeamScrollLeft = event.target.scrollLeft;
+}, { capture: true, passive: true });
+
+function teamPhoneLabel(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  const us = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  return us.length === 10 ? `(${us.slice(0, 3)}) ${us.slice(3, 6)}-${us.slice(6)}` : `+${digits}`;
+}
+
+function teamContactLinks(person) {
+  const email = String(person?.email || "").trim();
+  const safeEmail = /^[^\s@"'<>()]+@[^\s@"'<>()]+\.[a-z]{2,}$/i.test(email) ? email : "";
+  const digits = String(person?.phone || "").replace(/\D/g, "");
+  const tel = digits.length >= 8 && digits.length <= 15 ? `+${digits.length === 10 ? `1${digits}` : digits}` : "";
+  const name = escapeHtml(person?.full_name || "");
+  const links = [
+    safeEmail ? `<a href="mailto:${escapeHtml(safeEmail)}" title="${escapeHtml(safeEmail)}" aria-label="Email ${name}: ${escapeHtml(safeEmail)}">${escapeHtml(safeEmail)}</a>` : "",
+    tel ? `<a href="tel:${escapeHtml(tel)}" aria-label="Call ${name}: ${escapeHtml(teamPhoneLabel(tel))}">${escapeHtml(teamPhoneLabel(tel))}</a>` : ""
+  ].filter(Boolean).join("");
+  return links ? `<span class="pyr-contact">${links}</span>` : "";
+}
+
+function teamPyramidCard(person, levelLabel, isMe = false) {
+  return `<div class="pyr-card team-ring-${teamRankKey(person?.rank)}${isMe ? " is-me" : ""}">${teamAvatar(person)}<span class="pyr-level">${escapeHtml(levelLabel)}</span><strong class="pyr-name">${escapeHtml(person?.full_name || "")}</strong>${person?.place ? `<span class="pyr-place">${escapeHtml(person.place)}</span>` : ""}${teamRankBadge(person)}${teamContactLinks(person)}</div>`;
+}
+
+function teamPyramidNode(person) {
+  const kids = Array.isArray(person.children) ? person.children : [];
+  const below = flattenTrainerTeam(kids).length;
+  const card = teamPyramidCard(person, `Level ${Number(person.depth) || 1}`);
+  if (!kids.length) return `<li class="pyr-node">${card}</li>`;
+  return `<li class="pyr-node">${card}<details class="pyr-branch" data-team-node="${escapeHtml(person.slug)}"${teamNodeOpen(person) ? " open" : ""}><summary aria-label="${escapeHtml(person.full_name)}: ${below} below. Tap to open or close.">${below} below</summary><ul class="pyr-children">${kids.map(teamPyramidNode).join("")}</ul></details></li>`;
+}
+
+// Counts per level, from the nested downline (depth 1 = reports straight to the person at the top).
+function teamLevelCounts(downline) {
+  const counts = [];
+  for (const person of flattenTrainerTeam(downline)) {
+    const depth = Math.max(1, Number(person.depth) || 1);
+    counts[depth - 1] = (counts[depth - 1] || 0) + 1;
+  }
+  return Array.from(counts, n => n || 0);
+}
+
+// The pyramid for one team answer ({ me, downline }). Pure: draws only the data it is given.
+function teamPyramid(team, topLabel = "You") {
+  const levels = teamLevelCounts(team.downline).map((n, i) => `<li>Level ${i + 1} <strong>${n}</strong> ${n === 1 ? "person" : "people"}</li>`).join("");
+  return `<ul class="pyr-levels" aria-label="People per level">${levels}</ul><p class="field-hint pyr-scroll-hint" hidden>The chart is wider than the screen: scroll it sideways to see everyone.</p><div class="pyr-scroll" role="region" aria-label="Team chart" tabindex="0"><ul class="pyr-tree"><li class="pyr-node">${teamPyramidCard(team.me || {}, topLabel, true)}<ul class="pyr-children">${team.downline.map(teamPyramidNode).join("")}</ul></li></ul></div>`;
+}
+
 // The My Team tab. Your upline (small, owner first), then You, then your downline as an expandable org tree.
 // The owner sees the whole organisation from the top. No lead counts (rule 34 + rule 7: numbers come from metrics.js
 // and a trainer never sees another trainer's leads).
@@ -10642,8 +10714,12 @@ function trainerTeamView() {
     ? `<section class="team-upline" aria-label="Your upline"><span class="team-eyebrow">Your upline</span><ol class="team-upline-chain">${team.upline.map(p => `<li><span class="team-chip">${teamAvatar(p, "sm")}<strong>${escapeHtml(p.full_name)}</strong>${teamRankBadge(p)}</span></li>`).join("")}</ol></section>`
     : "";
   const meCard = `<article class="team-me">${teamAvatar(me, "lg")}<div class="team-me-text"><span class="team-you">You</span><h3>${escapeHtml(me.full_name || "")}</h3>${me.place ? `<p>${escapeHtml(me.place)}</p>` : ""}${teamRankBadge(me)}</div><div class="team-me-count"><strong>${count}</strong><span>${team.is_owner ? `${count === 1 ? "person" : "people"} on the team` : `${count === 1 ? "person" : "people"} in your downline`}</span></div></article>`;
+  // Rule 171: the pyramid is the main picture; the indented list (rule 105) is one tap away on the same switch.
+  const layout = trainerTeamLayout === "list" ? "list" : "pyramid";
+  const switcher = `<div class="team-layout-switch" role="group" aria-label="Show the team as"><button type="button" data-team-layout="pyramid" aria-pressed="${layout === "pyramid"}">Pyramid</button><button type="button" data-team-layout="list" aria-pressed="${layout === "list"}">List</button></div>`;
+  const drawn = layout === "list" ? `<ul class="team-tree">${team.downline.map(teamNode).join("")}</ul>` : teamPyramid(team);
   const tree = count
-    ? `<section class="team-tree-wrap" aria-label="${team.is_owner ? "The whole team" : "Your downline"}"><div class="team-tree-head"><div><span class="team-eyebrow">${team.is_owner ? "The whole team" : "Your downline"}</span><p class="field-hint">${team.is_owner ? "You can send a lead to anyone here." : "You can send a lead to anyone here. Leads only go down the chart, never up."}</p></div><div class="row-actions"><button type="button" class="btn btn-outline btn-small" data-team-expand="all">Open all</button><button type="button" class="btn btn-outline btn-small" data-team-expand="none">Close all</button></div></div><ul class="team-tree">${team.downline.map(teamNode).join("")}</ul></section>`
+    ? `<section class="team-tree-wrap" aria-label="${team.is_owner ? "The whole team" : "Your downline"}"><div class="team-tree-head"><div><span class="team-eyebrow">${team.is_owner ? "The whole team" : "Your downline"}</span><p class="field-hint">${team.is_owner ? "You can send a lead to anyone here." : "You can send a lead to anyone here. Leads only go down the chart, never up."}</p></div><div class="team-tree-tools">${switcher}<div class="row-actions"><button type="button" class="btn btn-outline btn-small" data-team-expand="all">Open all</button><button type="button" class="btn btn-outline btn-small" data-team-expand="none">Close all</button></div></div></div>${drawn}</section>`
     : `<section class="team-empty"><strong>No one reports to you yet.</strong><p>When someone joins the team under you, they show here and you can send them leads.</p></section>`;
   return `<div class="team-view">${upline}${meCard}${tree}</div>`;
 }
@@ -15199,6 +15275,8 @@ document.addEventListener("click", async event => {
   const superSend = event.target.closest("[data-super-handoff-send]");
   if (superSend) { superHandoffSend(superSend); return; } // rule 106
   if (event.target.closest("[data-super-handoff-reload]")) { superHandoffList = null; loadSuperHandoffTargets(); render(); return; }
+  const teamLayout = event.target.closest("[data-team-layout]");
+  if (teamLayout) { trainerTeamLayout = teamLayout.dataset.teamLayout === "list" ? "list" : "pyramid"; render(); return; } // rule 171: Pyramid / List
   const teamExpand = event.target.closest("[data-team-expand]");
   if (teamExpand) { // My Team "Open all" / "Close all": flips the branches in place (no redraw), remembered by the toggle listener
     const open = teamExpand.dataset.teamExpand === "all";

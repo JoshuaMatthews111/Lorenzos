@@ -3039,3 +3039,32 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      ad 120253398560650526 = the office's Dallas words, the Getting Strong video (4340115696300882), link
      /ads/fort-worth, Instagram lorenzosdogtrainingteam. Campaign + ad set by API, ad by Ads Manager bulk import
      (file `ldtt-meta-dallas-2026-10-05.csv`), leftover import drafts discarded.
+
+171. **My Team is a pyramid: "You" at the top, your downline level by level below (Joshua 2026-10-05: "an easy-to-read
+     PYRAMID / MLM-matrix tree").** Built on rule 105; it changes no access and no hand-off.
+     - **Record before the change (commit 0dedad43):** My Team = upline chips, the "You" card, then the downline as
+       an indented `<details>` list (first three levels open, "Open all" / "Close all"); `GET ?team=1` entries carried
+       id, slug, full_name, place, headshot_url, rank, rank_label, depth, children (no email / phone); 689/689 tests.
+     - **API (`api/trainer-lead-action.js`):** the team view alone reads `TEAM_VIEW_SELECT` (= `TEAM_SELECT` +
+       `email,phone`); `contactPerson()` adds `email` (plain address, trimmed, lower case) and `phone` (+1XXXXXXXXXX,
+       or an 8-15 digit number written with +) ONLY on `me` and the downline entries, and only when usable — the
+       key is absent otherwise. The upline gets no contact fields. The hand-off lists (`loadHierarchy()` default,
+       `handoff_targets`) still read `TEAM_SELECT`. Same people as before: a trainer still sees only their own
+       downline, `trainer_id` is still office only.
+     - **Portal (`trainer-backoffice/app.js`):** `teamPyramid(team)` (pure: draws only the `{ me, downline }` it is
+       given) is the main view; a "Pyramid / List" switch (`trainerTeamLayout`, `data-team-layout`) keeps the rule 105
+       list one tap away. Cards: photo (the API's cleaned headshot, only `/assets/` or `https://`; initials when none
+       or it fails), full name, place, rank badge, "Level N" ("You" on top), `mailto:` / `tel:` links only when
+       present. A strip counts people per level. Branches fold with the same `<details data-team-node>` +
+       `trainerTeamOpen`, so "Open all" / "Close all" and redraws work in both views. No lead numbers (rules 7 + 34).
+     - **Phone / width:** desktop draws a top-down chart that scrolls sideways INSIDE `.pyr-scroll` only (`.team-view`
+       is `minmax(0, 1fr)` so it can never widen the page); first view is centred under "You", and
+       `restoreTeamPyramidScroll()` (called in `render()`) keeps the place across redraws. <= 640px the same markup
+       stacks into an indented list: no sideways scroll at all (checked at 375px: document width = 375).
+     - **Office:** the office trainer screens have no team section, so nothing was added there; the office My Team
+       preview text is unchanged. `teamPyramid()` takes any team answer, so an office view can reuse it with
+       `?team=1&trainer_id=` later.
+     Pins: `tests/team-pyramid-2026-10-05.test.mjs` (API fields + scoping, pyramid markup, list still there, CSS).
+     Seen with mocked data modelled on practice Daniel Bainbridge (16 below, 5 levels): `review/team-*.png` (kept out of
+     deploys by `.vercelignore`).
+     Not deployed.

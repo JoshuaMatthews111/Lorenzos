@@ -21,6 +21,7 @@
 // the pure tree helpers are lib/hierarchy.js. A lead only ever moves DOWN: never up, never sideways.
 //   GET ?team=1[&trainer_id=<id>]  -> { ok, me, rank, rank_label, is_owner, upline: [...], downline: [...nested...], count }
 //     me/upline/downline entries: { id, slug, full_name, place, headshot_url, rank, rank_label, depth, children }
+//     me + downline entries also carry email / phone when the trainer row has a usable one (rule 171, My Team pyramid).
 //     upline = owner first, the caller's own parent last. downline = EVERY descendant, nested, each one only if the
 //     trainer row is ACTIVE on this site (not on the site = not listed; their listed people move up a level).
 //     The owner (lorenzo-miller) gets the whole tree. trainer_id is only honoured for the office (admin).
@@ -131,17 +132,42 @@ function headshotUrl(value) {
 }
 
 const TEAM_SELECT = "id,full_name,market,state,slug,status,headshot_url";
+// My Team pyramid (DO-NOT-BREAK rule 171): the cards also show email + phone. Read ONLY by the team view (the hand-off
+// list keeps TEAM_SELECT), and added ONLY to "me" and the downline entries — the same people as before, no one new.
+const TEAM_VIEW_SELECT = `${TEAM_SELECT},email,phone`;
 const person = (row, node) => ({
   id: row.id, slug: row.slug || "", full_name: row.full_name || "", place: placeLabel(row), headshot_url: headshotUrl(row.headshot_url),
   rank: node?.rank || "", rank_label: H.rankLabel(node?.rank)
 });
+// A plain address only ("x@y.z", no spaces, quotes or angle brackets); anything else -> "".
+function contactEmail(value) {
+  const email = clean(value, 200).toLowerCase();
+  return /^[^\s@"'<>()]+@[^\s@"'<>()]+\.[a-z]{2,}$/.test(email) ? email : "";
+}
+// Digits only: a 10/11-digit US number becomes +1XXXXXXXXXX, an 8-15 digit number written with a leading + keeps
+// it; anything else -> "".
+function contactPhone(value) {
+  const digits = clean(value, 40).replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return digits.length >= 8 && digits.length <= 15 && /^\s*\+/.test(clean(value, 40)) ? `+${digits}` : "";
+}
+// person() plus email / phone, each key only when there is a usable value (a card shows only what is present).
+const contactPerson = (row, node) => {
+  const out = person(row, node);
+  const email = contactEmail(row?.email);
+  const phone = contactPhone(row?.phone);
+  if (email) out.email = email;
+  if (phone) out.phone = phone;
+  return out;
+};
 
 // The chart + every ACTIVE trainer on this site. Returns { tree, bySlug } (tree.ok false when the chart is missing
 // or does not validate: then nobody can hand anything off — fail closed).
-async function loadHierarchy() {
+async function loadHierarchy(select = TEAM_SELECT) {
   const [setting] = (await supabaseFetch(`/rest/v1/site_settings?select=value&key=eq.${H.SETTINGS_KEY}&limit=1`)) || [];
   const tree = H.readTree(setting?.value);
-  const rows = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_SELECT}&status=eq.active&order=full_name.asc`)) || [];
+  const rows = (await supabaseFetch(`/rest/v1/trainers?select=${select}&status=eq.active&order=full_name.asc`)) || [];
   const bySlug = new Map();
   for (const row of rows) {
     if (String(row.status || "") !== "active" || isTestOrDraftTrainer(row) || DRAFT_NAMES.has(clean(row.full_name, 80).toLowerCase())) continue;
@@ -155,18 +181,18 @@ async function loadHierarchy() {
 async function hierarchyView(trainerId) {
   const id = clean(trainerId, 80);
   if (!id) return null;
-  const [self] = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_SELECT}&id=eq.${encodeURIComponent(id)}&limit=1`)) || [];
+  const [self] = (await supabaseFetch(`/rest/v1/trainers?select=${TEAM_VIEW_SELECT}&id=eq.${encodeURIComponent(id)}&limit=1`)) || [];
   if (!self) return null;
-  const { tree, bySlug } = await loadHierarchy();
+  const { tree, bySlug } = await loadHierarchy(TEAM_VIEW_SELECT);
   const slug = clean(self.slug, 120).toLowerCase();
   const node = tree.ok ? tree.nodes.get(slug) : null;
   const listed = s => bySlug.has(s);
-  const downline = node ? H.nestedDownline(tree, slug, listed, (s, n) => person(bySlug.get(s), n)) : [];
+  const downline = node ? H.nestedDownline(tree, slug, listed, (s, n) => contactPerson(bySlug.get(s), n)) : [];
   const upline = node ? H.uplineOf(tree, slug).filter(listed).reverse().map(s => person(bySlug.get(s), tree.nodes.get(s))) : [];
   return {
     tree, bySlug, slug,
     body: {
-      me: person(self, node), rank: node?.rank || "", rank_label: H.rankLabel(node?.rank), is_owner: Boolean(tree.ok && slug === tree.owner),
+      me: contactPerson(self, node), rank: node?.rank || "", rank_label: H.rankLabel(node?.rank), is_owner: Boolean(tree.ok && slug === tree.owner),
       on_chart: Boolean(node), chart_ok: tree.ok, updated_from: tree.ok ? tree.updated_from : "",
       upline, downline, count: H.flattenNested(downline).length
     }
