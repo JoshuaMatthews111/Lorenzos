@@ -3138,3 +3138,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      "No waitlist" video dropped to $12-24 per lead. Same ad id 120252802676260526 updated in place by bulk import
      (`ldtt-meta-atlanta-2026-10-06.csv`): title "Big City. Happy Dogs.", the broad free-evaluation words, video
      4340115696300882, link /ads/atlanta, Instagram set; budget/area unchanged ($1,000 lifetime, 30 mi, $318 left).
+
+172. **Double booking: every evaluation assigned to a trainer blocks its time (office 2026-10-06: "still double
+     booked").** `lib/booking.js knownBookings` matched leads only by `trainer_slug`, but a lead moved to another
+     trainer keeps its old slug (found: a Shantelle Tuck eval Oct 13 4 PM with slug "s"; two evals with none), so its
+     time stayed on offer. It now looks up the trainer's id and matches `or=(trainer_slug.eq.<slug>,trainer_id.eq.<id>)`.
+     Pin: tests/double-booking-2026-10-06.test.mjs. Remaining cause (NOT fixed): online bookings are never written to
+     Google (rule 71), so the trainer/office can book over them in Google. Joshua 2026-10-06 chose: our system writes
+     each booking to the trainer's Google calendar - to be built after he gets the Google access (planned 2026-10-07).
+     **LIVE 2026-10-06:** dpl_6jbxzS9QJmnqmCZnP7kQfZpmYWCa, stamp 20261006live72, rollback dpl_HUFiADe5XUaiMTcMGKvUpNKPhJ3o.
+     This deploy ALSO took rules 169 (/trainer/lorenzo-miller), 170 (/careers) and 171 (My Team pyramid) live, because
+     they were already merged on the branch; Joshua chose to keep all three live. /careers is kept OUT of sitemap.xml
+     until the office reviews it.

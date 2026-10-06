@@ -128,7 +128,8 @@ test("/careers cannot collide: static file, reserved in middleware and Site Buil
   const site = require(resolve(root, "lib/site-page-template.js"));
   assert.ok(site.RESERVED_SLUGS.has("careers"));
   assert.ok(site.RESERVED_SLUGS.has("become-a-trainer") && site.RESERVED_SLUGS.has("trainer-application"));
-  assert.match(read("sitemap.xml"), /<loc>https:\/\/www\.lorenzosdogtrainingteam\.com\/careers<\/loc>/);
+  // Joshua 2026-10-06: live but kept out of the sitemap until the office reviews it.
+  assert.doesNotMatch(read("sitemap.xml"), /<loc>https:\/\/www\.lorenzosdogtrainingteam\.com\/careers<\/loc>/);
   // The existing recruiting pages are still there and untouched in purpose.
   assert.match(read("trainer-application.html"), /<form class="panel form trainer-application-form"/);
   assert.match(read("become-a-trainer.html"), /href="trainer-application\.html"/);
