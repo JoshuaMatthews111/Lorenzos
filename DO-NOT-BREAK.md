@@ -3150,3 +3150,12 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      This deploy ALSO took rules 169 (/trainer/lorenzo-miller), 170 (/careers) and 171 (My Team pyramid) live, because
      they were already merged on the branch; Joshua chose to keep all three live. /careers is kept OUT of sitemap.xml
      until the office reviews it.
+
+173. **Genevieve Twilla is OFF the booking page (Melissa Zuk email 2026-10-06: "This booking link has been deleted.
+     The trainer has stepped down from the team.").** Migration `booking_pause_genevieve_twilla_2026_10_07` (backup
+     `private.booking_trainers_backup_20261007`): her `booking_trainers` row is `active:false` with the reason; her
+     dead Google schedule can no longer be offered. Checked on live: ZIP 92105 shows Fred Harris and Karemela
+     Sefferin only. LEFT FOR THE OFFICE (not done): her `trainers` row is still active (Find a Trainer, her pages),
+     and she has 5 open leads, 2 of them future scheduled evaluations, that need reassigning.
+     **Google-calendar write (rule 172 plan) is ON HOLD:** Rachel's 2026-10-01 email says Alpha already writes evals
+     into Google and a portal write "will cause duplicates" - resolve with Joshua/Rachel before building.
