@@ -1110,7 +1110,8 @@ function remoteLeadToUi(row) {
   // isTest / inSalesPipeline / dbStatus / status / submitted are decided by
   // metrics.js so the browser and the nightly cross-check agree.
   const normalized = METRICS.normalizeLeadRow(row, { statusFallback: normalizeLeadStatus });
-  const trainer = state.trainers.find(item => item.remoteId === row.trainer_id || item.slug === row.trainer_slug);
+  // Office 2026-10-08: the assigned trainer id wins; the slug is only a fallback (it can be stale after a reassign).
+  const trainer = (row.trainer_id && state.trainers.find(item => item.remoteId === row.trainer_id)) || state.trainers.find(item => item.slug === row.trainer_slug);
   const clientNote = row.comments || raw.comments || "";
   const derivedMarket = deriveLeadMarket({
     city: row.city,

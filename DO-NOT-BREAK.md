@@ -3171,3 +3171,17 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      FormSubmit copy when the same submission has an accepted `resend_application_email`. The office may get two
      emails for an application (FormSubmit + Resend) when both work - intended. Client leads are unchanged.
      Tests: tests/application-resend-2026-10-07.test.mjs (3).
+
+175. **13 Team Trainers are OFF online booking (office 2026-10-08, Lorenzo: "they need their upline coach with them
+     for their evals").** Migration `booking_pause_team_trainers_2026_10_08` (backup
+     `private.booking_trainers_backup_20261008`): Jasmine Bland, Chloe Chisolm, Christopher Almonte, Shannon Paskins,
+     Aryson Whorley, Harley McGrew, Brady DeRemer, Karemela Sefferin, Tabatha Shelley, Giovanni Gutierrez, Shantelle
+     Tuck, Arion Goble, Sean Urena - `active:false` + `paused_reason`; schedule_id kept, so turning one back on is one
+     switch and Missy's Google links do NOT need deleting. Effect checked on live: Chicago (60618), Columbus (43215)
+     and Flushing (11354) now show NO bookable trainer (office follow-up) while their Meta ads still run.
+     **Reassign fix (Shauna Leff, Brady -> Eric Beck "does not save"):** it did save trainer_id; trainer_slug stayed
+     "brady-deremer" and app.js matched `remoteId === trainer_id || slug === trainer_slug` with `find`, so Brady
+     (earlier in the list) won and Eric vanished from the picker. Now: app.js prefers trainer_id; the hand-off
+     (`writeHandoff`) and the office assign (`operational-mutation` updateRecord) both set trainer_slug from the new
+     trainer; migration `leads_trainer_slug_follows_trainer_id_2026_10_08` fixed the 3 stale rows (backup
+     `private.leads_trainer_slug_backup_20261008`). Tests: tests/reassign-2026-10-08.test.mjs. Stamp 20261008live73.

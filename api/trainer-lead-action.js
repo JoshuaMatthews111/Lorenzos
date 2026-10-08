@@ -242,6 +242,9 @@ async function writeHandoff(res, access, before, note, { targetRow, targetSlug, 
   const targetName = targetRow.full_name || "";
   const changes = { trainer_id: targetRow.id };
   for (const column of TRAINER_NAME_COLUMNS) if (column in before) changes[column] = targetName;
+  // Office 2026-10-08 (Shauna Leff): the lead's trainer_slug must follow the new trainer, or screens and the booking
+  // clash check keep seeing the old trainer.
+  if ("trainer_slug" in before && (targetSlug || targetRow.slug)) changes.trainer_slug = targetSlug || targetRow.slug;
   let summary = `Sent to ${targetName} (${tag})`;
   if (note) summary += `. Note: ${note}`;
 

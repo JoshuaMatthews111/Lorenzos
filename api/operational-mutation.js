@@ -409,6 +409,14 @@ async function updateRecord(admin, body, requestId) {
       if (when && !("status" in changes) && BEFORE_EVAL.includes(before.status)) changes.status = "evaluation_scheduled";
     }
   }
+  // Office 2026-10-08 (Shauna Leff): when the office assigns a lead to another trainer, trainer_slug follows the
+  // new trainer_id, so no screen keeps showing the old trainer.
+  if (entityType === "lead" && "trainer_id" in changes && String(changes.trainer_id || "") !== String(before.trainer_id || "")) {
+    if (changes.trainer_id) {
+      const [t] = (await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(changes.trainer_id)}&select=slug&limit=1`).catch(() => [])) || [];
+      if (t?.slug) changes.trainer_slug = t.slug;
+    } else changes.trainer_slug = null;
+  }
   // rule 74: a trainer's Base ZIP is 5 digits or empty (empty = not listed on the booking page).
   if (entityType === "trainer" && "base_zip" in changes) {
     const zipCheck = cleanBaseZip(changes.base_zip);
