@@ -11,3 +11,8 @@ test("hand-off and office assign both move trainer_slug", () => {
   assert.match(read("api/trainer-lead-action.js"), /changes\.trainer_slug = targetSlug \|\| targetRow\.slug/);
   assert.match(read("api/operational-mutation.js"), /if \(t\?\.slug\) changes\.trainer_slug = t\.slug;/);
 });
+
+test("a trainer note is saved once: server answers with the existing copy, the box empties", () => {
+  assert.match(read("api/trainer-lead-action.js"), /if \(same\?\.id\) return reply\(res, 200, \{ ok: true, already: true/);
+  assert.match(read("trainer-backoffice/app.js"), /if \(action === "note"\) \{ const box = document\.querySelector/);
+});

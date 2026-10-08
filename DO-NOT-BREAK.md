@@ -3185,3 +3185,10 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      (`writeHandoff`) and the office assign (`operational-mutation` updateRecord) both set trainer_slug from the new
      trainer; migration `leads_trainer_slug_follows_trainer_id_2026_10_08` fixed the 3 stale rows (backup
      `private.leads_trainer_slug_backup_20261008`). Tests: tests/reassign-2026-10-08.test.mjs. Stamp 20261008live73.
+
+176. **A trainer note saves once (office 2026-10-08: Robert Wesling's note appeared 3 times, saved 13:24:12, :19, :21).**
+     `trainerNote` returns the existing note (ok, already:true) when the identical note text exists on the same lead
+     within 10 minutes; app.js empties and blurs the note box right after a successful save. The 3 existing copies
+     were left as they are (the office decides). Same day, Denese J. booked Robert at Oct 12 7 PM ET right after his
+     6 PM Alpha session: Google offered 7 PM as free because the session had no travel time in Google; our travel gap
+     (rule 158) only knows our own bookings, not Google/Alpha events. Stamp 20261008live74.

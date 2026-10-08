@@ -324,9 +324,15 @@ async function handoff(res, access, body, before, note) {
 async function trainerNote(res, access, before, text) {
   if (!text) return reply(res, 400, { ok: false, message: "Type the note first." });
   const who = access.actor?.name || access.actor?.email || "Trainer";
+  const noteText = `Trainer note (${who}): ${text}`;
+  // Office 2026-10-08 (Robert Wesling's note saved 3 times, 7 s and 3 s apart): the same note on the same lead within
+  // 10 minutes is the same note - answer with the saved one instead of adding a copy.
+  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const [same] = (await supabaseFetch(`/rest/v1/office_notes?entity_type=eq.lead&entity_id=eq.${encodeURIComponent(String(before.id))}&note=eq.${encodeURIComponent(noteText)}&created_at=gte.${encodeURIComponent(since)}&select=id&limit=1`).catch(() => [])) || [];
+  if (same?.id) return reply(res, 200, { ok: true, already: true, message: "Note already saved. The office sees it on this lead.", note: { id: same.id } });
   const rows = await supabaseFetch("/rest/v1/office_notes", {
     method: "POST", headers: { Prefer: "return=representation" },
-    body: JSON.stringify({ entity_type: "lead", entity_id: String(before.id), note: `Trainer note (${who}): ${text}`, created_by: access.actor?.id || access.user?.id || null })
+    body: JSON.stringify({ entity_type: "lead", entity_id: String(before.id), note: noteText, created_by: access.actor?.id || access.user?.id || null })
   });
   const record = rows?.[0];
   if (!record) return reply(res, 500, { ok: false, message: "The note could not be saved. Please try again." });

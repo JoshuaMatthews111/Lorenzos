@@ -11028,6 +11028,8 @@ async function trainerLeadAction(button) {
     // Audit 2026-09-24: only a Lost save (or the lead leaving the list) empties the Lost box; answering the Alpha
     // question or Eval completed used to wipe a reason + note the trainer had already typed.
     if (action === "lost" || action === "handoff" || action === "archive" || action === "note") state.trainerLost = null;
+    // Office 2026-10-08: empty the note box right away so a saved note is not tapped again (it saved 3 times).
+    if (action === "note") { const box = document.querySelector(`[data-trainer-lost-note][data-lead-ref="${CSS.escape(lead.id)}"]`); if (box) { box.value = ""; box.blur(); } }
     if (action === "archive" && (state.selectedLeadId === lead.id || state.selectedLeadId === lead.remoteId)) state.selectedLeadId = "";
     if (action === "handoff") {
       state.trainerHandoff = null;
