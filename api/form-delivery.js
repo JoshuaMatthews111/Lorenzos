@@ -1,5 +1,31 @@
 const { blockedInSandbox, isSandbox, supabaseRequest } = require("../lib/sandbox");
 const crypto = require("node:crypto");
+const OE = require("../lib/office-email");
+// Office 2026-10-07 (Joshua): FormSubmit stays exactly as it is; trainer applications ALSO get a Resend copy to
+// recruiting@, because FormSubmit's Cloudflare check blocks the server send and the browser retry is lost when the
+// applicant leaves the page. The alert bell counts an application as delivered once this copy is accepted.
+const APPLICATION_RESEND_TO = "recruiting@lorenzosdogtrainingteam.com";
+const escHtml = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const SKIP_KEYS = new Set(["company_website", "_honey", "_captcha", "_template", "_subject"]);
+function applicationEmailParts(entries) {
+  const rows = Object.entries(entries || {})
+    .filter(([k, v]) => !SKIP_KEYS.has(k) && v !== null && v !== undefined && String(v).trim() !== "")
+    .map(([k, v]) => [k.replace(/_/g, " "), Array.isArray(v) ? v.join(", ") : typeof v === "object" ? JSON.stringify(v) : String(v)]);
+  const name = [entries?.first_name, entries?.last_name].map(v => String(v || "").trim()).filter(Boolean).join(" ") || "New applicant";
+  const place = [entries?.city, entries?.state].map(v => String(v || "").trim()).filter(Boolean).join(", ");
+  const subject = `New Trainer Application: ${name}${place ? ` (${place})` : ""}`;
+  const html = `<p><strong>New trainer application</strong> - it is also in the portal under Applications.</p><table cellpadding="6" style="border-collapse:collapse;font:14px Arial,sans-serif">${rows.map(([k, v]) => `<tr><td style="border:1px solid #ddd;color:#555;vertical-align:top"><strong>${escHtml(k)}</strong></td><td style="border:1px solid #ddd">${escHtml(v).replace(/\n/g, "<br>")}</td></tr>`).join("")}</table>`;
+  const text = `New trainer application (also in the portal under Applications)\n\n${rows.map(([k, v]) => `${k}: ${v}`).join("\n")}`;
+  return { subject, html, text };
+}
+async function deliverApplicationResend(entries, submissionId) {
+  const config = await OE.officeResendConfig();
+  if (!config.ready) throw new Error(config.waiting ? "Resend key is not set" : "Resend is not configured");
+  const { subject, html, text } = applicationEmailParts(entries);
+  const sent = await OE.sendViaResend({ to: APPLICATION_RESEND_TO, subject, html, text, idempotencyKey: `application-${submissionId}` }, config);
+  if (!sent?.ok) throw new Error(sent?.message || "Resend did not accept the email");
+  return sent;
+}
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://ptnzaeprvkgjgtupmcty.supabase.co";
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
@@ -399,6 +425,10 @@ module.exports = async function handler(req, res) {
       }
     ];
 
+    if (isApplication || canonical.entityType === "application") {
+      deliveries.push({ destination: "resend_application_email", run: () => deliverApplicationResend(entries, submissionId) });
+    }
+
     const results = [];
     for (const delivery of deliveries) {
       const accepted = await acceptedDelivery(submissionId, delivery.destination, payloadHash);
@@ -428,5 +458,7 @@ module.exports = async function handler(req, res) {
   }
 };
 module.exports.allowedOrigin = allowedOrigin;
+module.exports.applicationEmailParts = applicationEmailParts;
+module.exports.deliverApplicationResend = deliverApplicationResend;
 module.exports.entriesForGoogleSheet = entriesForGoogleSheet;
 module.exports.deliverContactToGoogle = entries => deliverGoogle(CONTACT_GOOGLE, CONTACT_FIELDS, entriesForGoogleSheet("contact", entries));

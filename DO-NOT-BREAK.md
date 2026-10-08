@@ -3159,3 +3159,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      and she has 5 open leads, 2 of them future scheduled evaluations, that need reassigning.
      **Google-calendar write (rule 172 plan) is ON HOLD:** Rachel's 2026-10-01 email says Alpha already writes evals
      into Google and a portal write "will cause duplicates" - resolve with Joshua/Rachel before building.
+
+174. **Trainer applications also get a Resend copy to recruiting@ (Joshua 2026-10-07: "not changing our FormSubmit
+     but adding the trainer application for Resend").** FormSubmit is UNCHANGED for every form. Since ~2026-09-28
+     FormSubmit's Cloudflare check ("Just a moment...") rejects every server send, so the office copy depends on the
+     visitor's browser retry, which is lost when they leave the page (7 leads Sept 29-30, applicant Lily Ford Oct 6).
+     `api/form-delivery.js`: for `trainer_application` forms / application records a third delivery
+     `resend_application_email` sends `applicationEmailParts(entries)` to recruiting@ through
+     `lib/office-email` (`officeResendConfig` + `sendViaResend`, idempotency key `application-<submission_id>`) and is
+     logged in `form_delivery_attempts` like the others. `lib/system-alerts.js deliveryAlerts` drops a failed
+     FormSubmit copy when the same submission has an accepted `resend_application_email`. The office may get two
+     emails for an application (FormSubmit + Resend) when both work - intended. Client leads are unchanged.
+     Tests: tests/application-resend-2026-10-07.test.mjs (3).
