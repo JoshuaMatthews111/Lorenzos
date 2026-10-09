@@ -3196,3 +3196,14 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      existing identical note within 10 minutes). Migration `office_notes_remove_double_saves_2026_10_08` removed 11
      extra copies across 9 records, keeping the earliest of each (backups `private.office_notes_dupes_backup_20261008`
      and `private.office_note_revisions_dupes_backup_20261008`).
+
+177. **Ads + Tallahassee after the Zoom of 2026-10-08 (Lorenzo, Angela).** Meta (state before:
+     scratchpad sets-before-2026-10-09.json): lifetime budgets Flushing 500->800, San Diego 1000->1300, Lexington
+     1000->1200, Ann Arbor 1000->750, Panama City 1000->850; radius Atlanta/Cleveland/San Antonio 45 mi, Durham 50,
+     Pensacola 40; 8 "Ad B" ads (different music video + problem-first headline, same /ads/<slug> link, Instagram set)
+     in Cleveland, San Antonio, Atlanta, Columbus, Pensacola, Durham, Panama City, Miramar Beach (bulk import
+     `ldtt-meta-ad-b-2026-10-09.csv`); Flushing/San Diego/Lexington untouched apart from budget. Tallahassee
+     (Lorenzo: Victoria works Tallahassee, use ZIP 32310, 40 miles): ad set = 40 mi around 32310 (30.433,-84.392),
+     renamed; Victoria's `service_zips` = the 41 ZIPs within 40 mi of 32310 (migration
+     `victoria_tallahassee_40mi_from_32310_2026_10_09`, backup `private.booking_trainers_backup_20261009`);
+     /ads/tallahassee ZIP example 32310 (live + practice). Checked: 32310, 32301, 32312, 32327, 32399 -> Victoria.
