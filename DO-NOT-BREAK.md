@@ -3192,3 +3192,7 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      were left as they are (the office decides). Same day, Denese J. booked Robert at Oct 12 7 PM ET right after his
      6 PM Alpha session: Google offered 7 PM as free because the session had no travel time in Google; our travel gap
      (rule 158) only knows our own bookings, not Google/Alpha events. Stamp 20261008live74.
+     **Same day, follow-up:** office notes had the same double-save (operational-mutation `saveNote` now returns the
+     existing identical note within 10 minutes). Migration `office_notes_remove_double_saves_2026_10_08` removed 11
+     extra copies across 9 records, keeping the earliest of each (backups `private.office_notes_dupes_backup_20261008`
+     and `private.office_note_revisions_dupes_backup_20261008`).

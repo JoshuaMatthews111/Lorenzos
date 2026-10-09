@@ -16,3 +16,7 @@ test("a trainer note is saved once: server answers with the existing copy, the b
   assert.match(read("api/trainer-lead-action.js"), /if \(same\?\.id\) return reply\(res, 200, \{ ok: true, already: true/);
   assert.match(read("trainer-backoffice/app.js"), /if \(action === "note"\) \{ const box = document\.querySelector/);
 });
+
+test("an office note is saved once too", () => {
+  assert.match(read("api/operational-mutation.js"), /if \(same\?\.id\) return \{ status: 200, body: \{ ok: true, already: true, record: same/);
+});

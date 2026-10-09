@@ -530,6 +530,10 @@ async function saveNote(admin, body, requestId) {
       body: JSON.stringify({ note: noteText })
     });
   } else {
+    // Office 2026-10-08: an identical note on the same record within 10 minutes is a double tap - return the saved one.
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const [same] = (await supabaseFetch(`/rest/v1/office_notes?entity_type=eq.${encodeURIComponent(entityType)}&entity_id=eq.${encodeURIComponent(entityId)}&note=eq.${encodeURIComponent(noteText)}&created_at=gte.${encodeURIComponent(since)}&select=*&limit=1`).catch(() => [])) || [];
+    if (same?.id) return { status: 200, body: { ok: true, already: true, record: same, actor: admin.actor, updated_at: same.updated_at || same.created_at, version: same.version || 1 } };
     rows = await supabaseFetch("/rest/v1/office_notes", {
       method: "POST",
       headers: { Prefer: "return=representation" },
