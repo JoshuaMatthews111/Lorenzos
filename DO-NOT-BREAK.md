@@ -3222,3 +3222,11 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      The red "Needs a call" badge and the queued office email are unchanged. Before: page said "We do not have a
      trainer within 50 miles..."; callback Done screen had no questions button. Stamp 20261009live75.
      Meta same day: Chicago and Ann Arbor ad sets = 45 mi city radius (renamed "... 45mi"); budgets unchanged.
+
+179. **A lead's client record follows the lead's trainer (Missy 2026-10-09, Shauna Leff).** Her lead was with Eric
+     Beck (rule 175) but her `clients` row still had Brady DeRemer, and the Super Admin "Send to a trainer" list hides
+     the lead's current trainer, so Eric looked missing. Now `moveLinkedClient` (api/trainer-lead-action.js
+     writeHandoff and api/operational-mutation.js updateRecord) moves `clients.trainer_id` for `lead_id` = the lead,
+     ONLY when it still pointed at the old trainer (or was empty). The picker shows "Now with: <trainer>". Migration
+     `client_trainer_follows_lead_shauna_leff_2026_10_09` fixed the one mismatch (backup
+     `private.clients_trainer_backup_20261009`). Test: tests/reassign-2026-10-08.test.mjs. Stamp 20261009live76.

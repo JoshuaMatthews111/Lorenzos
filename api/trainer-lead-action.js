@@ -238,6 +238,16 @@ async function targetsHandler(res, access) {
 
 // The one write every hand-off makes (rule 91 / 105 / 106): PATCH trainer_id (+ the trainer-name column when present),
 // version guarded; audit_events trainer_lead_handoff + lead_events trainer_handoff; no lifecycle_events; no text/email.
+// Missy 2026-10-09 (Shauna Leff): a lead that already became a client has a client record with its own trainer_id.
+// When the lead moves to another trainer, the client record moves too, but only if it still pointed at the old trainer.
+async function moveLinkedClient(leadId, fromTrainerId, toTrainerId) {
+  if (!leadId || String(fromTrainerId || "") === String(toTrainerId || "")) return;
+  const from = fromTrainerId ? `eq.${encodeURIComponent(String(fromTrainerId))}` : "is.null";
+  await supabaseFetch(`/rest/v1/clients?lead_id=eq.${encodeURIComponent(String(leadId))}&trainer_id=${from}`, {
+    method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ trainer_id: toTrainerId || null })
+  }).catch(error => console.error("client_trainer_follow_failed", String(error?.message || error)));
+}
+
 async function writeHandoff(res, access, before, note, { targetRow, targetSlug, fromSlug, path, tag }) {
   const targetName = targetRow.full_name || "";
   const changes = { trainer_id: targetRow.id };
@@ -254,6 +264,7 @@ async function writeHandoff(res, access, before, note, { targetRow, targetSlug, 
   });
   const record = rows?.[0];
   if (!record) return reply(res, 409, { ok: false, conflict: true, message: "The lead changed a moment ago. Reload and try again." });
+  await moveLinkedClient(record.id, before.trainer_id, targetRow.id);
 
   const actorId = access.actor?.id || access.user?.id || null;
   const by = access.isSuperAdmin && tag === "super admin" ? "super_admin" : access.isAdmin ? "office" : "trainer";

@@ -381,6 +381,16 @@ function slugTooShort(entityType, changes) {
   return { status: 400, body: { ok: false, message: `The web address "${slug}" is too short. A trainer address needs at least 3 characters — use the trainer's first and last name (for example shantelle-tuck).` } };
 }
 
+// Missy 2026-10-09 (Shauna Leff): a lead that already became a client has a client record with its own trainer_id.
+// When the lead moves to another trainer, the client record moves too, but only if it still pointed at the old trainer.
+async function moveLinkedClient(leadId, fromTrainerId, toTrainerId) {
+  if (!leadId || String(fromTrainerId || "") === String(toTrainerId || "")) return;
+  const from = fromTrainerId ? `eq.${encodeURIComponent(String(fromTrainerId))}` : "is.null";
+  await supabaseFetch(`/rest/v1/clients?lead_id=eq.${encodeURIComponent(String(leadId))}&trainer_id=${from}`, {
+    method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ trainer_id: toTrainerId || null })
+  }).catch(error => console.error("client_trainer_follow_failed", String(error?.message || error)));
+}
+
 async function updateRecord(admin, body, requestId) {
   const entityType = clean(body.entity_type, 40);
   const config = ENTITY_CONFIG[entityType];
@@ -458,6 +468,7 @@ async function updateRecord(admin, body, requestId) {
   }).catch(error => { throw plainUniqueError(error) || error; }); // onboarding
   const record = rows?.[0];
   if (!record) return { status: 409, body: { ok: false, conflict: true, message: "The record changed before this save completed." } };
+  if (entityType === "lead" && "trainer_id" in changes) await moveLinkedClient(record.id, before.trainer_id, record.trainer_id);
   await audit(admin, clean(body.action, 80) || "updated", entityType, id, before, record, body.summary, requestId);
   await writeLifecycle(admin, entityType, record, before.status, requestId);
   if (entityType === "lead" && before.status !== record.status) {

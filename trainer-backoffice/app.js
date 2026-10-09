@@ -10564,8 +10564,11 @@ function superHandoffBox(lead) {
   const pick = state.superHandoff?.leadId === lead.id ? state.superHandoff : {};
   const current = String(lead.trainerRemoteId || "");
   const trainers = superHandoffList.trainers.filter(t => String(t.id) !== current);
+  // Missy 2026-10-09: say who has the lead now, so the current trainer missing from the list is not a surprise.
+  const holder = superHandoffList.trainers.find(t => String(t.id) === current);
+  const nowWith = current ? `<p class="field-hint"><strong>Now with: ${escapeHtml(holder?.full_name || trainerName(lead.trainerId) || "the current trainer")}.</strong> They are not in the list below because the lead is already theirs.</p>` : "";
   const options = trainers.map(t => `<option value="${escapeHtml(t.id)}"${pick.toTrainerId === t.id ? " selected" : ""}${superHandoffMatches(t, pick.q) ? "" : " hidden"}>${escapeHtml(t.full_name)}${t.place ? ` · ${escapeHtml(t.place)}` : ""}</option>`).join("");
-  return `<section class="detail-note-block super-handoff">${head}
+  return `<section class="detail-note-block super-handoff">${head}${nowWith}
     <input type="search" class="select-pill" data-super-handoff-search data-lead-ref="${escapeHtml(lead.id)}" value="${escapeHtml(pick.q || "")}" placeholder="Search a name or city" aria-label="Search the trainers">
     <select class="super-handoff-list" size="7" data-super-handoff-to data-lead-ref="${escapeHtml(lead.id)}" aria-label="Pick the trainer who takes ${escapeHtml(lead.owner || "this lead")}">${options}</select>
     <p class="field-hint">${trainers.length} trainer${trainers.length === 1 ? "" : "s"} with a portal login. The lead moves to that trainer's My Leads; nothing is texted or emailed.</p>
