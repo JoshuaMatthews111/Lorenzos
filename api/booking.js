@@ -75,6 +75,10 @@ const safePhoto = url => (/^(https:\/\/|\/(?!\/))/.test(String(url || "")) ? Str
 // What the congratulations screen needs when a lead that already booked / requested opens its link again.
 async function leadOutcome(row) {
   const booking = rawOf(row).booking || {};
+  // Joshua 2026-10-09: a callback lead goes on to the pre-evaluation questions too (no trainer yet).
+  if (booking.callback && !(booking.slot_start || booking.requested_at)) {
+    return { callback: true, trainer_name: "", trainer_first_name: "", dogs: [], pre_eval_done: Boolean(booking.pre_eval?.submitted_at), pre_eval_answers: booking.pre_eval?.answers || null };
+  }
   if (!booking.trainer_slug || !(booking.slot_start || booking.requested_at)) return null;
   const trainer = await B.trainerRow(booking.trainer_slug).catch(() => null);
   const base = {
@@ -391,7 +395,19 @@ async function requestTrainer(req, res, body) {
   });
 }
 
-// Step 3c (rule 74): no trainer within 50 miles -> "The office will match you with a trainer" + callback.
+// Joshua 2026-10-09: the office reason names the nearest active trainer within the radius even when that
+// trainer has no online booking (e.g. a Team Trainer switched off), so nobody marks the lead "no trainer".
+async function nearestAnyTrainer(zip) {
+  let best = null;
+  for (const t of await B.listedTrainers()) {
+    const miles = B.milesBetween(zip, t.base_zip);
+    if (miles == null || miles > B.RADIUS_MILES) continue;
+    if (!best || miles < best.miles_exact) best = { slug: t.slug, name: B.clean(t.full_name, 120), miles: Math.round(miles), miles_exact: miles };
+  }
+  return best ? { slug: best.slug, name: best.name, miles: best.miles } : null;
+}
+
+// Step 3c (rule 74): no trainer within 50 miles -> "Our office will book you with a trainer near you" + callback.
 async function callback(req, res, body) {
   const c = body.client || {};
   const client = { first_name: B.clean(c.first_name, 80), last_name: B.clean(c.last_name, 80), phone: B.clean(c.phone, 40), email: B.clean(c.email, 160).toLowerCase() };
@@ -415,6 +431,10 @@ async function callback(req, res, body) {
     lead = await getLead(created.lead.id);
   }
   const now = new Date().toISOString();
+  const nearest = await nearestAnyTrainer(zip).catch(() => null);
+  const reason = nearest
+    ? `Nearest trainer: ${nearest.name}, ${nearest.miles} mi from ZIP ${zip} (no online booking). Call and book the evaluation with them.`
+    : `No trainer within ${B.RADIUS_MILES} miles of ZIP ${zip}.`;
   const record = await patchLeadWithRetry(lead, current => {
     const raw = rawOf(current);
     return {
@@ -427,7 +447,7 @@ async function callback(req, res, body) {
         needs_office_call: true, // Joshua 2026-09-23: the office must call this person; the portal shows a "Needs a call" badge
         booking: {
           ...(raw.booking && typeof raw.booking === "object" ? raw.booking : {}),
-          callback: { zip, requested_at: now, phone: client.phone, reason: `No trainer within ${B.RADIUS_MILES} miles of ZIP ${zip}.`, ...(linkFrom ? { link_from: linkFrom } : {}) }
+          callback: { zip, requested_at: now, phone: client.phone, reason, ...(nearest ? { nearest_trainer: nearest } : {}), ...(linkFrom ? { link_from: linkFrom } : {}) }
         }
       }
     };
@@ -446,11 +466,12 @@ async function preEval(req, res, body) {
   const lead = await getLead(leadId);
   if (!lead) return res.status(404).json({ ok: false, message: `We could not find your booking. Please call ${OFFICE_PHONE}.` });
   const booking = rawOf(lead).booking || {};
-  if (!(booking.slot_start || booking.requested_at)) return res.status(409).json({ ok: false, message: "Please book your free evaluation first." });
+  if (!(booking.slot_start || booking.requested_at || booking.callback)) return res.status(409).json({ ok: false, message: "Please book your free evaluation first." });
   const dogNames = row => (Array.isArray(rawOf(row).booking?.dogs) ? rawOf(row).booking.dogs : []).map(dog => B.clean(dog?.name, 80));
   const { answers, errors } = PE.cleanAnswers(body.answers, dogNames(lead));
   if (errors.length) return res.status(400).json({ ok: false, message: errors[0], errors });
-  const firstTime = !booking.pre_eval?.first_submitted_at; // only the first submit texts the trainer
+  // Only the first submit texts the trainer. A callback has no trainer yet: the office reads the answers on the lead.
+  const firstTime = !booking.pre_eval?.first_submitted_at && Boolean(booking.trainer_slug);
   const now = new Date().toISOString();
   const record = await patchLeadWithRetry(lead, current => {
     const raw = rawOf(current);

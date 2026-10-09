@@ -3207,3 +3207,18 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      renamed; Victoria's `service_zips` = the 41 ZIPs within 40 mi of 32310 (migration
      `victoria_tallahassee_40mi_from_32310_2026_10_09`, backup `private.booking_trainers_backup_20261009`);
      /ads/tallahassee ZIP example 32310 (live + practice). Checked: 32310, 32301, 32312, 32327, 32399 -> Victoria.
+
+178. **No-trainer callback wording + Chicago/Ann Arbor 45 mi (Joshua 2026-10-09).** The client NEVER reads "no
+     trainer within 50 miles": /book says "Our office will book you with a trainer near you" (lib/booking-page.js),
+     and the ad / city pages' trainer picker says "Our office will book you with a trainer near you. Send the form
+     and we will call you." (NEAR_EMPTY in lib/ad2-page-template.js, data-empty in lib/ad-page-template.js, the
+     built dog-training-*.html and site/pages/*.html, the assets/v2/v2.js fallback; Pensacola's Spanish entry too).
+     A callback now goes on to the pre-evaluation questions (Done screen button; leadOutcome returns
+     `callback:true`; preEval accepts a callback lead and sends NO trainer text since there is no trainer yet).
+     Office side: callback.reason names the nearest ACTIVE trainer within 50 mi even with online booking off
+     ("Nearest trainer: Jasmine Bland, 26 mi from ZIP ... (no online booking). Call and book the evaluation with
+     them."), stored as callback.nearest_trainer; the office email subject says "book with <name> (<n> mi ...)".
+     Only when nobody is within 50 mi does the reason still say "No trainer within 50 miles of ZIP ...".
+     The red "Needs a call" badge and the queued office email are unchanged. Before: page said "We do not have a
+     trainer within 50 miles..."; callback Done screen had no questions button. Stamp 20261009live75.
+     Meta same day: Chicago and Ann Arbor ad sets = 45 mi city radius (renamed "... 45mi"); budgets unchanged.

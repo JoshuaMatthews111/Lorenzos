@@ -301,7 +301,7 @@
     var wait = parseInt(box.getAttribute("data-debounce"), 10);
     if (!(wait >= 0 && wait <= 5000)) wait = 400;
     var LOADING = box.getAttribute("data-loading") || "Looking for trainers near you…";
-    var EMPTY = box.getAttribute("data-empty") || "We do not have a trainer within 50 miles of that ZIP yet. Send the form and our office will call you.";
+    var EMPTY = box.getAttribute("data-empty") || "Our office will book you with a trainer near you. Send the form and we will call you.";
     var timer = null;
     var seq = 0;         // only the newest answer is drawn: a slow reply for an older ZIP is ignored
     var askedZip = "";

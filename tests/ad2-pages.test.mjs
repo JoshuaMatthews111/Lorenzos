@@ -241,7 +241,7 @@ test("Joshua 2026-09-23: the trainers near the typed ZIP appear under the ZIP bo
     assert.match(form, /<h3 class="tnear-h">Trainers near you<\/h3>/, `${starter.design}: heading`);
     assert.match(form, /<p class="tnear-sub">Pick who you want\. You can still change this on the next screen\.<\/p>/, `${starter.design}: the short line`);
     assert.match(form, /data-loading="Looking for trainers near you…"/, `${starter.design}: while loading`);
-    assert.match(form, /data-empty="We do not have a trainer within 50 miles of that ZIP yet\. Send the form and our office will call you\."/, `${starter.design}: nobody in range`);
+    assert.match(form, /data-empty="Our office will book you with a trainer near you\. Send the form and we will call you\."/, `${starter.design}: nobody in range`);
     // the pick travels with the lead, under the same names the trainer pages send
     assert.match(form, /<input type="hidden" name="trainer_slug" value="">/, `${starter.design}: the hidden trainer field`);
     assert.match(form, /<input type="hidden" name="assigned_trainer" value="">/, `${starter.design}: the trainer's name`);

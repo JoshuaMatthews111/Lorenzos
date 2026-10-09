@@ -246,6 +246,29 @@ test("no trainer within 50 miles: the callback tells the office (queued email) a
   assert.equal(notice.office_email.status, "queued");
 });
 
+test("Joshua 2026-10-09: a callback names the nearest trainer (online booking off) and goes on to the questions", async () => {
+  const { bookingApi, M } = load(true);
+  const { db } = fakeWorld();
+  const res = await call(bookingApi, { body: { op: "callback", zip: "30303", client: { first_name: "Ann", phone: "404-555-0100" } } });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.payload));
+  const lead = db.leads.find(l => l.id === res.payload.lead_id);
+  const cb = lead.raw_payload.booking.callback;
+  assert.match(cb.reason, /^Nearest trainer: Aryson Whorley, 0 mi from ZIP 30303 \(no online booking\)\. Call and book the evaluation with them\.$/);
+  assert.equal(cb.nearest_trainer.slug, "aryson-whorley");
+  const mail = M.buildBookingEmail({ lead, booking: lead.raw_payload.booking, kind: "no_trainer" });
+  assert.match(mail.subject, /Callback needed: Ann, book with Aryson Whorley \(0 mi from ZIP 30303\)/);
+  assert.doesNotMatch(mail.text, /no trainer within/i);
+  const reopened = await call(bookingApi, { method: "GET", query: { lead: lead.id } });
+  assert.equal(reopened.payload.outcome.callback, true);
+  assert.equal(reopened.payload.outcome.pre_eval_done, false);
+  const pre = await call(bookingApi, { body: { op: "pre_eval", lead_id: lead.id, answers: { top_behavior: "Barking", bite_history: "No", children: "No", other_animals: "No" } } });
+  assert.equal(pre.statusCode, 200, JSON.stringify(pre.payload));
+  assert.ok(lead.raw_payload.booking.pre_eval?.submitted_at || db.leads.find(l => l.id === lead.id).raw_payload.booking.pre_eval.submitted_at);
+  assert.equal(db.leads.find(l => l.id === lead.id).raw_payload.pipeline.pre_eval_text, undefined, "no trainer yet: no trainer text");
+  const far = await call(bookingApi, { body: { op: "callback", zip: "59101", client: { first_name: "Mo", phone: "406-555-0100" } } });
+  assert.match(db.leads.find(l => l.id === far.payload.lead_id).raw_payload.booking.callback.reason, /^No trainer within 50 miles of ZIP 59101\.$/);
+});
+
 test("text routing uses the radius: near only no-calendar trainers = office follow-up (Joshua 2026-09-16); nobody near gets no link", async () => {
   const { leadApi } = load(true);
   const { db } = fakeWorld();
@@ -270,7 +293,8 @@ test("the page: ZIP first, questions before the calendar, then the congratulatio
   const at = id => html.indexOf(`id="${id}"`);
   assert.ok(at("stepZip") > 0 && at("stepZip") < at("stepForm") && at("stepForm") < at("stepTime") && at("stepTime") < at("stepDone"), "Joshua's order: ZIP -> questions -> calendar -> done");
   assert.match(html, /Enter your ZIP code/);
-  assert.match(html, /The office will match you with a trainer/);
+  assert.match(html, /Our office will book you with a trainer near you/);
+  assert.doesNotMatch(html, /We do not have a trainer/, "Joshua 2026-10-09: never tell the client there is no trainer");
   assert.match(html, /Request this trainer — the office will schedule you/);
   assert.match(html, /866\.436\.4959/);
   assert.match(html, /Behavioral challenges/);
