@@ -52,58 +52,6 @@ window.LDTT_TRAINER_ROSTER = [
     }
   },
   {
-    "id": "genevieve-twilla",
-    "slug": "genevieve-twilla",
-    "pageSlug": "genevievetwilla",
-    "name": "Genevieve Twilla",
-    "state": "California",
-    "market": "North Park, CA",
-    "serviceArea": "North Park and surrounding California communities",
-    "phone": "(866) 436-4959",
-    "email": "",
-    "username": "",
-    "title": "Lorenzo's Certified Dog Trainer",
-    "tagline": "Serious training for real-life results.",
-    "heroHeadline": "The right trainer. The right results.",
-    "bio": "Genevieve “Skylar” Twilla combines lifelong animal passion with service-industry communication skills to help families build confidence and consistency.",
-    "fullBio": "Born in San Diego and raised in Chula Vista, California, Genevieve “Skylar” Twilla now calls North Park home. With a lifelong love for animals and a genuine passion for helping others, Skylar brings enthusiasm, compassion, and dedication to every dog and family she works with. Skylar's journey into professional dog training began through a friend who introduced her to Lorenzo's Dog Training Team. Already passionate about animals, she was drawn to the opportunity to make a meaningful difference in the lives of dogs and their owners. Through Lorenzo's proven training methods and philosophy, Skylar found a way to help dogs achieve greater success while giving owners the tools and confidence needed to build stronger relationships with their pets. Having spent her entire career working in the service industry, Skylar has developed exceptional communication and people skills. Her experience working with individuals from all walks of life allows her to connect with clients, understand their unique challenges, and guide them through the training process with patience and encouragement. Combined with her love for dogs, this background helps her create positive and rewarding experiences for both dogs and their families. As a trainer, Skylar is driven by a simple but powerful mission: to help as many dogs and people as possible. She is committed to improving the lives of the families she serves, continuing her education, and expanding her understanding of canine behavior, personality differences, and effective training techniques. Her goal is not only to help dogs become well-mannered companions but also to empower owners with the knowledge and skills they need for long-term success. Outside of training, Skylar enjoys spending time outdoors, hiking with her dog, drawing, staying active, and working out. Her active lifestyle and appreciation for the outdoors reflect the same energy and dedication she brings to her work as a dog trainer. With a passion for animals, a heart for helping people, and a commitment to continuous growth, Skylar is proud to be part of Lorenzo's Dog Training Team and looks forward to helping dogs and their owners achieve lasting success together.",
-    "sourceBioUrl": "https://www.lorenzosdogtrainingteam.com/genevieve-twilla",
-    "layout": "mock-5",
-    "pageStatus": "No Site Started",
-    "locked": false,
-    "clicks": 0,
-    "forms": 0,
-    "conversions": 0,
-    "image": "/assets/trainer-bio-photos/genevieve-twilla.jpg",
-    "photo": "/assets/trainer-bio-photos/genevieve-twilla.jpg",
-    "cardPhoto": "/assets/trainer-headshots/genevieve-twilla-360-x-360.jpg",
-    "companyLogo": "",
-    "specialties": [
-      "Dog Obedience Training",
-      "Behavior Modification",
-      "Puppy Training",
-      "Real-World Owner Leadership"
-    ],
-    "credentials": [
-      "Lorenzo's Certified Dog Trainer",
-      "Powered by Lorenzo's Dog Training Team",
-      "Office-managed lead follow-up"
-    ],
-    "seoTitle": "Dog Trainer in North Park, CA | Genevieve Twilla | Lorenzo's Dog Training Team",
-    "seoDescription": "Professional dog obedience training and behavior modification with Genevieve Twilla in North Park, CA, backed by Lorenzo's Dog Training Team.",
-    "review1Author": "",
-    "review1Copy": "",
-    "review2Author": "",
-    "review2Copy": "",
-    "review3Author": "",
-    "review3Copy": "",
-    "socials": {
-      "facebook": "",
-      "instagram": "",
-      "tiktok": ""
-    }
-  },
-  {
     "id": "daniel-bainbridge",
     "slug": "daniel-bainbridge",
     "pageSlug": "danielbainbridge",

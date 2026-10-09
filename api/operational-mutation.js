@@ -290,6 +290,79 @@ async function deleteTrainerPage(admin, body, requestId) {
   return { status: 200, body: { ok: true, deleted: true, record, actor: admin.actor, updated_at: record.updated_at } };
 }
 
+// Joshua 2026-10-09 (office: a trainer stepped down): "Archive Trainer Profile" takes a trainer off the public
+// website in one click, without deleting anything. The trainer row goes to status archived, the trainer landing
+// page is taken down (same as delete_trainer_page), online booking for the slug is switched off, and the portal
+// login is disabled. Find a Trainer / the bio pages read /api/public-trainers and hide archived slugs. Restore
+// puts the row and the page back (booking stays off: the office turns it on when the calendar is ready).
+async function setBookingActive(slug, active, reason) {
+  if (!slug) return;
+  const rows = await supabaseFetch("/rest/v1/site_settings?key=eq.booking_trainers&select=key,value").catch(() => []);
+  const row = rows?.[0];
+  const list = Array.isArray(row?.value?.trainers) ? row.value.trainers : [];
+  if (!list.some(t => t?.slug === slug)) return;
+  const trainers = list.map(t => t?.slug === slug ? { ...t, active, ...(active ? {} : { paused_reason: reason }) } : t);
+  await supabaseFetch("/rest/v1/site_settings?key=eq.booking_trainers", {
+    method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ value: { ...row.value, trainers } })
+  });
+}
+
+async function archiveTrainerProfile(admin, body, requestId) {
+  const id = clean(body.id, 120);
+  const typedName = typedFullName(body.archived_by_name);
+  if (!id) return { status: 400, body: { ok: false, message: "Choose the trainer to archive." } };
+  if (!typedName) return { status: 400, body: { ok: false, message: "Type your full name (first and last) to archive a trainer profile." } };
+  const before = await getRecord("trainers", id);
+  if (!before) return { status: 404, body: { ok: false, message: "Trainer not found." } };
+  if (before.status === "archived") return { status: 409, body: { ok: false, message: "This trainer profile is already archived. Use Restore Trainer Profile to bring it back." } };
+  const now = new Date().toISOString();
+  const rows = await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH", headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ status: "archived", archived_at: now, archived_by: admin.actor.id, access_status: "disabled" })
+  });
+  const record = rows?.[0];
+  if (!record) return { status: 409, body: { ok: false, conflict: true, message: "The trainer changed before it could be archived. Try again." } };
+  const pages = await supabaseFetch(`/rest/v1/trainer_pages?trainer_id=eq.${encodeURIComponent(id)}&page_status=neq.archived`, {
+    method: "PATCH", headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ page_status: "archived", locked: false, archived_at: now, archived_by: admin.actor.id })
+  }).catch(() => []);
+  await setBookingActive(before.slug, false, `Trainer profile archived by ${typedName} on ${now.slice(0, 10)}.`).catch(error => console.error("archive_booking_off_failed", String(error?.message || error)));
+  const name = clean(before.full_name, 120) || "Trainer";
+  await audit(asTypedActor(admin, typedName), "trainer_profile_archived", "trainer", id, before,
+    { ...record, archived_by_name: typedName, pages_taken_down: Array.isArray(pages) ? pages.length : 0 },
+    `${typedName} archived the ${name} trainer profile. Off the website (Find a Trainer, bio, landing page, ZIP search); nothing deleted.`, requestId);
+  return { status: 200, body: { ok: true, archived: true, record, pages_taken_down: Array.isArray(pages) ? pages.length : 0, actor: admin.actor, updated_at: record.updated_at } };
+}
+
+async function restoreTrainerProfile(admin, body, requestId) {
+  const id = clean(body.id, 120);
+  const typedName = typedFullName(body.restored_by_name);
+  if (!id) return { status: 400, body: { ok: false, message: "Choose the trainer to restore." } };
+  if (!typedName) return { status: 400, body: { ok: false, message: "Type your full name (first and last) to restore a trainer profile." } };
+  const before = await getRecord("trainers", id);
+  if (!before) return { status: 404, body: { ok: false, message: "Trainer not found." } };
+  if (before.status !== "archived") return { status: 409, body: { ok: false, message: "This trainer profile is not archived." } };
+  const rows = await supabaseFetch(`/rest/v1/trainers?id=eq.${encodeURIComponent(id)}`, {
+    method: "PATCH", headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ status: "active", archived_at: null, archived_by: null, access_status: "active" })
+  });
+  const record = rows?.[0];
+  if (!record) return { status: 409, body: { ok: false, conflict: true, message: "The trainer changed before it could be restored. Try again." } };
+  // The page comes back live only if it had a published version; otherwise as a draft.
+  const pages = (await supabaseFetch(`/rest/v1/trainer_pages?trainer_id=eq.${encodeURIComponent(id)}&page_status=eq.archived&select=id,published_revision`).catch(() => [])) || [];
+  for (const page of pages) {
+    const published = Number(page.published_revision || 0) >= 1;
+    await supabaseFetch(`/rest/v1/trainer_pages?id=eq.${encodeURIComponent(page.id)}`, {
+      method: "PATCH", headers: { Prefer: "return=minimal" },
+      body: JSON.stringify({ page_status: published ? "published" : "draft", locked: published, archived_at: null, archived_by: null })
+    }).catch(error => console.error("restore_page_failed", String(error?.message || error)));
+  }
+  const name = clean(before.full_name, 120) || "Trainer";
+  await audit(asTypedActor(admin, typedName), "trainer_profile_restored", "trainer", id, before, { ...record, restored_by_name: typedName, pages_restored: pages.length },
+    `${typedName} restored the ${name} trainer profile. Back on the website; online booking stays off until the office turns it on.`, requestId);
+  return { status: 200, body: { ok: true, restored: true, record, pages_restored: pages.length, actor: admin.actor, updated_at: record.updated_at } };
+}
+
 async function restoreTrainerPage(admin, body, requestId) {
   const id = clean(body.id, 120);
   const typedName = typedFullName(body.restored_by_name);
@@ -782,6 +855,8 @@ module.exports = async function handler(req, res) {
       case "set_review_publications": result = await setReviewPublications(admin, body, requestId); break;
       case "delete_trainer_page": result = await deleteTrainerPage(admin, body, requestId); break;
       case "restore_trainer_page": result = await restoreTrainerPage(admin, body, requestId); break;
+      case "archive_trainer_profile": result = await archiveTrainerProfile(admin, body, requestId); break;
+      case "restore_trainer_profile": result = await restoreTrainerProfile(admin, body, requestId); break;
       case "merge_leads": result = await mergeLeads(admin, body); break;
       default: result = { status: 400, body: { ok: false, message: "Unsupported operational mutation." } };
     }

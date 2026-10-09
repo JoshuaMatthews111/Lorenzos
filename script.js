@@ -1657,3 +1657,26 @@ document.addEventListener("input", function (event) {
   d = d.slice(0, 10);
   el.value = d.length > 6 ? "(" + d.slice(0, 3) + ") " + d.slice(3, 6) + "-" + d.slice(6) : d.length > 3 ? "(" + d.slice(0, 3) + ") " + d.slice(3) : d;
 }, true);
+
+// Joshua 2026-10-09: an archived trainer profile is off the website. The cards on Find a Trainer and the bio pages
+// are built files, so they ask /api/public-trainers for the archived slugs and hide them. Nothing is deleted.
+(function () {
+  var cards = document.querySelectorAll(".trainer-card[data-trainer-slug]");
+  var params = new URLSearchParams(location.search);
+  var profileSlug = String(params.get("trainer") || params.get("bio") || "").toLowerCase();
+  var hero = document.querySelector("[data-trainer-profile-slug]");
+  if (!profileSlug && hero) profileSlug = String(hero.getAttribute("data-trainer-profile-slug") || "").toLowerCase();
+  if (!cards.length && !profileSlug) return;
+  fetch("/api/public-trainers", { cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+    var gone = (j && j.archived) || [];
+    if (!gone.length) return;
+    Array.prototype.forEach.call(cards, function (card) {
+      if (gone.indexOf(String(card.getAttribute("data-trainer-slug")).toLowerCase()) > -1) card.remove();
+    });
+    if (profileSlug && gone.indexOf(profileSlug) > -1) {
+      var robots = document.createElement("meta"); robots.name = "robots"; robots.content = "noindex"; document.head.appendChild(robots);
+      var main = document.querySelector("main") || document.body;
+      main.innerHTML = '<section class="section"><div class="container" style="text-align:center;padding:48px 16px"><h1>This trainer is no longer with the team</h1><p>Find a trainer near you, or call <a href="tel:+18664364959">866.436.4959</a>.</p><p><a class="btn btn-red" href="/find-a-trainer">Find a Trainer</a></p></div></section>';
+    }
+  }).catch(function () {});
+})();

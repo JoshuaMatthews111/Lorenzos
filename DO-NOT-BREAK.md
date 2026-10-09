@@ -3230,3 +3230,19 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      ONLY when it still pointed at the old trainer (or was empty). The picker shows "Now with: <trainer>". Migration
      `client_trainer_follows_lead_shauna_leff_2026_10_09` fixed the one mismatch (backup
      `private.clients_trainer_backup_20261009`). Test: tests/reassign-2026-10-08.test.mjs. Stamp 20261009live76.
+
+180. **Archive Trainer Profile (office 2026-10-09: a trainer stepped down; Joshua: "archive it, not delete, not
+     visible to the public").** Trainer Pages card, under "Disable Trainer Access": **Archive Trainer Profile**
+     (typed full name, no password). `archive_trainer_profile` (api/operational-mutation.js): trainers.status=archived
+     + archived_at/by + access_status=disabled; every trainer_pages row for the trainer -> page_status archived (same
+     as delete_trainer_page); booking_trainers row active=false + paused_reason; audit `trainer_profile_archived`.
+     Nothing is deleted. "Archived trainer profiles" (details under the grid) has **Restore Trainer Profile**
+     (`restore_trainer_profile`: status active, page back to published if it had a published revision else draft,
+     login active; booking stays OFF). Public side: new `/api/public-trainers` ({archived:[slugs]}, 60 s edge cache);
+     script.js removes `.trainer-card[data-trainer-slug]` on Find a Trainer and replaces an archived bio / profile
+     page with "This trainer is no longer with the team" + noindex. ZIP search / booking already skip non-active rows.
+     Genevieve Twilla (stepped down, Missy 2026-10-06): removed from build.py, trainer_bios.json, trainer-roster.js,
+     find-a-trainer.html (card + trainerBioData), her two html files deleted, vercel redirects
+     /trainer-bio-genevieve-twilla and /genevievetwilla -> /find-a-trainer; trainers row archived on live + practice
+     (migration `archive_genevieve_twilla_2026_10_09`). Test: tests/archive-trainer-profile-2026-10-09.test.mjs.
+     Stamp 20261009live77. build.py was NOT re-run (hand edits only).

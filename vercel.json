@@ -2,6 +2,16 @@
   "cleanUrls": true,
   "redirects": [
     {
+      "source": "/genevievetwilla",
+      "destination": "/find-a-trainer",
+      "permanent": false
+    },
+    {
+      "source": "/trainer-bio-genevieve-twilla",
+      "destination": "/find-a-trainer",
+      "permanent": false
+    },
+    {
       "source": "/carolinadon",
       "destination": "/carolinaperez",
       "permanent": true

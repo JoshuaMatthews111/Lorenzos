@@ -11604,8 +11604,38 @@ function trainerPageCards() {
   return `<div class="trainer-card-grid">${state.trainers.filter(trainer => !trainer.archived).map(trainer => {
     const stats = realTrainerStats(trainer);
     const canDelete = isDraftTrainer(trainer) && !trainer.locked;
-    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt="${escapeHtml(trainer.name || "Trainer Draft")} headshot"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Edit Trainer & Landing Page</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">${trainer.pageStatus === "Published" ? "View Published Page" : "Preview Draft"}</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? (trainerHasPublishedPage(trainer) ? "Edit Live Page" : "Return To Draft") : "Publish Landing Page"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
-  }).join("")}</div>`;
+    return `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt="${escapeHtml(trainer.name || "Trainer Draft")} headshot"><div><span>${escapeHtml(layoutName(trainer.layout))}</span><strong>${escapeHtml(trainer.name || "Trainer Draft")}</strong><small>${escapeHtml(trainer.market)}</small></div></div><div class="network-card-head"><div><h3>${escapeHtml(trainer.name || "Trainer Draft")}</h3><p>${escapeHtml(trainer.serviceArea)}</p><span class="status ${trainer.accessStatus === "Disabled" ? "lost" : "won"}">${escapeHtml(trainer.accessStatus || "Active")} Portal Access</span></div>${pageStatusBadge(trainer)}</div><div class="readiness-stats"><div><strong>${stats.clicks}</strong><span>Tracked Page Clicks</span></div><div><strong>${stats.forms}</strong><span>Lead Forms</span></div><div><strong>${stats.conversions}</strong><span>Paying Clients</span></div></div><p class="network-note">${trainer.pageStatus === "No Site Started" ? "Trainer enrolled. Office setup has not started." : trainer.locked ? "Published and locked by the office." : "Office draft in progress. Not public yet."}</p><div class="row-actions"><button class="btn btn-outline" data-select-trainer="${trainer.id}" data-view="trainers">Edit Trainer & Landing Page</button><a class="btn btn-outline" href="${trainerPageHref(trainer)}" target="_blank" rel="noopener">${trainer.pageStatus === "Published" ? "View Published Page" : "Preview Draft"}</a><button class="btn ${trainer.locked ? "btn-outline" : "btn-red"}" data-toggle-lock="${trainer.id}">${trainer.locked ? (trainerHasPublishedPage(trainer) ? "Edit Live Page" : "Return To Draft") : "Publish Landing Page"}</button><button class="btn btn-outline" data-toggle-access="${trainer.id}">${trainer.accessStatus === "Disabled" ? "Restore Trainer Access" : "Disable Trainer Access"}</button>${trainer.remoteId ? `<button class="btn btn-outline btn-danger" data-archive-trainer-profile="${trainer.id}">Archive Trainer Profile</button>` : ""}${canDelete ? `<button class="btn btn-outline btn-danger" data-delete-trainer="${trainer.id}">Delete Draft</button>` : ""}</div></article>`;
+  }).join("")}</div>${archivedTrainerProfiles()}`;
+}
+
+// Joshua 2026-10-09 (office: a trainer stepped down): Archive Trainer Profile = off the website in one click, nothing
+// deleted. The archived trainers sit under the grid with a Restore button so the office can undo it.
+function archivedTrainerProfiles() {
+  const gone = state.trainers.filter(trainer => trainer.archived && trainer.remoteId);
+  if (!gone.length) return "";
+  return `<details class="editor-control-section archived-trainer-profiles" style="margin-top:18px"><summary>Archived trainer profiles (${gone.length}) · off the website</summary><div class="trainer-card-grid">${gone.map(trainer => `<article class="network-card"><div class="trainer-page-thumbnail"><img src="${escapeHtml(trainerHeadshot(trainer))}" alt="${escapeHtml(trainer.name || "Trainer")} headshot"><div><span>Archived</span><strong>${escapeHtml(trainer.name)}</strong><small>${escapeHtml(trainer.market || "")}</small></div></div><p class="panel-copy">Not on Find a Trainer, the bio page, the landing page or ZIP search. Leads, clients and history are kept.</p><div class="row-actions"><button class="btn btn-outline" data-restore-trainer-profile="${trainer.id}">Restore Trainer Profile</button></div></article>`).join("")}</div></details>`;
+}
+
+function confirmTrainerProfileArchive(trainer, restore) {
+  return new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    const name = escapeHtml(trainer?.name || "this trainer");
+    dialog.className = "action-confirmation-dialog practice-reset-dialog trainer-page-restore-dialog";
+    dialog.innerHTML = restore
+      ? `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><h2>Restore ${name}'s trainer profile?</h2><p>${name} goes back on Find a Trainer and the bio page. The landing page comes back if it was published. Online booking stays off until you turn it on. Your name is saved in the log.</p><label class="send-live-name"><span>Your full name</span><input type="text" data-profile-archive-name autocomplete="name" placeholder="First and last name"></label><div class="action-confirmation-actions"><button type="button" class="btn btn-outline" data-profile-archive-cancel>Cancel</button><button type="button" class="btn btn-red" data-profile-archive-go disabled>Restore profile</button></div>`
+      : `<button type="button" class="action-confirmation-close" aria-label="Close">×</button><div class="action-confirmation-icon">!</div><h2>Archive ${name}'s trainer profile?</h2><div class="send-live-warning" role="alert"><strong>Off the website right away.</strong> ${name} is removed from Find a Trainer, the bio page and headshot, the landing page and ZIP search. Online booking and the portal login are switched off.</div><p>Nothing is deleted. Leads, clients and history stay. You can restore the profile from "Archived trainer profiles" under the trainer cards. Your name is saved in the log.</p><label class="send-live-name"><span>Your full name</span><input type="text" data-profile-archive-name autocomplete="name" placeholder="First and last name"></label><div class="action-confirmation-actions"><button type="button" class="btn btn-outline" data-profile-archive-cancel>Cancel</button><button type="button" class="btn btn-red" data-profile-archive-go disabled>Archive profile</button></div>`;
+    document.body.appendChild(dialog);
+    const nameInput = dialog.querySelector("[data-profile-archive-name]");
+    const go = dialog.querySelector("[data-profile-archive-go]");
+    const done = value => { dialog.close(); dialog.remove(); resolve(value); };
+    nameInput.addEventListener("input", () => { go.disabled = !fullNameOrEmpty(nameInput.value); });
+    go.addEventListener("click", () => { const typed = fullNameOrEmpty(nameInput.value); if (typed) done(typed); });
+    dialog.querySelectorAll(".action-confirmation-close,[data-profile-archive-cancel]").forEach(button => button.addEventListener("click", () => done(false)));
+    dialog.addEventListener("click", event => { if (event.target === dialog) done(false); });
+    dialog.addEventListener("cancel", () => done(false));
+    dialog.showModal();
+    setTimeout(() => nameInput.focus(), 50);
+  });
 }
 
 function trainerSiteActivityTable() {
@@ -15608,6 +15638,28 @@ document.addEventListener("click", async event => {
       saveState(publish ? "Trainer page published and locked" : "Trainer page returned to office draft");
       if (publish) showTrainerInviteDialog(trainer);
     }
+    return;
+  }
+  const archiveProfile = event.target.closest("[data-archive-trainer-profile]");
+  if (archiveProfile) {
+    const trainer = trainerById(archiveProfile.dataset.archiveTrainerProfile);
+    if (!trainer?.remoteId) { showToast("This trainer is not saved yet."); return; }
+    const typed = await confirmTrainerProfileArchive(trainer, false);
+    if (!typed) return;
+    await runRemoteMutation(`${trainer.name} archived. Off the website; restore it from "Archived trainer profiles".`, () => window.LDTT_PORTAL.operationalMutation({
+      operation: "archive_trainer_profile", entity_type: "trainer", id: trainer.remoteId, archived_by_name: typed
+    }), { type: "Trainer Profile", detail: `${trainer.name} trainer profile archived by ${typed}.` });
+    return;
+  }
+  const restoreProfile = event.target.closest("[data-restore-trainer-profile]");
+  if (restoreProfile) {
+    const trainer = trainerById(restoreProfile.dataset.restoreTrainerProfile);
+    if (!trainer?.remoteId) return;
+    const typed = await confirmTrainerProfileArchive(trainer, true);
+    if (!typed) return;
+    await runRemoteMutation(`${trainer.name} restored. Back on the website; online booking stays off until you turn it on.`, () => window.LDTT_PORTAL.operationalMutation({
+      operation: "restore_trainer_profile", entity_type: "trainer", id: trainer.remoteId, restored_by_name: typed
+    }), { type: "Trainer Profile", detail: `${trainer.name} trainer profile restored by ${typed}.` });
     return;
   }
   const toggleAccess = event.target.closest("[data-toggle-access]");

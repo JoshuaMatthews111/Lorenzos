@@ -36,7 +36,7 @@ SEO={
 TRAINER_APPLICATION_FORM_EMBED="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform?embedded=true"
 TRAINER_APPLICATION_FORM_LINK="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/viewform"
 TRAINER_APPLICATION_FORM_RESPONSE="https://docs.google.com/forms/d/e/1FAIpQLSdm5gkPQl4LwPVIGZZQbOGYA05le1xMUybMngJIyWKeDmlF5Q/formResponse"
-SITE_ASSET_VERSION="20261009live76"
+SITE_ASSET_VERSION="20261009live77"
 PORTAL_ASSET_VERSION="20260819media"
 GOOGLE_ADS_ID="AW-11463464040"
 CONTACT_CONVERSION_ID="AW-11463464040/WIE3CMK0kr0aEOiomtoq"
@@ -156,7 +156,6 @@ career=hero("Academy / LDTT Certification","Become a LDTT Certified Dog Trainer 
 
 trainers=[
 ("Fred Harris","San Diego, CA","California","assets/trainer-headshots/Frederick Harris TT 360_x_360.jpg","fred-harris","Frederick brings strong people skills, discipline, and a service mindset to dog training after years in hospitality and nonprofit work supporting foster youth."),
-("Genevieve Twilla","North Park, CA","California","assets/trainer-headshots/Genevieve Twilla 360_x_360.jpg","genevieve-twilla","Genevieve “Skylar” Twilla combines lifelong animal passion with service-industry communication skills to help families build confidence and consistency."),
 ("Daniel “Deuce” Bainbridge","Crestview, FL","Florida","assets/trainer-headshots/Daniel Bainbridge_RD 360_x_360.jpg","daniel-bainbridge","Daniel, known as Deuce, brings hands-on discipline and a goal of becoming a leading Gulf Coast trainer through the LDTT system."),
 ("Victoria Bayleigh Morris","Milton, FL","Florida","assets/trainer-headshots/Victoria Morris ETT 360_x_360.jpg","victoria-bayleigh-morris","Bayleigh's veterinary technician background and love of animals led her into LDTT training after seeing what professional structure could do."),
 ("Michael King","Navarre, FL","Florida","assets/trainer-headshots/Michael King_TC 360_x_360.jpg","michael-king","Michael combines Air Force service, people skills, and personal experience with an aggressive dog to help families achieve better results."),
