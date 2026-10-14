@@ -78,6 +78,10 @@
       "destination": "/trainer-profile?trainer=:slug"
     },
     {
+      "source": "/protection/:slug",
+      "destination": "/api/protection-page?slug=:slug"
+    },
+    {
       "source": "/:slug",
       "destination": "/trainer-backoffice/right-trainer-results?slug=:slug"
     }

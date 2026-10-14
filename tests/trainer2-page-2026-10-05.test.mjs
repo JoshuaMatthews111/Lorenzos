@@ -148,7 +148,8 @@ test("route: /trainer/<slug> is a NEW rewrite that cannot collide with anything 
   assert.ok(re.test("/about"), "sanity: the matcher matches a one-segment path");
   assert.ok(!re.test("/trainer/lorenzo-miller"));
   // the existing rewrites are all still there, in their order
-  const sources = rw.map(r => r.source).filter(s => s !== "/trainer/:slug");
+  // /protection/:slug joined 2026-10-14 (protection landing pages); it sits before the catch-all too.
+  const sources = rw.map(r => r.source).filter(s => s !== "/trainer/:slug" && s !== "/protection/:slug");
   assert.deepEqual(sources, ["/ads/:slug", "/p/:slug", "/book", "/book/:slug", "/trainer-bio-:slug", "/:slug"]);
 });
 

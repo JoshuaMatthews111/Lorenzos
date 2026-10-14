@@ -3246,3 +3246,12 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      /trainer-bio-genevieve-twilla and /genevievetwilla -> /find-a-trainer; trainers row archived on live + practice
      (migration `archive_genevieve_twilla_2026_10_09`). Test: tests/archive-trainer-profile-2026-10-09.test.mjs.
      Stamp 20261009live77. build.py was NOT re-run (hand edits only).
+
+181. **Protection Training landing pages (Joshua 2026-10-14, office mockup).** `/protection/<slug>` for SIX markets
+     only: atlanta, cleveland, fort-worth, san-antonio, durham, navarre (lib/protection-pages.js MARKETS;
+     api/protection-page.js; vercel rewrite before the /:slug catch-all — tests/protection-pages-2026-10-14.test.mjs
+     and the trainer2 route test know about it). Same lead flow as the market/ads pages: assets/v2/v2.js,
+     /api/booking-lead, trainer pick via GET /api/booking?zip=, book_url next screen. Videos: YouTube Shorts
+     2FiKSbzZ3h0 "Security Training" and QZijpf5BJGI "Personal Protection". Reviews: ONLY the office-approved list
+     (/api/approved-homepage-reviews), never the mockup's sample quotes. Photos: assets/protection/hero*.webp
+     (cropped from assets/v2/d1-hero.webp) + existing v2 images. Practice copy serves noindex/no-store.
