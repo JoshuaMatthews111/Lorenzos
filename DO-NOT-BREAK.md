@@ -3264,3 +3264,15 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      Photos are the office's exact reference images (assets/protection/hero|eval|inc1-6.webp, upscaled from
      Joshua's 2026-10-15 crops). Cleveland's form names the Training Center (4815 Orchard Rd). All six are in
      sitemap.xml (Joshua picked option 1).
+
+182. **Trainers' Google calendars block booking slots, READ-ONLY (Joshua 2026-10-15; completes rule 158).**
+     Missy shared all 17 active trainers' calendars ("see event details") with Joshua's Google account
+     info@developsolutionsnow.com; that account authorized the app "LDTT Calendar Reader" (Google Cloud project
+     micro-arcadia-509010-h0, Internal audience, scope calendar.readonly — rule 71 stays: we can NEVER write to
+     Google). lib/trainer-calendars.js (freeBusy, 60s cache, 6.5s timeout) feeds knownBookings (lib/booking.js), so
+     clashesWithBooking hides any slot within TRAVEL_GAP_MINUTES (1 hour) of ANY calendar event — sessions, Alpha,
+     personal blocks — on the slot list AND the final booking re-check. Env on Vercel (production+preview):
+     GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GCAL_REFRESH_TOKEN. Without the env, or on any Google
+     error/timeout, booking behaves exactly as before (no extra blocks, page never breaks). Tests:
+     tests/trainer-calendars-2026-10-15.test.mjs. Verified before ship: Robert Mon Oct 19 busy 4-6pm removed the
+     4pm slot and kept 7pm; Lorenzo's blocked day left only 8am.
