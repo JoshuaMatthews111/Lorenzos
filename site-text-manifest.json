@@ -2301,6 +2301,2028 @@
     }
    ],
    "retired": []
+  },
+  "protection-atlanta": {
+   "file": "protection-atlanta.html",
+   "path": "/protection/atlanta",
+   "label": "Protection · Atlanta",
+   "spots": [
+    {
+     "key": "p-professional-atlanta-ga",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.kick",
+     "anchor": "",
+     "text": "Professional · Atlanta, GA"
+    },
+    {
+     "key": "p-build-a-stronger-foundation-in-obedience-han",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.sub",
+     "anchor": "Protection Training For Dogs",
+     "text": "Build a stronger foundation in obedience, handler communication and responsible management with a training path tailored to your dog and your goals — serving Atlanta and surrounding Georgia communities."
+    },
+    {
+     "key": "a-book-your-free-evaluation",
+     "tag": "a",
+     "ctx": "div.wrap>div>div.ctas>a.btn.btn-red",
+     "anchor": "Protection Training For Dogs",
+     "text": "📅 Book Your FREE Evaluation"
+    },
+    {
+     "key": "span-every-dog-is-different-an-evaluation-helps-i",
+     "tag": "span",
+     "ctx": "div.wrap>div>p.assure>span",
+     "anchor": "Protection Training For Dogs",
+     "text": "Every dog is different. An evaluation helps identify suitability and the right next step."
+    },
+    {
+     "key": "p-why-professional",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.h2kick",
+     "anchor": "Protection Training For Dogs",
+     "text": "Why Professional"
+    },
+    {
+     "key": "h2-protection-training",
+     "tag": "h2",
+     "ctx": "div.wrap>div.why>div.why-intro>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Protection Training?"
+    },
+    {
+     "key": "p-protection-training-is-not-about-creating-ag",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.lead-copy",
+     "anchor": "Protection Training?",
+     "text": "Protection training is not about creating aggression — it's about building confidence, control and trust. Professional instruction helps your dog develop the right skills, in the right way, for real-life situations."
+    },
+    {
+     "key": "h3-reliable-obedience-responses",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Reliable Obedience & Responses"
+    },
+    {
+     "key": "p-your-dog-learns-to-listen-and-respond-to-you",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Reliable Obedience &amp; Responses",
+     "text": "Your dog learns to listen and respond to your commands."
+    },
+    {
+     "key": "h3-awareness-alerts",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Awareness & Alerts"
+    },
+    {
+     "key": "p-builds-confidence-and-situational-awareness",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Awareness &amp; Alerts",
+     "text": "Builds confidence and situational awareness."
+    },
+    {
+     "key": "h3-controlled-protective-behaviors",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Controlled Protective Behaviors"
+    },
+    {
+     "key": "p-develops-appropriate-responses-based-on-your",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Controlled Protective Behaviors",
+     "text": "Develops appropriate responses based on your dog's suitability and training program."
+    },
+    {
+     "key": "h3-discipline-consistency",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Discipline & Consistency"
+    },
+    {
+     "key": "p-reinforces-good-habits-and-builds-lasting-re",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Discipline &amp; Consistency",
+     "text": "Reinforces good habits and builds lasting results."
+    },
+    {
+     "key": "h3-professional-evaluation",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Professional Evaluation"
+    },
+    {
+     "key": "p-we-assess-your-dog-s-temperament-and-behavio",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Professional Evaluation",
+     "text": "We assess your dog's temperament and behavior before recommending specialized training."
+    },
+    {
+     "key": "h2-what-s-included-in-the-protection-training-p",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-foundational-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Foundational & Advanced Obedience"
+    },
+    {
+     "key": "span-handler-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Handler Communication"
+    },
+    {
+     "key": "span-alert-response-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Alert & Response Training"
+    },
+    {
+     "key": "span-protection-exercises",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Protection Exercises"
+    },
+    {
+     "key": "span-owner-education",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Education"
+    },
+    {
+     "key": "span-continued-reinforcement",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Continued Reinforcement"
+    },
+    {
+     "key": "h2-temperament-evaluation-dog-suitability",
+     "tag": "h2",
+     "ctx": "section.section>div.twocol.wrap>div>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Temperament Evaluation & Dog Suitability"
+    },
+    {
+     "key": "p-protection-training-isn-t-right-for-every-do",
+     "tag": "p",
+     "ctx": "section.section>div.twocol.wrap>div>p.lead-copy",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Protection training isn't right for every dog. We evaluate a range of factors to determine if it's the right fit, including:"
+    },
+    {
+     "key": "span-temperament-behavior-history",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Temperament & behavior history"
+    },
+    {
+     "key": "span-confidence-stress-recovery",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Confidence & stress recovery"
+    },
+    {
+     "key": "span-obedience-foundation-responsiveness",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Obedience foundation & responsiveness"
+    },
+    {
+     "key": "span-reactivity-fear-or-aggression-concerns",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Reactivity, fear or aggression concerns"
+    },
+    {
+     "key": "span-health-and-other-considerations",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Health and other considerations"
+    },
+    {
+     "key": "span-owner-goals-and-experience",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Owner goals and experience"
+    },
+    {
+     "key": "a-book-your-free-evaluation-2",
+     "tag": "a",
+     "ctx": "section.section>div.twocol.wrap>div>a.btn.btn-red",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Book Your FREE Evaluation"
+    },
+    {
+     "key": "h3-our-training-approach-safety-standards",
+     "tag": "h3",
+     "ctx": "div.twocol.wrap>div>div.safety>h3",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Our Training Approach & Safety Standards"
+    },
+    {
+     "key": "p-training-with-purpose-always-with-safety",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p.red",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Training with purpose. Always with safety."
+    },
+    {
+     "key": "p-we-use-proven-balanced-training-methods-prof",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "We use proven, balanced training methods, professional handlers and real-world scenarios — all in a safe, controlled environment. Your dog's safety, your peace of mind and long-term success are our priorities."
+    },
+    {
+     "key": "span-experienced-certified-trainers",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Experienced, Certified Trainers"
+    },
+    {
+     "key": "span-structured-progressive-plans",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Structured & Progressive Plans"
+    },
+    {
+     "key": "span-safe-controlled-environments",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Safe, Controlled Environments"
+    },
+    {
+     "key": "span-focus-on-long-term-success",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Focus on Long-Term Success"
+    },
+    {
+     "key": "h2-see-our-protection-training-in-action",
+     "tag": "h2",
+     "ctx": "body>section.section.videos>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "See Our Protection Training in Action"
+    },
+    {
+     "key": "p-watch-real-training-real-dogs-real-results",
+     "tag": "p",
+     "ctx": "body>section.section.videos>div.wrap>p",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Watch real training. Real dogs. Real results."
+    },
+    {
+     "key": "h3-security-training",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Security Training"
+    },
+    {
+     "key": "h3-personal-protection",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Personal Protection"
+    },
+    {
+     "key": "h2-what-our-clients-say",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What Our Clients Say"
+    },
+    {
+     "key": "h2-ready-to-take-the-next-step",
+     "tag": "h2",
+     "ctx": "section.section>div.wrap>div.cta-band>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Ready to take the next step?"
+    },
+    {
+     "key": "a-book-your-free-evaluation-3",
+     "tag": "a",
+     "ctx": "section.section>div.wrap>div.cta-band>a.btn.btn-red",
+     "anchor": "Ready to take the next step?",
+     "text": "Book Your FREE Evaluation"
+    }
+   ],
+   "retired": []
+  },
+  "protection-cleveland": {
+   "file": "protection-cleveland.html",
+   "path": "/protection/cleveland",
+   "label": "Protection · Cleveland",
+   "spots": [
+    {
+     "key": "p-professional-cleveland-oh",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.kick",
+     "anchor": "",
+     "text": "Professional · Cleveland, OH"
+    },
+    {
+     "key": "p-build-a-stronger-foundation-in-obedience-han",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.sub",
+     "anchor": "Protection Training For Dogs",
+     "text": "Build a stronger foundation in obedience, handler communication and responsible management with a training path tailored to your dog and your goals — serving Cleveland and surrounding Ohio communities."
+    },
+    {
+     "key": "a-book-your-free-evaluation",
+     "tag": "a",
+     "ctx": "div.wrap>div>div.ctas>a.btn.btn-red",
+     "anchor": "Protection Training For Dogs",
+     "text": "📅 Book Your FREE Evaluation"
+    },
+    {
+     "key": "span-every-dog-is-different-an-evaluation-helps-i",
+     "tag": "span",
+     "ctx": "div.wrap>div>p.assure>span",
+     "anchor": "Protection Training For Dogs",
+     "text": "Every dog is different. An evaluation helps identify suitability and the right next step."
+    },
+    {
+     "key": "p-why-professional",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.h2kick",
+     "anchor": "Protection Training For Dogs",
+     "text": "Why Professional"
+    },
+    {
+     "key": "h2-protection-training",
+     "tag": "h2",
+     "ctx": "div.wrap>div.why>div.why-intro>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Protection Training?"
+    },
+    {
+     "key": "p-protection-training-is-not-about-creating-ag",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.lead-copy",
+     "anchor": "Protection Training?",
+     "text": "Protection training is not about creating aggression — it's about building confidence, control and trust. Professional instruction helps your dog develop the right skills, in the right way, for real-life situations."
+    },
+    {
+     "key": "h3-reliable-obedience-responses",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Reliable Obedience & Responses"
+    },
+    {
+     "key": "p-your-dog-learns-to-listen-and-respond-to-you",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Reliable Obedience &amp; Responses",
+     "text": "Your dog learns to listen and respond to your commands."
+    },
+    {
+     "key": "h3-awareness-alerts",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Awareness & Alerts"
+    },
+    {
+     "key": "p-builds-confidence-and-situational-awareness",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Awareness &amp; Alerts",
+     "text": "Builds confidence and situational awareness."
+    },
+    {
+     "key": "h3-controlled-protective-behaviors",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Controlled Protective Behaviors"
+    },
+    {
+     "key": "p-develops-appropriate-responses-based-on-your",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Controlled Protective Behaviors",
+     "text": "Develops appropriate responses based on your dog's suitability and training program."
+    },
+    {
+     "key": "h3-discipline-consistency",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Discipline & Consistency"
+    },
+    {
+     "key": "p-reinforces-good-habits-and-builds-lasting-re",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Discipline &amp; Consistency",
+     "text": "Reinforces good habits and builds lasting results."
+    },
+    {
+     "key": "h3-professional-evaluation",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Professional Evaluation"
+    },
+    {
+     "key": "p-we-assess-your-dog-s-temperament-and-behavio",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Professional Evaluation",
+     "text": "We assess your dog's temperament and behavior before recommending specialized training."
+    },
+    {
+     "key": "h2-what-s-included-in-the-protection-training-p",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-foundational-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Foundational & Advanced Obedience"
+    },
+    {
+     "key": "span-handler-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Handler Communication"
+    },
+    {
+     "key": "span-alert-response-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Alert & Response Training"
+    },
+    {
+     "key": "span-protection-exercises",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Protection Exercises"
+    },
+    {
+     "key": "span-owner-education",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Education"
+    },
+    {
+     "key": "span-continued-reinforcement",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Continued Reinforcement"
+    },
+    {
+     "key": "h2-temperament-evaluation-dog-suitability",
+     "tag": "h2",
+     "ctx": "section.section>div.twocol.wrap>div>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Temperament Evaluation & Dog Suitability"
+    },
+    {
+     "key": "p-protection-training-isn-t-right-for-every-do",
+     "tag": "p",
+     "ctx": "section.section>div.twocol.wrap>div>p.lead-copy",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Protection training isn't right for every dog. We evaluate a range of factors to determine if it's the right fit, including:"
+    },
+    {
+     "key": "span-temperament-behavior-history",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Temperament & behavior history"
+    },
+    {
+     "key": "span-confidence-stress-recovery",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Confidence & stress recovery"
+    },
+    {
+     "key": "span-obedience-foundation-responsiveness",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Obedience foundation & responsiveness"
+    },
+    {
+     "key": "span-reactivity-fear-or-aggression-concerns",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Reactivity, fear or aggression concerns"
+    },
+    {
+     "key": "span-health-and-other-considerations",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Health and other considerations"
+    },
+    {
+     "key": "span-owner-goals-and-experience",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Owner goals and experience"
+    },
+    {
+     "key": "a-book-your-free-evaluation-2",
+     "tag": "a",
+     "ctx": "section.section>div.twocol.wrap>div>a.btn.btn-red",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Book Your FREE Evaluation"
+    },
+    {
+     "key": "h3-our-training-approach-safety-standards",
+     "tag": "h3",
+     "ctx": "div.twocol.wrap>div>div.safety>h3",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Our Training Approach & Safety Standards"
+    },
+    {
+     "key": "p-training-with-purpose-always-with-safety",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p.red",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Training with purpose. Always with safety."
+    },
+    {
+     "key": "p-we-use-proven-balanced-training-methods-prof",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "We use proven, balanced training methods, professional handlers and real-world scenarios — all in a safe, controlled environment. Your dog's safety, your peace of mind and long-term success are our priorities."
+    },
+    {
+     "key": "span-experienced-certified-trainers",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Experienced, Certified Trainers"
+    },
+    {
+     "key": "span-structured-progressive-plans",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Structured & Progressive Plans"
+    },
+    {
+     "key": "span-safe-controlled-environments",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Safe, Controlled Environments"
+    },
+    {
+     "key": "span-focus-on-long-term-success",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Focus on Long-Term Success"
+    },
+    {
+     "key": "h2-see-our-protection-training-in-action",
+     "tag": "h2",
+     "ctx": "body>section.section.videos>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "See Our Protection Training in Action"
+    },
+    {
+     "key": "p-watch-real-training-real-dogs-real-results",
+     "tag": "p",
+     "ctx": "body>section.section.videos>div.wrap>p",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Watch real training. Real dogs. Real results."
+    },
+    {
+     "key": "h3-security-training",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Security Training"
+    },
+    {
+     "key": "h3-personal-protection",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Personal Protection"
+    },
+    {
+     "key": "h2-what-our-clients-say",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What Our Clients Say"
+    },
+    {
+     "key": "h2-ready-to-take-the-next-step",
+     "tag": "h2",
+     "ctx": "section.section>div.wrap>div.cta-band>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Ready to take the next step?"
+    },
+    {
+     "key": "a-book-your-free-evaluation-3",
+     "tag": "a",
+     "ctx": "section.section>div.wrap>div.cta-band>a.btn.btn-red",
+     "anchor": "Ready to take the next step?",
+     "text": "Book Your FREE Evaluation"
+    }
+   ],
+   "retired": []
+  },
+  "protection-fort-worth": {
+   "file": "protection-fort-worth.html",
+   "path": "/protection/fort-worth",
+   "label": "Protection · Fort Worth",
+   "spots": [
+    {
+     "key": "p-professional-fort-worth-tx",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.kick",
+     "anchor": "",
+     "text": "Professional · Fort Worth, TX"
+    },
+    {
+     "key": "p-build-a-stronger-foundation-in-obedience-han",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.sub",
+     "anchor": "Protection Training For Dogs",
+     "text": "Build a stronger foundation in obedience, handler communication and responsible management with a training path tailored to your dog and your goals — serving Fort Worth and surrounding Texas communities."
+    },
+    {
+     "key": "a-book-your-free-evaluation",
+     "tag": "a",
+     "ctx": "div.wrap>div>div.ctas>a.btn.btn-red",
+     "anchor": "Protection Training For Dogs",
+     "text": "📅 Book Your FREE Evaluation"
+    },
+    {
+     "key": "span-every-dog-is-different-an-evaluation-helps-i",
+     "tag": "span",
+     "ctx": "div.wrap>div>p.assure>span",
+     "anchor": "Protection Training For Dogs",
+     "text": "Every dog is different. An evaluation helps identify suitability and the right next step."
+    },
+    {
+     "key": "p-why-professional",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.h2kick",
+     "anchor": "Protection Training For Dogs",
+     "text": "Why Professional"
+    },
+    {
+     "key": "h2-protection-training",
+     "tag": "h2",
+     "ctx": "div.wrap>div.why>div.why-intro>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Protection Training?"
+    },
+    {
+     "key": "p-protection-training-is-not-about-creating-ag",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.lead-copy",
+     "anchor": "Protection Training?",
+     "text": "Protection training is not about creating aggression — it's about building confidence, control and trust. Professional instruction helps your dog develop the right skills, in the right way, for real-life situations."
+    },
+    {
+     "key": "h3-reliable-obedience-responses",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Reliable Obedience & Responses"
+    },
+    {
+     "key": "p-your-dog-learns-to-listen-and-respond-to-you",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Reliable Obedience &amp; Responses",
+     "text": "Your dog learns to listen and respond to your commands."
+    },
+    {
+     "key": "h3-awareness-alerts",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Awareness & Alerts"
+    },
+    {
+     "key": "p-builds-confidence-and-situational-awareness",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Awareness &amp; Alerts",
+     "text": "Builds confidence and situational awareness."
+    },
+    {
+     "key": "h3-controlled-protective-behaviors",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Controlled Protective Behaviors"
+    },
+    {
+     "key": "p-develops-appropriate-responses-based-on-your",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Controlled Protective Behaviors",
+     "text": "Develops appropriate responses based on your dog's suitability and training program."
+    },
+    {
+     "key": "h3-discipline-consistency",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Discipline & Consistency"
+    },
+    {
+     "key": "p-reinforces-good-habits-and-builds-lasting-re",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Discipline &amp; Consistency",
+     "text": "Reinforces good habits and builds lasting results."
+    },
+    {
+     "key": "h3-professional-evaluation",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Professional Evaluation"
+    },
+    {
+     "key": "p-we-assess-your-dog-s-temperament-and-behavio",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Professional Evaluation",
+     "text": "We assess your dog's temperament and behavior before recommending specialized training."
+    },
+    {
+     "key": "h2-what-s-included-in-the-protection-training-p",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-foundational-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Foundational & Advanced Obedience"
+    },
+    {
+     "key": "span-handler-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Handler Communication"
+    },
+    {
+     "key": "span-alert-response-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Alert & Response Training"
+    },
+    {
+     "key": "span-protection-exercises",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Protection Exercises"
+    },
+    {
+     "key": "span-owner-education",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Education"
+    },
+    {
+     "key": "span-continued-reinforcement",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Continued Reinforcement"
+    },
+    {
+     "key": "h2-temperament-evaluation-dog-suitability",
+     "tag": "h2",
+     "ctx": "section.section>div.twocol.wrap>div>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Temperament Evaluation & Dog Suitability"
+    },
+    {
+     "key": "p-protection-training-isn-t-right-for-every-do",
+     "tag": "p",
+     "ctx": "section.section>div.twocol.wrap>div>p.lead-copy",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Protection training isn't right for every dog. We evaluate a range of factors to determine if it's the right fit, including:"
+    },
+    {
+     "key": "span-temperament-behavior-history",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Temperament & behavior history"
+    },
+    {
+     "key": "span-confidence-stress-recovery",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Confidence & stress recovery"
+    },
+    {
+     "key": "span-obedience-foundation-responsiveness",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Obedience foundation & responsiveness"
+    },
+    {
+     "key": "span-reactivity-fear-or-aggression-concerns",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Reactivity, fear or aggression concerns"
+    },
+    {
+     "key": "span-health-and-other-considerations",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Health and other considerations"
+    },
+    {
+     "key": "span-owner-goals-and-experience",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Owner goals and experience"
+    },
+    {
+     "key": "a-book-your-free-evaluation-2",
+     "tag": "a",
+     "ctx": "section.section>div.twocol.wrap>div>a.btn.btn-red",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Book Your FREE Evaluation"
+    },
+    {
+     "key": "h3-our-training-approach-safety-standards",
+     "tag": "h3",
+     "ctx": "div.twocol.wrap>div>div.safety>h3",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Our Training Approach & Safety Standards"
+    },
+    {
+     "key": "p-training-with-purpose-always-with-safety",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p.red",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Training with purpose. Always with safety."
+    },
+    {
+     "key": "p-we-use-proven-balanced-training-methods-prof",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "We use proven, balanced training methods, professional handlers and real-world scenarios — all in a safe, controlled environment. Your dog's safety, your peace of mind and long-term success are our priorities."
+    },
+    {
+     "key": "span-experienced-certified-trainers",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Experienced, Certified Trainers"
+    },
+    {
+     "key": "span-structured-progressive-plans",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Structured & Progressive Plans"
+    },
+    {
+     "key": "span-safe-controlled-environments",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Safe, Controlled Environments"
+    },
+    {
+     "key": "span-focus-on-long-term-success",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Focus on Long-Term Success"
+    },
+    {
+     "key": "h2-see-our-protection-training-in-action",
+     "tag": "h2",
+     "ctx": "body>section.section.videos>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "See Our Protection Training in Action"
+    },
+    {
+     "key": "p-watch-real-training-real-dogs-real-results",
+     "tag": "p",
+     "ctx": "body>section.section.videos>div.wrap>p",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Watch real training. Real dogs. Real results."
+    },
+    {
+     "key": "h3-security-training",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Security Training"
+    },
+    {
+     "key": "h3-personal-protection",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Personal Protection"
+    },
+    {
+     "key": "h2-what-our-clients-say",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What Our Clients Say"
+    },
+    {
+     "key": "h2-ready-to-take-the-next-step",
+     "tag": "h2",
+     "ctx": "section.section>div.wrap>div.cta-band>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Ready to take the next step?"
+    },
+    {
+     "key": "a-book-your-free-evaluation-3",
+     "tag": "a",
+     "ctx": "section.section>div.wrap>div.cta-band>a.btn.btn-red",
+     "anchor": "Ready to take the next step?",
+     "text": "Book Your FREE Evaluation"
+    }
+   ],
+   "retired": []
+  },
+  "protection-san-antonio": {
+   "file": "protection-san-antonio.html",
+   "path": "/protection/san-antonio",
+   "label": "Protection · San Antonio",
+   "spots": [
+    {
+     "key": "p-professional-san-antonio-tx",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.kick",
+     "anchor": "",
+     "text": "Professional · San Antonio, TX"
+    },
+    {
+     "key": "p-build-a-stronger-foundation-in-obedience-han",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.sub",
+     "anchor": "Protection Training For Dogs",
+     "text": "Build a stronger foundation in obedience, handler communication and responsible management with a training path tailored to your dog and your goals — serving San Antonio and surrounding Texas communities."
+    },
+    {
+     "key": "a-book-your-free-evaluation",
+     "tag": "a",
+     "ctx": "div.wrap>div>div.ctas>a.btn.btn-red",
+     "anchor": "Protection Training For Dogs",
+     "text": "📅 Book Your FREE Evaluation"
+    },
+    {
+     "key": "span-every-dog-is-different-an-evaluation-helps-i",
+     "tag": "span",
+     "ctx": "div.wrap>div>p.assure>span",
+     "anchor": "Protection Training For Dogs",
+     "text": "Every dog is different. An evaluation helps identify suitability and the right next step."
+    },
+    {
+     "key": "p-why-professional",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.h2kick",
+     "anchor": "Protection Training For Dogs",
+     "text": "Why Professional"
+    },
+    {
+     "key": "h2-protection-training",
+     "tag": "h2",
+     "ctx": "div.wrap>div.why>div.why-intro>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Protection Training?"
+    },
+    {
+     "key": "p-protection-training-is-not-about-creating-ag",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.lead-copy",
+     "anchor": "Protection Training?",
+     "text": "Protection training is not about creating aggression — it's about building confidence, control and trust. Professional instruction helps your dog develop the right skills, in the right way, for real-life situations."
+    },
+    {
+     "key": "h3-reliable-obedience-responses",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Reliable Obedience & Responses"
+    },
+    {
+     "key": "p-your-dog-learns-to-listen-and-respond-to-you",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Reliable Obedience &amp; Responses",
+     "text": "Your dog learns to listen and respond to your commands."
+    },
+    {
+     "key": "h3-awareness-alerts",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Awareness & Alerts"
+    },
+    {
+     "key": "p-builds-confidence-and-situational-awareness",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Awareness &amp; Alerts",
+     "text": "Builds confidence and situational awareness."
+    },
+    {
+     "key": "h3-controlled-protective-behaviors",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Controlled Protective Behaviors"
+    },
+    {
+     "key": "p-develops-appropriate-responses-based-on-your",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Controlled Protective Behaviors",
+     "text": "Develops appropriate responses based on your dog's suitability and training program."
+    },
+    {
+     "key": "h3-discipline-consistency",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Discipline & Consistency"
+    },
+    {
+     "key": "p-reinforces-good-habits-and-builds-lasting-re",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Discipline &amp; Consistency",
+     "text": "Reinforces good habits and builds lasting results."
+    },
+    {
+     "key": "h3-professional-evaluation",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Professional Evaluation"
+    },
+    {
+     "key": "p-we-assess-your-dog-s-temperament-and-behavio",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Professional Evaluation",
+     "text": "We assess your dog's temperament and behavior before recommending specialized training."
+    },
+    {
+     "key": "h2-what-s-included-in-the-protection-training-p",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-foundational-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Foundational & Advanced Obedience"
+    },
+    {
+     "key": "span-handler-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Handler Communication"
+    },
+    {
+     "key": "span-alert-response-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Alert & Response Training"
+    },
+    {
+     "key": "span-protection-exercises",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Protection Exercises"
+    },
+    {
+     "key": "span-owner-education",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Education"
+    },
+    {
+     "key": "span-continued-reinforcement",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Continued Reinforcement"
+    },
+    {
+     "key": "h2-temperament-evaluation-dog-suitability",
+     "tag": "h2",
+     "ctx": "section.section>div.twocol.wrap>div>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Temperament Evaluation & Dog Suitability"
+    },
+    {
+     "key": "p-protection-training-isn-t-right-for-every-do",
+     "tag": "p",
+     "ctx": "section.section>div.twocol.wrap>div>p.lead-copy",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Protection training isn't right for every dog. We evaluate a range of factors to determine if it's the right fit, including:"
+    },
+    {
+     "key": "span-temperament-behavior-history",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Temperament & behavior history"
+    },
+    {
+     "key": "span-confidence-stress-recovery",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Confidence & stress recovery"
+    },
+    {
+     "key": "span-obedience-foundation-responsiveness",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Obedience foundation & responsiveness"
+    },
+    {
+     "key": "span-reactivity-fear-or-aggression-concerns",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Reactivity, fear or aggression concerns"
+    },
+    {
+     "key": "span-health-and-other-considerations",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Health and other considerations"
+    },
+    {
+     "key": "span-owner-goals-and-experience",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Owner goals and experience"
+    },
+    {
+     "key": "a-book-your-free-evaluation-2",
+     "tag": "a",
+     "ctx": "section.section>div.twocol.wrap>div>a.btn.btn-red",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Book Your FREE Evaluation"
+    },
+    {
+     "key": "h3-our-training-approach-safety-standards",
+     "tag": "h3",
+     "ctx": "div.twocol.wrap>div>div.safety>h3",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Our Training Approach & Safety Standards"
+    },
+    {
+     "key": "p-training-with-purpose-always-with-safety",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p.red",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Training with purpose. Always with safety."
+    },
+    {
+     "key": "p-we-use-proven-balanced-training-methods-prof",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "We use proven, balanced training methods, professional handlers and real-world scenarios — all in a safe, controlled environment. Your dog's safety, your peace of mind and long-term success are our priorities."
+    },
+    {
+     "key": "span-experienced-certified-trainers",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Experienced, Certified Trainers"
+    },
+    {
+     "key": "span-structured-progressive-plans",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Structured & Progressive Plans"
+    },
+    {
+     "key": "span-safe-controlled-environments",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Safe, Controlled Environments"
+    },
+    {
+     "key": "span-focus-on-long-term-success",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Focus on Long-Term Success"
+    },
+    {
+     "key": "h2-see-our-protection-training-in-action",
+     "tag": "h2",
+     "ctx": "body>section.section.videos>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "See Our Protection Training in Action"
+    },
+    {
+     "key": "p-watch-real-training-real-dogs-real-results",
+     "tag": "p",
+     "ctx": "body>section.section.videos>div.wrap>p",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Watch real training. Real dogs. Real results."
+    },
+    {
+     "key": "h3-security-training",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Security Training"
+    },
+    {
+     "key": "h3-personal-protection",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Personal Protection"
+    },
+    {
+     "key": "h2-what-our-clients-say",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What Our Clients Say"
+    },
+    {
+     "key": "h2-ready-to-take-the-next-step",
+     "tag": "h2",
+     "ctx": "section.section>div.wrap>div.cta-band>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Ready to take the next step?"
+    },
+    {
+     "key": "a-book-your-free-evaluation-3",
+     "tag": "a",
+     "ctx": "section.section>div.wrap>div.cta-band>a.btn.btn-red",
+     "anchor": "Ready to take the next step?",
+     "text": "Book Your FREE Evaluation"
+    }
+   ],
+   "retired": []
+  },
+  "protection-durham": {
+   "file": "protection-durham.html",
+   "path": "/protection/durham",
+   "label": "Protection · Durham",
+   "spots": [
+    {
+     "key": "p-professional-durham-nh",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.kick",
+     "anchor": "",
+     "text": "Professional · Durham, NH"
+    },
+    {
+     "key": "p-build-a-stronger-foundation-in-obedience-han",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.sub",
+     "anchor": "Protection Training For Dogs",
+     "text": "Build a stronger foundation in obedience, handler communication and responsible management with a training path tailored to your dog and your goals — serving Durham, the Seacoast and southern New Hampshire."
+    },
+    {
+     "key": "a-book-your-free-evaluation",
+     "tag": "a",
+     "ctx": "div.wrap>div>div.ctas>a.btn.btn-red",
+     "anchor": "Protection Training For Dogs",
+     "text": "📅 Book Your FREE Evaluation"
+    },
+    {
+     "key": "span-every-dog-is-different-an-evaluation-helps-i",
+     "tag": "span",
+     "ctx": "div.wrap>div>p.assure>span",
+     "anchor": "Protection Training For Dogs",
+     "text": "Every dog is different. An evaluation helps identify suitability and the right next step."
+    },
+    {
+     "key": "p-why-professional",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.h2kick",
+     "anchor": "Protection Training For Dogs",
+     "text": "Why Professional"
+    },
+    {
+     "key": "h2-protection-training",
+     "tag": "h2",
+     "ctx": "div.wrap>div.why>div.why-intro>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Protection Training?"
+    },
+    {
+     "key": "p-protection-training-is-not-about-creating-ag",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.lead-copy",
+     "anchor": "Protection Training?",
+     "text": "Protection training is not about creating aggression — it's about building confidence, control and trust. Professional instruction helps your dog develop the right skills, in the right way, for real-life situations."
+    },
+    {
+     "key": "h3-reliable-obedience-responses",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Reliable Obedience & Responses"
+    },
+    {
+     "key": "p-your-dog-learns-to-listen-and-respond-to-you",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Reliable Obedience &amp; Responses",
+     "text": "Your dog learns to listen and respond to your commands."
+    },
+    {
+     "key": "h3-awareness-alerts",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Awareness & Alerts"
+    },
+    {
+     "key": "p-builds-confidence-and-situational-awareness",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Awareness &amp; Alerts",
+     "text": "Builds confidence and situational awareness."
+    },
+    {
+     "key": "h3-controlled-protective-behaviors",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Controlled Protective Behaviors"
+    },
+    {
+     "key": "p-develops-appropriate-responses-based-on-your",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Controlled Protective Behaviors",
+     "text": "Develops appropriate responses based on your dog's suitability and training program."
+    },
+    {
+     "key": "h3-discipline-consistency",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Discipline & Consistency"
+    },
+    {
+     "key": "p-reinforces-good-habits-and-builds-lasting-re",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Discipline &amp; Consistency",
+     "text": "Reinforces good habits and builds lasting results."
+    },
+    {
+     "key": "h3-professional-evaluation",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Professional Evaluation"
+    },
+    {
+     "key": "p-we-assess-your-dog-s-temperament-and-behavio",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Professional Evaluation",
+     "text": "We assess your dog's temperament and behavior before recommending specialized training."
+    },
+    {
+     "key": "h2-what-s-included-in-the-protection-training-p",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-foundational-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Foundational & Advanced Obedience"
+    },
+    {
+     "key": "span-handler-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Handler Communication"
+    },
+    {
+     "key": "span-alert-response-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Alert & Response Training"
+    },
+    {
+     "key": "span-protection-exercises",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Protection Exercises"
+    },
+    {
+     "key": "span-owner-education",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Education"
+    },
+    {
+     "key": "span-continued-reinforcement",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Continued Reinforcement"
+    },
+    {
+     "key": "h2-temperament-evaluation-dog-suitability",
+     "tag": "h2",
+     "ctx": "section.section>div.twocol.wrap>div>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Temperament Evaluation & Dog Suitability"
+    },
+    {
+     "key": "p-protection-training-isn-t-right-for-every-do",
+     "tag": "p",
+     "ctx": "section.section>div.twocol.wrap>div>p.lead-copy",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Protection training isn't right for every dog. We evaluate a range of factors to determine if it's the right fit, including:"
+    },
+    {
+     "key": "span-temperament-behavior-history",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Temperament & behavior history"
+    },
+    {
+     "key": "span-confidence-stress-recovery",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Confidence & stress recovery"
+    },
+    {
+     "key": "span-obedience-foundation-responsiveness",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Obedience foundation & responsiveness"
+    },
+    {
+     "key": "span-reactivity-fear-or-aggression-concerns",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Reactivity, fear or aggression concerns"
+    },
+    {
+     "key": "span-health-and-other-considerations",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Health and other considerations"
+    },
+    {
+     "key": "span-owner-goals-and-experience",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Owner goals and experience"
+    },
+    {
+     "key": "a-book-your-free-evaluation-2",
+     "tag": "a",
+     "ctx": "section.section>div.twocol.wrap>div>a.btn.btn-red",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Book Your FREE Evaluation"
+    },
+    {
+     "key": "h3-our-training-approach-safety-standards",
+     "tag": "h3",
+     "ctx": "div.twocol.wrap>div>div.safety>h3",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Our Training Approach & Safety Standards"
+    },
+    {
+     "key": "p-training-with-purpose-always-with-safety",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p.red",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Training with purpose. Always with safety."
+    },
+    {
+     "key": "p-we-use-proven-balanced-training-methods-prof",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "We use proven, balanced training methods, professional handlers and real-world scenarios — all in a safe, controlled environment. Your dog's safety, your peace of mind and long-term success are our priorities."
+    },
+    {
+     "key": "span-experienced-certified-trainers",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Experienced, Certified Trainers"
+    },
+    {
+     "key": "span-structured-progressive-plans",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Structured & Progressive Plans"
+    },
+    {
+     "key": "span-safe-controlled-environments",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Safe, Controlled Environments"
+    },
+    {
+     "key": "span-focus-on-long-term-success",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Focus on Long-Term Success"
+    },
+    {
+     "key": "h2-see-our-protection-training-in-action",
+     "tag": "h2",
+     "ctx": "body>section.section.videos>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "See Our Protection Training in Action"
+    },
+    {
+     "key": "p-watch-real-training-real-dogs-real-results",
+     "tag": "p",
+     "ctx": "body>section.section.videos>div.wrap>p",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Watch real training. Real dogs. Real results."
+    },
+    {
+     "key": "h3-security-training",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Security Training"
+    },
+    {
+     "key": "h3-personal-protection",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Personal Protection"
+    },
+    {
+     "key": "h2-what-our-clients-say",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What Our Clients Say"
+    },
+    {
+     "key": "h2-ready-to-take-the-next-step",
+     "tag": "h2",
+     "ctx": "section.section>div.wrap>div.cta-band>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Ready to take the next step?"
+    },
+    {
+     "key": "a-book-your-free-evaluation-3",
+     "tag": "a",
+     "ctx": "section.section>div.wrap>div.cta-band>a.btn.btn-red",
+     "anchor": "Ready to take the next step?",
+     "text": "Book Your FREE Evaluation"
+    }
+   ],
+   "retired": []
+  },
+  "protection-navarre": {
+   "file": "protection-navarre.html",
+   "path": "/protection/navarre",
+   "label": "Protection · Navarre",
+   "spots": [
+    {
+     "key": "p-professional-navarre-fl",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.kick",
+     "anchor": "",
+     "text": "Professional · Navarre, FL"
+    },
+    {
+     "key": "p-build-a-stronger-foundation-in-obedience-han",
+     "tag": "p",
+     "ctx": "section.hero>div.wrap>div>p.sub",
+     "anchor": "Protection Training For Dogs",
+     "text": "Build a stronger foundation in obedience, handler communication and responsible management with a training path tailored to your dog and your goals — serving Navarre and the Florida Panhandle."
+    },
+    {
+     "key": "a-book-your-free-evaluation",
+     "tag": "a",
+     "ctx": "div.wrap>div>div.ctas>a.btn.btn-red",
+     "anchor": "Protection Training For Dogs",
+     "text": "📅 Book Your FREE Evaluation"
+    },
+    {
+     "key": "span-every-dog-is-different-an-evaluation-helps-i",
+     "tag": "span",
+     "ctx": "div.wrap>div>p.assure>span",
+     "anchor": "Protection Training For Dogs",
+     "text": "Every dog is different. An evaluation helps identify suitability and the right next step."
+    },
+    {
+     "key": "p-why-professional",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.h2kick",
+     "anchor": "Protection Training For Dogs",
+     "text": "Why Professional"
+    },
+    {
+     "key": "h2-protection-training",
+     "tag": "h2",
+     "ctx": "div.wrap>div.why>div.why-intro>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Protection Training?"
+    },
+    {
+     "key": "p-protection-training-is-not-about-creating-ag",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-intro>p.lead-copy",
+     "anchor": "Protection Training?",
+     "text": "Protection training is not about creating aggression — it's about building confidence, control and trust. Professional instruction helps your dog develop the right skills, in the right way, for real-life situations."
+    },
+    {
+     "key": "h3-reliable-obedience-responses",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Reliable Obedience & Responses"
+    },
+    {
+     "key": "p-your-dog-learns-to-listen-and-respond-to-you",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Reliable Obedience &amp; Responses",
+     "text": "Your dog learns to listen and respond to your commands."
+    },
+    {
+     "key": "h3-awareness-alerts",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Awareness & Alerts"
+    },
+    {
+     "key": "p-builds-confidence-and-situational-awareness",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Awareness &amp; Alerts",
+     "text": "Builds confidence and situational awareness."
+    },
+    {
+     "key": "h3-controlled-protective-behaviors",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Controlled Protective Behaviors"
+    },
+    {
+     "key": "p-develops-appropriate-responses-based-on-your",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Controlled Protective Behaviors",
+     "text": "Develops appropriate responses based on your dog's suitability and training program."
+    },
+    {
+     "key": "h3-discipline-consistency",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Discipline & Consistency"
+    },
+    {
+     "key": "p-reinforces-good-habits-and-builds-lasting-re",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Discipline &amp; Consistency",
+     "text": "Reinforces good habits and builds lasting results."
+    },
+    {
+     "key": "h3-professional-evaluation",
+     "tag": "h3",
+     "ctx": "div.wrap>div.why>div.why-card>h3",
+     "anchor": "Protection Training?",
+     "text": "Professional Evaluation"
+    },
+    {
+     "key": "p-we-assess-your-dog-s-temperament-and-behavio",
+     "tag": "p",
+     "ctx": "div.wrap>div.why>div.why-card>p",
+     "anchor": "Professional Evaluation",
+     "text": "We assess your dog's temperament and behavior before recommending specialized training."
+    },
+    {
+     "key": "h2-what-s-included-in-the-protection-training-p",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-foundational-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Foundational & Advanced Obedience"
+    },
+    {
+     "key": "span-handler-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Handler Communication"
+    },
+    {
+     "key": "span-alert-response-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Alert & Response Training"
+    },
+    {
+     "key": "span-protection-exercises",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Protection Exercises"
+    },
+    {
+     "key": "span-owner-education",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Education"
+    },
+    {
+     "key": "span-continued-reinforcement",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Continued Reinforcement"
+    },
+    {
+     "key": "h2-temperament-evaluation-dog-suitability",
+     "tag": "h2",
+     "ctx": "section.section>div.twocol.wrap>div>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Temperament Evaluation & Dog Suitability"
+    },
+    {
+     "key": "p-protection-training-isn-t-right-for-every-do",
+     "tag": "p",
+     "ctx": "section.section>div.twocol.wrap>div>p.lead-copy",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Protection training isn't right for every dog. We evaluate a range of factors to determine if it's the right fit, including:"
+    },
+    {
+     "key": "span-temperament-behavior-history",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Temperament & behavior history"
+    },
+    {
+     "key": "span-confidence-stress-recovery",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Confidence & stress recovery"
+    },
+    {
+     "key": "span-obedience-foundation-responsiveness",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Obedience foundation & responsiveness"
+    },
+    {
+     "key": "span-reactivity-fear-or-aggression-concerns",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Reactivity, fear or aggression concerns"
+    },
+    {
+     "key": "span-health-and-other-considerations",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Health and other considerations"
+    },
+    {
+     "key": "span-owner-goals-and-experience",
+     "tag": "span",
+     "ctx": "div>ul.checklist>li>span",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Owner goals and experience"
+    },
+    {
+     "key": "a-book-your-free-evaluation-2",
+     "tag": "a",
+     "ctx": "section.section>div.twocol.wrap>div>a.btn.btn-red",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Book Your FREE Evaluation"
+    },
+    {
+     "key": "h3-our-training-approach-safety-standards",
+     "tag": "h3",
+     "ctx": "div.twocol.wrap>div>div.safety>h3",
+     "anchor": "Temperament Evaluation &amp; Dog Suitability",
+     "text": "Our Training Approach & Safety Standards"
+    },
+    {
+     "key": "p-training-with-purpose-always-with-safety",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p.red",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Training with purpose. Always with safety."
+    },
+    {
+     "key": "p-we-use-proven-balanced-training-methods-prof",
+     "tag": "p",
+     "ctx": "div.twocol.wrap>div>div.safety>p",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "We use proven, balanced training methods, professional handlers and real-world scenarios — all in a safe, controlled environment. Your dog's safety, your peace of mind and long-term success are our priorities."
+    },
+    {
+     "key": "span-experienced-certified-trainers",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Experienced, Certified Trainers"
+    },
+    {
+     "key": "span-structured-progressive-plans",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Structured & Progressive Plans"
+    },
+    {
+     "key": "span-safe-controlled-environments",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Safe, Controlled Environments"
+    },
+    {
+     "key": "span-focus-on-long-term-success",
+     "tag": "span",
+     "ctx": "div.safety>ul>li>span",
+     "anchor": "Our Training Approach &amp; Safety Standards",
+     "text": "Focus on Long-Term Success"
+    },
+    {
+     "key": "h2-see-our-protection-training-in-action",
+     "tag": "h2",
+     "ctx": "body>section.section.videos>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "See Our Protection Training in Action"
+    },
+    {
+     "key": "p-watch-real-training-real-dogs-real-results",
+     "tag": "p",
+     "ctx": "body>section.section.videos>div.wrap>p",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Watch real training. Real dogs. Real results."
+    },
+    {
+     "key": "h3-security-training",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Security Training"
+    },
+    {
+     "key": "h3-personal-protection",
+     "tag": "h3",
+     "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
+     "anchor": "See Our Protection Training in Action",
+     "text": "Personal Protection"
+    },
+    {
+     "key": "h2-what-our-clients-say",
+     "tag": "h2",
+     "ctx": "body>section.alt.section>div.wrap>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "What Our Clients Say"
+    },
+    {
+     "key": "h2-ready-to-take-the-next-step",
+     "tag": "h2",
+     "ctx": "section.section>div.wrap>div.cta-band>h2",
+     "anchor": "Protection Training For Dogs",
+     "text": "Ready to take the next step?"
+    },
+    {
+     "key": "a-book-your-free-evaluation-3",
+     "tag": "a",
+     "ctx": "section.section>div.wrap>div.cta-band>a.btn.btn-red",
+     "anchor": "Ready to take the next step?",
+     "text": "Book Your FREE Evaluation"
+    }
+   ],
+   "retired": []
   }
  }
 }

@@ -3255,3 +3255,11 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      2FiKSbzZ3h0 "Security Training" and QZijpf5BJGI "Personal Protection". Reviews: ONLY the office-approved list
      (/api/approved-homepage-reviews), never the mockup's sample quotes. Photos: assets/protection/hero*.webp
      (cropped from assets/v2/d1-hero.webp) + existing v2 images. Practice copy serves noindex/no-store.
+
+     **2026-10-15 update (rule 181):** the six pages are STATIC files `protection-<slug>.html` (rewrite
+     `/protection/:slug` -> `/protection-:slug`; api/protection-page.js removed). Rebuild:
+     `node scripts/build-protection-pages.mjs && python3 site_text_marker.py` (rule 61 text spots; the six pages
+     are in site_text_marker.py PAGES and site-text-manifest.json, so the office Page Editor edits their words).
+     Photos are the office's exact reference images (assets/protection/hero|eval|inc1-6.webp, upscaled from
+     Joshua's 2026-10-15 crops). Cleveland's form names the Training Center (4815 Orchard Rd). All six are in
+     sitemap.xml (Joshua picked option 1).

@@ -31,6 +31,13 @@ PAGES = [
     ("facility", "facility.html", "/facility", "Our Facility"),
     ("contact", "contact.html", "/contact", "Contact"),
     ("get-started", "get-started.html", "/get-started", "Get Started"),
+    # Protection Training landing pages (Joshua 2026-10-15): six markets, rule 181.
+    ("protection-atlanta", "protection-atlanta.html", "/protection/atlanta", "Protection · Atlanta"),
+    ("protection-cleveland", "protection-cleveland.html", "/protection/cleveland", "Protection · Cleveland"),
+    ("protection-fort-worth", "protection-fort-worth.html", "/protection/fort-worth", "Protection · Fort Worth"),
+    ("protection-san-antonio", "protection-san-antonio.html", "/protection/san-antonio", "Protection · San Antonio"),
+    ("protection-durham", "protection-durham.html", "/protection/durham", "Protection · Durham"),
+    ("protection-navarre", "protection-navarre.html", "/protection/navarre", "Protection · Navarre"),
 ]
 MANIFEST = "site-text-manifest.json"
 TARGET = {"h1", "h2", "h3", "h4", "p", "span", "a", "button", "li", "strong"}

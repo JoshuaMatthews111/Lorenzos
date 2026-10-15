@@ -79,7 +79,7 @@
     },
     {
       "source": "/protection/:slug",
-      "destination": "/api/protection-page?slug=:slug"
+      "destination": "/protection-:slug"
     },
     {
       "source": "/:slug",

@@ -26,30 +26,24 @@ test("six markets render with the booking-lead flow, videos and per-market prefi
   assert.equal(P.renderProtectionPage("tallahassee"), null, "only the six markets");
 });
 
-test("the route serves the six slugs and 404s the rest; vercel rewrite sits before the catch-all", () => {
-  const src = read("api/protection-page.js");
-  assert.match(src, /renderProtectionPage\(slug, \{ practice \}\)/);
-  assert.match(src, /status\(404\)/);
+test("static pages exist with text spots; the rewrite serves them before the catch-all; sitemap lists them", () => {
   const v = JSON.parse(read("vercel.json"));
   const i = v.rewrites.findIndex(r => r.source === "/protection/:slug");
   const catchAll = v.rewrites.findIndex(r => r.source === "/:slug");
   assert.ok(i >= 0 && i < catchAll, "/protection/:slug must win over the trainer catch-all");
-  assert.equal(v.rewrites[i].destination, "/api/protection-page?slug=:slug");
-});
-
-test("practice copy is noindex + no-store; live is cacheable and indexable", async () => {
-  const handler = require("../api/protection-page.js");
-  const call = (slug) => {
-    const res = { headers: {}, statusCode: 0, body: "", setHeader(k, v) { this.headers[k] = v; }, status(c) { this.statusCode = c; return this; }, send(b) { this.body = b; return this; } };
-    return handler({ method: "GET", query: { slug } }, res).then(() => res);
-  };
-  const live = await call("navarre");
-  assert.equal(live.statusCode, 200);
-  const sandbox = process.env.LDTT_SANDBOX;
-  if (!sandbox) {
-    assert.match(live.headers["Cache-Control"], /s-maxage=600/);
-    assert.match(live.body, /rel="canonical"/);
+  assert.equal(v.rewrites[i].destination, "/protection-:slug");
+  const sitemap = read("sitemap.xml");
+  const manifest = JSON.parse(read("site-text-manifest.json"));
+  for (const slug of ["atlanta", "cleveland", "fort-worth", "san-antonio", "durham", "navarre"]) {
+    const page = read(`protection-${slug}.html`);
+    assert.ok(page.includes("data-edit="), `${slug}: Page Editor text spots (rule 61)`);
+    assert.ok(page.includes("/script.js?v="), `${slug}: script.js applies the office text`);
+    assert.ok(sitemap.includes(`/protection/${slug}</loc>`), `${slug}: in the sitemap`);
+    assert.equal(manifest.pages[`protection-${slug}`]?.path, `/protection/${slug}`, `${slug}: in the site-text manifest`);
   }
-  const missing = await call("protection");
-  assert.equal(missing.statusCode, 404);
+  assert.match(read("protection-cleveland.html"), /4815 Orchard Rd/, "Cleveland shows the Training Center");
+  assert.doesNotMatch(read("protection-atlanta.html"), /4815 Orchard Rd.*Training Center —/, "other markets stay in-home");
+  // the exact reference photos
+  const atlanta = read("protection-atlanta.html");
+  for (const img of ["/assets/protection/hero.webp", "/assets/protection/eval.webp", "/assets/protection/inc1.webp", "/assets/protection/inc6.webp"]) assert.ok(atlanta.includes(img), img);
 });
