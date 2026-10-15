@@ -49,7 +49,8 @@ h2{color:var(--navy);font-size:32px;margin:4px 0 14px}
 .why-card p{font-size:12.5px;color:var(--muted);line-height:1.5}
 .inc-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-top:22px}
 .inc-card{position:relative;border-radius:10px;overflow:hidden;background:var(--navy)}
-.inc-card img{aspect-ratio:3/2;object-fit:cover;width:100%}
+.inc-card img{aspect-ratio:2/1;object-fit:cover;width:100%;display:block}
+.inc-card span{display:block;background:var(--navy);color:#fff;font:600 12px/1.3 Oswald;letter-spacing:.6px;text-transform:uppercase;padding:10px 8px;text-align:center;min-height:52px;display:flex;align-items:center;justify-content:center}
 
 .twocol{display:grid;grid-template-columns:1.05fr .95fr;gap:34px;align-items:start}
 .checklist{list-style:none;margin:14px 0 20px}
@@ -183,7 +184,7 @@ footer a{color:#cfdcea;text-decoration:none;font-size:12.5px;margin-left:14px}
 
 <section class="section alt"><div class="wrap">
   <h2 data-edit="h2-what-s-included-in-the-protection-training-p">What&#39;s Included in the Protection Training Program</h2>
-  <div class="inc-grid"><div class="inc-card"><img src="/assets/protection/inc1.webp" alt="Foundational and Advanced Obedience" loading="lazy"></div><div class="inc-card"><img src="/assets/protection/inc2.webp" alt="Handler Communication" loading="lazy"></div><div class="inc-card"><img src="/assets/protection/inc3.webp" alt="Alert and Response Training" loading="lazy"></div><div class="inc-card"><img src="/assets/protection/inc4.webp" alt="Protection Exercises" loading="lazy"></div><div class="inc-card"><img src="/assets/protection/inc5.webp" alt="Owner Education" loading="lazy"></div><div class="inc-card"><img src="/assets/protection/inc6.webp" alt="Continued Reinforcement" loading="lazy"></div></div>
+  <div class="inc-grid"><div class="inc-card"><img src="/assets/protection/inc3.webp" alt="" loading="lazy"><span data-edit="span-suspicion-level-building">Suspicion Level Building</span></div><div class="inc-card"><img src="/assets/protection/inc4.webp" alt="" loading="lazy"><span data-edit="span-defensive-bite">Defensive Bite</span></div><div class="inc-card"><img src="/assets/protection/inc5.webp" alt="" loading="lazy"><span data-edit="span-attack-training">Attack Training</span></div><div class="inc-card"><img src="/assets/protection/inc6.webp" alt="" loading="lazy"><span data-edit="span-security">Security</span></div><div class="inc-card"><img src="/assets/protection/inc1.webp" alt="" loading="lazy"><span data-edit="span-basic-advanced-obedience">Basic &amp; Advanced Obedience</span></div><div class="inc-card"><img src="/assets/protection/inc2.webp" alt="" loading="lazy"><span data-edit="span-owner-handling-communication">Owner Handling &amp; Communication</span></div></div>
 </div></section>
 
 <section class="section"><div class="wrap twocol">
@@ -245,8 +246,9 @@ footer a{color:#cfdcea;text-decoration:none;font-size:12.5px;margin-left:14px}
     <label class="wide">What are your goals for your dog?<span class="optional-mark">(optional)</span>
       <select name="problem">
         <option>Protection training</option>
-        <option>Security / alert work</option>
-        <option>Obedience foundation first</option>
+        <option>Security</option>
+        <option>Suspicion level building</option>
+        <option>Basic obedience first</option>
         <option>Reactive to dogs or people</option>
         <option>Board &amp; train</option>
         <option>Something else</option>

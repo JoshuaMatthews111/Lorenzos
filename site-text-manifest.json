@@ -2434,6 +2434,48 @@
      "text": "What's Included in the Protection Training Program"
     },
     {
+     "key": "span-suspicion-level-building",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Suspicion Level Building"
+    },
+    {
+     "key": "span-defensive-bite",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Defensive Bite"
+    },
+    {
+     "key": "span-attack-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Attack Training"
+    },
+    {
+     "key": "span-security",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Security"
+    },
+    {
+     "key": "span-basic-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Basic & Advanced Obedience"
+    },
+    {
+     "key": "span-owner-handling-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Handling & Communication"
+    },
+    {
      "key": "h2-temperament-evaluation-dog-suitability",
      "tag": "h2",
      "ctx": "section.section>div.twocol.wrap>div>h2",
@@ -2738,6 +2780,48 @@
      "ctx": "body>section.alt.section>div.wrap>h2",
      "anchor": "Protection Training For Dogs",
      "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-suspicion-level-building",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Suspicion Level Building"
+    },
+    {
+     "key": "span-defensive-bite",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Defensive Bite"
+    },
+    {
+     "key": "span-attack-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Attack Training"
+    },
+    {
+     "key": "span-security",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Security"
+    },
+    {
+     "key": "span-basic-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Basic & Advanced Obedience"
+    },
+    {
+     "key": "span-owner-handling-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Handling & Communication"
     },
     {
      "key": "h2-temperament-evaluation-dog-suitability",
@@ -3046,6 +3130,48 @@
      "text": "What's Included in the Protection Training Program"
     },
     {
+     "key": "span-suspicion-level-building",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Suspicion Level Building"
+    },
+    {
+     "key": "span-defensive-bite",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Defensive Bite"
+    },
+    {
+     "key": "span-attack-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Attack Training"
+    },
+    {
+     "key": "span-security",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Security"
+    },
+    {
+     "key": "span-basic-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Basic & Advanced Obedience"
+    },
+    {
+     "key": "span-owner-handling-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Handling & Communication"
+    },
+    {
      "key": "h2-temperament-evaluation-dog-suitability",
      "tag": "h2",
      "ctx": "section.section>div.twocol.wrap>div>h2",
@@ -3350,6 +3476,48 @@
      "ctx": "body>section.alt.section>div.wrap>h2",
      "anchor": "Protection Training For Dogs",
      "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-suspicion-level-building",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Suspicion Level Building"
+    },
+    {
+     "key": "span-defensive-bite",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Defensive Bite"
+    },
+    {
+     "key": "span-attack-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Attack Training"
+    },
+    {
+     "key": "span-security",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Security"
+    },
+    {
+     "key": "span-basic-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Basic & Advanced Obedience"
+    },
+    {
+     "key": "span-owner-handling-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Handling & Communication"
     },
     {
      "key": "h2-temperament-evaluation-dog-suitability",
@@ -3658,6 +3826,48 @@
      "text": "What's Included in the Protection Training Program"
     },
     {
+     "key": "span-suspicion-level-building",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Suspicion Level Building"
+    },
+    {
+     "key": "span-defensive-bite",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Defensive Bite"
+    },
+    {
+     "key": "span-attack-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Attack Training"
+    },
+    {
+     "key": "span-security",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Security"
+    },
+    {
+     "key": "span-basic-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Basic & Advanced Obedience"
+    },
+    {
+     "key": "span-owner-handling-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Handling & Communication"
+    },
+    {
      "key": "h2-temperament-evaluation-dog-suitability",
      "tag": "h2",
      "ctx": "section.section>div.twocol.wrap>div>h2",
@@ -3962,6 +4172,48 @@
      "ctx": "body>section.alt.section>div.wrap>h2",
      "anchor": "Protection Training For Dogs",
      "text": "What's Included in the Protection Training Program"
+    },
+    {
+     "key": "span-suspicion-level-building",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Suspicion Level Building"
+    },
+    {
+     "key": "span-defensive-bite",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Defensive Bite"
+    },
+    {
+     "key": "span-attack-training",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Attack Training"
+    },
+    {
+     "key": "span-security",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Security"
+    },
+    {
+     "key": "span-basic-advanced-obedience",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Basic & Advanced Obedience"
+    },
+    {
+     "key": "span-owner-handling-communication",
+     "tag": "span",
+     "ctx": "div.wrap>div.inc-grid>div.inc-card>span",
+     "anchor": "What&#39;s Included in the Protection Training Program",
+     "text": "Owner Handling & Communication"
     },
     {
      "key": "h2-temperament-evaluation-dog-suitability",
