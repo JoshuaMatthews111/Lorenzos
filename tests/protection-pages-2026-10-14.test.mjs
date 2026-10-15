@@ -17,7 +17,7 @@ test("six markets render with the booking-lead flow, videos and per-market prefi
     assert.ok(h.includes(`<option value="${m.code}" selected>`), `${slug}: state preselected`);
     assert.ok(h.includes(`placeholder="${m.zip}"`), `${slug}: zip example`);
     assert.ok(h.includes("youtube-nocookie.com/embed/PHK-ADY03N4") && h.includes("youtube-nocookie.com/embed/zAnd5G_-Ms4"), `${slug}: both landscape videos`);
-    assert.ok(h.includes("Protection Work") && h.includes("Controlled Aggression"), `${slug}: video titles`);
+    assert.ok(h.includes("Security Training") && h.includes("Personal Protection Training"), `${slug}: video titles (Joshua 2026-10-15)`);
     // Joshua 2026-10-15: no way off the landing page - the only links are tel:, in-page anchors and the legal pages (new tab).
     for (const bad of ['href="/"', 'href="/dog-training"', 'href="/find-a-trainer"', 'href="/contact"']) assert.ok(!h.includes(bad), `${slug}: no exit link ${bad}`);
     assert.ok(h.includes("not about creating aggression"), `${slug}: responsible framing`);
