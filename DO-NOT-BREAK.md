@@ -3251,8 +3251,9 @@ tooltip only; 58 live leads sat in 42 duplicate pairs (same email or same 10-dig
      only: atlanta, cleveland, fort-worth, san-antonio, durham, navarre (lib/protection-pages.js MARKETS;
      api/protection-page.js; vercel rewrite before the /:slug catch-all — tests/protection-pages-2026-10-14.test.mjs
      and the trainer2 route test know about it). Same lead flow as the market/ads pages: assets/v2/v2.js,
-     /api/booking-lead, trainer pick via GET /api/booking?zip=, book_url next screen. Videos: YouTube Shorts
-     2FiKSbzZ3h0 "Security Training" and QZijpf5BJGI "Personal Protection". Reviews: ONLY the office-approved list
+     /api/booking-lead, trainer pick via GET /api/booking?zip=, book_url next screen. Videos (Joshua 2026-10-15): landscape
+     YouTube PHK-ADY03N4 "Protection Work 30 Sec" and zAnd5G_-Ms4 "Controlled Aggression" (youtube-nocookie embeds).
+     NO exit links: logo/footer are not links; only tel:, in-page anchors and Terms/Privacy (new tab) remain. Reviews: ONLY the office-approved list
      (/api/approved-homepage-reviews), never the mockup's sample quotes. Photos: assets/protection/hero*.webp
      (cropped from assets/v2/d1-hero.webp) + existing v2 images. Practice copy serves noindex/no-store.
 

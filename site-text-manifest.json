@@ -2602,18 +2602,18 @@
      "text": "Watch real training. Real dogs. Real results."
     },
     {
-     "key": "h3-security-training",
+     "key": "h3-protection-work-middot-30-seconds",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Security Training"
+     "text": "Protection Work &middot; 30 Seconds"
     },
     {
-     "key": "h3-personal-protection",
+     "key": "h3-controlled-aggression",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Personal Protection"
+     "text": "Controlled Aggression"
     },
     {
      "key": "h2-what-our-clients-say",
@@ -2637,7 +2637,10 @@
      "text": "Book Your FREE Evaluation"
     }
    ],
-   "retired": []
+   "retired": [
+    "h3-security-training",
+    "h3-personal-protection"
+   ]
   },
   "protection-cleveland": {
    "file": "protection-cleveland.html",
@@ -2939,18 +2942,18 @@
      "text": "Watch real training. Real dogs. Real results."
     },
     {
-     "key": "h3-security-training",
+     "key": "h3-protection-work-middot-30-seconds",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Security Training"
+     "text": "Protection Work &middot; 30 Seconds"
     },
     {
-     "key": "h3-personal-protection",
+     "key": "h3-controlled-aggression",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Personal Protection"
+     "text": "Controlled Aggression"
     },
     {
      "key": "h2-what-our-clients-say",
@@ -2974,7 +2977,10 @@
      "text": "Book Your FREE Evaluation"
     }
    ],
-   "retired": []
+   "retired": [
+    "h3-security-training",
+    "h3-personal-protection"
+   ]
   },
   "protection-fort-worth": {
    "file": "protection-fort-worth.html",
@@ -3276,18 +3282,18 @@
      "text": "Watch real training. Real dogs. Real results."
     },
     {
-     "key": "h3-security-training",
+     "key": "h3-protection-work-middot-30-seconds",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Security Training"
+     "text": "Protection Work &middot; 30 Seconds"
     },
     {
-     "key": "h3-personal-protection",
+     "key": "h3-controlled-aggression",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Personal Protection"
+     "text": "Controlled Aggression"
     },
     {
      "key": "h2-what-our-clients-say",
@@ -3311,7 +3317,10 @@
      "text": "Book Your FREE Evaluation"
     }
    ],
-   "retired": []
+   "retired": [
+    "h3-security-training",
+    "h3-personal-protection"
+   ]
   },
   "protection-san-antonio": {
    "file": "protection-san-antonio.html",
@@ -3613,18 +3622,18 @@
      "text": "Watch real training. Real dogs. Real results."
     },
     {
-     "key": "h3-security-training",
+     "key": "h3-protection-work-middot-30-seconds",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Security Training"
+     "text": "Protection Work &middot; 30 Seconds"
     },
     {
-     "key": "h3-personal-protection",
+     "key": "h3-controlled-aggression",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Personal Protection"
+     "text": "Controlled Aggression"
     },
     {
      "key": "h2-what-our-clients-say",
@@ -3648,7 +3657,10 @@
      "text": "Book Your FREE Evaluation"
     }
    ],
-   "retired": []
+   "retired": [
+    "h3-security-training",
+    "h3-personal-protection"
+   ]
   },
   "protection-durham": {
    "file": "protection-durham.html",
@@ -3950,18 +3962,18 @@
      "text": "Watch real training. Real dogs. Real results."
     },
     {
-     "key": "h3-security-training",
+     "key": "h3-protection-work-middot-30-seconds",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Security Training"
+     "text": "Protection Work &middot; 30 Seconds"
     },
     {
-     "key": "h3-personal-protection",
+     "key": "h3-controlled-aggression",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Personal Protection"
+     "text": "Controlled Aggression"
     },
     {
      "key": "h2-what-our-clients-say",
@@ -3985,7 +3997,10 @@
      "text": "Book Your FREE Evaluation"
     }
    ],
-   "retired": []
+   "retired": [
+    "h3-security-training",
+    "h3-personal-protection"
+   ]
   },
   "protection-navarre": {
    "file": "protection-navarre.html",
@@ -4287,18 +4302,18 @@
      "text": "Watch real training. Real dogs. Real results."
     },
     {
-     "key": "h3-security-training",
+     "key": "h3-protection-work-middot-30-seconds",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Security Training"
+     "text": "Protection Work &middot; 30 Seconds"
     },
     {
-     "key": "h3-personal-protection",
+     "key": "h3-controlled-aggression",
      "tag": "h3",
      "ctx": "div.wrap>div.vid-grid>div.vid-card>h3",
      "anchor": "See Our Protection Training in Action",
-     "text": "Personal Protection"
+     "text": "Controlled Aggression"
     },
     {
      "key": "h2-what-our-clients-say",
@@ -4322,7 +4337,10 @@
      "text": "Book Your FREE Evaluation"
     }
    ],
-   "retired": []
+   "retired": [
+    "h3-security-training",
+    "h3-personal-protection"
+   ]
   }
  }
 }
